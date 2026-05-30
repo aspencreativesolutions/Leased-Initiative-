@@ -1,0 +1,37 @@
+{
+  "name": "client-craft",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n web,api -c blue,green \"vite\" \"node server/index.js\"",
+    "dev:web": "vite",
+    "dev:server": "node server/index.js",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "desktop": "bash scripts/launch-desktop.sh",
+    "desktop:stop": "bash scripts/stop-desktop.sh"
+  },
+  "dependencies": {
+    "@paypal/react-paypal-js": "^8.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jspdf": "^2.5.2",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

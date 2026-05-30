@@ -1,0 +1,52 @@
+@import './themes/themes.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface font-sans text-ink;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .label-caps {
+    @apply text-[10px] font-semibold text-ink-faint;
+  }
+
+  html[data-caps-labels='1'] .label-caps {
+    @apply uppercase tracking-caps;
+  }
+
+  .heading-display {
+    @apply font-display font-semibold tracking-tight text-ink;
+  }
+
+  .divider-strong {
+    border-top-width: var(--border-width);
+    @apply border-ink;
+  }
+
+  html[data-caps-buttons='1'] .btn-ui {
+    @apply uppercase tracking-caps;
+  }
+
+  html[data-caps-labels='1'] .status-badge {
+    @apply uppercase tracking-caps;
+  }
+
+  html[data-caps-labels='1'] .nav-link-label {
+    @apply uppercase tracking-caps;
+  }
+}

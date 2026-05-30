@@ -1,0 +1,17 @@
+{
+  "name": "Client Craft",
+  "short_name": "Client Craft",
+  "description": "Client management for freelance designers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ebe6de",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
