@@ -34,9 +34,11 @@ interface StatusBadgeProps {
   type: BadgeType
   status: ProjectStatus | ContractStatus | PaymentStatus
   className?: string
+  /** Emphasize as the active / current status */
+  highlighted?: boolean
 }
 
-export function StatusBadge({ type, status, className }: StatusBadgeProps) {
+export function StatusBadge({ type, status, className, highlighted }: StatusBadgeProps) {
   const styles =
     type === 'project'
       ? projectStyles[status as ProjectStatus]
@@ -49,6 +51,8 @@ export function StatusBadge({ type, status, className }: StatusBadgeProps) {
       className={cn(
         'status-badge inline-flex items-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2 py-0.5 text-[10px] font-bold',
         styles,
+        highlighted &&
+          'shadow-[0_0_0_2px_var(--accent-light),0_0_10px_rgba(109,46,58,0.35)] ring-2 ring-accent ring-offset-1 ring-offset-transparent',
         className
       )}
     >

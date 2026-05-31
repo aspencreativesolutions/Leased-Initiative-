@@ -6,7 +6,7 @@ import { Input, Select, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import { downloadContractPdf } from '@/lib/pdf'
 import { generateId } from '@/lib/storage'
-import { EmailContractModal } from './EmailContractModal'
+import { SendContractModal } from './SendContractModal'
 import type { BusinessSettings, Client, ContractData, ServiceTier } from '@/types'
 import { SERVICE_TIERS } from '@/lib/scheduler'
 
@@ -222,7 +222,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                   </Button>
                   <Button variant="secondary" onClick={() => setEmailOpen(true)}>
                     <Mail className="h-4 w-4" />
-                    Email Contract to Client
+                    Send Contract to Client
                   </Button>
                 </>
               )}
@@ -262,7 +262,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
         </div>
       </div>
 
-      <EmailContractModal
+      <SendContractModal
         open={emailOpen}
         onClose={() => setEmailOpen(false)}
         client={client}

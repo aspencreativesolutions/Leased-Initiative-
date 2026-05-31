@@ -5,3 +5,7 @@ dist-ssr
 .DS_Store
 .env
 .env.local
+.client-craft-dev.pid
+.client-craft.log
+tsconfig.tsbuildinfo
+server/data/

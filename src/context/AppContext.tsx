@@ -14,8 +14,11 @@ import type {
   ContractData,
   Note,
   PayPalCaptureResponse,
+  ServiceTier,
 } from '@/types'
-import { paymentStatusAfterCapture } from '@/lib/clientUtils'
+import { buildServiceTierChangeResult, paymentStatusAfterCapture } from '@/lib/clientUtils'
+import { useAuth } from '@/context/AuthContext'
+import { apiFetch } from '@/lib/api'
 import {
   generateId,
   loadClients,
@@ -30,11 +33,12 @@ interface AppContextValue {
   clients: Client[]
   contracts: ContractData[]
   settings: BusinessSettings
+  syncing: boolean
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>) => Client
   updateClient: (id: string, updates: Partial<Client>) => void
   getClient: (id: string) => Client | undefined
   addNote: (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => void
-  saveContract: (contract: ContractData) => void
+  saveContract: (contract: ContractData) => Promise<void>
   getContractForClient: (clientId: string) => ContractData | undefined
   updateSettings: (updates: Partial<BusinessSettings>) => void
   markOfficialClient: (clientId: string) => void
@@ -43,25 +47,141 @@ interface AppContextValue {
     clientId: string,
     payload: { capture?: PayPalCaptureResponse; invoice?: Partial<ClientInvoice> }
   ) => void
+  updateClientServiceTier: (
+    clientId: string,
+    tier: ServiceTier
+  ) => Promise<{ requiresResend: boolean }>
   refresh: () => void
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
 
+async function fetchAdminData() {
+  return apiFetch<{
+    clients: Client[]
+    contracts: ContractData[]
+    settings: BusinessSettings
+  }>('/api/data')
+}
+
+async function persistAdminData(
+  clients: Client[],
+  contracts: ContractData[],
+  settings?: BusinessSettings
+) {
+  await apiFetch('/api/data/clients', {
+    method: 'PUT',
+    body: JSON.stringify({ clients }),
+  })
+  await apiFetch('/api/data/contracts', {
+    method: 'PUT',
+    body: JSON.stringify({ contracts }),
+  })
+  if (settings) {
+    await apiFetch('/api/data/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ settings }),
+    })
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { isAdmin, user, loading: authLoading } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [contracts, setContracts] = useState<ContractData[]>([])
   const [settings, setSettings] = useState<BusinessSettings>(loadSettings())
+  const [syncing, setSyncing] = useState(false)
+  const [migrated, setMigrated] = useState(false)
 
-  const refresh = useCallback(() => {
-    setClients(loadClients())
-    setContracts(loadContracts())
-    setSettings(loadSettings())
-  }, [])
+  const refresh = useCallback(async () => {
+    if (isAdmin) {
+      setSyncing(true)
+      try {
+        const data = await fetchAdminData()
+        setClients(data.clients)
+        setContracts(data.contracts)
+        setSettings(data.settings)
+        saveClients(data.clients)
+        saveContracts(data.contracts)
+        saveSettings(data.settings)
+      } finally {
+        setSyncing(false)
+      }
+    } else {
+      setClients(loadClients())
+      setContracts(loadContracts())
+      setSettings(loadSettings())
+    }
+  }, [isAdmin])
 
   useEffect(() => {
-    refresh()
-  }, [refresh])
+    if (authLoading) return
+
+    if (!isAdmin) {
+      setClients(loadClients())
+      setContracts(loadContracts())
+      setSettings(loadSettings())
+      return
+    }
+
+    const init = async () => {
+      setSyncing(true)
+      try {
+        const data = await fetchAdminData()
+        const hasLocal =
+          loadClients().length > 0 || loadContracts().length > 0
+        const serverEmpty =
+          data.clients.length === 0 && data.contracts.length === 0
+
+        if (hasLocal && serverEmpty && !migrated) {
+          await apiFetch('/api/data/migrate', {
+            method: 'POST',
+            body: JSON.stringify({
+              clients: loadClients(),
+              contracts: loadContracts(),
+              settings: loadSettings(),
+            }),
+          })
+          setMigrated(true)
+        }
+
+        await refresh()
+      } catch {
+        setClients(loadClients())
+        setContracts(loadContracts())
+        setSettings(loadSettings())
+      } finally {
+        setSyncing(false)
+      }
+    }
+
+    init()
+  }, [isAdmin, authLoading, user?.id, migrated, refresh])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    const onFocus = () => {
+      refresh()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [isAdmin, refresh])
+
+  const persist = useCallback(
+    async (nextClients: Client[], nextContracts: ContractData[], nextSettings?: BusinessSettings) => {
+      setClients(nextClients)
+      setContracts(nextContracts)
+      if (nextSettings) setSettings(nextSettings)
+      saveClients(nextClients)
+      saveContracts(nextContracts)
+      if (nextSettings) saveSettings(nextSettings)
+
+      if (isAdmin) {
+        await persistAdminData(nextClients, nextContracts, nextSettings)
+      }
+    },
+    [isAdmin]
+  )
 
   const addClient = useCallback(
     (data: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>) => {
@@ -83,19 +203,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ]
           : [],
       }
-      const next = [...loadClients(), client]
-      saveClients(next)
-      setClients(next)
+      const next = [...clients, client]
+      persist(next, contracts)
       return client
     },
-    []
+    [clients, contracts, persist]
   )
 
-  const updateClient = useCallback((id: string, updates: Partial<Client>) => {
-    const next = loadClients().map((c) => (c.id === id ? { ...c, ...updates } : c))
-    saveClients(next)
-    setClients(next)
-  }, [])
+  const updateClient = useCallback(
+    (id: string, updates: Partial<Client>) => {
+      const next = clients.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      persist(next, contracts)
+    },
+    [clients, contracts, persist]
+  )
 
   const getClient = useCallback(
     (id: string) => clients.find((c) => c.id === id),
@@ -104,7 +225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addNote = useCallback(
     (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => {
-      const existing = loadClients().find((c) => c.id === clientId)
+      const existing = clients.find((c) => c.id === clientId)
       const newNote: Note = {
         ...note,
         id: generateId(),
@@ -114,24 +235,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notes: [...(existing?.notes ?? []), newNote],
       })
     },
-    [updateClient]
+    [clients, updateClient]
   )
 
   const saveContract = useCallback(
-    (contract: ContractData) => {
-      const existing = loadContracts()
-      const idx = existing.findIndex((c) => c.id === contract.id)
-      const next =
+    async (contract: ContractData) => {
+      const idx = contracts.findIndex((c) => c.id === contract.id)
+      const nextContracts =
         idx >= 0
-          ? existing.map((c, i) => (i === idx ? contract : c))
-          : [...existing, contract]
-      saveContracts(next)
-      setContracts(next)
-      if (contract.pdfGenerated) {
-        updateClient(contract.clientId, { contractStatus: 'Generated' })
-      }
+          ? contracts.map((c, i) => (i === idx ? contract : c))
+          : [...contracts, contract]
+      const nextClients = contract.pdfGenerated
+        ? clients.map((c) =>
+            c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c
+          )
+        : clients
+      await persist(nextClients, nextContracts)
     },
-    [updateClient]
+    [clients, contracts, persist]
   )
 
   const getContractForClient = useCallback(
@@ -139,11 +260,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [contracts]
   )
 
-  const updateSettings = useCallback((updates: Partial<BusinessSettings>) => {
-    const next = { ...loadSettings(), ...updates }
-    saveSettings(next)
-    setSettings(next)
-  }, [])
+  const updateSettings = useCallback(
+    (updates: Partial<BusinessSettings>) => {
+      const next = { ...settings, ...updates }
+      persist(clients, contracts, next)
+    },
+    [clients, contracts, settings, persist]
+  )
 
   const markOfficialClient = useCallback(
     (clientId: string) => {
@@ -169,14 +292,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [updateClient]
   )
 
+  const updateClientServiceTier = useCallback(
+    async (clientId: string, tier: ServiceTier) => {
+      const client = clients.find((c) => c.id === clientId)
+      if (!client) return { requiresResend: false }
+
+      const contract = contracts.find((c) => c.clientId === clientId)
+      const result = buildServiceTierChangeResult(client, contract, tier)
+      if (!result) return { requiresResend: false }
+
+      let nextClients = clients.map((c) =>
+        c.id === clientId ? { ...c, ...result.clientUpdates } : c
+      )
+
+      if (result.note) {
+        const newNote: Note = {
+          ...result.note,
+          id: generateId(),
+          createdAt: new Date().toISOString(),
+        }
+        nextClients = nextClients.map((c) =>
+          c.id === clientId ? { ...c, notes: [...c.notes, newNote] } : c
+        )
+      }
+
+      let nextContracts = contracts
+      if (result.contract) {
+        const idx = contracts.findIndex((c) => c.clientId === clientId)
+        nextContracts =
+          idx >= 0
+            ? contracts.map((c, i) => (i === idx ? result.contract! : c))
+            : [...contracts, result.contract]
+      }
+
+      await persist(nextClients, nextContracts)
+      return { requiresResend: result.requiresResend }
+    },
+    [clients, contracts, persist]
+  )
+
   const applyPaymentCapture = useCallback(
     (
       clientId: string,
       payload: { capture?: PayPalCaptureResponse; invoice?: Partial<ClientInvoice> }
     ) => {
-      const client = loadClients().find((c) => c.id === clientId)
+      const client = clients.find((c) => c.id === clientId)
       if (!client) return
-      const contract = loadContracts().find((c) => c.clientId === clientId)
+      const contract = contracts.find((c) => c.clientId === clientId)
       const isPaid = Boolean(payload.capture || payload.invoice?.paidAt)
       const amount = payload.capture
         ? parseFloat(payload.capture.amount)
@@ -207,7 +369,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       updateClient(clientId, updates)
     },
-    [updateClient, addNote]
+    [clients, contracts, updateClient, addNote]
   )
 
   const value = useMemo(
@@ -215,6 +377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clients,
       contracts,
       settings,
+      syncing,
       addClient,
       updateClient,
       getClient,
@@ -225,12 +388,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markOfficialClient,
       unmarkOfficialClient,
       applyPaymentCapture,
+      updateClientServiceTier,
       refresh,
     }),
     [
       clients,
       contracts,
       settings,
+      syncing,
       addClient,
       updateClient,
       getClient,
@@ -241,6 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       markOfficialClient,
       unmarkOfficialClient,
       applyPaymentCapture,
+      updateClientServiceTier,
       refresh,
     ]
   )

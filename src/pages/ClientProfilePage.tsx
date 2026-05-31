@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   Mail,
@@ -13,11 +13,14 @@ import { NotesSection } from '@/components/clients/NotesSection'
 import { AddNoteModal } from '@/components/clients/AddNoteModal'
 import { MarkOfficialClientCard } from '@/components/clients/MarkOfficialClientCard'
 import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
+import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
 import { SampleClientBadge } from '@/components/clients/SampleClientBadge'
 import { PayPalPaymentSection } from '@/components/payments/PayPalPaymentSection'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { ClientStatusOverview } from '@/components/clients/ClientStatusOverview'
+import { ProjectFilesSection } from '@/components/files/ProjectFilesSection'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select, Textarea } from '@/components/ui/FormField'
@@ -28,10 +31,22 @@ import type { ContractStatus, PaymentStatus, ProjectStatus, ProjectType } from '
 export function ClientProfilePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { getClient, updateClient } = useApp()
   const client = id ? getClient(id) : undefined
   const [editOpen, setEditOpen] = useState(false)
   const [noteQuickOpen, setNoteQuickOpen] = useState(false)
+
+  useEffect(() => {
+    if (location.hash === '#project-files') {
+      const el = document.getElementById('project-files')
+      if (el) {
+        requestAnimationFrame(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })
+      }
+    }
+  }, [location.hash, client?.id])
 
   if (!client) {
     return (
@@ -66,7 +81,12 @@ export function ClientProfilePage() {
       </Link>
 
       <PageHeader
-        title={client.name}
+        title={
+          <span className="inline-flex items-center gap-2">
+            {client.name}
+            {client.isSampleClient && <SampleClientBadge className="h-3 w-3" />}
+          </span>
+        }
         subtitle={client.businessName}
         action={
           <div className="flex flex-wrap gap-2">
@@ -94,20 +114,26 @@ export function ClientProfilePage() {
         }
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <StatusBadge type="project" status={client.projectStatus} />
-        <StatusBadge type="contract" status={client.contractStatus} />
-        <StatusBadge type="payment" status={client.paymentStatus} />
-        {client.isSampleClient && <SampleClientBadge />}
-        {client.isOfficialClient && <OfficialClientBadge />}
-      </div>
+      <ClientStatusOverview
+        className="mb-6"
+        projectStatus={client.projectStatus}
+        contractStatus={client.contractStatus}
+        paymentStatus={client.paymentStatus}
+      />
 
-      {client.isSampleClient && (
-        <p className="mb-6 rounded-[var(--radius-sm)] border border-dashed border-line bg-surface px-4 py-3 text-sm text-ink-muted">
-          This is a <strong className="text-ink">sample client</strong> included for demo purposes.
-          Edit freely or remove when you add real clients.
-        </p>
+      {client.isOfficialClient ? (
+        <div className="mb-6">
+          <OfficialClientBadge />
+        </div>
+      ) : (
+        <div className="mb-6">
+          <PendingClientBadge />
+        </div>
       )}
+
+      <div className="mb-6">
+        <ProjectFilesSection clientId={client.id} projectName={client.projectName} />
+      </div>
 
       <div className="mb-6 grid w-full min-w-0 gap-6 lg:grid-cols-2">
         <MarkOfficialClientCard client={client} />
@@ -184,7 +210,7 @@ export function ClientProfilePage() {
           <dl className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <dt className="text-stone-500">Status</dt>
-              <StatusBadge type="contract" status={client.contractStatus} />
+              <StatusBadge type="contract" status={client.contractStatus} highlighted />
             </div>
             <div className="pt-2">
               <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>

@@ -65,6 +65,22 @@ export interface ClientInvoice {
   paidAt?: string
 }
 
+export type UserRole = 'admin' | 'client'
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  clientId?: string | null
+  createdAt: string
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
+}
+
 export interface Client {
   id: string
   name: string
@@ -89,6 +105,10 @@ export interface Client {
   profileNotes?: string
   /** Demo client from initial sample data */
   isSampleClient?: boolean
+  /** Linked client portal account */
+  accountUserId?: string
+  /** Service tier for this project — syncs to contract; changing it requires contract resend */
+  serviceTier?: ServiceTier
   createdAt: string
 }
 
@@ -131,6 +151,56 @@ export interface ContractData {
   designerSignDate?: string
   createdAt: string
   pdfGenerated?: boolean
+  /** Sent to client portal */
+  sentAt?: string
+  viewedAt?: string
+  signedAt?: string
+  confirmedByClient?: boolean
+}
+
+export interface PortalContractSummary {
+  id: string
+  projectTitle: string
+  totalCost: string
+  sentAt?: string
+  signedAt?: string
+  viewedAt?: string
+  confirmedByClient: boolean
+  pdfGenerated: boolean
+}
+
+export interface PendingRegistration {
+  id: string
+  name: string
+  email: string
+  createdAt: string
+}
+
+export interface ProjectFile {
+  id: string
+  clientId: string
+  projectName: string
+  originalName: string
+  storedName: string
+  mimeType: string
+  size: number
+  uploadedBy: 'admin' | 'client'
+  uploadedByName: string
+  createdAt: string
+}
+
+export interface PortalDashboard {
+  linked: boolean
+  client: {
+    id: string
+    name: string
+    businessName: string
+    projectName: string
+    projectStatus: ProjectStatus
+    contractStatus: ContractStatus
+  } | null
+  contracts: PortalContractSummary[]
+  message?: string
 }
 
 export interface BusinessSettings {

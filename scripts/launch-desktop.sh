@@ -13,7 +13,8 @@ port_in_use() {
 }
 
 app_healthy() {
-  curl -sf --connect-timeout 2 "$WEB_URL" >/dev/null 2>&1
+  curl -sf --connect-timeout 2 "$WEB_URL" >/dev/null 2>&1 &&
+    curl -sf --connect-timeout 2 "http://127.0.0.1:3001/api/health" >/dev/null 2>&1
 }
 
 stop_stale_servers() {

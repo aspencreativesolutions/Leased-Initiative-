@@ -18,12 +18,12 @@ export function MarkOfficialClientCard({ client }: MarkOfficialClientCardProps) 
     return (
       <Card className="border-accent">
         <CardHeader
-          title="Official Client"
-          subtitle={`Confirmed since ${client.officialClientSince ? new Date(client.officialClientSince).toLocaleDateString() : '—'}`}
+          title="Confirmed Client"
+          subtitle={`Client since ${client.officialClientSince ? new Date(client.officialClientSince).toLocaleDateString() : '—'}`}
           action={<OfficialClientBadge />}
         />
         <p className="text-sm text-ink-muted">
-          This client is confirmed. You can send PayPal invoices and accept payments below.
+          This person is a confirmed client. You can send PayPal invoices and accept payments below.
         </p>
         <Button
           variant="ghost"
@@ -31,7 +31,7 @@ export function MarkOfficialClientCard({ client }: MarkOfficialClientCardProps) 
           className="mt-3"
           onClick={() => unmarkOfficialClient(client.id)}
         >
-          Remove official status
+          Move back to pending
         </Button>
       </Card>
     )
@@ -40,7 +40,7 @@ export function MarkOfficialClientCard({ client }: MarkOfficialClientCardProps) 
   return (
     <Card>
       <CardHeader
-        title="Confirm Official Client"
+        title="Confirm as Client"
         subtitle="Available after the contract is signed"
       />
       {!canMark ? (
@@ -48,18 +48,18 @@ export function MarkOfficialClientCard({ client }: MarkOfficialClientCardProps) 
           <ShieldCheck className="h-5 w-5 shrink-0 text-ink" />
           <p>
             Set the contract status to <strong>Signed</strong> or <strong>Completed</strong> before
-            marking this client as official. This unlocks PayPal payments.
+            confirming them as a client. This unlocks PayPal payments.
           </p>
         </div>
       ) : (
         <>
           <p className="mb-4 text-sm text-ink-muted">
-            Mark clients as official once their contract is signed. Official clients can receive
-            PayPal payment links and embedded checkout tied to their invoice.
+            Once their contract is signed, confirm them as a client to unlock PayPal payment links
+            and embedded checkout.
           </p>
           <Button onClick={() => markOfficialClient(client.id)}>
             <BadgeCheck className="h-4 w-4" />
-            Mark as Official Client
+            Confirm as Client
           </Button>
         </>
       )}

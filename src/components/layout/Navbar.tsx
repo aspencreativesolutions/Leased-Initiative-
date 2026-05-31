@@ -1,5 +1,7 @@
-import { LayoutDashboard, Users, FileText, Calendar, Settings, CalendarClock, Palette } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { LayoutDashboard, Users, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
 const links = [
@@ -12,6 +14,8 @@ const links = [
 ]
 
 export function Navbar() {
+  const { user, logout } = useAuth()
+
   return (
     <header className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
       <div className="flex h-[4.25rem] w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 xl:px-12">
@@ -49,6 +53,16 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/portal/login"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
+            title="Client portal"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Portal
+          </Link>
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -64,6 +78,19 @@ export function Navbar() {
             <Palette className="h-3.5 w-3.5" />
             Style
           </NavLink>
+
+          {user && (
+            <span className="hidden text-[10px] text-nav-fg-muted lg:inline">{user.name}</span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
+            title="Sign out"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </Button>
 
           <nav className="flex items-center gap-0 md:hidden overflow-x-auto">
             {links.map(({ to, label }) => (

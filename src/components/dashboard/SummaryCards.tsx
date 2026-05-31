@@ -1,6 +1,7 @@
-import { Users, FolderKanban, FileClock, CalendarClock, BadgeCheck } from 'lucide-react'
-import { Card } from '@/components/ui/Card'
+import { FolderKanban, FileClock, CalendarClock, BadgeCheck, Clock } from 'lucide-react'
 import type { Client } from '@/types'
+import { cn } from '@/lib/utils'
+import { countOfficialClients, countPendingClients } from '@/lib/clientUtils'
 
 interface SummaryCardsProps {
   clients: Client[]
@@ -17,7 +18,8 @@ export function SummaryCards({ clients }: SummaryCardsProps) {
       c.contractStatus === 'Generated' ||
       c.contractStatus === 'Sent'
   ).length
-  const officialClients = clients.filter((c) => c.isOfficialClient).length
+  const officialClients = countOfficialClients(clients)
+  const pendingClients = countPendingClients(clients)
   const upcomingDeadlines = clients.reduce((acc, c) => {
     const open = c.deadlines.filter((d) => !d.completed)
     const followUp = c.followUpDate ? 1 : 0
@@ -25,27 +27,36 @@ export function SummaryCards({ clients }: SummaryCardsProps) {
   }, 0)
 
   const cards = [
-    { label: 'Total Clients', value: clients.length, icon: Users },
-    { label: 'Official Clients', value: officialClients, icon: BadgeCheck },
+    { label: 'Clients', value: officialClients, icon: BadgeCheck },
+    { label: 'Pending Clients', value: pendingClients, icon: Clock },
     { label: 'Active Projects', value: activeProjects, icon: FolderKanban },
     { label: 'Pending Contracts', value: pendingContracts, icon: FileClock },
     { label: 'Upcoming Deadlines', value: upcomingDeadlines, icon: CalendarClock },
   ]
 
   return (
-    <div className="mb-8 grid w-full min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="mb-4 grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-5">
       {cards.map(({ label, value, icon: Icon }) => (
-        <Card key={label} padding="md" className="hover:shadow-lift transition-shadow">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="label-caps">{label}</p>
-              <p className="mt-2 font-display text-4xl font-semibold text-ink">{value}</p>
-            </div>
-            <div className="border-2 border-ink p-2.5 text-ink">
-              <Icon className="h-5 w-5" strokeWidth={2} />
-            </div>
+        <div
+          key={label}
+          className={cn(
+            'flex items-center justify-between gap-2 rounded-[var(--radius-sm)]',
+            'border-2 border-ink bg-surface-paper px-2.5 py-2',
+            'shadow-[3px_3px_0_0_rgba(17,17,17,0.85)]'
+          )}
+        >
+          <div className="min-w-0">
+            <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-ink">
+              {label}
+            </p>
+            <p className="font-display text-2xl font-black leading-none tracking-tight text-ink">
+              {value}
+            </p>
           </div>
-        </Card>
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-ink bg-ink text-surface-paper">
+            <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </div>
+        </div>
       ))}
     </div>
   )

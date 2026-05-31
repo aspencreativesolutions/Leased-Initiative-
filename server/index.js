@@ -1,5 +1,5 @@
 /**
- * PayPal API server — keeps CLIENT_SECRET off the browser.
+ * Client Craft API server — auth, data sync, PayPal, and client portal.
  * Run: node server/index.js  (or npm run dev:server)
  */
 import express from 'express'
@@ -7,6 +7,11 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import path from 'path'
+import authRoutes from './routes/auth.js'
+import dataRoutes from './routes/data.js'
+import contractRoutes from './routes/contracts.js'
+import portalRoutes from './routes/portal.js'
+import filesRoutes from './routes/files.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
@@ -52,9 +57,9 @@ async function getAccessToken() {
   return cachedToken
 }
 
-async function paypalFetch(path, options = {}) {
+async function paypalFetch(apiPath, options = {}) {
   const token = await getAccessToken()
-  const res = await fetch(`${PAYPAL_API}${path}`, {
+  const res = await fetch(`${PAYPAL_API}${apiPath}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -78,6 +83,16 @@ app.use(
   })
 )
 app.use(express.json())
+
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true })
+})
+
+app.use('/api/auth', authRoutes)
+app.use('/api/data', dataRoutes)
+app.use('/api/contracts', contractRoutes)
+app.use('/api/portal', portalRoutes)
+app.use('/api/files', filesRoutes)
 
 app.get('/api/paypal/health', (_req, res) => {
   res.json({
@@ -167,7 +182,6 @@ app.post('/api/paypal/capture-order', async (req, res) => {
   }
 })
 
-/** PayPal sends webhook events when payments complete (backup to onApprove) */
 app.post('/api/paypal/webhook', async (req, res) => {
   try {
     if (!WEBHOOK_ID) {

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/FormField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
+import { countOfficialClients, countPendingClients } from '@/lib/clientUtils'
 import type { ContractStatus, PaymentStatus, ProjectStatus } from '@/types'
 
 export function ClientsPage() {
@@ -18,7 +19,10 @@ export function ClientsPage() {
   const [contractFilter, setContractFilter] = useState<ContractStatus | ''>('')
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | ''>('')
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'upcoming' | 'overdue'>('all')
-  const [officialOnly, setOfficialOnly] = useState(false)
+  const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'clients' | 'pending'>('all')
+
+  const officialCount = countOfficialClients(clients)
+  const pendingCount = countPendingClients(clients)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -51,7 +55,10 @@ export function ClientsPage() {
         matchesDeadline = dates.some((d) => d < today)
       }
 
-      const matchesOfficial = !officialOnly || c.isOfficialClient
+      const matchesType =
+        clientTypeFilter === 'all' ||
+        (clientTypeFilter === 'clients' && c.isOfficialClient) ||
+        (clientTypeFilter === 'pending' && !c.isOfficialClient)
 
       return (
         matchesSearch &&
@@ -59,16 +66,16 @@ export function ClientsPage() {
         matchesContract &&
         matchesPayment &&
         matchesDeadline &&
-        matchesOfficial
+        matchesType
       )
     })
-  }, [clients, search, projectFilter, contractFilter, paymentFilter, deadlineFilter, officialOnly])
+  }, [clients, search, projectFilter, contractFilter, paymentFilter, deadlineFilter, clientTypeFilter])
 
   return (
     <div className="w-full min-w-0">
       <PageHeader
         title="Clients"
-        subtitle="Search, filter, and manage your client list."
+        subtitle="Official clients and pending prospects in your pipeline."
         action={
           <Button onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -136,13 +143,14 @@ export function ClientsPage() {
             <option value="overdue">Overdue</option>
           </Select>
           <Select
-            label="Client Type"
-            value={officialOnly ? 'official' : 'all'}
-            onChange={(e) => setOfficialOnly(e.target.value === 'official')}
+            label="Type"
+            value={clientTypeFilter}
+            onChange={(e) => setClientTypeFilter(e.target.value as typeof clientTypeFilter)}
             className="w-full lg:w-36"
           >
-            <option value="all">All Clients</option>
-            <option value="official">Official Only</option>
+            <option value="all">All</option>
+            <option value="clients">Clients</option>
+            <option value="pending">Pending Clients</option>
           </Select>
         </div>
       </Card>
@@ -167,7 +175,8 @@ export function ClientsPage() {
       )}
 
       <p className="mt-4 text-sm text-ink-muted">
-        Showing {filtered.length} of {clients.length} clients
+        Showing {filtered.length} of {clients.length} in roster ({officialCount}{' '}
+        {officialCount === 1 ? 'client' : 'clients'}, {pendingCount} pending)
       </p>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />

@@ -1,7 +1,102 @@
 import { isSampleClientEmail } from '@/data/sampleClients'
-import type { Client, ContractData } from '@/types'
+import type { Client, ContractData, Note, ServiceTier } from '@/types'
 
 const SIGNED_CONTRACT_STATUSES = ['Signed', 'Completed'] as const
+const CONTRACT_STATUSES_NEEDING_RESET = [
+  'Generated',
+  'Sent',
+  'Signed',
+  'Completed',
+] as const
+
+export function getClientServiceTier(
+  client: Client,
+  contract?: ContractData
+): ServiceTier {
+  return client.serviceTier ?? contract?.serviceTier ?? 'Starter'
+}
+
+export interface ServiceTierChangeResult {
+  clientUpdates: Partial<Client>
+  contract?: ContractData
+  note?: Omit<Note, 'id' | 'createdAt'>
+  requiresResend: boolean
+  previousTier: ServiceTier
+}
+
+export function buildServiceTierChangeResult(
+  client: Client,
+  contract: ContractData | undefined,
+  newTier: ServiceTier
+): ServiceTierChangeResult | null {
+  const previousTier = getClientServiceTier(client, contract)
+  if (previousTier === newTier) return null
+
+  const clientUpdates: Partial<Client> = { serviceTier: newTier }
+  const contractWasInProgress =
+    contract &&
+    (contract.pdfGenerated ||
+      CONTRACT_STATUSES_NEEDING_RESET.includes(
+        client.contractStatus as (typeof CONTRACT_STATUSES_NEEDING_RESET)[number]
+      ))
+
+  if (!contractWasInProgress) {
+    return {
+      clientUpdates,
+      contract: contract ? { ...contract, serviceTier: newTier } : undefined,
+      requiresResend: false,
+      previousTier,
+    }
+  }
+
+  clientUpdates.contractStatus = 'Draft in Progress'
+  if (
+    client.projectStatus === 'Contract Signed' ||
+    client.projectStatus === 'Completed'
+  ) {
+    clientUpdates.projectStatus = 'Contract Sent'
+  }
+
+  if (client.isOfficialClient) {
+    clientUpdates.isOfficialClient = false
+    clientUpdates.officialClientSince = undefined
+  }
+
+  const updatedContract: ContractData = {
+    ...contract!,
+    serviceTier: newTier,
+    pdfGenerated: false,
+    sentAt: undefined,
+    viewedAt: undefined,
+    signedAt: undefined,
+    confirmedByClient: false,
+    clientSignature: undefined,
+    clientSignDate: undefined,
+  }
+
+  return {
+    clientUpdates,
+    contract: updatedContract,
+    note: {
+      text: `Service tier changed from ${previousTier} to ${newTier}. Revise the contract and resend it to the client.`,
+      category: 'Contract',
+    },
+    requiresResend: true,
+    previousTier,
+  }
+}
+
+export function isPendingClient(client: Client): boolean {
+  return !client.isOfficialClient
+}
+
+export function countOfficialClients(clients: Client[]): number {
+  return clients.filter((c) => c.isOfficialClient).length
+}
+
+export function countPendingClients(clients: Client[]): number {
+  return clients.filter((c) => isPendingClient(c)).length
+}
 
 export function canMarkOfficialClient(client: Client): boolean {
   return SIGNED_CONTRACT_STATUSES.includes(
@@ -52,6 +147,7 @@ export function normalizeClient(raw: Partial<Client> & { id: string }): Client {
       raw.isSampleClient ?? (raw.email ? isSampleClientEmail(raw.email) : false),
     notes: raw.notes ?? [],
     deadlines: raw.deadlines ?? [],
+    serviceTier: raw.serviceTier ?? 'Starter',
   } as Client
 }
 

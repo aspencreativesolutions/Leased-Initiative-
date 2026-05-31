@@ -10,7 +10,7 @@ export function OfficialClientBadge({ className }: { className?: string }) {
       )}
     >
       <BadgeCheck className="h-3 w-3" strokeWidth={2.5} />
-      Official
+      Client
     </span>
   )
 }

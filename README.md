@@ -12,6 +12,8 @@ A clean, modern client management web app for freelance web designers and develo
 - **Settings** — Business info used in generated contracts
 - **Official clients** — Mark signed-contract clients as official; unlocks PayPal
 - **PayPal payments** — Payment links + embedded checkout (requires API server)
+- **Client portal** — Clients register, review contracts, and confirm electronically
+- **Secure auth** — Admin studio login + separate client accounts with role-based access
 - **Search & filters** — Find clients by status, payment, deadlines, and official status
 
 ## Tech Stack
@@ -27,13 +29,13 @@ A clean, modern client management web app for freelance web designers and develo
 
 ```bash
 npm install
-cp .env.example .env   # add PayPal sandbox credentials for payments
+cp .env.example .env   # set JWT_SECRET and PayPal credentials
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [http://localhost:5173](http://localhost:5173). **Admin access:** register at `/register` with your Aspen work email (`firstname@aspencreativesolutions.com`, matching your first name). **Clients:** register at `/portal/register`.
 
-`npm run dev` starts the Vite app **and** the PayPal API server on port 3001.
+`npm run dev` starts the Vite app **and** the API server on port 3001 (auth, data sync, PayPal).
 
 **PayPal setup:** see [docs/PAYPAL_SETUP.md](docs/PAYPAL_SETUP.md).
 
@@ -58,7 +60,14 @@ src/
   types/          # TypeScript types
 ```
 
-Data is stored in the browser's localStorage. Sample clients load on first visit.
+Data is stored server-side in `server/data/store.json` when signed in as admin. The browser keeps a local cache; existing localStorage data migrates automatically on first admin login.
+
+## Client portal & contracts
+
+1. Add a client in the studio with their email.
+2. Build the contract and generate the PDF.
+3. Click **Send Contract to Client** → **Client portal** (client must register at `/portal/register` with the same email).
+4. The client reviews and confirms in their portal; status updates on your admin dashboard.
 
 ## Future Ideas
 
