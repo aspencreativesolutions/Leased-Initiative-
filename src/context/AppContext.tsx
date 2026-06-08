@@ -241,10 +241,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const saveContract = useCallback(
     async (contract: ContractData) => {
       const idx = contracts.findIndex((c) => c.id === contract.id)
+      const existing = idx >= 0 ? contracts[idx] : undefined
+      const merged: ContractData = existing
+        ? {
+            ...contract,
+            sentAt: contract.sentAt ?? existing.sentAt,
+            viewedAt: contract.viewedAt ?? existing.viewedAt,
+            signedAt: contract.signedAt ?? existing.signedAt,
+            confirmedByClient: contract.confirmedByClient ?? existing.confirmedByClient,
+            clientSignature: contract.clientSignature ?? existing.clientSignature,
+            clientSignDate: contract.clientSignDate ?? existing.clientSignDate,
+          }
+        : contract
       const nextContracts =
         idx >= 0
-          ? contracts.map((c, i) => (i === idx ? contract : c))
-          : [...contracts, contract]
+          ? contracts.map((c, i) => (i === idx ? merged : c))
+          : [...contracts, merged]
       const nextClients = contract.pdfGenerated
         ? clients.map((c) =>
             c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c

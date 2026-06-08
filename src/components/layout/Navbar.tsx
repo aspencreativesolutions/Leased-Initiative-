@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink, UserCircle } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +10,7 @@ const links = [
   { to: '/contracts', label: 'Contracts', icon: FileText },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/scheduler', label: 'Scheduler', icon: CalendarClock },
+  { to: '/profile', label: 'Profile', icon: UserCircle },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -80,7 +81,21 @@ export function Navbar() {
           </NavLink>
 
           {user && (
-            <span className="hidden text-[10px] text-nav-fg-muted lg:inline">{user.name}</span>
+            <NavLink
+              to="/profile"
+              className={({ isActive }) =>
+                cn(
+                  'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
+                  isActive
+                    ? 'border-nav-active text-nav-fg'
+                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
+                )
+              }
+              title="My profile"
+            >
+              <UserCircle className="h-3.5 w-3.5" />
+              {user.name}
+            </NavLink>
           )}
           <Button
             variant="ghost"

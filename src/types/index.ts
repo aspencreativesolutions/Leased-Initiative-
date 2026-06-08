@@ -15,7 +15,13 @@ export type ContractStatus =
   | 'Completed'
   | 'Cancelled'
 
-export type PaymentStatus = 'Unpaid' | 'Deposit Paid' | 'Partial' | 'Paid' | 'Overdue'
+export type PaymentStatus =
+  | 'Unpaid'
+  | 'Pay Link Clicked'
+  | 'Deposit Paid'
+  | 'Partial'
+  | 'Paid'
+  | 'Overdue'
 
 export type ProjectType =
   | 'Website Design'
@@ -36,11 +42,17 @@ export interface SchedulerNote {
   weekStart?: string
 }
 
+export interface TimelineStepSkip {
+  skippedAt: string
+}
+
 export interface Note {
   id: string
   text: string
   createdAt: string
   category?: NoteCategory
+  /** Links note back to a timeline step (skip notes) */
+  timelineStepId?: string
 }
 
 export interface Deadline {
@@ -63,6 +75,40 @@ export interface ClientInvoice {
   paymentLink?: string
   createdAt: string
   paidAt?: string
+  /** When admin delivered the invoice link to the client portal */
+  sentToPortalAt?: string
+  /** When the client opened the PayPal payment link */
+  paymentLinkClickedAt?: string
+  invoiceType?: 'deposit' | 'final'
+}
+
+export interface PortalInvoice {
+  amount: number
+  currency: string
+  description: string
+  paymentLink?: string
+  sentToPortalAt?: string
+  paidAt?: string
+  invoiceType?: 'deposit' | 'final'
+}
+
+export type TimelineStepStatus = 'completed' | 'pending' | 'active'
+
+export interface TimelineSubEvent {
+  id: string
+  label: string
+  completedAt: string
+  detail?: string
+}
+
+export interface ProjectTimelineStep {
+  id: string
+  label: string
+  status: TimelineStepStatus
+  completedAt?: string
+  detail?: string
+  skipped?: boolean
+  subEvents?: TimelineSubEvent[]
 }
 
 export type UserRole = 'admin' | 'client'
@@ -73,6 +119,8 @@ export interface User {
   name: string
   role: UserRole
   clientId?: string | null
+  /** Client portal style — persisted across sessions */
+  portalThemeId?: string
   createdAt: string
 }
 
@@ -99,6 +147,12 @@ export interface Client {
   isOfficialClient: boolean
   officialClientSince?: string
   invoice?: ClientInvoice
+  /** Remaining balance invoice — auto-generated when project is marked complete */
+  finalInvoice?: ClientInvoice
+  /** Admin manually confirmed deposit after PayPal verification */
+  depositPaymentConfirmedAt?: string
+  /** When all deliverables are fulfilled */
+  projectCompletedAt?: string
   followUpDate?: string
   notes: Note[]
   deadlines: Deadline[]
@@ -109,6 +163,10 @@ export interface Client {
   accountUserId?: string
   /** Service tier for this project — syncs to contract; changing it requires contract resend */
   serviceTier?: ServiceTier
+  /** Set when admin clicks Start Project — unlocks portal uploads */
+  projectStartedAt?: string
+  /** Admin-skipped timeline steps (step id → skip timestamp) */
+  timelineStepSkips?: Record<string, TimelineStepSkip>
   createdAt: string
 }
 
@@ -158,6 +216,8 @@ export interface ContractData {
   confirmedByClient?: boolean
 }
 
+export type PortalContractClientStatus = 'Pending Review' | 'Viewed' | 'Accepted'
+
 export interface PortalContractSummary {
   id: string
   projectTitle: string
@@ -167,6 +227,7 @@ export interface PortalContractSummary {
   viewedAt?: string
   confirmedByClient: boolean
   pdfGenerated: boolean
+  portalStatus: PortalContractClientStatus
 }
 
 export interface PendingRegistration {
@@ -174,6 +235,32 @@ export interface PendingRegistration {
   name: string
   email: string
   createdAt: string
+}
+
+export type AdminNotificationType =
+  | 'registration'
+  | 'contract_signed'
+  | 'invoice_sent'
+  | 'payment_link_clicked'
+
+export interface AdminNotification {
+  id: string
+  type: AdminNotificationType
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  userId?: string
+  clientId?: string
+  contractId?: string
+}
+
+export interface ProjectFileNote {
+  id: string
+  text: string
+  createdAt: string
+  authorName: string
+  authorRole: 'admin' | 'client'
 }
 
 export interface ProjectFile {
@@ -187,10 +274,19 @@ export interface ProjectFile {
   uploadedBy: 'admin' | 'client'
   uploadedByName: string
   createdAt: string
+  notes?: ProjectFileNote[]
+}
+
+export interface PortalSupportContact {
+  businessName: string
+  ownerName: string
+  email: string
+  phone: string
 }
 
 export interface PortalDashboard {
   linked: boolean
+  isOfficialClient: boolean
   client: {
     id: string
     name: string
@@ -198,8 +294,15 @@ export interface PortalDashboard {
     projectName: string
     projectStatus: ProjectStatus
     contractStatus: ContractStatus
+    paymentStatus?: PaymentStatus
+    portalContractStatus: PortalContractClientStatus | null
   } | null
   contracts: PortalContractSummary[]
+  invoice?: PortalInvoice | null
+  finalInvoice?: PortalInvoice | null
+  projectStarted: boolean
+  projectStartedAt?: string
+  supportContact?: PortalSupportContact
   message?: string
 }
 

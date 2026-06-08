@@ -35,6 +35,8 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
 
   useEffect(() => {
     load()
+    const interval = setInterval(load, 5_000)
+    return () => clearInterval(interval)
   }, [load])
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +63,7 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
       <Card padding="lg" className="border-0 shadow-none">
         <CardHeader
           title="Project Files"
-          subtitle={`Upload and share files for ${projectName}`}
+          subtitle={`Client portal uploads appear here in real time for ${projectName}`}
           action={
             <>
               <input
@@ -69,7 +71,7 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
                 type="file"
                 className="hidden"
                 onChange={handleUpload}
-                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp,.zip,.txt,.csv,.xlsx,.ppt,.pptx"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.svg,.webp"
               />
               <Button
                 size="sm"
@@ -114,12 +116,37 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
                 key={file.id}
                 className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="break-words font-semibold text-ink">{file.originalName}</p>
                   <p className="mt-0.5 text-xs text-ink-muted">
-                    {formatFileSize(file.size)} · {file.uploadedByName} ·{' '}
-                    {formatDate(file.createdAt)}
+                    {formatFileSize(file.size)} · {file.uploadedByName}{' '}
+                    {file.uploadedBy === 'client' ? (
+                      <span className="font-semibold text-brand">(client)</span>
+                    ) : (
+                      '(admin)'
+                    )}{' '}
+                    · {formatDate(file.createdAt)}
                   </p>
+                  {(file.notes?.length ?? 0) > 0 && (
+                    <ul className="mt-2 space-y-2 border-l-2 border-brand/40 pl-3">
+                      {file.notes!.map((note) => (
+                        <li key={note.id}>
+                          <p className="whitespace-pre-wrap break-words text-sm text-ink">
+                            {note.text}
+                          </p>
+                          <p className="mt-0.5 text-xs text-ink-muted">
+                            {note.authorName}{' '}
+                            {note.authorRole === 'client' ? (
+                              <span className="font-semibold text-brand">(client note)</span>
+                            ) : (
+                              '(admin)'
+                            )}{' '}
+                            · {formatDate(note.createdAt)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <Button
                   variant="outline"

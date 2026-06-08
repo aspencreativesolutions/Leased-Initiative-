@@ -2,14 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, FileCheck } from 'lucide-react'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
+import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { apiFetch, ApiError } from '@/lib/api'
-import type { ContractData } from '@/types'
+import { getPortalContractStatus } from '@/lib/portalContractStatus'
+import type { ContractData, PortalContractClientStatus } from '@/types'
 
 interface ContractDetailResponse {
   contract: ContractData
+  portalStatus?: PortalContractClientStatus
   settings: { businessName: string; ownerName: string }
 }
 
@@ -22,25 +25,32 @@ export function PortalContractPage() {
   const [signature, setSignature] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
+  const [portalStatus, setPortalStatus] = useState<PortalContractClientStatus>('Pending Review')
 
-  const load = useCallback(async () => {
-    if (!contractId) return
-    setLoading(true)
-    setError('')
-    try {
-      const result = await apiFetch<ContractDetailResponse>(`/api/portal/contracts/${contractId}`)
-      setData(result)
-      setConfirmed(result.contract.confirmedByClient ?? false)
-      if (result.contract.clientSignature) {
-        setSignature(result.contract.clientSignature)
+  const load = useCallback(
+    async (silent = false) => {
+      if (!contractId) return
+      if (!silent) setLoading(true)
+      setError('')
+      try {
+        const result = await apiFetch<ContractDetailResponse>(
+          `/api/portal/contracts/${contractId}`
+        )
+        setData(result)
+        const status =
+          result.portalStatus ?? getPortalContractStatus(result.contract)
+        setPortalStatus(status)
+        if (result.contract.clientSignature) {
+          setSignature(result.contract.clientSignature)
+        }
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not load contract')
+      } finally {
+        if (!silent) setLoading(false)
       }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load contract')
-    } finally {
-      setLoading(false)
-    }
-  }, [contractId])
+    },
+    [contractId]
+  )
 
   useEffect(() => {
     load()
@@ -57,8 +67,8 @@ export function PortalContractPage() {
         method: 'POST',
         body: JSON.stringify({ signature: signature.trim() }),
       })
-      setConfirmed(true)
-      await load()
+      setPortalStatus('Accepted')
+      await load(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not confirm contract')
     } finally {
@@ -84,6 +94,7 @@ export function PortalContractPage() {
   if (!data) return null
 
   const { contract, settings } = data
+  const isAccepted = portalStatus === 'Accepted'
 
   return (
     <div>
@@ -92,14 +103,17 @@ export function PortalContractPage() {
         className="mb-4 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to my contracts
+        Back to Current Contracts
       </Link>
 
-      <div className="mb-6">
-        <h1 className="heading-display text-2xl">{contract.projectTitle}</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Contract from {settings.businessName || settings.ownerName}
-        </p>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="heading-display text-2xl">{contract.projectTitle}</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            Contract from {settings.businessName || settings.ownerName}
+          </p>
+        </div>
+        <PortalContractStatusBadge status={portalStatus} />
       </div>
 
       <Card padding="lg">
@@ -110,12 +124,12 @@ export function PortalContractPage() {
         />
       </Card>
 
-      {confirmed ? (
+      {isAccepted ? (
         <Card padding="lg" className="mt-6 border-emerald-200 bg-emerald-50">
           <div className="flex items-start gap-3">
             <CheckCircle className="h-6 w-6 shrink-0 text-emerald-600" />
             <div>
-              <p className="font-semibold text-emerald-900">Contract confirmed</p>
+              <p className="font-semibold text-emerald-900">Contract accepted</p>
               <p className="mt-1 text-sm text-emerald-800">
                 You signed this contract on{' '}
                 {contract.signedAt
@@ -123,7 +137,12 @@ export function PortalContractPage() {
                   : 'today'}
                 . Your designer has been notified and the project can move forward.
               </p>
-              <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/portal')}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate('/portal')}
+              >
                 Back to dashboard
               </Button>
             </div>
@@ -165,7 +184,7 @@ export function PortalContractPage() {
             </label>
             <Button type="submit" disabled={submitting || !agreed || !signature.trim()}>
               <FileCheck className="h-4 w-4" />
-              {submitting ? 'Confirming…' : 'Confirm contract'}
+              {submitting ? 'Confirming…' : 'Accept contract'}
             </Button>
           </form>
         </Card>

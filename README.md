@@ -39,6 +39,8 @@ Open [http://localhost:5173](http://localhost:5173). **Admin access:** register 
 
 **PayPal setup:** see [docs/PAYPAL_SETUP.md](docs/PAYPAL_SETUP.md).
 
+**Demo video checklist:** see [docs/DEMO_VIDEO_CHECKLIST.md](docs/DEMO_VIDEO_CHECKLIST.md) — full screen-recording shot list for a ClientCraft walkthrough.
+
 **Use on your Mac (Dock, no App Store):** see [docs/DESKTOP-APP.md](docs/DESKTOP-APP.md) — run `npm run desktop`.
 
 ## Build

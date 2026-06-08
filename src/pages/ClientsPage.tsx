@@ -128,7 +128,7 @@ export function ClientsPage() {
             className="w-full lg:w-36"
           >
             <option value="">All</option>
-            {(['Unpaid', 'Deposit Paid', 'Partial', 'Paid', 'Overdue'] as PaymentStatus[]).map((s) => (
+            {(['Unpaid', 'Pay Link Clicked', 'Deposit Paid', 'Partial', 'Paid', 'Overdue'] as PaymentStatus[]).map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </Select>

@@ -14,12 +14,12 @@ import { AddNoteModal } from '@/components/clients/AddNoteModal'
 import { MarkOfficialClientCard } from '@/components/clients/MarkOfficialClientCard'
 import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
-import { SampleClientBadge } from '@/components/clients/SampleClientBadge'
-import { PayPalPaymentSection } from '@/components/payments/PayPalPaymentSection'
+import { ClientInvoiceCard } from '@/components/payments/ClientInvoiceCard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { ClientStatusOverview } from '@/components/clients/ClientStatusOverview'
+import { ProjectTimeline } from '@/components/clients/ProjectTimeline'
 import { ProjectFilesSection } from '@/components/files/ProjectFilesSection'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Modal } from '@/components/ui/Modal'
@@ -82,9 +82,11 @@ export function ClientProfilePage() {
 
       <PageHeader
         title={
-          <span className="inline-flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-2"
+            title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
+          >
             {client.name}
-            {client.isSampleClient && <SampleClientBadge className="h-3 w-3" />}
           </span>
         }
         subtitle={client.businessName}
@@ -121,6 +123,8 @@ export function ClientProfilePage() {
         paymentStatus={client.paymentStatus}
       />
 
+      <ProjectTimeline client={client} />
+
       {client.isOfficialClient ? (
         <div className="mb-6">
           <OfficialClientBadge />
@@ -137,11 +141,7 @@ export function ClientProfilePage() {
 
       <div className="mb-6 grid w-full min-w-0 gap-6 lg:grid-cols-2">
         <MarkOfficialClientCard client={client} />
-        {client.isOfficialClient && (
-          <div className="lg:col-span-2">
-            <PayPalPaymentSection client={client} />
-          </div>
-        )}
+        {client.isOfficialClient && <ClientInvoiceCard client={client} />}
       </div>
 
       <div className="grid w-full min-w-0 gap-6 lg:grid-cols-2">
@@ -370,7 +370,7 @@ function EditClientModal({
             ))}
           </Select>
           <Select label="Payment Status" value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value as PaymentStatus })}>
-            {(['Unpaid', 'Deposit Paid', 'Partial', 'Paid', 'Overdue'] as PaymentStatus[]).map((s) => (
+            {(['Unpaid', 'Pay Link Clicked', 'Deposit Paid', 'Partial', 'Paid', 'Overdue'] as PaymentStatus[]).map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </Select>

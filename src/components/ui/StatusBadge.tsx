@@ -24,6 +24,7 @@ const contractStyles: Record<ContractStatus, string> = {
 
 const paymentStyles: Record<PaymentStatus, string> = {
   Unpaid: 'border-line text-ink-muted bg-transparent',
+  'Pay Link Clicked': 'border-brand bg-brand/10 text-brand',
   'Deposit Paid': 'border-ink-muted text-ink bg-surface',
   Partial: 'border-accent text-accent bg-transparent',
   Paid: 'border-ink bg-ink text-surface-paper',

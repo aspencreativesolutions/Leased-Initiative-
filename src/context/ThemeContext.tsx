@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import { applyThemeToDocument, loadStoredThemeId } from '@/themes/applyTheme'
+import { THEME_STORAGE_KEY } from '@/themes/options'
 import { getThemeOption, themeOptions } from '@/themes/options'
 import type { ThemeId, ThemeOption } from '@/themes/types'
 
@@ -23,7 +24,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>(() => loadStoredThemeId())
 
   const setTheme = useCallback((id: ThemeId) => {
-    applyThemeToDocument(id)
+    applyThemeToDocument(id, THEME_STORAGE_KEY)
     setThemeId(id)
   }, [])
 

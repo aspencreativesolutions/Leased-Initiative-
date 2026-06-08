@@ -2,7 +2,10 @@ import type { Deadline } from '@/types'
 
 export function formatDate(dateStr?: string): string {
   if (!dateStr) return '—'
-  const d = new Date(dateStr + 'T12:00:00')
+  const d = dateStr.includes('T')
+    ? new Date(dateStr)
+    : new Date(`${dateStr}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',

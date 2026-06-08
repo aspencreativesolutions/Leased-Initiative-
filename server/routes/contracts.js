@@ -1,12 +1,12 @@
 import { Router } from 'express'
 import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
+import { pushAdminNotification } from '../lib/notifications.js'
+import { generateId } from '../lib/notifications.js'
+import { buildDepositInvoice } from '../lib/invoice.js'
+import { createPayPalOrder, isPayPalConfigured } from '../lib/paypal.js'
 
 const router = Router()
-
-function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-}
 
 /** Admin sends contract to client's account */
 router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res) => {
@@ -49,28 +49,43 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    contracts: s.contracts.map((c) =>
-      c.id === contractId
-        ? { ...c, sentAt: now, viewedAt: undefined, confirmedByClient: false }
-        : c
-    ),
-    clients: s.clients.map((c) =>
-      c.id === client.id
-        ? { ...c, contractStatus: 'Sent', projectStatus: 'Contract Sent' }
-        : c
-    ),
-  }))
+  let updatedContract = null
+
+  updateStore((s) => {
+    const contracts = s.contracts.map((c) => {
+      if (c.id !== contractId) return c
+      updatedContract = {
+        ...c,
+        sentAt: now,
+        viewedAt: undefined,
+        signedAt: undefined,
+        confirmedByClient: false,
+        clientSignature: undefined,
+        clientSignDate: undefined,
+      }
+      return updatedContract
+    })
+    return {
+      ...s,
+      contracts,
+      clients: s.clients.map((c) =>
+        c.id === client.id
+          ? { ...c, contractStatus: 'Sent', projectStatus: 'Contract Sent' }
+          : c
+      ),
+    }
+  })
 
   res.json({
     ok: true,
     message: `Contract sent to ${clientUser.name} (${clientUser.email})`,
+    contract: updatedContract,
+    sentAt: now,
   })
 })
 
 /** Client confirms and signs contract */
-router.post('/:contractId/confirm', authMiddleware, requireRole('client'), (req, res) => {
+router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async (req, res) => {
   const { contractId } = req.params
   const { signature } = req.body
   if (!signature?.trim()) {
@@ -96,40 +111,97 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), (req,
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    contracts: s.contracts.map((c) =>
-      c.id === contractId
-        ? {
-            ...c,
-            clientSignature: signature.trim(),
-            clientSignDate: now.slice(0, 10),
-            signedAt: now,
-            confirmedByClient: true,
-          }
-        : c
-    ),
-    clients: s.clients.map((c) =>
-      c.id === contract.clientId
-        ? {
-            ...c,
-            contractStatus: 'Signed',
-            projectStatus: 'Contract Signed',
-            notes: [
-              ...(c.notes ?? []),
-              {
-                id: generateId(),
-                text: `Client confirmed contract electronically (${new Date(now).toLocaleDateString()}).`,
-                category: 'Contract',
-                createdAt: now,
-              },
-            ],
-          }
-        : c
-    ),
-  }))
+  const clientRecord = store.clients.find((c) => c.id === contract.clientId)
 
-  res.json({ ok: true, message: 'Contract confirmed successfully' })
+  const invoiceDraft = clientRecord ? buildDepositInvoice(contract, clientRecord) : null
+  let generatedInvoice = null
+
+  if (invoiceDraft) {
+    generatedInvoice = {
+      description: invoiceDraft.description,
+      amount: invoiceDraft.amount,
+      currency: invoiceDraft.currency,
+      invoiceType: 'deposit',
+      createdAt: now,
+    }
+
+    if (isPayPalConfigured()) {
+      try {
+        const order = await createPayPalOrder({
+          clientId: contract.clientId,
+          amount: invoiceDraft.amount,
+          currency: invoiceDraft.currency,
+          description: invoiceDraft.description,
+          returnPath: '/portal/payment/success',
+          cancelPath: '/portal?payment=cancelled',
+        })
+        generatedInvoice.paypalOrderId = order.orderId
+        generatedInvoice.paymentLink = order.approvalUrl
+      } catch (err) {
+        console.error('PayPal order on contract sign', err)
+      }
+    }
+  }
+
+  updateStore((s) => {
+    let next = {
+      ...s,
+      contracts: s.contracts.map((c) =>
+        c.id === contractId
+          ? {
+              ...c,
+              clientSignature: signature.trim(),
+              clientSignDate: now.slice(0, 10),
+              signedAt: now,
+              confirmedByClient: true,
+            }
+          : c
+      ),
+      clients: s.clients.map((c) => {
+        if (c.id !== contract.clientId) return c
+        const notes = [
+          ...(c.notes ?? []),
+          {
+            id: generateId(),
+            text: `Client signed contract electronically (${new Date(now).toLocaleDateString()}). Now an official client — portal file sharing is enabled.`,
+            category: 'Contract',
+            createdAt: now,
+          },
+        ]
+        if (generatedInvoice) {
+          notes.push({
+            id: generateId(),
+            text: `Deposit invoice auto-generated: $${generatedInvoice.amount.toFixed(2)} USD. Click "Send Invoice Link" to deliver it to the client portal.`,
+            category: 'Payment',
+            createdAt: now,
+          })
+        }
+        return {
+          ...c,
+          contractStatus: 'Signed',
+          projectStatus: 'Contract Signed',
+          isOfficialClient: true,
+          officialClientSince: c.officialClientSince ?? now,
+          invoice: generatedInvoice ?? c.invoice,
+          notes,
+        }
+      }),
+    }
+    next = pushAdminNotification(next, {
+      type: 'contract_signed',
+      clientId: contract.clientId,
+      contractId,
+      title: 'Contract signed',
+      message: `${clientRecord?.name ?? 'A client'} signed "${contract.projectTitle}". Deposit invoice is ready — send it from their profile.`,
+    })
+    return next
+  })
+
+  res.json({
+    ok: true,
+    message: 'Contract confirmed successfully',
+    invoiceGenerated: Boolean(generatedInvoice),
+  })
 })
 
 export default router

@@ -39,9 +39,24 @@ export function SendContractModal({
     setError('')
     try {
       await saveContract(contract)
-      const result = await apiFetch<{ message: string }>(`/api/contracts/${contract.id}/send`, {
+      const result = await apiFetch<{
+        message: string
+        contract?: ContractData
+        sentAt?: string
+      }>(`/api/contracts/${contract.id}/send`, {
         method: 'POST',
       })
+      const sentContract: ContractData = {
+        ...contract,
+        ...(result.contract ?? {}),
+        sentAt: result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString(),
+        viewedAt: undefined,
+        confirmedByClient: false,
+        clientSignature: undefined,
+        clientSignDate: undefined,
+        signedAt: undefined,
+      }
+      await saveContract(sentContract)
       updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
       await refresh()
       setSuccess(result.message)
@@ -57,17 +72,44 @@ export function SendContractModal({
     }
   }
 
-  const handleEmailFallback = (e: React.FormEvent) => {
+  const handleEmailFallback = async (e: React.FormEvent) => {
     e.preventDefault()
-    const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Contract PDF attached — download from Client Craft]')}`
-    window.open(mailto, '_blank')
-    updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
-    setSuccess('Email client opened. Contract marked as sent.')
-    onSent()
-    setTimeout(() => {
-      onClose()
-      setSuccess('')
-    }, 1500)
+    setSending(true)
+    setError('')
+    try {
+      const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Contract PDF attached — download from Client Craft]')}`
+      window.open(mailto, '_blank')
+      await saveContract(contract)
+      const result = await apiFetch<{
+        message: string
+        contract?: ContractData
+        sentAt?: string
+      }>(`/api/contracts/${contract.id}/send`, {
+        method: 'POST',
+      })
+      const sentContract: ContractData = {
+        ...contract,
+        ...(result.contract ?? {}),
+        sentAt: result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString(),
+      }
+      await saveContract(sentContract)
+      updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
+      await refresh()
+      setSuccess('Email opened and contract sent to the client portal.')
+      onSent()
+      setTimeout(() => {
+        onClose()
+        setSuccess('')
+      }, 2000)
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'Could not send contract to portal. Use Client portal mode instead.'
+      )
+    } finally {
+      setSending(false)
+    }
   }
 
   const reset = () => {

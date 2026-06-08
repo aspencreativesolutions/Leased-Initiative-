@@ -26,10 +26,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        subtitle="Personalize your workspace and business details for contracts."
-      />
+      <PageHeader title="Settings" />
 
       <div className="w-full min-w-0 space-y-8">
         <ThemePicker />

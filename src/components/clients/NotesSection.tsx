@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { StickyNote } from 'lucide-react'
+import { getTimelineStepLabel } from '@/lib/timelineSteps'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Select, Textarea } from '@/components/ui/FormField'
@@ -53,24 +55,48 @@ export function NotesSection({ client }: { client: Client }) {
           <p className="text-sm text-stone-500">No notes yet. Add one to track important details.</p>
         ) : (
           <ul className="space-y-3">
-            {sortedNotes.map((note) => (
-              <li
-                key={note.id}
-                className="rounded-lg border border-stone-100 bg-stone-50/50 p-4"
-              >
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  {note.category && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColors[note.category]}`}
-                    >
-                      {note.category}
+            {sortedNotes.map((note) => {
+              const content = (
+                <>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {note.category && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColors[note.category]}`}
+                      >
+                        {note.category}
+                      </span>
+                    )}
+                    {note.timelineStepId && (
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
+                        Timeline → {getTimelineStepLabel(note.timelineStepId)}
+                      </span>
+                    )}
+                    <span className="text-xs text-stone-400">
+                      {formatDate(note.createdAt.split('T')[0])}
                     </span>
+                  </div>
+                  <p className="text-sm text-stone-700 whitespace-pre-wrap">{note.text}</p>
+                </>
+              )
+
+              return (
+                <li
+                  key={note.id}
+                  className="rounded-lg border border-stone-100 bg-stone-50/50 p-4"
+                >
+                  {note.timelineStepId ? (
+                    <Link
+                      to={`/clients/${client.id}#timeline-step-${note.timelineStepId}`}
+                      className="block rounded-md transition-colors hover:bg-white/80 -m-2 p-2"
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    content
                   )}
-                  <span className="text-xs text-stone-400">{formatDate(note.createdAt.split('T')[0])}</span>
-                </div>
-                <p className="text-sm text-stone-700 whitespace-pre-wrap">{note.text}</p>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         )}
       </Card>

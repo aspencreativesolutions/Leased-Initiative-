@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 import { expectedWorkEmail, isWorkAdminEmail } from '@/lib/workEmail'
+import { loadStoredPortalThemeId } from '@/themes/applyTheme'
 
 interface RegisterPageProps {
   /** Where to send users for sign-in after registration */
@@ -45,7 +47,12 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
 
     setSubmitting(true)
     try {
-      const user = await register(name, email, password)
+      const user = await register(
+        name,
+        email,
+        password,
+        loginPath.startsWith('/portal') ? loadStoredPortalThemeId() : undefined
+      )
       navigate(user.role === 'admin' ? '/' : '/portal', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed')
@@ -129,6 +136,11 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
               Sign in
             </Link>
           </p>
+          {loginPath.startsWith('/portal') && (
+            <div className="mt-4 flex justify-center">
+              <PortalStyleButton variant="outline" />
+            </div>
+          )}
         </Card>
       </div>
     </div>

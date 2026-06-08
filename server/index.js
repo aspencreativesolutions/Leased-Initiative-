@@ -12,68 +12,24 @@ import dataRoutes from './routes/data.js'
 import contractRoutes from './routes/contracts.js'
 import portalRoutes from './routes/portal.js'
 import filesRoutes from './routes/files.js'
+import invoiceRoutes from './routes/invoices.js'
+import {
+  createPayPalOrder,
+  capturePayPalOrder,
+  isPayPalConfigured,
+  getPayPalAccessToken,
+  getPayPalApiBase,
+} from './lib/paypal.js'
+import { updateStore } from './db.js'
+import { applyPaymentToStore } from './lib/payments.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
 
 const PORT = process.env.PORT || 3001
-const CLIENT_ID = process.env.PAYPAL_CLIENT_ID
-const CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET
-const MODE = process.env.PAYPAL_MODE || 'sandbox'
 const WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID
 const APP_URL = process.env.APP_URL || 'http://localhost:5173'
-
-const PAYPAL_API =
-  MODE === 'live'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com'
-
-/** orderId -> { clientId, amount, currency, description } */
-const pendingOrders = new Map()
-
-let cachedToken = null
-let tokenExpiresAt = 0
-
-async function getAccessToken() {
-  if (!CLIENT_ID || !CLIENT_SECRET) {
-    throw new Error('PayPal credentials missing. Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env')
-  }
-  if (cachedToken && Date.now() < tokenExpiresAt - 60_000) {
-    return cachedToken
-  }
-  const auth = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64')
-  const res = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'grant_type=client_credentials',
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error_description || 'PayPal auth failed')
-  cachedToken = data.access_token
-  tokenExpiresAt = Date.now() + data.expires_in * 1000
-  return cachedToken
-}
-
-async function paypalFetch(apiPath, options = {}) {
-  const token = await getAccessToken()
-  const res = await fetch(`${PAYPAL_API}${apiPath}`, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const msg = data.message || data.details?.[0]?.description || JSON.stringify(data)
-    throw new Error(msg)
-  }
-  return data
-}
+const MODE = process.env.PAYPAL_MODE || 'sandbox'
 
 const app = express()
 app.use(
@@ -93,58 +49,34 @@ app.use('/api/data', dataRoutes)
 app.use('/api/contracts', contractRoutes)
 app.use('/api/portal', portalRoutes)
 app.use('/api/files', filesRoutes)
+app.use('/api/invoices', invoiceRoutes)
 
 app.get('/api/paypal/health', (_req, res) => {
   res.json({
-    ok: Boolean(CLIENT_ID && CLIENT_SECRET),
+    ok: isPayPalConfigured(),
     mode: MODE,
-    clientIdConfigured: Boolean(CLIENT_ID),
+    clientIdConfigured: isPayPalConfigured(),
   })
 })
 
 app.post('/api/paypal/create-order', async (req, res) => {
   try {
-    const { clientId, amount, currency = 'USD', description } = req.body
+    const { clientId, amount, currency = 'USD', description, returnPath, cancelPath } =
+      req.body
     if (!clientId || !amount || amount <= 0) {
       return res.status(400).json({ error: 'clientId and positive amount are required' })
     }
-    const value = Number(amount).toFixed(2)
-    const order = await paypalFetch('/v2/checkout/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        intent: 'CAPTURE',
-        purchase_units: [
-          {
-            reference_id: clientId,
-            custom_id: clientId,
-            description: (description || 'Client Craft Invoice').slice(0, 127),
-            amount: {
-              currency_code: currency,
-              value,
-            },
-          },
-        ],
-        application_context: {
-          brand_name: 'Client Craft',
-          landing_page: 'NO_PREFERENCE',
-          user_action: 'PAY_NOW',
-          return_url: `${APP_URL}/clients/${clientId}/payment/success`,
-          cancel_url: `${APP_URL}/clients/${clientId}?payment=cancelled`,
-        },
-      }),
-    })
-
-    const approvalLink = order.links?.find((l) => l.rel === 'approve')?.href
-    pendingOrders.set(order.id, {
+    const order = await createPayPalOrder({
       clientId,
-      amount: value,
+      amount,
       currency,
-      description: description || '',
+      description,
+      returnPath: returnPath ?? `/clients/${clientId}/payment/success`,
+      cancelPath: cancelPath ?? `/clients/${clientId}?payment=cancelled`,
     })
-
     res.json({
-      orderId: order.id,
-      approvalUrl: approvalLink,
+      orderId: order.orderId,
+      approvalUrl: order.approvalUrl,
     })
   } catch (err) {
     console.error('create-order', err)
@@ -157,25 +89,13 @@ app.post('/api/paypal/capture-order', async (req, res) => {
     const { orderId } = req.body
     if (!orderId) return res.status(400).json({ error: 'orderId is required' })
 
-    const capture = await paypalFetch(`/v2/checkout/orders/${orderId}/capture`, {
-      method: 'POST',
-    })
+    const result = await capturePayPalOrder(orderId)
 
-    const unit = capture.purchase_units?.[0]
-    const clientId = unit?.payments?.captures?.[0]?.custom_id || unit?.custom_id || pendingOrders.get(orderId)?.clientId
-    const payment = unit?.payments?.captures?.[0]
-    const meta = pendingOrders.get(orderId)
+    if (result.clientId) {
+      updateStore((s) => applyPaymentToStore(s, result.clientId, result))
+    }
 
-    pendingOrders.delete(orderId)
-
-    res.json({
-      orderId: capture.id,
-      captureId: payment?.id,
-      clientId,
-      amount: payment?.amount?.value || meta?.amount,
-      currency: payment?.amount?.currency_code || meta?.currency || 'USD',
-      status: capture.status,
-    })
+    res.json(result)
   } catch (err) {
     console.error('capture-order', err)
     res.status(500).json({ error: err.message })
@@ -206,8 +126,8 @@ app.post('/api/paypal/webhook', async (req, res) => {
 })
 
 async function verifyWebhook(req) {
-  const token = await getAccessToken()
-  const res = await fetch(`${PAYPAL_API}/v1/notifications/verify-webhook-signature`, {
+  const token = await getPayPalAccessToken()
+  const res = await fetch(`${getPayPalApiBase()}/v1/notifications/verify-webhook-signature`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -229,5 +149,8 @@ async function verifyWebhook(req) {
 
 app.listen(PORT, () => {
   console.log(`Client Craft API → http://localhost:${PORT}`)
-  console.log(`PayPal mode: ${MODE}`, CLIENT_ID ? '(credentials loaded)' : '(missing credentials)')
+  console.log(
+    `PayPal mode: ${MODE}`,
+    isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'
+  )
 })

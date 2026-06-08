@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { UserPlus, Users } from 'lucide-react'
-import { AddClientModal, type AddClientInitialValues } from '@/components/clients/AddClientModal'
+import { useNavigate } from 'react-router-dom'
+import { FileSignature, Loader2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
+import { apiFetch, ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import type { PendingRegistration } from '@/types'
 
@@ -13,6 +14,7 @@ interface NewRegistrationsModalProps {
   registrations: PendingRegistration[]
   onRefresh: () => void
   onListRefresh: () => void
+  onMarkNotificationsRead?: () => void
 }
 
 export function NewRegistrationsModal({
@@ -21,87 +23,86 @@ export function NewRegistrationsModal({
   registrations,
   onRefresh,
   onListRefresh,
+  onMarkNotificationsRead,
 }: NewRegistrationsModalProps) {
-  const [addOpen, setAddOpen] = useState(false)
-  const [selected, setSelected] = useState<PendingRegistration | null>(null)
+  const navigate = useNavigate()
+  const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) {
-      setAddOpen(false)
-      setSelected(null)
+      setAcceptingId(null)
+      setError('')
     } else {
       onListRefresh()
+      onMarkNotificationsRead?.()
     }
-  }, [open, onListRefresh])
+  }, [open, onListRefresh, onMarkNotificationsRead])
 
-  const handleAddClient = (registration: PendingRegistration) => {
-    setSelected(registration)
-    setAddOpen(true)
+  const handleAccept = async (registration: PendingRegistration) => {
+    setAcceptingId(registration.id)
+    setError('')
+    try {
+      const result = await apiFetch<{
+        client: { id: string }
+        contract: { id: string } | null
+      }>(`/api/data/accept-registration/${registration.id}`, {
+        method: 'POST',
+      })
+      onRefresh()
+      onClose()
+      navigate(`/clients/${result.client.id}/contract`)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not accept registration')
+    } finally {
+      setAcceptingId(null)
+    }
   }
-
-  const handleClientAdded = () => {
-    setAddOpen(false)
-    setSelected(null)
-    onRefresh()
-  }
-
-  const initialValues: AddClientInitialValues | undefined = selected
-    ? {
-        name: selected.name,
-        email: selected.email,
-        businessName: selected.name,
-        projectName: `${selected.name} Project`,
-        notes: `Added from portal registration on ${formatDate(selected.createdAt)}.`,
-      }
-    : undefined
 
   return (
-    <>
-      <Modal open={open} onClose={onClose} title="New Registrations" size="lg">
-        {registrations.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No pending sign-ups"
-            description="When clients register at the portal without a matching profile, they'll appear here."
-          />
-        ) : (
-          <ul className="divide-y divide-line">
-            {registrations.map((registration) => (
-              <li
-                key={registration.id}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+    <Modal open={open} onClose={onClose} title="New Registrations" size="lg">
+      {error && (
+        <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
+          {error}
+        </p>
+      )}
+      {registrations.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No pending sign-ups"
+          description="When someone registers at the client portal, you'll be notified and they will appear here."
+        />
+      ) : (
+        <ul className="divide-y divide-line">
+          {registrations.map((registration) => (
+            <li
+              key={registration.id}
+              className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold text-ink">{registration.name}</p>
+                <p className="truncate text-sm text-ink-muted">{registration.email}</p>
+                <p className="mt-1 text-xs text-ink-faint">
+                  Registered {formatDate(registration.createdAt)}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="shrink-0"
+                disabled={acceptingId === registration.id}
+                onClick={() => handleAccept(registration)}
               >
-                <div className="min-w-0">
-                  <p className="font-semibold text-ink">{registration.name}</p>
-                  <p className="truncate text-sm text-ink-muted">{registration.email}</p>
-                  <p className="mt-1 text-xs text-ink-faint">
-                    Registered {formatDate(registration.createdAt)}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => handleAddClient(registration)}
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Add Client
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
-
-      <AddClientModal
-        open={addOpen}
-        onClose={() => {
-          setAddOpen(false)
-          setSelected(null)
-        }}
-        initialValues={initialValues}
-        registrationUserId={selected?.id}
-        onAdded={handleClientAdded}
-      />
-    </>
+                {acceptingId === registration.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileSignature className="h-4 w-4" />
+                )}
+                Accept User and Start Contract Draft
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
   )
 }

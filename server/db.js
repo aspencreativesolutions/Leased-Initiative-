@@ -21,6 +21,7 @@ const DEFAULT_STORE = {
     defaultContractFooter: 'Thank you for your business.',
   },
   projectFiles: [],
+  adminNotifications: [],
 }
 
 function ensureDataDir() {

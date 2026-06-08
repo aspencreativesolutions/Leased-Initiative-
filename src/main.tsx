@@ -1,10 +1,14 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { initTheme } from '@/themes/applyTheme'
+import { initPortalTheme, initTheme, isPortalPath } from '@/themes/applyTheme'
 import App from './App'
 import './index.css'
 
-initTheme()
+if (isPortalPath(window.location.pathname)) {
+  initPortalTheme()
+} else {
+  initTheme()
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

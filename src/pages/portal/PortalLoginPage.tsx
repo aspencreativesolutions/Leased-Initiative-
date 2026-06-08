@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 
 export function PortalLoginPage() {
   const { login } = useAuth()
@@ -80,6 +81,9 @@ export function PortalLoginPage() {
               Create an account
             </Link>
           </p>
+          <div className="mt-4 flex justify-center">
+            <PortalStyleButton variant="outline" />
+          </div>
         </Card>
       </div>
     </div>

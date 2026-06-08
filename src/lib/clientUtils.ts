@@ -90,6 +90,38 @@ export function isPendingClient(client: Client): boolean {
   return !client.isOfficialClient
 }
 
+export function isContractSigned(client: Client): boolean {
+  return SIGNED_CONTRACT_STATUSES.includes(
+    client.contractStatus as (typeof SIGNED_CONTRACT_STATUSES)[number]
+  )
+}
+
+export function hasPaymentLinkClicked(client: Client): boolean {
+  return (
+    client.paymentStatus === 'Pay Link Clicked' ||
+    client.paymentStatus === 'Deposit Paid' ||
+    client.paymentStatus === 'Paid' ||
+    Boolean(client.invoice?.paymentLinkClickedAt) ||
+    Boolean(client.timelineStepSkips?.pay_link_clicked)
+  )
+}
+
+export function canStartProject(client: Client): boolean {
+  return (
+    isContractSigned(client) &&
+    hasPaymentLinkClicked(client) &&
+    !client.projectStartedAt
+  )
+}
+
+export function isProjectActive(client: Client): boolean {
+  return Boolean(
+    client.projectStartedAt ||
+      client.projectStatus === 'In Progress' ||
+      client.timelineStepSkips?.project_started
+  )
+}
+
 export function countOfficialClients(clients: Client[]): number {
   return clients.filter((c) => c.isOfficialClient).length
 }

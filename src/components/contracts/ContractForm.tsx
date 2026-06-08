@@ -41,7 +41,7 @@ function emptyContract(client: Client, settings: BusinessSettings): ContractData
     email: client.email,
     phone: client.phone,
     clientAddress: '',
-    serviceTier: 'Business' as ServiceTier,
+    serviceTier: (client.serviceTier ?? 'Starter') as ServiceTier,
     projectTitle: client.projectName,
     projectScope: client.projectDescription || '',
     servicesIncluded: '',
