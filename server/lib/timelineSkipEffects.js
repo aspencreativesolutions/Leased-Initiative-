@@ -1,6 +1,13 @@
 import { generateId } from './notifications.js'
 import { buildDepositInvoice } from './invoice.js'
+import { ensureDepositInvoiceRecord } from './portalPayments.js'
+import { promoteToOfficialClient } from './clientWorkflow.js'
+import { isSignatureStale } from './contractReview.js'
 import { TIMELINE_STEP_ORDER } from './timelineSteps.js'
+
+function isContractSigned(contract) {
+  return Boolean(contract?.signedAt && contract?.confirmedByClient && !isSignatureStale(contract))
+}
 
 const PORTAL_SKIP_DETAIL = 'Advanced by your designer'
 
@@ -9,7 +16,7 @@ function stepAlreadyReal(stepId, client, contract) {
     case 'contract_sent':
       return Boolean(contract?.sentAt)
     case 'contract_signed':
-      return Boolean(contract?.signedAt)
+      return isContractSigned(contract)
     case 'invoice_sent':
       return Boolean(client.invoice?.sentToPortalAt)
     case 'pay_link_clicked':
@@ -90,12 +97,14 @@ function applyContractSigned(contract, client, now) {
   return { contract: nextContract, client: nextClient }
 }
 
-function applyInvoiceSent(client, now) {
-  if (!client.invoice || client.invoice.sentToPortalAt) return client
+function applyInvoiceSent(client, contract, now) {
+  const invoice = ensureDepositInvoiceRecord(client, contract, now)
+  if (!invoice) return client
+  if (invoice.sentToPortalAt) return { ...client, invoice }
   return {
     ...client,
     invoice: {
-      ...client.invoice,
+      ...invoice,
       sentToPortalAt: now,
     },
   }
@@ -119,31 +128,45 @@ function applyPayLinkClicked(client, now) {
   }
 }
 
-function applyPaymentConfirmed(client, now) {
+function applyPaymentConfirmed(client, contract, now) {
   if (client.depositPaymentConfirmedAt || client.invoice?.paidAt) return client
+  let invoice = client.invoice ?? ensureDepositInvoiceRecord(client, contract, now)
+  if (invoice) {
+    invoice = {
+      ...invoice,
+      paidAt: now,
+      sentToPortalAt: invoice.sentToPortalAt ?? now,
+    }
+  }
   return {
     ...client,
     paymentStatus: 'Deposit Paid',
     depositPaymentConfirmedAt: now,
+    ...(invoice ? { invoice } : {}),
   }
 }
 
 function applyProjectStarted(client, now) {
-  if (client.projectStartedAt) return client
-  return {
-    ...client,
-    projectStatus: 'In Progress',
-    projectStartedAt: now,
-    notes: [
-      ...(client.notes ?? []),
-      {
-        id: generateId(),
-        text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
-        category: 'Project',
-        createdAt: now,
-      },
-    ],
+  if (client.projectStartedAt) {
+    return promoteToOfficialClient(client, now)
   }
+  return promoteToOfficialClient(
+    {
+      ...client,
+      projectStatus: 'In Progress',
+      projectStartedAt: now,
+      notes: [
+        ...(client.notes ?? []),
+        {
+          id: generateId(),
+          text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
+          category: 'Project',
+          createdAt: now,
+        },
+      ],
+    },
+    now
+  )
 }
 
 export function applyStepSkipEffect(stepId, client, contract, now) {
@@ -157,11 +180,11 @@ export function applyStepSkipEffect(stepId, client, contract, now) {
     case 'contract_signed':
       return applyContractSigned(contract, client, now)
     case 'invoice_sent':
-      return { client: applyInvoiceSent(client, now), contract }
+      return { client: applyInvoiceSent(client, contract, now), contract }
     case 'pay_link_clicked':
       return { client: applyPayLinkClicked(client, now), contract }
     case 'payment_confirmed':
-      return { client: applyPaymentConfirmed(client, now), contract }
+      return { client: applyPaymentConfirmed(client, contract, now), contract }
     case 'project_started':
       return { client: applyProjectStarted(client, now), contract }
     case 'file_activity':

@@ -1,5 +1,17 @@
-import type { BusinessSettings, Client } from '@/types'
+import type { BusinessSettings, Client, ProfileReminder } from '@/types'
 import { generateId } from '@/lib/storage'
+
+/** June 9, 2026 + 90 days */
+export const STRIPE_TOKEN_EXPIRY_DATE = '2026-09-07'
+
+export const defaultProfileReminders: ProfileReminder[] = [
+  {
+    id: 'stripe-token-expiry',
+    text: 'Stripe access token expires on September 7, 2026. Renew before this date to avoid payment interruptions.',
+    dueDate: STRIPE_TOKEN_EXPIRY_DATE,
+    createdAt: '2026-06-09T00:00:00.000Z',
+  },
+]
 
 export const defaultSettings: BusinessSettings = {
   businessName: 'Your Studio',
@@ -11,6 +23,7 @@ export const defaultSettings: BusinessSettings = {
   defaultRevisionLimit: '2',
   defaultContractFooter:
     'This agreement constitutes the entire understanding between the parties. Any modifications must be in writing and signed by both parties.',
+  profileReminders: defaultProfileReminders,
 }
 
 function daysFromNow(days: number): string {
@@ -52,13 +65,18 @@ export function seedClients(): Client[] {
           id: generateId(),
           type: 'project',
           date: daysFromNow(14),
+          time: '17:00',
           label: 'Homepage mockup delivery',
+          description:
+            'First-round homepage mockups will be shared for review. Prepare consolidated feedback on layout, typography, and imagery so revisions can begin immediately.',
         },
         {
           id: generateId(),
           type: 'payment',
           date: daysFromNow(30),
           label: 'Final payment due',
+          description:
+            'Remaining project balance is due upon delivery approval. Confirm your PayPal details are ready and review the final invoice before this date.',
         },
       ],
       isSampleClient: true,
@@ -77,14 +95,25 @@ export function seedClients(): Client[] {
       paymentStatus: 'Unpaid',
       serviceTier: 'Business',
       isOfficialClient: false,
-      followUpDate: daysFromNow(1),
       notes: [],
       deadlines: [
+        {
+          id: generateId(),
+          type: 'follow-up',
+          date: daysFromNow(1),
+          time: '10:30',
+          meetingLink: 'https://meet.example.com/chen-architecture-followup',
+          label: 'Contract review call',
+          description:
+            'Walk through the sent contract together — scope, timeline, deposit, and revision terms. Have any questions ready and confirm who will sign on your side.',
+        },
         {
           id: generateId(),
           type: 'contract',
           date: daysFromNow(5),
           label: 'Contract signature follow-up',
+          description:
+            'If the contract is still unsigned, follow up on outstanding questions and confirm whether any edits are needed before signing.',
         },
       ],
       isSampleClient: true,
@@ -116,7 +145,11 @@ export function seedClients(): Client[] {
           id: generateId(),
           type: 'follow-up',
           date: daysFromNow(7),
+          time: '15:00',
+          meetingLink: 'https://meet.example.com/rodriguez-wellness-discovery',
           label: 'Discovery call',
+          description:
+            'Introductory discovery session for the brand identity package. Discuss target audience, brand personality, deliverables (logo + social templates), and timeline. Please prepare inspiration references, competitor examples, and any existing brand assets.',
         },
       ],
       isSampleClient: true,
@@ -168,6 +201,8 @@ export function seedClients(): Client[] {
           type: 'payment',
           date: daysFromNow(-2),
           label: 'Monthly maintenance invoice',
+          description:
+            'Monthly maintenance retainer payment is past due. Send a reminder with the invoice link and confirm whether any site updates are needed once payment is received.',
         },
       ],
       isSampleClient: true,

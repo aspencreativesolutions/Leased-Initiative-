@@ -1,15 +1,33 @@
 import type { Deadline } from '@/types'
 
-export function formatDate(dateStr?: string): string {
-  if (!dateStr) return '—'
+function parseDate(dateStr?: string): Date | null {
+  if (!dateStr) return null
   const d = dateStr.includes('T')
     ? new Date(dateStr)
     : new Date(`${dateStr}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return '—'
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export function formatDate(dateStr?: string): string {
+  const d = parseDate(dateStr)
+  if (!d) return '—'
   return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+  })
+}
+
+/** Date + time — used on project timeline actions */
+export function formatDateTime(dateStr?: string): string {
+  const d = parseDate(dateStr)
+  if (!d) return '—'
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
 }
 

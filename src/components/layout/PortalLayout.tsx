@@ -51,9 +51,20 @@ export function PortalNavbar() {
           </NavLink>
           <PortalStyleButton />
           {user && (
-            <span className="hidden text-[11px] text-nav-fg-muted md:inline">
+            <NavLink
+              to="/portal/profile"
+              title="My profile"
+              className={({ isActive }) =>
+                cn(
+                  'max-w-[7rem] truncate text-[11px] font-semibold transition-colors sm:max-w-none',
+                  isActive
+                    ? 'text-nav-fg underline decoration-nav-active underline-offset-4'
+                    : 'text-nav-fg-muted hover:text-nav-fg hover:underline hover:underline-offset-4'
+                )
+              }
+            >
               {user.name}
-            </span>
+            </NavLink>
           )}
           <Button
             variant="ghost"
@@ -74,8 +85,10 @@ export function PortalLayout() {
   return (
     <div className="min-h-screen bg-surface">
       <PortalNavbar />
-      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <Outlet />
+      <main className="w-full px-4 py-8 sm:px-6 sm:py-8 lg:px-10 xl:px-12">
+        <div className="mx-auto w-full min-w-0">
+          <Outlet />
+        </div>
       </main>
       <footer className="border-t border-line py-6 text-center text-xs text-ink-faint">
         Need help? Contact your designer for assistance with your account.

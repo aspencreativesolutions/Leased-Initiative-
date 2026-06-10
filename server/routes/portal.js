@@ -7,25 +7,133 @@ import {
   saveUploadedFile,
   addNoteToFile,
   getFileDownloadPath,
+  deleteProjectFile,
   uploadMiddleware,
 } from '../lib/fileUpload.js'
-import {
-  getPortalContractStatus,
-  getPortalClientContractStatus,
-} from '../lib/portalContractStatus.js'
+import { getPortalClientContractStatus } from '../lib/portalContractStatus.js'
 import { repairSentContracts } from '../lib/contractMerge.js'
 import { isProjectActive } from '../lib/clientWorkflow.js'
 import { buildProjectTimeline } from '../lib/projectTimeline.js'
+import {
+  clientCanSignContract,
+  getPortalContractStatus,
+  needsClientResign,
+  prepareContractForClientReview,
+} from '../lib/contractReview.js'
 import { ensureClientFileSharing } from '../lib/ensureFileSharing.js'
+import {
+  buildPortalDepositInvoice,
+  buildPortalFinalInvoice,
+  buildPortalRemainingBalance,
+  resolvePortalPaymentStatus,
+} from '../lib/portalPayments.js'
 import { generateId, pushAdminNotification } from '../lib/notifications.js'
+import { verifySquareOrderPayment } from '../lib/square.js'
+import { applyPaymentToStore } from '../lib/payments.js'
 
 const router = Router()
 
 router.use(authMiddleware, requireRole('client'))
 
+function getPortalUserContext(store, userId) {
+  const user = store.users.find((u) => u.id === userId)
+  if (!user) return null
+  const client = user.clientId
+    ? store.clients.find((c) => c.id === user.clientId)
+    : null
+  return { user, client, settings: store.settings }
+}
+
+function buildPortalProfilePayload({ user, client, settings, store }) {
+  const sentContracts = client
+    ? store.contracts.filter((c) => c.clientId === client.id && c.sentAt)
+    : []
+
+  const projects = sentContracts.map((contract) => ({
+    contractId: contract.id,
+    projectTitle: contract.projectTitle,
+    serviceTier: contract.serviceTier || client?.serviceTier || 'Starter',
+    developerName: settings.ownerName || 'Your designer',
+    businessName: settings.businessName || 'Your studio',
+    sentAt: contract.sentAt,
+    signedAt: contract.signedAt,
+  }))
+
+  return {
+    email: user.email,
+    name: user.name,
+    phone: client?.phone?.trim() || user.phone?.trim() || '',
+    linked: Boolean(client),
+    projects,
+  }
+}
+
+/** Client profile — account details and project roster */
+router.get('/profile', (req, res) => {
+  const store = readStore()
+  const ctx = getPortalUserContext(store, req.user.id)
+  if (!ctx) return res.status(404).json({ error: 'User not found' })
+  res.json(buildPortalProfilePayload({ ...ctx, store }))
+})
+
+router.patch('/profile', (req, res) => {
+  try {
+    const { name, phone } = req.body ?? {}
+    const store = readStore()
+    const ctx = getPortalUserContext(store, req.user.id)
+    if (!ctx) return res.status(404).json({ error: 'User not found' })
+
+    const trimmedName =
+      typeof name === 'string' && name.trim() ? name.trim() : undefined
+    const trimmedPhone = typeof phone === 'string' ? phone.trim() : undefined
+
+    if (name !== undefined && !trimmedName) {
+      return res.status(400).json({ error: 'Name is required' })
+    }
+
+    let nextUser = ctx.user
+    let nextClient = ctx.client
+
+    updateStore((s) => {
+      const users = s.users.map((u) => {
+        if (u.id !== ctx.user.id) return u
+        nextUser = {
+          ...u,
+          ...(trimmedName ? { name: trimmedName } : {}),
+          ...(trimmedPhone !== undefined ? { phone: trimmedPhone } : {}),
+        }
+        return nextUser
+      })
+
+      const clients = s.clients.map((c) => {
+        if (!ctx.client || c.id !== ctx.client.id) return c
+        nextClient = {
+          ...c,
+          ...(trimmedName ? { name: trimmedName } : {}),
+          ...(trimmedPhone !== undefined ? { phone: trimmedPhone } : {}),
+        }
+        return nextClient
+      })
+
+      return { ...s, users, clients }
+    })
+
+    res.json(
+      buildPortalProfilePayload({
+        user: nextUser,
+        client: nextClient,
+        settings: store.settings,
+        store: readStore(),
+      })
+    )
+  } catch (err) {
+    console.error('portal profile update', err)
+    res.status(500).json({ error: 'Could not update profile' })
+  }
+})
+
 /** Client dashboard — own profile + contracts */
 router.get('/dashboard', (req, res) => {
-  const store = readStore()
   const clientId = req.user.clientId
 
   if (!clientId) {
@@ -41,13 +149,15 @@ router.get('/dashboard', (req, res) => {
 
   ensureClientFileSharing(clientId)
 
-  const repairedStore = repairSentContracts(readStore(), clientId)
-  if (repairedStore !== store) {
+  const freshStore = readStore()
+  const repairedStore = repairSentContracts(freshStore, clientId)
+  if (repairedStore !== freshStore) {
     updateStore(() => repairedStore)
   }
 
-  const client = repairedStore.clients.find((c) => c.id === clientId)
-  const sentContracts = repairedStore.contracts.filter(
+  const activeStore = repairedStore !== freshStore ? repairedStore : freshStore
+  const client = activeStore.clients.find((c) => c.id === clientId)
+  const sentContracts = activeStore.contracts.filter(
     (c) => c.clientId === clientId && c.sentAt
   )
 
@@ -63,45 +173,12 @@ router.get('/dashboard', (req, res) => {
     portalStatus: getPortalContractStatus(c),
   }))
 
-  const portalInvoice =
-    client?.invoice?.sentToPortalAt && !client.invoice.paidAt
-      ? {
-          amount: client.invoice.amount,
-          currency: client.invoice.currency,
-          description: client.invoice.description,
-          paymentLink: client.invoice.paymentLink,
-          sentToPortalAt: client.invoice.sentToPortalAt,
-          invoiceType: 'deposit',
-        }
-      : client?.invoice?.paidAt
-        ? {
-            amount: client.invoice.amount,
-            currency: client.invoice.currency,
-            description: client.invoice.description,
-            paidAt: client.invoice.paidAt,
-            invoiceType: 'deposit',
-          }
-        : null
+  const primaryContract =
+    sentContracts[0] ?? activeStore.contracts.find((c) => c.clientId === clientId)
 
-  const portalFinalInvoice =
-    client?.finalInvoice?.sentToPortalAt && !client.finalInvoice.paidAt
-      ? {
-          amount: client.finalInvoice.amount,
-          currency: client.finalInvoice.currency,
-          description: client.finalInvoice.description,
-          paymentLink: client.finalInvoice.paymentLink,
-          sentToPortalAt: client.finalInvoice.sentToPortalAt,
-          invoiceType: 'final',
-        }
-      : client?.finalInvoice?.paidAt
-        ? {
-            amount: client.finalInvoice.amount,
-            currency: client.finalInvoice.currency,
-            description: client.finalInvoice.description,
-            paidAt: client.finalInvoice.paidAt,
-            invoiceType: 'final',
-          }
-        : null
+  const portalInvoice = buildPortalDepositInvoice(client, primaryContract)
+  const portalFinalInvoice = buildPortalFinalInvoice(client)
+  const remainingBalance = buildPortalRemainingBalance(client, primaryContract)
 
   res.json({
     linked: true,
@@ -114,20 +191,21 @@ router.get('/dashboard', (req, res) => {
           projectName: client.projectName,
           projectStatus: client.projectStatus,
           contractStatus: client.contractStatus,
-          paymentStatus: client.paymentStatus,
+          paymentStatus: resolvePortalPaymentStatus(client),
           portalContractStatus: getPortalClientContractStatus(sentContracts),
         }
       : null,
     contracts: contractSummaries,
     invoice: portalInvoice,
     finalInvoice: portalFinalInvoice,
+    remainingBalance,
     projectStarted: isProjectActive(client ?? {}),
     projectStartedAt: client?.projectStartedAt,
     supportContact: {
-      businessName: store.settings.businessName,
-      ownerName: store.settings.ownerName,
-      email: store.settings.email,
-      phone: store.settings.phone,
+      businessName: activeStore.settings.businessName,
+      ownerName: activeStore.settings.ownerName,
+      email: activeStore.settings.email,
+      phone: activeStore.settings.phone,
     },
   })
 })
@@ -209,6 +287,63 @@ router.post('/invoice/click', (req, res) => {
 
 /** Full contract detail for client review */
 router.get('/contracts/:contractId', (req, res) => {
+  let store = readStore()
+  let contract = store.contracts.find((c) => c.id === req.params.contractId)
+
+  if (!contract) {
+    return res.status(404).json({ error: 'Contract not found' })
+  }
+
+  if (contract.clientId !== req.user.clientId) {
+    return res.status(403).json({ error: 'Access denied' })
+  }
+
+  if (!contract.sentAt) {
+    return res.status(403).json({ error: 'This contract is not available yet' })
+  }
+
+  const client = store.clients.find((c) => c.id === contract.clientId)
+  if (needsClientResign(contract, client)) {
+    const now = new Date().toISOString()
+    updateStore((s) => ({
+      ...s,
+      contracts: s.contracts.map((c) =>
+        c.id === contract.id ? prepareContractForClientReview(c, now) : c
+      ),
+      clients: s.clients.map((c) =>
+        c.id === contract.clientId
+          ? {
+              ...c,
+              contractStatus: 'Sent',
+              projectStatus: c.projectStartedAt ? c.projectStatus : 'Contract Sent',
+              isOfficialClient: c.depositPaymentConfirmedAt || c.invoice?.paidAt ? c.isOfficialClient : false,
+              officialClientSince:
+                c.depositPaymentConfirmedAt || c.invoice?.paidAt
+                  ? c.officialClientSince
+                  : undefined,
+              invoice:
+                c.depositPaymentConfirmedAt || c.invoice?.paidAt ? c.invoice : undefined,
+            }
+          : c
+      ),
+    }))
+    store = readStore()
+    contract = store.contracts.find((c) => c.id === req.params.contractId)
+  }
+
+  res.json({
+    contract,
+    portalStatus: getPortalContractStatus(contract),
+    canSign: clientCanSignContract(contract),
+    settings: {
+      businessName: store.settings.businessName,
+      ownerName: store.settings.ownerName,
+    },
+  })
+})
+
+/** Client confirms they have read the current version of the contract */
+router.post('/contracts/:contractId/review', (req, res) => {
   const store = readStore()
   const contract = store.contracts.find((c) => c.id === req.params.contractId)
 
@@ -224,25 +359,23 @@ router.get('/contracts/:contractId', (req, res) => {
     return res.status(403).json({ error: 'This contract is not available yet' })
   }
 
-  const now = new Date().toISOString()
-  const viewedAt = contract.viewedAt ?? now
-  if (!contract.viewedAt) {
-    updateStore((s) => ({
-      ...s,
-      contracts: s.contracts.map((c) =>
-        c.id === contract.id ? { ...c, viewedAt: now } : c
-      ),
-    }))
+  if (contract.confirmedByClient && !needsClientResign(contract, store.clients.find((c) => c.id === contract.clientId))) {
+    return res.status(400).json({ error: 'Contract is already signed' })
   }
 
-  const updatedContract = { ...contract, viewedAt }
+  const now = new Date().toISOString()
+  updateStore((s) => ({
+    ...s,
+    contracts: s.contracts.map((c) =>
+      c.id === contract.id ? { ...c, viewedAt: now } : c
+    ),
+  }))
+
+  const updated = { ...contract, viewedAt: now }
   res.json({
-    contract: updatedContract,
-    portalStatus: getPortalContractStatus(updatedContract),
-    settings: {
-      businessName: store.settings.businessName,
-      ownerName: store.settings.ownerName,
-    },
+    ok: true,
+    portalStatus: getPortalContractStatus(updated),
+    canSign: clientCanSignContract(updated),
   })
 })
 
@@ -356,6 +489,50 @@ router.get('/files/:fileId/download', (req, res) => {
     return res.status(404).json({ error: 'File not found' })
   }
   res.download(result.filePath, result.file.originalName)
+})
+
+router.delete('/files/:fileId', (req, res) => {
+  ensureClientFileSharing(req.user.clientId)
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === req.user.clientId)
+  if (!client) return res.status(404).json({ error: 'Client profile not found' })
+  if (!isProjectActive(client)) {
+    return res.status(403).json({ error: 'File sharing is not available yet' })
+  }
+
+  const deleted = deleteProjectFile(req.params.fileId, {
+    clientId: client.id,
+    uploadedBy: 'client',
+  })
+  if (!deleted) {
+    return res.status(404).json({ error: 'File not found or cannot be removed' })
+  }
+
+  res.json({ ok: true, file: deleted })
+})
+
+/** Confirm Square payment after hosted checkout redirect */
+router.post('/verify-square-payment', async (req, res) => {
+  try {
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === req.user.clientId)
+    if (!client) return res.status(404).json({ error: 'Client profile not found' })
+
+    const pendingOrderId =
+      (!client.finalInvoice?.paidAt && client.finalInvoice?.squareOrderId) ||
+      (!client.invoice?.paidAt && client.invoice?.squareOrderId)
+
+    if (!pendingOrderId) {
+      return res.status(400).json({ error: 'No pending Square invoice found for this account' })
+    }
+
+    const result = await verifySquareOrderPayment(pendingOrderId)
+    updateStore((s) => applyPaymentToStore(s, result.clientId, result))
+    res.json(result)
+  } catch (err) {
+    console.error('portal verify-square-payment', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 export default router

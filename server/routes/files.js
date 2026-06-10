@@ -6,6 +6,7 @@ import {
   listClientFiles,
   saveUploadedFile,
   getFileDownloadPath,
+  deleteProjectFile,
   uploadMiddleware,
 } from '../lib/fileUpload.js'
 
@@ -49,6 +50,12 @@ router.get('/:fileId/download', (req, res) => {
   const result = getFileDownloadPath(req.params.fileId)
   if (!result) return res.status(404).json({ error: 'File not found' })
   res.download(result.filePath, result.file.originalName)
+})
+
+router.delete('/:fileId', (req, res) => {
+  const deleted = deleteProjectFile(req.params.fileId)
+  if (!deleted) return res.status(404).json({ error: 'File not found' })
+  res.json({ ok: true, file: deleted })
 })
 
 export default router

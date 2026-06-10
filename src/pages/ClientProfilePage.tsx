@@ -8,17 +8,22 @@ import {
   CheckCircle,
   StickyNote,
   ExternalLink,
+  UserMinus,
 } from 'lucide-react'
 import { NotesSection } from '@/components/clients/NotesSection'
 import { AddNoteModal } from '@/components/clients/AddNoteModal'
 import { MarkOfficialClientCard } from '@/components/clients/MarkOfficialClientCard'
+import { RemoveClientModal } from '@/components/clients/RemoveClientModal'
 import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
 import { ClientInvoiceCard } from '@/components/payments/ClientInvoiceCard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
-import { ClientStatusOverview } from '@/components/clients/ClientStatusOverview'
+import {
+  ClientStatusOverview,
+  ContractStatusProgress,
+} from '@/components/clients/ClientStatusOverview'
 import { ProjectTimeline } from '@/components/clients/ProjectTimeline'
 import { ProjectFilesSection } from '@/components/files/ProjectFilesSection'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -32,10 +37,11 @@ export function ClientProfilePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const { getClient, updateClient } = useApp()
+  const { getClient, updateClient, refresh } = useApp()
   const client = id ? getClient(id) : undefined
   const [editOpen, setEditOpen] = useState(false)
   const [noteQuickOpen, setNoteQuickOpen] = useState(false)
+  const [removeOpen, setRemoveOpen] = useState(false)
 
   useEffect(() => {
     if (location.hash === '#project-files') {
@@ -112,6 +118,10 @@ export function ClientProfilePage() {
               <CheckCircle className="h-4 w-4" />
               Mark Follow-Up Complete
             </Button>
+            <Button variant="danger" size="sm" onClick={() => setRemoveOpen(true)}>
+              <UserMinus className="h-4 w-4" />
+              Remove Client
+            </Button>
           </div>
         }
       />
@@ -121,6 +131,8 @@ export function ClientProfilePage() {
         projectStatus={client.projectStatus}
         contractStatus={client.contractStatus}
         paymentStatus={client.paymentStatus}
+        projectStarted={Boolean(client.projectStartedAt)}
+        showProgress={false}
       />
 
       <ProjectTimeline client={client} />
@@ -207,18 +219,19 @@ export function ClientProfilePage() {
 
         <Card>
           <CardHeader title="Contract Information" />
-          <dl className="space-y-3 text-sm">
+          <div className="space-y-4 text-sm">
+            <ContractStatusProgress status={client.contractStatus} />
             <div className="flex items-center justify-between">
-              <dt className="text-stone-500">Status</dt>
+              <span className="text-stone-500">Status</span>
               <StatusBadge type="contract" status={client.contractStatus} highlighted />
             </div>
-            <div className="pt-2">
+            <div>
               <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>
                 <FileText className="h-4 w-4" />
                 {client.contractStatus === 'Not Started' ? 'Start Contract' : 'View / Edit Contract'}
               </Button>
             </div>
-          </dl>
+          </div>
         </Card>
 
         <Card>
@@ -298,6 +311,18 @@ export function ClientProfilePage() {
 
       <EditClientModal open={editOpen} onClose={() => setEditOpen(false)} client={client} />
       <AddNoteModal open={noteQuickOpen} onClose={() => setNoteQuickOpen(false)} clientId={client.id} />
+      <RemoveClientModal
+        open={removeOpen}
+        onClose={() => setRemoveOpen(false)}
+        clientId={client.id}
+        clientName={client.name}
+        hasLinkedAccount={Boolean(client.accountUserId)}
+        onRemoved={async () => {
+          setRemoveOpen(false)
+          await refresh()
+          navigate('/clients')
+        }}
+      />
     </div>
   )
 }

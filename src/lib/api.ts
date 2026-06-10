@@ -11,9 +11,18 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  code?: string
+  email?: string
+
+  constructor(
+    message: string,
+    status: number,
+    extra?: { code?: string; email?: string }
+  ) {
     super(message)
     this.status = status
+    this.code = extra?.code
+    this.email = extra?.email
   }
 }
 
@@ -28,19 +37,36 @@ export async function apiFetch<T>(
   }
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(path, { ...options, headers })
+  const serverDownMessage =
+    'API server is not running — stop the app (Ctrl+C in your terminal) and run npm run dev again.'
+
+  let res: Response
+  try {
+    res = await fetch(path, { ...options, headers })
+  } catch {
+    throw new ApiError(serverDownMessage, 0)
+  }
+
   const data = await res.json().catch(() => ({}))
 
   if (!res.ok) {
     let message = data.error || res.statusText || 'Request failed'
     if (!data.error && res.status === 404 && path.startsWith('/api')) {
       message =
-        'API route not found — the server may be out of date. Restart with npm run desktop:stop && npm run desktop'
+        'API route not found — stop the app (Ctrl+C) and run npm run dev again to load the latest server code.'
+    } else if (
+      res.status === 500 &&
+      !data.error &&
+      path.startsWith('/api')
+    ) {
+      message = serverDownMessage
     } else if (res.status === 0 || message === 'Failed to fetch') {
-      message =
-        'API server unavailable — restart with npm run desktop:stop && npm run desktop'
+      message = serverDownMessage
     }
-    throw new ApiError(message, res.status)
+    throw new ApiError(message, res.status, {
+      code: data.code,
+      email: data.email,
+    })
   }
   return data as T
 }

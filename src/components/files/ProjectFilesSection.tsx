@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, Upload, File, Loader2 } from 'lucide-react'
+import { Download, Upload, File, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { downloadProjectFile, fetchClientFiles, uploadClientFile } from '@/lib/filesApi'
+import { ProjectFilePreviewModal } from '@/components/files/ProjectFilePreviewModal'
+import {
+  deleteProjectFileById,
+  downloadProjectFile,
+  fetchClientFiles,
+  getProjectFileDownloadUrl,
+  uploadClientFile,
+} from '@/lib/filesApi'
+import { canPreviewFile } from '@/lib/filePreview'
 import { ApiError } from '@/lib/api'
-import { formatDate, formatFileSize } from '@/lib/utils'
+import { cn, formatDate, formatFileSize } from '@/lib/utils'
 import type { ProjectFile } from '@/types'
 
 interface ProjectFilesSectionProps {
@@ -18,6 +26,9 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -38,6 +49,21 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
     const interval = setInterval(load, 5_000)
     return () => clearInterval(interval)
   }, [load])
+
+  const handleDelete = async (file: ProjectFile) => {
+    setDeletingId(file.id)
+    setError('')
+    try {
+      await deleteProjectFileById(file.id)
+      if (previewFile?.id === file.id) setPreviewFile(null)
+      setDeleteConfirmId(null)
+      await load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not remove file')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -117,7 +143,21 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
                 className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="break-words font-semibold text-ink">{file.originalName}</p>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFile(file)}
+                    className={cn(
+                      'break-words text-left font-semibold text-ink transition-colors',
+                      canPreviewFile(file)
+                        ? 'cursor-pointer hover:text-brand hover:underline'
+                        : 'cursor-pointer hover:text-ink-muted'
+                    )}
+                    title={
+                      canPreviewFile(file) ? 'Click to preview' : 'Click to view file details'
+                    }
+                  >
+                    {file.originalName}
+                  </button>
                   <p className="mt-0.5 text-xs text-ink-muted">
                     {formatFileSize(file.size)} · {file.uploadedByName}{' '}
                     {file.uploadedBy === 'client' ? (
@@ -148,20 +188,70 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
                     </ul>
                   )}
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => downloadProjectFile(file.id, file.originalName)}
-                >
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadProjectFile(file.id, file.originalName)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setDeleteConfirmId((current) => (current === file.id ? null : file.id))
+                    }
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+
+                {deleteConfirmId === file.id && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-sm border border-accent/40 bg-accent-light/30 px-3 py-2">
+                    <p className="text-xs text-ink">
+                      Remove <strong>{file.originalName}</strong>? This cannot be undone.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={deletingId === file.id}
+                      onClick={() => setDeleteConfirmId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={deletingId === file.id}
+                      onClick={() => void handleDelete(file)}
+                    >
+                      {deletingId === file.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Remove file'
+                      )}
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      <ProjectFilePreviewModal
+        open={Boolean(previewFile)}
+        onClose={() => setPreviewFile(null)}
+        file={previewFile}
+        downloadUrl={previewFile ? getProjectFileDownloadUrl(previewFile.id) : null}
+        onDownload={() => {
+          if (!previewFile) return
+          void downloadProjectFile(previewFile.id, previewFile.originalName)
+        }}
+      />
     </section>
   )
 }

@@ -28,7 +28,7 @@ export function SendContractModal({
     `Website Project Contract for ${client.businessName}`
   )
   const [body, setBody] = useState(
-    `Hi ${client.name},\n\nYour contract is ready in your Client Craft portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/portal/login\n\nBest regards`
+    `Hi ${client.name},\n\nYour contract is ready in your Client Craft portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/login\n\nBest regards`
   )
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -173,7 +173,7 @@ export function SendContractModal({
             <div className="space-y-4">
               <p className="text-sm text-ink-muted">
                 Sends the contract to <strong>{client.name}</strong>&apos;s client portal account.
-                They must register at <code className="text-xs">/portal/register</code> with email{' '}
+                They must register at <code className="text-xs">/register</code> with email{' '}
                 <strong>{client.email}</strong> if they haven&apos;t already.
               </p>
               <Input label="Client email" value={client.email} readOnly />

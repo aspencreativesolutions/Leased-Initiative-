@@ -117,3 +117,23 @@ export function getFileDownloadPath(fileId) {
   if (!fs.existsSync(filePath)) return null
   return { file, filePath }
 }
+
+export function deleteProjectFile(fileId, { clientId, uploadedBy } = {}) {
+  const store = readStore()
+  const file = (store.projectFiles ?? []).find((f) => f.id === fileId)
+  if (!file) return null
+  if (clientId && file.clientId !== clientId) return null
+  if (uploadedBy && file.uploadedBy !== uploadedBy) return null
+
+  const filePath = path.join(ensureUploadsDir(file.clientId), file.storedName)
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath)
+  }
+
+  updateStore((s) => ({
+    ...s,
+    projectFiles: (s.projectFiles ?? []).filter((f) => f.id !== fileId),
+  }))
+
+  return file
+}

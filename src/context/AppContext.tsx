@@ -17,6 +17,10 @@ import type {
   ServiceTier,
 } from '@/types'
 import { buildServiceTierChangeResult, paymentStatusAfterCapture } from '@/lib/clientUtils'
+import {
+  hasContractContentChanged,
+  stripPortalDeliveryFields,
+} from '@/lib/contractReview'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import {
@@ -73,16 +77,20 @@ async function persistAdminData(
     method: 'PUT',
     body: JSON.stringify({ clients }),
   })
-  await apiFetch('/api/data/contracts', {
-    method: 'PUT',
-    body: JSON.stringify({ contracts }),
-  })
+  const contractResult = await apiFetch<{ ok: boolean; revisedClientIds?: string[] }>(
+    '/api/data/contracts',
+    {
+      method: 'PUT',
+      body: JSON.stringify({ contracts }),
+    }
+  )
   if (settings) {
     await apiFetch('/api/data/settings', {
       method: 'PUT',
       body: JSON.stringify({ settings }),
     })
   }
+  return contractResult
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -242,29 +250,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (contract: ContractData) => {
       const idx = contracts.findIndex((c) => c.id === contract.id)
       const existing = idx >= 0 ? contracts[idx] : undefined
+      const contentChanged = existing ? hasContractContentChanged(existing, contract) : false
+      const shouldResetDelivery =
+        Boolean(existing?.sentAt) && contentChanged
+      const baseContract = shouldResetDelivery
+        ? stripPortalDeliveryFields(contract)
+        : contract
       const merged: ContractData = existing
         ? {
-            ...contract,
-            sentAt: contract.sentAt ?? existing.sentAt,
-            viewedAt: contract.viewedAt ?? existing.viewedAt,
-            signedAt: contract.signedAt ?? existing.signedAt,
-            confirmedByClient: contract.confirmedByClient ?? existing.confirmedByClient,
-            clientSignature: contract.clientSignature ?? existing.clientSignature,
-            clientSignDate: contract.clientSignDate ?? existing.clientSignDate,
+            ...baseContract,
+            sentAt: baseContract.sentAt ?? existing.sentAt,
+            viewedAt: shouldResetDelivery ? undefined : baseContract.viewedAt ?? existing.viewedAt,
+            signedAt: shouldResetDelivery ? undefined : baseContract.signedAt ?? existing.signedAt,
+            confirmedByClient: shouldResetDelivery
+              ? false
+              : baseContract.confirmedByClient ?? existing.confirmedByClient,
+            clientSignature: shouldResetDelivery
+              ? undefined
+              : baseContract.clientSignature ?? existing.clientSignature,
+            clientSignDate: shouldResetDelivery
+              ? undefined
+              : baseContract.clientSignDate ?? existing.clientSignDate,
           }
-        : contract
+        : baseContract
       const nextContracts =
         idx >= 0
           ? contracts.map((c, i) => (i === idx ? merged : c))
           : [...contracts, merged]
-      const nextClients = contract.pdfGenerated
-        ? clients.map((c) =>
-            c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c
-          )
-        : clients
+      const wasSent = Boolean(existing?.sentAt)
+      const nextClients =
+        contract.pdfGenerated && !wasSent
+          ? clients.map((c) =>
+              c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c
+            )
+          : clients
       await persist(nextClients, nextContracts)
+      if (isAdmin) {
+        await refresh()
+      }
     },
-    [clients, contracts, persist]
+    [clients, contracts, persist, isAdmin, refresh]
   )
 
   const getContractForClient = useCallback(

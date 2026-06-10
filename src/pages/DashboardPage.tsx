@@ -86,8 +86,6 @@ export function DashboardPage() {
 
       <SummaryCards clients={clients} />
 
-      <TimelineSkipNotesFeed />
-
       {registrationsError && (
         <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
           {registrationsError}. Try restarting the app with{' '}
@@ -117,6 +115,8 @@ export function DashboardPage() {
             <ClientTable clients={clients} fullWidth />
           )}
         </Card>
+
+        <TimelineSkipNotesFeed />
 
         <div className="w-full min-w-0">
           <UpcomingDeadlines clients={clients} />

@@ -6,18 +6,23 @@ import {
   HelpCircle,
   Loader2,
   MessageSquarePlus,
+  Trash2,
   Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { PortalAssistanceModal } from '@/components/portal/PortalAssistanceModal'
+import { ProjectFilePreviewModal } from '@/components/files/ProjectFilePreviewModal'
 import {
   addPortalFileNote,
+  deletePortalFile,
   downloadPortalFile,
   fetchPortalFiles,
+  getPortalFileDownloadUrl,
   uploadPortalFile,
 } from '@/lib/filesApi'
+import { canPreviewFile } from '@/lib/filePreview'
 import { PORTAL_FILE_ACCEPT, PORTAL_FILE_TYPES_LABEL } from '@/lib/allowedFileTypes'
 import { ApiError } from '@/lib/api'
 import { cn, formatDate, formatFileSize } from '@/lib/utils'
@@ -140,6 +145,9 @@ export function PortalProjectFilesSection({
   const [uploadNote, setUploadNote] = useState('')
   const [assistanceOpen, setAssistanceOpen] = useState(false)
   const [noteOpenFor, setNoteOpenFor] = useState<string | null>(null)
+  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -192,6 +200,22 @@ export function PortalProjectFilesSection({
     await uploadFiles(dropped)
   }
 
+  const handleDelete = async (file: ProjectFile) => {
+    setDeletingId(file.id)
+    setError('')
+    try {
+      await deletePortalFile(file.id)
+      if (previewFile?.id === file.id) setPreviewFile(null)
+      if (noteOpenFor === file.id) setNoteOpenFor(null)
+      setDeleteConfirmId(null)
+      await load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not remove file')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   if (!enabled) {
     return (
       <section className="mt-8">
@@ -209,7 +233,7 @@ export function PortalProjectFilesSection({
           <p className="text-sm text-ink-muted">
             {projectStarted
               ? 'File sharing is being set up.'
-              : 'File sharing unlocks once your designer starts the project. Sign your contract, open the PayPal invoice link, and your designer will activate the project.'}
+              : 'File sharing unlocks once your designer starts the project. Sign your contract, pay your deposit invoice, and your designer will activate the project.'}
           </p>
         </Card>
         <PortalAssistanceModal
@@ -315,7 +339,23 @@ export function PortalProjectFilesSection({
               <li key={file.id} className="px-4 py-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="break-words font-semibold text-ink">{file.originalName}</p>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFile(file)}
+                      className={cn(
+                        'break-words text-left font-semibold text-ink transition-colors',
+                        canPreviewFile(file)
+                          ? 'cursor-pointer hover:text-brand hover:underline'
+                          : 'cursor-pointer hover:text-ink-muted'
+                      )}
+                      title={
+                        canPreviewFile(file)
+                          ? 'Click to preview'
+                          : 'Click to view file details'
+                      }
+                    >
+                      {file.originalName}
+                    </button>
                     <p className="mt-0.5 text-xs text-ink-muted">
                       {formatFileSize(file.size)} · {file.uploadedByName}{' '}
                       {file.uploadedBy === 'client' ? '(you)' : '(designer)'} ·{' '}
@@ -341,8 +381,50 @@ export function PortalProjectFilesSection({
                       <Download className="h-4 w-4" />
                       Download
                     </Button>
+                    {file.uploadedBy === 'client' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDeleteConfirmId((current) =>
+                            current === file.id ? null : file.id
+                          )
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
                   </div>
                 </div>
+
+                {deleteConfirmId === file.id && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-sm border border-accent/40 bg-accent-light/30 px-3 py-2">
+                    <p className="text-xs text-ink">
+                      Remove <strong>{file.originalName}</strong>? This cannot be undone.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={deletingId === file.id}
+                      onClick={() => setDeleteConfirmId(null)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={deletingId === file.id}
+                      onClick={() => void handleDelete(file)}
+                    >
+                      {deletingId === file.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Remove file'
+                      )}
+                    </Button>
+                  </div>
+                )}
 
                 {(file.notes?.length ?? 0) > 0 && (
                   <ul className="mt-3 space-y-2 border-l-2 border-brand/30 pl-3">
@@ -370,6 +452,17 @@ export function PortalProjectFilesSection({
         open={assistanceOpen}
         onClose={() => setAssistanceOpen(false)}
         supportContact={supportContact}
+      />
+
+      <ProjectFilePreviewModal
+        open={Boolean(previewFile)}
+        onClose={() => setPreviewFile(null)}
+        file={previewFile}
+        downloadUrl={previewFile ? getPortalFileDownloadUrl(previewFile.id) : null}
+        onDownload={() => {
+          if (!previewFile) return
+          void downloadPortalFile(previewFile.id, previewFile.originalName)
+        }}
       />
     </section>
   )

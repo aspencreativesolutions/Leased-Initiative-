@@ -2,15 +2,31 @@ import { Router } from 'express'
 import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { createDraftContract } from '../lib/contractDraft.js'
-import { mergeContractsList } from '../lib/contractMerge.js'
+import {
+  applyClientContractRevision,
+  mergeContractsList,
+} from '../lib/contractMerge.js'
 import { generateId } from '../lib/notifications.js'
-import { canStartProject } from '../lib/clientWorkflow.js'
+import {
+  canStartProject,
+  ensureOfficialWhenProjectActive,
+  promoteToOfficialClient,
+} from '../lib/clientWorkflow.js'
 import { buildProjectTimeline, getSkippedStepIdsForTarget } from '../lib/projectTimeline.js'
 import { getTimelineStepLabel } from '../lib/timelineSteps.js'
 import { applyTimelineSkipEffects } from '../lib/timelineSkipEffects.js'
 import { ensureClientFileSharing } from '../lib/ensureFileSharing.js'
+import {
+  buildPortalUsersOverview,
+  isPendingPortalRegistration,
+} from '../lib/portalUsers.js'
 import { buildFinalInvoice } from '../lib/invoice.js'
-import { createPayPalOrder, isPayPalConfigured } from '../lib/paypal.js'
+import { attachPaymentLink } from '../lib/paymentLinks.js'
+import {
+  deleteClientAccountFromStore,
+  deleteClientUploads,
+  removeClientFromStore,
+} from '../lib/clientCleanup.js'
 
 const router = Router()
 
@@ -27,9 +43,18 @@ const CLIENT_PRESERVE_FIELDS = [
 router.use(authMiddleware, requireRole('admin'))
 
 router.get('/', (_req, res) => {
-  const store = readStore()
+  let store = readStore()
+  let repairedAny = false
+  const clients = store.clients.map((client) => {
+    const repaired = ensureOfficialWhenProjectActive(client)
+    if (repaired !== client) repairedAny = true
+    return repaired
+  })
+  if (repairedAny) {
+    store = updateStore((s) => ({ ...s, clients }))
+  }
   res.json({
-    clients: store.clients,
+    clients,
     contracts: store.contracts,
     settings: store.settings,
   })
@@ -111,31 +136,33 @@ router.post('/clients/:clientId/start-project', (req, res) => {
   const now = new Date().toISOString()
   updateStore((s) => ({
     ...s,
-    clients: s.clients.map((c) =>
-      c.id === clientId
-        ? {
-            ...c,
-            projectStatus: 'In Progress',
-            paymentStatus:
-              c.paymentStatus === 'Unpaid' && c.timelineStepSkips?.pay_link_clicked
+    clients: s.clients.map((c) => {
+      if (c.id !== clientId) return c
+      return promoteToOfficialClient(
+        {
+          ...c,
+          projectStatus: 'In Progress',
+          paymentStatus:
+            c.paymentStatus === 'Unpaid' && c.timelineStepSkips?.pay_link_clicked
+              ? 'Deposit Paid'
+              : c.paymentStatus === 'Pay Link Clicked'
                 ? 'Deposit Paid'
-                : c.paymentStatus === 'Pay Link Clicked'
-                  ? 'Deposit Paid'
-                  : c.paymentStatus,
-            depositPaymentConfirmedAt: c.depositPaymentConfirmedAt ?? now,
-            projectStartedAt: now,
-            notes: [
-              ...(c.notes ?? []),
-              {
-                id: generateId(),
-                text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
-                category: 'Project',
-                createdAt: now,
-              },
-            ],
-          }
-        : c
-    ),
+                : c.paymentStatus,
+          depositPaymentConfirmedAt: c.depositPaymentConfirmedAt ?? now,
+          projectStartedAt: now,
+          notes: [
+            ...(c.notes ?? []),
+            {
+              id: generateId(),
+              text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
+              category: 'Project',
+              createdAt: now,
+            },
+          ],
+        },
+        now
+      )
+    }),
   }))
 
   res.json({ ok: true, projectStartedAt: now })
@@ -260,6 +287,9 @@ router.post('/clients/:clientId/confirm-payment', (req, res) => {
             ...c,
             paymentStatus: 'Deposit Paid',
             depositPaymentConfirmedAt: now,
+            invoice: c.invoice
+              ? { ...c.invoice, paidAt: now, sentToPortalAt: c.invoice.sentToPortalAt ?? now }
+              : c.invoice,
             notes: [
               ...(c.notes ?? []),
               {
@@ -311,20 +341,15 @@ router.post('/clients/:clientId/complete-project', async (req, res) => {
     createdAt: now,
   }
 
-  if (isPayPalConfigured()) {
-    try {
-      const order = await createPayPalOrder({
-        clientId,
-        amount: invoiceDraft.amount,
-        currency: invoiceDraft.currency,
-        description: invoiceDraft.description,
-      })
-      finalInvoice.paypalOrderId = order.orderId
-      finalInvoice.paymentLink = order.approvalUrl
-    } catch (err) {
-      console.error('final invoice paypal', err)
-      return res.status(500).json({ error: err.message })
-    }
+  try {
+    finalInvoice = await attachPaymentLink(finalInvoice, {
+      contract,
+      clientId,
+      invoiceType: 'final',
+    })
+  } catch (err) {
+    console.error('final invoice payment link', err)
+    return res.status(500).json({ error: err.message })
   }
 
   updateStore((s) => ({
@@ -358,11 +383,34 @@ router.put('/contracts', (req, res) => {
   if (!Array.isArray(contracts)) {
     return res.status(400).json({ error: 'contracts array required' })
   }
-  updateStore((s) => ({
-    ...s,
-    contracts: mergeContractsList(s.contracts, contracts),
-  }))
-  res.json({ ok: true })
+
+  const now = new Date().toISOString()
+  let revisedClientIds = []
+
+  updateStore((s) => {
+    const { contracts: mergedContracts, revisedClientIds: revised } = mergeContractsList(
+      s.contracts,
+      contracts,
+      s.clients,
+      now
+    )
+    revisedClientIds = revised
+
+    if (revised.length === 0) {
+      return { ...s, contracts: mergedContracts }
+    }
+
+    const revisedSet = new Set(revised)
+    return {
+      ...s,
+      contracts: mergedContracts,
+      clients: s.clients.map((client) =>
+        revisedSet.has(client.id) ? applyClientContractRevision(client, now) : client
+      ),
+    }
+  })
+
+  res.json({ ok: true, revisedClientIds })
 })
 
 router.put('/settings', (req, res) => {
@@ -499,7 +547,7 @@ router.post('/accept-registration/:userId', (req, res) => {
 router.get('/registrations', (_req, res) => {
   const store = readStore()
   const registrations = store.users
-    .filter((u) => u.role === 'client' && !u.clientId)
+    .filter(isPendingPortalRegistration)
     .map((u) => ({
       id: u.id,
       name: u.name,
@@ -508,6 +556,106 @@ router.get('/registrations', (_req, res) => {
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ registrations, count: registrations.length })
+})
+
+/** Dismiss a portal registration from the new sign-ups queue */
+router.post('/dismiss-registration/:userId', (req, res) => {
+  const { userId } = req.params
+  const store = readStore()
+  const user = store.users.find((u) => u.id === userId && u.role === 'client')
+  if (!user) {
+    return res.status(404).json({ error: 'Registration not found' })
+  }
+  if (user.clientId) {
+    return res.status(400).json({ error: 'This user has already been accepted as a client' })
+  }
+
+  updateStore((s) => ({
+    ...s,
+    users: s.users.map((u) =>
+      u.id === userId ? { ...u, registrationDismissed: true } : u
+    ),
+    adminNotifications: (s.adminNotifications ?? []).map((n) =>
+      n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
+    ),
+  }))
+
+  res.json({ ok: true })
+})
+
+/** Portal users — pending registrations and accepted clients with timeline stage */
+router.get('/portal-users', (req, res) => {
+  const store = readStore()
+  for (const client of store.clients) {
+    if (client.accountUserId || store.users.some((u) => u.clientId === client.id)) {
+      ensureClientFileSharing(client.id)
+    }
+  }
+  const freshStore = readStore()
+  res.json(buildPortalUsersOverview(freshStore))
+})
+
+/** All portal client accounts (linked and unlinked) */
+router.get('/client-accounts', (_req, res) => {
+  const store = readStore()
+  const accounts = store.users
+    .filter((u) => u.role === 'client')
+    .map((u) => {
+      const client = u.clientId ? store.clients.find((c) => c.id === u.clientId) : null
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        createdAt: u.createdAt,
+        clientId: u.clientId ?? null,
+        clientName: client?.name ?? null,
+        linked: Boolean(u.clientId),
+      }
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  res.json({ accounts, count: accounts.length })
+})
+
+/** Delete portal account and linked client roster entry */
+router.delete('/client-accounts/:userId', (req, res) => {
+  const { userId } = req.params
+  const store = readStore()
+  const user = store.users.find((u) => u.id === userId && u.role === 'client')
+  if (!user) {
+    return res.status(404).json({ error: 'Client account not found' })
+  }
+
+  const deletedClientId = user.clientId ?? undefined
+  const next = deleteClientAccountFromStore(store, userId)
+  if (!next) {
+    return res.status(404).json({ error: 'Client account not found' })
+  }
+
+  updateStore(() => next)
+  res.json({ ok: true, deletedClientId })
+})
+
+/** Remove client from roster; portal account is kept and unlinked */
+router.delete('/clients/:clientId', (req, res) => {
+  const { clientId } = req.params
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) {
+    return res.status(404).json({ error: 'Client not found' })
+  }
+
+  const linkedUser = store.users.find(
+    (u) => u.role === 'client' && (u.clientId === clientId || u.id === client.accountUserId)
+  )
+
+  const next = removeClientFromStore(store, clientId)
+  if (!next) {
+    return res.status(404).json({ error: 'Client not found' })
+  }
+
+  deleteClientUploads(clientId)
+  updateStore(() => next)
+  res.json({ ok: true, accountKept: Boolean(linkedUser) })
 })
 
 export default router

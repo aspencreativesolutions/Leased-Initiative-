@@ -6,18 +6,20 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 import { expectedWorkEmail, isWorkAdminEmail } from '@/lib/workEmail'
 import { loadStoredPortalThemeId } from '@/themes/applyTheme'
+import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 
 interface RegisterPageProps {
-  /** Where to send users for sign-in after registration */
+  mode?: 'client' | 'admin'
   loginPath?: string
 }
 
-export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
+export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) {
   const { register } = useAuth()
   const navigate = useNavigate()
+
+  const resolvedLoginPath = loginPath ?? (mode === 'admin' ? '/studio/login' : '/login')
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -26,10 +28,13 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const workEmailHint = useMemo(() => expectedWorkEmail(name), [name])
+  const workEmailHint = useMemo(
+    () => (mode === 'admin' ? expectedWorkEmail(name) : null),
+    [mode, name]
+  )
   const willBeAdmin = useMemo(
-    () => Boolean(name && email && isWorkAdminEmail(email, name)),
-    [name, email]
+    () => mode === 'admin' && Boolean(name && email && isWorkAdminEmail(email, name)),
+    [mode, name, email]
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,13 +52,13 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
 
     setSubmitting(true)
     try {
-      const user = await register(
-        name,
-        email,
-        password,
-        loginPath.startsWith('/portal') ? loadStoredPortalThemeId() : undefined
-      )
-      navigate(user.role === 'admin' ? '/' : '/portal', { replace: true })
+      await register(name, email, password, {
+        accountType: mode,
+        portalThemeId: mode === 'client' ? loadStoredPortalThemeId() : undefined,
+      })
+      const params = new URLSearchParams({ email })
+      if (mode === 'admin') params.set('studio', '1')
+      navigate(`/check-email?${params.toString()}`, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed')
     } finally {
@@ -62,16 +67,20 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+    <div className="flex min-h-screen flex-col bg-surface">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-2xl font-bold">
             CC
           </div>
-          <h1 className="heading-display text-2xl">Create an account</h1>
+          <h1 className="heading-display text-2xl">
+            {mode === 'admin' ? 'Create studio account' : 'Create an account'}
+          </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Aspen Creative Solutions team members use a work email for admin access.
-            Everyone else registers as a client.
+            {mode === 'admin'
+              ? 'Aspen Creative Solutions team members only — use your work email.'
+              : 'Sign up to connect with Aspen Creative Solutions on your project.'}
           </p>
         </div>
 
@@ -102,9 +111,11 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
               required
               autoComplete="email"
               hint={
-                workEmailHint
-                  ? `Team admin: ${workEmailHint}`
-                  : 'Clients: use the email your designer has on file'
+                mode === 'admin'
+                  ? workEmailHint
+                    ? `Team admin: ${workEmailHint}`
+                    : 'Use your aspencreativesolutions.com work email'
+                  : 'Use the email your designer has on file'
               }
             />
             <Input
@@ -132,17 +143,31 @@ export function RegisterPage({ loginPath = '/login' }: RegisterPageProps) {
 
           <p className="mt-6 text-center text-sm text-ink-muted">
             Already have an account?{' '}
-            <Link to={loginPath} className="font-semibold text-brand hover:underline">
+            <Link to={resolvedLoginPath} className="font-semibold text-brand hover:underline">
               Sign in
             </Link>
           </p>
-          {loginPath.startsWith('/portal') && (
+
+          {mode === 'client' ? (
             <div className="mt-4 flex justify-center">
-              <PortalStyleButton variant="outline" />
+              <Link to="/studio/register">
+                <Button variant="ghost" size="sm" type="button">
+                  I&apos;m an Aspen team member
+                </Button>
+              </Link>
             </div>
+          ) : (
+            <p className="mt-4 text-center text-sm text-ink-muted">
+              <Link to="/register" className="font-semibold text-brand hover:underline">
+                Client sign up
+              </Link>
+            </p>
           )}
         </Card>
       </div>
+      </div>
+
+      {mode === 'client' && <PaymentPartnerLogos />}
     </div>
   )
 }

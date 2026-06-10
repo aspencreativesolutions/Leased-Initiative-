@@ -29,7 +29,7 @@ export function PortalAssistanceModal({
           </h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-ink-muted">
             <li>Review and sign your contract when it appears in Current Contracts.</li>
-            <li>Open the PayPal invoice link to pay your deposit.</li>
+            <li>Open the invoice payment link to pay your deposit.</li>
             <li>
               Once your designer starts the project, upload files and add notes here in the
               portal.

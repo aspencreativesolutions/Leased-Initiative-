@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink, UserCircle } from 'lucide-react'
+import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink, UserCircle } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/users', label: 'Users', icon: UserPlus },
   { to: '/clients', label: 'Clients', icon: Users },
   { to: '/contracts', label: 'Contracts', icon: FileText },
   { to: '/calendar', label: 'Calendar', icon: Calendar },
@@ -55,7 +56,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <Link
-            to="/portal/login"
+            to="/login"
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
@@ -64,21 +65,23 @@ export function Navbar() {
             <ExternalLink className="h-3.5 w-3.5" />
             Portal
           </Link>
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              cn(
-                'hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors',
-                isActive
-                  ? 'border-nav-active text-nav-fg'
-                  : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
-              )
-            }
-            title="App style"
-          >
-            <Palette className="h-3.5 w-3.5" />
-            Style
-          </NavLink>
+          {user && (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                cn(
+                  'hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors',
+                  isActive
+                    ? 'border-nav-active text-nav-fg'
+                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
+                )
+              }
+              title="App style"
+            >
+              <Palette className="h-3.5 w-3.5" />
+              Style
+            </NavLink>
+          )}
 
           {user && (
             <NavLink

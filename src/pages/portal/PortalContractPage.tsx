@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, FileCheck } from 'lucide-react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, CheckCircle, Eye, FileCheck } from 'lucide-react'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { Button } from '@/components/ui/Button'
@@ -13,11 +13,13 @@ import type { ContractData, PortalContractClientStatus } from '@/types'
 interface ContractDetailResponse {
   contract: ContractData
   portalStatus?: PortalContractClientStatus
+  canSign?: boolean
   settings: { businessName: string; ownerName: string }
 }
 
 export function PortalContractPage() {
   const { contractId } = useParams<{ contractId: string }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const [data, setData] = useState<ContractDetailResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,7 +27,9 @@ export function PortalContractPage() {
   const [signature, setSignature] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const [portalStatus, setPortalStatus] = useState<PortalContractClientStatus>('Pending Review')
+  const [canSign, setCanSign] = useState(false)
 
   const load = useCallback(
     async (silent = false) => {
@@ -40,8 +44,12 @@ export function PortalContractPage() {
         const status =
           result.portalStatus ?? getPortalContractStatus(result.contract)
         setPortalStatus(status)
-        if (result.contract.clientSignature) {
+        setCanSign(Boolean(result.canSign))
+        if (result.contract.clientSignature && status === 'Accepted') {
           setSignature(result.contract.clientSignature)
+        } else {
+          setSignature('')
+          setAgreed(false)
         }
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not load contract')
@@ -56,9 +64,36 @@ export function PortalContractPage() {
     load()
   }, [load])
 
+  useEffect(() => {
+    if (!data || !location.hash) return
+    const id = location.hash.replace('#', '')
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [data, location.hash])
+
+  const handleMarkReviewed = async () => {
+    if (!contractId) return
+    setReviewing(true)
+    setError('')
+    try {
+      const result = await apiFetch<{
+        portalStatus: PortalContractClientStatus
+        canSign: boolean
+      }>(`/api/portal/contracts/${contractId}/review`, { method: 'POST' })
+      setPortalStatus(result.portalStatus)
+      setCanSign(result.canSign)
+      await load(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not mark contract as reviewed')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!contractId || !signature.trim() || !agreed) return
+    if (!contractId || !signature.trim() || !agreed || !canSign) return
 
     setSubmitting(true)
     setError('')
@@ -68,6 +103,7 @@ export function PortalContractPage() {
         body: JSON.stringify({ signature: signature.trim() }),
       })
       setPortalStatus('Accepted')
+      setCanSign(false)
       await load(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not confirm contract')
@@ -95,6 +131,8 @@ export function PortalContractPage() {
 
   const { contract, settings } = data
   const isAccepted = portalStatus === 'Accepted'
+  const needsReview = portalStatus === 'Pending Review'
+  const readyToSign = portalStatus === 'Viewed' && canSign
 
   return (
     <div>
@@ -116,7 +154,17 @@ export function PortalContractPage() {
         <PortalContractStatusBadge status={portalStatus} />
       </div>
 
-      <Card padding="lg">
+      {needsReview && (
+        <Card padding="md" className="mb-6 border-brand bg-brand/5">
+          <p className="font-semibold text-ink">Updated contract — please review</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            Your designer has sent a revised contract. Read every section below, then confirm you
+            have reviewed it before signing.
+          </p>
+        </Card>
+      )}
+
+      <Card padding="none" className="overflow-hidden border-line/60 shadow-lift">
         <ContractReviewView
           contract={contract}
           designerName={settings.ownerName}
@@ -148,9 +196,28 @@ export function PortalContractPage() {
             </div>
           </div>
         </Card>
-      ) : (
+      ) : needsReview ? (
         <Card padding="lg" className="mt-6">
-          <h2 className="heading-display text-lg">Confirm & sign</h2>
+          <h2 className="heading-display text-lg">Step 1 — Review the contract</h2>
+          <p className="mt-2 text-sm text-ink-muted">
+            Read the full contract above, including payment terms, scope, and revision limits. When
+            you are ready, confirm that you have reviewed this version.
+          </p>
+
+          {error && (
+            <div className="mt-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
+              {error}
+            </div>
+          )}
+
+          <Button className="mt-4" onClick={handleMarkReviewed} disabled={reviewing}>
+            <Eye className="h-4 w-4" />
+            {reviewing ? 'Saving…' : 'I have reviewed this contract'}
+          </Button>
+        </Card>
+      ) : readyToSign ? (
+        <Card padding="lg" className="mt-6">
+          <h2 className="heading-display text-lg">Step 2 — Confirm & sign</h2>
           <p className="mt-2 text-sm text-ink-muted">
             By typing your full name below, you agree to the terms of this contract.
           </p>
@@ -187,6 +254,12 @@ export function PortalContractPage() {
               {submitting ? 'Confirming…' : 'Accept contract'}
             </Button>
           </form>
+        </Card>
+      ) : (
+        <Card padding="lg" className="mt-6">
+          <p className="text-sm text-ink-muted">
+            Please review the contract above and confirm you have read it before signing.
+          </p>
         </Card>
       )}
     </div>

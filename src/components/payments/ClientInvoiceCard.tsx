@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext'
 import { generateDepositInvoice, sendInvoiceToPortal } from '@/lib/invoicesApi'
 import { ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
+import { paymentProviderLabel, resolvePaymentProvider } from '@/lib/paymentProvider'
 import type { Client } from '@/types'
 
 interface ClientInvoiceCardProps {
@@ -20,6 +21,8 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
   const [success, setSuccess] = useState('')
 
   const invoice = client.invoice
+  const provider = resolvePaymentProvider(invoice?.paymentProvider)
+  const providerName = paymentProviderLabel(provider)
 
   if (!client.isOfficialClient) {
     return null
@@ -35,6 +38,21 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
       setSuccess('Deposit invoice generated from contract.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not generate invoice')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleCreatePayPalLink = async () => {
+    setGenerating(true)
+    setError('')
+    setSuccess('')
+    try {
+      await generateDepositInvoice(client.id)
+      await refresh()
+      setSuccess(`${providerName} payment link created.`)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not create PayPal link')
     } finally {
       setGenerating(false)
     }
@@ -133,7 +151,7 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
                 <a href={invoice.paymentLink} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm">
                     <ExternalLink className="h-4 w-4" />
-                    Preview PayPal link
+                    Preview {providerName} link
                   </Button>
                 </a>
               )}
@@ -141,9 +159,15 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
           )}
 
           {!invoice.paymentLink && !invoice.paidAt && (
-            <p className="text-sm text-accent">
-              PayPal link not available. Check PayPal credentials in .env and restart the server.
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-accent">
+                {providerName} link not available. Add credentials to <code>.env</code>, restart{' '}
+                <code>npm run dev</code>, then create the link below.
+              </p>
+              <Button variant="outline" onClick={handleCreatePayPalLink} disabled={generating}>
+                {generating ? 'Creating link…' : `Create ${providerName} link`}
+              </Button>
+            </div>
           )}
         </div>
       )}

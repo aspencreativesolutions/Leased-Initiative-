@@ -4,7 +4,12 @@ import { authMiddleware, requireRole } from '../auth.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { generateId } from '../lib/notifications.js'
 import { buildDepositInvoice } from '../lib/invoice.js'
-import { createPayPalOrder, isPayPalConfigured } from '../lib/paypal.js'
+import {
+  clientCanSignContract,
+  contractContentFingerprint,
+  needsClientResign,
+} from '../lib/contractReview.js'
+import { attachPaymentLink } from '../lib/paymentLinks.js'
 
 const router = Router()
 
@@ -106,12 +111,19 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
     return res.status(400).json({ error: 'This contract has not been sent yet' })
   }
 
-  if (contract.confirmedByClient) {
+  const clientRecord = store.clients.find((c) => c.id === contract.clientId)
+
+  if (contract.confirmedByClient && !needsClientResign(contract, clientRecord)) {
     return res.status(400).json({ error: 'Contract already confirmed' })
   }
 
+  if (!clientCanSignContract(contract)) {
+    return res.status(400).json({
+      error: 'Please review the full contract before signing.',
+    })
+  }
+
   const now = new Date().toISOString()
-  const clientRecord = store.clients.find((c) => c.id === contract.clientId)
 
   const invoiceDraft = clientRecord ? buildDepositInvoice(contract, clientRecord) : null
   let generatedInvoice = null
@@ -125,21 +137,16 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
       createdAt: now,
     }
 
-    if (isPayPalConfigured()) {
-      try {
-        const order = await createPayPalOrder({
-          clientId: contract.clientId,
-          amount: invoiceDraft.amount,
-          currency: invoiceDraft.currency,
-          description: invoiceDraft.description,
-          returnPath: '/portal/payment/success',
-          cancelPath: '/portal?payment=cancelled',
-        })
-        generatedInvoice.paypalOrderId = order.orderId
-        generatedInvoice.paymentLink = order.approvalUrl
-      } catch (err) {
-        console.error('PayPal order on contract sign', err)
-      }
+    try {
+      generatedInvoice = await attachPaymentLink(generatedInvoice, {
+        contract,
+        clientId: contract.clientId,
+        invoiceType: 'deposit',
+        returnPath: '/portal/payment/success',
+        cancelPath: '/portal?payment=cancelled',
+      })
+    } catch (err) {
+      console.error('Payment link on contract sign', err)
     }
   }
 
@@ -154,6 +161,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
               clientSignDate: now.slice(0, 10),
               signedAt: now,
               confirmedByClient: true,
+              signedContentFingerprint: contractContentFingerprint(c),
             }
           : c
       ),

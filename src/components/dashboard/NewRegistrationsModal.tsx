@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileSignature, Loader2, Users } from 'lucide-react'
+import { FileSignature, Loader2, UserX, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
-import { apiFetch, ApiError } from '@/lib/api'
+import { ApiError } from '@/lib/api'
+import { acceptRegistration, dismissRegistration } from '@/lib/portalUsersApi'
 import { formatDate } from '@/lib/utils'
 import type { PendingRegistration } from '@/types'
 
@@ -27,11 +28,13 @@ export function NewRegistrationsModal({
 }: NewRegistrationsModalProps) {
   const navigate = useNavigate()
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [dismissingId, setDismissingId] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!open) {
       setAcceptingId(null)
+      setDismissingId(null)
       setError('')
     } else {
       onListRefresh()
@@ -43,12 +46,7 @@ export function NewRegistrationsModal({
     setAcceptingId(registration.id)
     setError('')
     try {
-      const result = await apiFetch<{
-        client: { id: string }
-        contract: { id: string } | null
-      }>(`/api/data/accept-registration/${registration.id}`, {
-        method: 'POST',
-      })
+      const result = await acceptRegistration(registration.id)
       onRefresh()
       onClose()
       navigate(`/clients/${result.client.id}/contract`)
@@ -56,6 +54,19 @@ export function NewRegistrationsModal({
       setError(err instanceof ApiError ? err.message : 'Could not accept registration')
     } finally {
       setAcceptingId(null)
+    }
+  }
+
+  const handleDismiss = async (registration: PendingRegistration) => {
+    setDismissingId(registration.id)
+    setError('')
+    try {
+      await dismissRegistration(registration.id)
+      onRefresh()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not dismiss registration')
+    } finally {
+      setDismissingId(null)
     }
   }
 
@@ -86,19 +97,37 @@ export function NewRegistrationsModal({
                   Registered {formatDate(registration.createdAt)}
                 </p>
               </div>
-              <Button
-                size="sm"
-                className="shrink-0"
-                disabled={acceptingId === registration.id}
-                onClick={() => handleAccept(registration)}
-              >
-                {acceptingId === registration.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <FileSignature className="h-4 w-4" />
-                )}
-                Accept User and Start Contract Draft
-              </Button>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    dismissingId === registration.id || acceptingId === registration.id
+                  }
+                  onClick={() => handleDismiss(registration)}
+                >
+                  {dismissingId === registration.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserX className="h-4 w-4" />
+                  )}
+                  Dismiss
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={
+                    acceptingId === registration.id || dismissingId === registration.id
+                  }
+                  onClick={() => handleAccept(registration)}
+                >
+                  {acceptingId === registration.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSignature className="h-4 w-4" />
+                  )}
+                  Accept User and Start Contract Draft
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

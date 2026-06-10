@@ -7,6 +7,13 @@ import {
   signToken,
   verifyPassword,
 } from '../auth.js'
+import { sendVerificationEmail } from '../lib/email.js'
+import {
+  buildVerificationUrl,
+  createVerificationToken,
+  isEmailVerified,
+  verificationTokenValid,
+} from '../lib/emailVerification.js'
 import {
   expectedWorkEmail,
   isWorkAdminEmail,
@@ -21,9 +28,48 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+async function issueVerificationEmail(user) {
+  const { token, expiresAt } = createVerificationToken()
+  const verifyUrl = buildVerificationUrl(token)
+
+  updateStore((s) => ({
+    ...s,
+    users: s.users.map((u) =>
+      u.id === user.id
+        ? {
+            ...u,
+            emailVerificationToken: token,
+            emailVerificationExpiresAt: expiresAt,
+          }
+        : u
+    ),
+  }))
+
+  await sendVerificationEmail({
+    to: user.email,
+    name: user.name,
+    verifyUrl,
+  })
+
+  return verifyUrl
+}
+
+function notifyAdminOfVerifiedClient(user) {
+  if (user.role !== 'client' || user.clientId) return
+
+  updateStore((s) =>
+    pushAdminNotification(s, {
+      type: 'registration',
+      userId: user.id,
+      title: 'New portal registration',
+      message: `${user.name} (${user.email}) confirmed their email and signed up for the client portal.`,
+    })
+  )
+}
+
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, portalThemeId } = req.body
+    const { email, password, name, portalThemeId, accountType } = req.body
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required' })
     }
@@ -33,6 +79,7 @@ router.post('/register', async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase()
     const trimmedName = name.trim()
+    const registeringAsAdmin = accountType === 'admin'
     const store = readStore()
     if (store.users.some((u) => u.email === normalizedEmail)) {
       return res.status(409).json({
@@ -41,20 +88,30 @@ router.post('/register', async (req, res) => {
       })
     }
 
-    const isAdmin = isWorkAdminEmail(normalizedEmail, trimmedName)
-    if (isWorkEmailDomain(normalizedEmail) && !isAdmin) {
-      const example = expectedWorkEmail(trimmedName)
-      return res.status(400).json({
-        error: example
-          ? `Work email must match your first name (e.g. ${example})`
-          : 'Work email must match your first name at aspencreativesolutions.com',
-      })
+    const isAdmin =
+      registeringAsAdmin && isWorkAdminEmail(normalizedEmail, trimmedName)
+    if (registeringAsAdmin) {
+      if (isWorkEmailDomain(normalizedEmail) && !isAdmin) {
+        const example = expectedWorkEmail(trimmedName)
+        return res.status(400).json({
+          error: example
+            ? `Work email must match your first name (e.g. ${example})`
+            : 'Work email must match your first name at aspencreativesolutions.com',
+        })
+      }
+      if (!isAdmin) {
+        return res.status(400).json({
+          error:
+            'Studio accounts require an Aspen Creative Solutions work email (firstname@aspencreativesolutions.com).',
+        })
+      }
     }
 
     const linkedClient =
       !isAdmin &&
       store.clients.find((c) => c.email.trim().toLowerCase() === normalizedEmail)
 
+    const { token: verificationToken, expiresAt } = createVerificationToken()
     const passwordHash = await hashPassword(password)
     const user = {
       id: generateId(),
@@ -68,36 +125,124 @@ router.post('/register', async (req, res) => {
         : isThemeId(portalThemeId)
           ? portalThemeId
           : DEFAULT_PORTAL_THEME_ID,
+      emailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiresAt: expiresAt,
       createdAt: new Date().toISOString(),
     }
 
-    updateStore((s) => {
-      let next = {
-        ...s,
-        users: [...s.users, user],
-        clients:
-          linkedClient && !isAdmin
-            ? s.clients.map((c) =>
-                c.id === linkedClient.id ? { ...c, accountUserId: user.id } : c
-              )
-            : s.clients,
-      }
-      if (!isAdmin) {
-        next = pushAdminNotification(next, {
-          type: 'registration',
-          userId: user.id,
-          title: 'New portal registration',
-          message: `${trimmedName} (${normalizedEmail}) signed up for the client portal.`,
-        })
-      }
-      return next
+    updateStore((s) => ({
+      ...s,
+      users: [...s.users, user],
+      clients:
+        linkedClient && !isAdmin
+          ? s.clients.map((c) =>
+              c.id === linkedClient.id ? { ...c, accountUserId: user.id } : c
+            )
+          : s.clients,
+    }))
+
+    const verifyUrl = buildVerificationUrl(verificationToken)
+    await sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verifyUrl,
     })
 
-    const token = signToken(user)
-    res.status(201).json({ token, user: sanitizeUser(user) })
+    res.status(201).json({
+      requiresVerification: true,
+      email: user.email,
+      message: 'Check your email to confirm your account before signing in.',
+    })
   } catch (err) {
     console.error('register', err)
     res.status(500).json({ error: 'Registration failed' })
+  }
+})
+
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.body ?? {}
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Verification token is required' })
+    }
+
+    const store = readStore()
+    const user = store.users.find((u) => u.emailVerificationToken === token)
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired verification link' })
+    }
+    if (!verificationTokenValid(user, token)) {
+      return res.status(400).json({ error: 'This verification link has expired' })
+    }
+    if (isEmailVerified(user)) {
+      const authToken = signToken(user)
+      return res.json({
+        token: authToken,
+        user: sanitizeUser(user),
+        alreadyVerified: true,
+      })
+    }
+
+    let verifiedUser = null
+    updateStore((s) => {
+      const idx = s.users.findIndex((u) => u.id === user.id)
+      if (idx < 0) return s
+      verifiedUser = {
+        ...s.users[idx],
+        emailVerified: true,
+        emailVerifiedAt: new Date().toISOString(),
+        emailVerificationToken: undefined,
+        emailVerificationExpiresAt: undefined,
+      }
+      const users = [...s.users]
+      users[idx] = verifiedUser
+      return { ...s, users }
+    })
+
+    if (!verifiedUser) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    notifyAdminOfVerifiedClient(verifiedUser)
+
+    const authToken = signToken(verifiedUser)
+    res.json({ token: authToken, user: sanitizeUser(verifiedUser) })
+  } catch (err) {
+    console.error('verify-email', err)
+    res.status(500).json({ error: 'Could not verify email' })
+  }
+})
+
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body ?? {}
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' })
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+    const store = readStore()
+    const user = store.users.find((u) => u.email === normalizedEmail)
+    if (!user) {
+      return res.json({
+        ok: true,
+        message: 'If an unverified account exists for that email, a new link has been sent.',
+      })
+    }
+    if (isEmailVerified(user)) {
+      return res.status(400).json({ error: 'This email is already verified. You can sign in.' })
+    }
+
+    await issueVerificationEmail(user)
+
+    res.json({
+      ok: true,
+      message: 'A new verification email has been sent.',
+    })
+  } catch (err) {
+    console.error('resend-verification', err)
+    res.status(500).json({ error: 'Could not resend verification email' })
   }
 })
 
@@ -118,6 +263,14 @@ router.post('/login', async (req, res) => {
     const valid = await verifyPassword(password, user.passwordHash)
     if (!valid) {
       return res.status(401).json({ error: 'Invalid email or password' })
+    }
+
+    if (!isEmailVerified(user)) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in. Check your inbox for the confirmation link.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      })
     }
 
     const token = signToken(user)

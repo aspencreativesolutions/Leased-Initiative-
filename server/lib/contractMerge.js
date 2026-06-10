@@ -1,4 +1,12 @@
-/** Fields set by portal send/sign — must not be wiped by admin contract saves */
+import { generateId } from './notifications.js'
+import {
+  contractContentFingerprint,
+  hasContractContentChanged,
+  needsClientResign,
+  prepareContractForClientReview,
+} from './contractReview.js'
+
+/** Fields set by portal send/sign — must not be wiped by ordinary admin saves */
 const PORTAL_FIELDS = [
   'sentAt',
   'viewedAt',
@@ -6,7 +14,43 @@ const PORTAL_FIELDS = [
   'confirmedByClient',
   'clientSignature',
   'clientSignDate',
+  'signedContentFingerprint',
+  'contentUpdatedAt',
 ]
+
+function buildRevisedContract(existing, incoming, now) {
+  const merged = mergeContractDeliveryFields(existing, incoming)
+  return prepareContractForClientReview(
+    {
+      ...merged,
+      contentUpdatedAt: now,
+    },
+    now
+  )
+}
+
+export function mergeContractOnAdminSave(existing, incoming, now = new Date().toISOString()) {
+  if (!existing) {
+    return { contract: incoming, revised: false }
+  }
+
+  const wasDelivered = Boolean(existing.sentAt)
+  const contentChanged = hasContractContentChanged(existing, incoming)
+
+  if (wasDelivered && contentChanged) {
+    return {
+      contract: buildRevisedContract(existing, incoming, now),
+      revised: true,
+    }
+  }
+
+  let contract = mergeContractDeliveryFields(existing, incoming)
+  if (contentChanged) {
+    contract = { ...contract, contentUpdatedAt: now }
+  }
+
+  return { contract, revised: false }
+}
 
 export function mergeContractDeliveryFields(existing, incoming) {
   if (!existing) return incoming
@@ -19,11 +63,68 @@ export function mergeContractDeliveryFields(existing, incoming) {
   return merged
 }
 
-export function mergeContractsList(existingContracts, incomingContracts) {
+export function mergeContractsList(
+  existingContracts,
+  incomingContracts,
+  clients = [],
+  now = new Date().toISOString()
+) {
   const byId = new Map(existingContracts.map((c) => [c.id, c]))
-  return incomingContracts.map((incoming) =>
-    mergeContractDeliveryFields(byId.get(incoming.id), incoming)
-  )
+  const clientsById = new Map(clients.map((c) => [c.id, c]))
+  const contracts = []
+  const revisedClientIds = new Set()
+
+  for (const incoming of incomingContracts) {
+    const existing = byId.get(incoming.id)
+    let { contract, revised } = mergeContractOnAdminSave(existing, incoming, now)
+
+    const client = contract.clientId ? clientsById.get(contract.clientId) : undefined
+    if (!revised && existing?.sentAt && needsClientResign(contract, client)) {
+      contract = prepareContractForClientReview(contract, now)
+      revised = true
+    }
+
+    contracts.push(contract)
+    if (revised && contract.clientId) {
+      revisedClientIds.add(contract.clientId)
+    }
+  }
+
+  return { contracts, revisedClientIds: [...revisedClientIds] }
+}
+
+/** Reset client workflow when a sent contract is revised and re-delivered */
+export function applyClientContractRevision(client, now = new Date().toISOString()) {
+  const depositPaid = Boolean(client.depositPaymentConfirmedAt || client.invoice?.paidAt)
+
+  const notes = [
+    ...(client.notes ?? []),
+    {
+      id: generateId(),
+      text: `Contract revised and re-sent to client portal on ${new Date(now).toLocaleDateString()}. Awaiting client review and signature.`,
+      category: 'Contract',
+      createdAt: now,
+    },
+  ]
+
+  const updates = {
+    contractStatus: 'Sent',
+    notes,
+  }
+
+  if (!client.projectStartedAt) {
+    updates.projectStatus = 'Contract Sent'
+  }
+
+  if (!depositPaid) {
+    updates.isOfficialClient = false
+    updates.officialClientSince = undefined
+    updates.invoice = undefined
+    updates.paymentStatus = 'Unpaid'
+    updates.depositPaymentConfirmedAt = undefined
+  }
+
+  return { ...client, ...updates }
 }
 
 /** Repair contracts that were marked sent on the client but lost sentAt on the contract */
@@ -50,3 +151,5 @@ export function repairSentContracts(store, clientId) {
 
   return repaired ? { ...store, contracts } : store
 }
+
+export { hasContractContentChanged, needsClientResign, prepareContractForClientReview }

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="editorial">
+<html lang="en" data-theme="ocean">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -16,13 +16,22 @@
     />
     <script>
       (function () {
+        var path = window.location.pathname;
+        if (path === '/studio/login' || path === '/studio/register') {
+          document.documentElement.setAttribute('data-theme', 'ocean');
+          return;
+        }
         var k = 'client-craft-theme';
         var t = localStorage.getItem(k);
         var valid = [
           'editorial','soft','mono','golden','ocean',
           'rose','forest','midnight','citrus','vintage','neon','slate','terracotta'
         ];
-        if (t && valid.indexOf(t) !== -1) document.documentElement.setAttribute('data-theme', t);
+        if (t && valid.indexOf(t) !== -1) {
+          document.documentElement.setAttribute('data-theme', t);
+        } else {
+          document.documentElement.setAttribute('data-theme', 'ocean');
+        }
       })();
     </script>
   </head>

@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
+  applyStudioAuthTheme,
   applyThemeToDocument,
   isPortalPath,
+  isStudioAuthPath,
   loadStoredPortalThemeId,
   loadStoredThemeId,
 } from '@/themes/applyTheme'
@@ -15,6 +17,8 @@ export function RouteThemeSync() {
   useEffect(() => {
     if (isPortalPath(pathname)) {
       applyThemeToDocument(loadStoredPortalThemeId(), PORTAL_THEME_STORAGE_KEY)
+    } else if (isStudioAuthPath(pathname)) {
+      applyStudioAuthTheme()
     } else {
       applyThemeToDocument(loadStoredThemeId(), THEME_STORAGE_KEY)
     }

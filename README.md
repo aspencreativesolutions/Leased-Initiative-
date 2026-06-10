@@ -33,7 +33,7 @@ cp .env.example .env   # set JWT_SECRET and PayPal credentials
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). **Admin access:** register at `/register` with your Aspen work email (`firstname@aspencreativesolutions.com`, matching your first name). **Clients:** register at `/portal/register`.
+Open [http://localhost:5173](http://localhost:5173). **Clients:** sign up or sign in at `/register` and `/login`. **Aspen team:** use `/studio/register` and `/studio/login` with your work email (`firstname@aspencreativesolutions.com`).
 
 `npm run dev` starts the Vite app **and** the API server on port 3001 (auth, data sync, PayPal).
 
@@ -68,7 +68,7 @@ Data is stored server-side in `server/data/store.json` when signed in as admin. 
 
 1. Add a client in the studio with their email.
 2. Build the contract and generate the PDF.
-3. Click **Send Contract to Client** → **Client portal** (client must register at `/portal/register` with the same email).
+3. Click **Send Contract to Client** → **Client portal** (client must register at `/register` with the same email).
 4. The client reviews and confirms in their portal; status updates on your admin dashboard.
 
 ## Future Ideas

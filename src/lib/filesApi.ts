@@ -57,18 +57,29 @@ export async function addPortalFileNote(fileId: string, text: string) {
   })
 }
 
-export async function downloadPortalFile(fileId: string, filename: string) {
+export function getPortalFileDownloadUrl(fileId: string) {
+  return `/api/portal/files/${fileId}/download`
+}
+
+export function getProjectFileDownloadUrl(fileId: string) {
+  return `/api/files/${fileId}/download`
+}
+
+export async function fetchAuthenticatedFileBlob(url: string) {
   const token = getToken()
-  const res = await fetch(`/api/portal/files/${fileId}/download`, {
+  const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new ApiError(data.error || 'Download failed', res.status)
+    throw new ApiError(data.error || 'Could not load file', res.status)
   }
 
-  const blob = await res.blob()
+  return res.blob()
+}
+
+async function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -77,22 +88,24 @@ export async function downloadPortalFile(fileId: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+export async function downloadPortalFile(fileId: string, filename: string) {
+  const blob = await fetchAuthenticatedFileBlob(getPortalFileDownloadUrl(fileId))
+  await downloadBlob(blob, filename)
+}
+
 export async function downloadProjectFile(fileId: string, filename: string) {
-  const token = getToken()
-  const res = await fetch(`/api/files/${fileId}/download`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  const blob = await fetchAuthenticatedFileBlob(getProjectFileDownloadUrl(fileId))
+  await downloadBlob(blob, filename)
+}
+
+export async function deletePortalFile(fileId: string) {
+  return apiFetch<{ ok: boolean; file: ProjectFile }>(`/api/portal/files/${fileId}`, {
+    method: 'DELETE',
   })
+}
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    throw new ApiError(data.error || 'Download failed', res.status)
-  }
-
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
+export async function deleteProjectFileById(fileId: string) {
+  return apiFetch<{ ok: boolean; file: ProjectFile }>(`/api/files/${fileId}`, {
+    method: 'DELETE',
+  })
 }

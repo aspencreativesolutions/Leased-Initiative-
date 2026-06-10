@@ -2,12 +2,11 @@ import { AlertTriangle, Rocket } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { ClientStatusOverview } from '@/components/clients/ClientStatusOverview'
-import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { PortalCurrentContracts } from '@/components/portal/PortalCurrentContracts'
 import { PortalInvoiceSection } from '@/components/portal/PortalInvoiceSection'
+import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { StatusBadge } from '@/components/ui/StatusBadge'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
 import { formatDate } from '@/lib/utils'
 
@@ -65,47 +64,30 @@ export function PortalDashboardPage() {
         </Card>
       )}
 
-      {data.client && data.projectStarted ? (
+      {data.client && (
         <ClientStatusOverview
           className="mb-6"
+          mode="portal"
           projectStatus={data.client.projectStatus}
           contractStatus={data.client.contractStatus}
           paymentStatus={data.client.paymentStatus}
+          remainingBalance={data.remainingBalance}
+          projectStarted={data.projectStarted}
+          showProgress={false}
         />
-      ) : data.client ? (
-        <Card padding="md" className="mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-caps text-ink-faint">
-                Project
-              </p>
-              <StatusBadge type="project" status={data.client.projectStatus} />
-            </div>
-            {data.client.portalContractStatus && (
-              <div>
-                <p className="text-[9px] font-semibold uppercase tracking-caps text-ink-faint">
-                  Contract
-                </p>
-                <PortalContractStatusBadge status={data.client.portalContractStatus} />
-              </div>
-            )}
-            {data.client.paymentStatus && (
-              <div>
-                <p className="text-[9px] font-semibold uppercase tracking-caps text-ink-faint">
-                  Payment
-                </p>
-                <StatusBadge type="payment" status={data.client.paymentStatus} />
-              </div>
-            )}
-          </div>
-        </Card>
-      ) : null}
+      )}
 
       <div className="mb-8">
-        <PortalCurrentContracts contracts={data.contracts} />
+        <PortalCurrentContracts
+          contracts={data.contracts}
+          contractStatus={data.client?.contractStatus}
+        />
       </div>
 
       <PortalInvoiceSection invoice={data.invoice} title="Deposit Invoice" />
+      {data.remainingBalance && (
+        <PortalRemainingBalanceSection balance={data.remainingBalance} />
+      )}
       <PortalInvoiceSection invoice={data.finalInvoice} title="Final Invoice" />
 
       <PortalProjectFilesSection

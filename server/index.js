@@ -1,5 +1,5 @@
 /**
- * Client Craft API server — auth, data sync, PayPal, and client portal.
+ * Client Craft API server — auth, data sync, PayPal, Stripe, and client portal.
  * Run: node server/index.js  (or npm run dev:server)
  */
 import express from 'express'
@@ -20,6 +20,19 @@ import {
   getPayPalAccessToken,
   getPayPalApiBase,
 } from './lib/paypal.js'
+import {
+  isStripeConfigured,
+  retrieveStripeCheckoutSession,
+  constructStripeWebhookEvent,
+} from './lib/stripe.js'
+import {
+  isSquareConfigured,
+  verifySquareOrderPayment,
+  captureFromSquarePayment,
+  verifySquareWebhookSignature,
+  retrieveSquareOrder,
+  getSquareEnvironment,
+} from './lib/square.js'
 import { updateStore } from './db.js'
 import { applyPaymentToStore } from './lib/payments.js'
 
@@ -38,6 +51,62 @@ app.use(
     credentials: true,
   })
 )
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['stripe-signature']
+    if (!signature) return res.sendStatus(400)
+
+    const event = constructStripeWebhookEvent(req.body, signature)
+    if (event.type === 'checkout.session.completed') {
+      const capture = await retrieveStripeCheckoutSession(event.data.object.id)
+      if (capture.clientId) {
+        updateStore((s) => applyPaymentToStore(s, capture.clientId, capture))
+      }
+    }
+    res.sendStatus(200)
+  } catch (err) {
+    console.error('stripe webhook', err)
+    res.sendStatus(400)
+  }
+})
+
+app.post('/api/square/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-square-hmacsha256-signature']
+    const webhookKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
+    const body = req.body.toString()
+    const webhookBase =
+      process.env.WEBHOOK_BASE_URL?.replace(/\/$/, '') ||
+      process.env.APP_URL?.replace(/\/$/, '') ||
+      `http://localhost:${PORT}`
+    const notificationUrl = `${webhookBase}/api/square/webhook`
+
+    if (webhookKey && webhookKey !== 'your_webhook_signature_key') {
+      const verified = verifySquareWebhookSignature(body, signature, notificationUrl)
+      if (!verified) return res.sendStatus(401)
+    } else {
+      console.warn('SQUARE_WEBHOOK_SIGNATURE_KEY not set — webhook verification skipped in dev')
+    }
+
+    const event = JSON.parse(body)
+    if (event.type === 'payment.updated') {
+      const payment = event.data?.object?.payment
+      if (payment?.status === 'COMPLETED' && payment.order_id) {
+        const order = await retrieveSquareOrder(payment.order_id)
+        const capture = captureFromSquarePayment(payment, order)
+        if (capture.clientId) {
+          updateStore((s) => applyPaymentToStore(s, capture.clientId, capture))
+        }
+      }
+    }
+    res.sendStatus(200)
+  } catch (err) {
+    console.error('square webhook', err)
+    res.sendStatus(400)
+  }
+})
+
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
@@ -57,6 +126,37 @@ app.get('/api/paypal/health', (_req, res) => {
     mode: MODE,
     clientIdConfigured: isPayPalConfigured(),
   })
+})
+
+app.get('/api/stripe/health', (_req, res) => {
+  res.json({
+    ok: isStripeConfigured(),
+    mode: process.env.STRIPE_MODE || 'test',
+  })
+})
+
+app.get('/api/square/health', (_req, res) => {
+  res.json({
+    ok: isSquareConfigured(),
+    mode: getSquareEnvironment(),
+    locationConfigured: Boolean(process.env.SQUARE_LOCATION_ID?.trim()),
+  })
+})
+
+app.post('/api/square/verify-order', async (req, res) => {
+  try {
+    const { orderId } = req.body
+    if (!orderId) return res.status(400).json({ error: 'orderId is required' })
+
+    const result = await verifySquareOrderPayment(orderId)
+    if (result.clientId) {
+      updateStore((s) => applyPaymentToStore(s, result.clientId, result))
+    }
+    res.json(result)
+  } catch (err) {
+    console.error('square verify-order', err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 app.post('/api/paypal/create-order', async (req, res) => {
@@ -92,12 +192,30 @@ app.post('/api/paypal/capture-order', async (req, res) => {
     const result = await capturePayPalOrder(orderId)
 
     if (result.clientId) {
-      updateStore((s) => applyPaymentToStore(s, result.clientId, result))
+      updateStore((s) => applyPaymentToStore(s, result.clientId, { ...result, provider: 'paypal' }))
     }
 
     res.json(result)
   } catch (err) {
     console.error('capture-order', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/stripe/verify-session', async (req, res) => {
+  try {
+    const { sessionId } = req.body
+    if (!sessionId) return res.status(400).json({ error: 'sessionId is required' })
+
+    const result = await retrieveStripeCheckoutSession(sessionId)
+
+    if (result.clientId) {
+      updateStore((s) => applyPaymentToStore(s, result.clientId, result))
+    }
+
+    res.json(result)
+  } catch (err) {
+    console.error('verify-session', err)
     res.status(500).json({ error: err.message })
   }
 })
@@ -152,5 +270,13 @@ app.listen(PORT, () => {
   console.log(
     `PayPal mode: ${MODE}`,
     isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'
+  )
+  console.log(
+    `Stripe mode: ${process.env.STRIPE_MODE || 'test'}`,
+    isStripeConfigured() ? '(credentials loaded)' : '(missing credentials)'
+  )
+  console.log(
+    `Square mode: ${getSquareEnvironment()}`,
+    isSquareConfigured() ? '(credentials loaded)' : '(missing credentials)'
   )
 })

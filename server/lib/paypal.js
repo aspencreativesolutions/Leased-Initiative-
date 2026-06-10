@@ -19,8 +19,19 @@ let tokenExpiresAt = 0
 /** orderId -> { clientId, amount, currency, description } */
 const pendingOrders = new Map()
 
+const PLACEHOLDER_VALUES = new Set([
+  'your_sandbox_client_id',
+  'your_sandbox_client_secret',
+  '',
+])
+
 export function isPayPalConfigured() {
-  return Boolean(CLIENT_ID && CLIENT_SECRET)
+  return Boolean(
+    CLIENT_ID &&
+      CLIENT_SECRET &&
+      !PLACEHOLDER_VALUES.has(CLIENT_ID.trim()) &&
+      !PLACEHOLDER_VALUES.has(CLIENT_SECRET.trim())
+  )
 }
 
 async function getAccessToken() {

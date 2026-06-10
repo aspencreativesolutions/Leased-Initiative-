@@ -2,6 +2,7 @@ import { readStore, updateStore } from '../db.js'
 import { buildProjectTimeline } from './projectTimeline.js'
 import { applyTimelineSkipEffects } from './timelineSkipEffects.js'
 import { TIMELINE_STEP_ORDER } from './timelineSteps.js'
+import { ensureOfficialWhenProjectActive } from './clientWorkflow.js'
 import { generateId } from './notifications.js'
 
 /**
@@ -35,25 +36,34 @@ export function repairClientWorkflow(client, contract) {
     }
   }
 
+  const officialClient = ensureOfficialWhenProjectActive(nextClient)
+  if (officialClient !== nextClient) {
+    nextClient = officialClient
+    changed = true
+  }
+
   if (nextClient.projectStartedAt) {
     return { client: nextClient, contract: nextContract, changed }
   }
 
   if (nextClient.projectStatus === 'In Progress') {
     const now = new Date().toISOString()
-    nextClient = {
-      ...nextClient,
-      projectStartedAt: now,
-      notes: [
-        ...(nextClient.notes ?? []),
-        {
-          id: generateId(),
-          text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
-          category: 'Project',
-          createdAt: now,
-        },
-      ],
-    }
+    nextClient = ensureOfficialWhenProjectActive(
+      {
+        ...nextClient,
+        projectStartedAt: now,
+        notes: [
+          ...(nextClient.notes ?? []),
+          {
+            id: generateId(),
+            text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
+            category: 'Project',
+            createdAt: now,
+          },
+        ],
+      },
+      now
+    )
     return { client: nextClient, contract: nextContract, changed: true }
   }
 
@@ -78,20 +88,23 @@ export function repairClientWorkflow(client, contract) {
   }
 
   const now = new Date().toISOString()
-  nextClient = {
-    ...nextClient,
-    projectStatus: 'In Progress',
-    projectStartedAt: now,
-    notes: [
-      ...(nextClient.notes ?? []),
-      {
-        id: generateId(),
-        text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
-        category: 'Project',
-        createdAt: now,
-      },
-    ],
-  }
+  nextClient = ensureOfficialWhenProjectActive(
+    {
+      ...nextClient,
+      projectStatus: 'In Progress',
+      projectStartedAt: now,
+      notes: [
+        ...(nextClient.notes ?? []),
+        {
+          id: generateId(),
+          text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
+          category: 'Project',
+          createdAt: now,
+        },
+      ],
+    },
+    now
+  )
 
   return { client: nextClient, contract: nextContract, changed: true }
 }

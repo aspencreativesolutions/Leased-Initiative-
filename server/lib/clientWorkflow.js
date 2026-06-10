@@ -29,3 +29,18 @@ export function isProjectActive(client) {
   if (client.timelineStepSkips?.project_started) return true
   return false
 }
+
+/** Active projects are official clients — pending badge becomes client */
+export function promoteToOfficialClient(client, now = new Date().toISOString()) {
+  if (!client || client.isOfficialClient) return client
+  return {
+    ...client,
+    isOfficialClient: true,
+    officialClientSince: client.officialClientSince ?? now,
+  }
+}
+
+export function ensureOfficialWhenProjectActive(client, now = new Date().toISOString()) {
+  if (!isProjectActive(client)) return client
+  return promoteToOfficialClient(client, now)
+}

@@ -2,7 +2,7 @@ import type { ThemeId, ThemeOption } from './types'
 
 export const THEME_STORAGE_KEY = 'client-craft-theme'
 export const PORTAL_THEME_STORAGE_KEY = 'client-craft-portal-theme'
-export const DEFAULT_THEME_ID: ThemeId = 'editorial'
+export const DEFAULT_THEME_ID: ThemeId = 'ocean'
 export const DEFAULT_PORTAL_THEME_ID: ThemeId = 'ocean'
 
 export const themeOptions: ThemeOption[] = [

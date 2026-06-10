@@ -35,6 +35,8 @@ export type NoteCategory = 'General' | 'Payment' | 'Contract' | 'Project' | 'Fol
 
 export type ServiceTier = 'Starter' | 'Business' | 'Premium Custom'
 
+export type PaymentProvider = 'paypal' | 'stripe' | 'square'
+
 export interface SchedulerNote {
   id: string
   text: string
@@ -60,18 +62,30 @@ export interface Deadline {
   type: 'follow-up' | 'project' | 'contract' | 'payment'
   date: string
   label: string
+  /** Local time, e.g. "14:00" — shown for calls and scheduled meetings */
+  time?: string
+  /** Video or calendar link for discovery calls and follow-ups */
+  meetingLink?: string
+  /** What to discuss, deliver, or prepare — shown when the card is expanded */
+  description?: string
   notes?: string
   completed?: boolean
 }
 
-/** Invoice tied to a client for PayPal checkout */
+/** Invoice tied to a client for PayPal or Stripe checkout */
 export interface ClientInvoice {
   description: string
   amount: number
   currency: string
+  paymentProvider?: PaymentProvider
   paypalOrderId?: string
   paypalCaptureId?: string
-  /** Hosted checkout URL (approve link) when available */
+  stripeSessionId?: string
+  stripePaymentIntentId?: string
+  squarePaymentLinkId?: string
+  squareOrderId?: string
+  squarePaymentId?: string
+  /** Hosted checkout URL (PayPal approve link, Stripe Checkout, or Square) */
   paymentLink?: string
   createdAt: string
   paidAt?: string
@@ -86,9 +100,11 @@ export interface PortalInvoice {
   amount: number
   currency: string
   description: string
+  paymentProvider?: PaymentProvider
   paymentLink?: string
   sentToPortalAt?: string
   paidAt?: string
+  dueDate?: string
   invoiceType?: 'deposit' | 'final'
 }
 
@@ -106,6 +122,8 @@ export interface ProjectTimelineStep {
   label: string
   status: TimelineStepStatus
   completedAt?: string
+  /** When the current active step started waiting (previous step completed) */
+  waitingSince?: string
   detail?: string
   skipped?: boolean
   subEvents?: TimelineSubEvent[]
@@ -119,14 +137,25 @@ export interface User {
   name: string
   role: UserRole
   clientId?: string | null
+  phone?: string
+  /** Hidden from new registration queue without deleting the account */
+  registrationDismissed?: boolean
   /** Client portal style — persisted across sessions */
   portalThemeId?: string
+  emailVerified?: boolean
+  emailVerifiedAt?: string
   createdAt: string
 }
 
 export interface AuthResponse {
   token: string
   user: User
+}
+
+export interface RegisterResponse {
+  requiresVerification: true
+  email: string
+  message: string
 }
 
 export interface Client {
@@ -191,6 +220,8 @@ export interface ContractData {
   depositAmount: string
   remainingBalance: string
   paymentSchedule: string
+  /** Checkout provider for deposit and final invoices */
+  paymentProvider?: PaymentProvider
   paymentMethods: string
   latePaymentPolicy: string
   revisionCount: string
@@ -214,6 +245,10 @@ export interface ContractData {
   viewedAt?: string
   signedAt?: string
   confirmedByClient?: boolean
+  /** Fingerprint of terms the client signed */
+  signedContentFingerprint?: string
+  /** Updated when admin changes contract terms */
+  contentUpdatedAt?: string
 }
 
 export type PortalContractClientStatus = 'Pending Review' | 'Viewed' | 'Accepted'
@@ -235,6 +270,31 @@ export interface PendingRegistration {
   name: string
   email: string
   createdAt: string
+}
+
+export interface PortalUserAccepted {
+  userId: string
+  name: string
+  email: string
+  registeredAt: string
+  clientId: string
+  clientName: string
+  projectName: string
+  isOfficialClient: boolean
+  timelineStageId: string
+  timelineStageLabel: string
+  acceptedAt: string
+  handlerName: string
+  handlerEmail: string
+}
+
+export interface PortalUsersOverview {
+  handlerName: string
+  handlerEmail: string
+  pending: PendingRegistration[]
+  accepted: PortalUserAccepted[]
+  pendingCount: number
+  acceptedCount: number
 }
 
 export type AdminNotificationType =
@@ -300,10 +360,19 @@ export interface PortalDashboard {
   contracts: PortalContractSummary[]
   invoice?: PortalInvoice | null
   finalInvoice?: PortalInvoice | null
+  /** Remaining balance after deposit — due at project completion */
+  remainingBalance?: PortalInvoice | null
   projectStarted: boolean
   projectStartedAt?: string
   supportContact?: PortalSupportContact
   message?: string
+}
+
+export interface ProfileReminder {
+  id: string
+  text: string
+  dueDate?: string
+  createdAt: string
 }
 
 export interface BusinessSettings {
@@ -316,6 +385,7 @@ export interface BusinessSettings {
   defaultPaymentTerms: string
   defaultRevisionLimit: string
   defaultContractFooter: string
+  profileReminders?: ProfileReminder[]
 }
 
 export interface EmailDraft {

@@ -3,11 +3,16 @@ import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { generateId } from '../lib/notifications.js'
 import { buildDepositInvoice, buildFinalInvoice } from '../lib/invoice.js'
-import { createPayPalOrder, isPayPalConfigured } from '../lib/paypal.js'
+import {
+  attachPaymentLink,
+  getContractPaymentProvider,
+  isPaymentProviderConfigured,
+  paymentProviderLabel,
+} from '../lib/paymentLinks.js'
 
 const router = Router()
 
-/** Create deposit invoice + PayPal link from signed contract (repair / manual) */
+/** Create deposit invoice + payment link from signed contract (repair / manual) */
 router.post('/:clientId/generate', authMiddleware, requireRole('admin'), async (req, res) => {
   const { clientId } = req.params
   const store = readStore()
@@ -22,6 +27,13 @@ router.post('/:clientId/generate', authMiddleware, requireRole('admin'), async (
     return res.status(400).json({ error: 'Could not determine deposit amount from contract' })
   }
 
+  const provider = getContractPaymentProvider(contract)
+  if (!isPaymentProviderConfigured(provider)) {
+    return res.status(400).json({
+      error: `${paymentProviderLabel(provider)} is not configured. Check credentials in .env and restart npm run dev.`,
+    })
+  }
+
   const now = new Date().toISOString()
   let invoice = {
     description: invoiceDraft.description,
@@ -31,20 +43,11 @@ router.post('/:clientId/generate', authMiddleware, requireRole('admin'), async (
     createdAt: now,
   }
 
-  if (isPayPalConfigured()) {
-    try {
-      const order = await createPayPalOrder({
-        clientId,
-        amount: invoiceDraft.amount,
-        currency: invoiceDraft.currency,
-        description: invoiceDraft.description,
-      })
-      invoice.paypalOrderId = order.orderId
-      invoice.paymentLink = order.approvalUrl
-    } catch (err) {
-      console.error('generate invoice paypal', err)
-      return res.status(500).json({ error: err.message })
-    }
+  try {
+    invoice = await attachPaymentLink(invoice, { contract, clientId, invoiceType: 'deposit' })
+  } catch (err) {
+    console.error('generate invoice payment link', err)
+    return res.status(500).json({ error: err.message })
   }
 
   updateStore((s) => ({
@@ -60,6 +63,7 @@ router.post('/:clientId/send', authMiddleware, requireRole('admin'), (req, res) 
   const { clientId } = req.params
   const store = readStore()
   const client = store.clients.find((c) => c.id === clientId)
+  const contract = store.contracts.find((c) => c.clientId === clientId)
 
   if (!client) {
     return res.status(404).json({ error: 'Client not found' })
@@ -75,8 +79,9 @@ router.post('/:clientId/send', authMiddleware, requireRole('admin'), (req, res) 
     })
   }
   if (!client.invoice.paymentLink) {
+    const provider = client.invoice.paymentProvider ?? getContractPaymentProvider(contract)
     return res.status(400).json({
-      error: 'PayPal payment link is missing. Check PayPal credentials in .env and re-send after fixing.',
+      error: `${paymentProviderLabel(provider)} payment link is missing. Check credentials in .env and re-send after fixing.`,
     })
   }
   if (client.invoice.paidAt) {
@@ -140,8 +145,9 @@ router.post('/:clientId/send-final', authMiddleware, requireRole('admin'), (req,
     return res.status(400).json({ error: 'No final invoice found for this client.' })
   }
   if (!client.finalInvoice.paymentLink) {
+    const provider = client.finalInvoice.paymentProvider ?? 'paypal'
     return res.status(400).json({
-      error: 'PayPal payment link is missing. Check PayPal credentials in .env.',
+      error: `${paymentProviderLabel(provider)} payment link is missing. Check credentials in .env.`,
     })
   }
   if (client.finalInvoice.paidAt) {
@@ -201,20 +207,15 @@ router.post('/:clientId/generate-final', authMiddleware, requireRole('admin'), a
     createdAt: now,
   }
 
-  if (isPayPalConfigured()) {
-    try {
-      const order = await createPayPalOrder({
-        clientId,
-        amount: invoiceDraft.amount,
-        currency: invoiceDraft.currency,
-        description: invoiceDraft.description,
-      })
-      finalInvoice.paypalOrderId = order.orderId
-      finalInvoice.paymentLink = order.approvalUrl
-    } catch (err) {
-      console.error('generate final invoice paypal', err)
-      return res.status(500).json({ error: err.message })
-    }
+  try {
+    finalInvoice = await attachPaymentLink(finalInvoice, {
+      contract,
+      clientId,
+      invoiceType: 'final',
+    })
+  } catch (err) {
+    console.error('generate final invoice payment link', err)
+    return res.status(500).json({ error: err.message })
   }
 
   updateStore((s) => ({

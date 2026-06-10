@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/FormField'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
+import { ProfileRemindersSection } from '@/components/profile/ProfileRemindersSection'
 import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
 import { countOfficialClients } from '@/lib/clientUtils'
@@ -203,6 +204,8 @@ export function ProfilePage() {
             </div>
           </Card>
         </form>
+
+        <ProfileRemindersSection />
 
         <Card>
           <CardHeader

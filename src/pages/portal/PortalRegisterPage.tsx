@@ -1,5 +1,6 @@
-import { RegisterPage } from '@/pages/auth/RegisterPage'
+import { Navigate } from 'react-router-dom'
 
+/** Legacy URL — client sign-up lives at /register */
 export function PortalRegisterPage() {
-  return <RegisterPage loginPath="/portal/login" />
+  return <Navigate to="/register" replace />
 }

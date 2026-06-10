@@ -6,6 +6,7 @@ import { useApp } from '@/context/AppContext'
 import { sendFinalInvoiceToPortal } from '@/lib/invoicesApi'
 import { ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
+import { paymentProviderLabel, resolvePaymentProvider } from '@/lib/paymentProvider'
 import type { Client } from '@/types'
 
 interface ClientFinalInvoiceCardProps {
@@ -20,6 +21,8 @@ export function ClientFinalInvoiceCard({ client }: ClientFinalInvoiceCardProps) 
 
   const invoice = client.finalInvoice
   if (!invoice) return null
+
+  const providerName = paymentProviderLabel(resolvePaymentProvider(invoice.paymentProvider))
 
   const handleSend = async () => {
     setSending(true)
@@ -100,7 +103,7 @@ export function ClientFinalInvoiceCard({ client }: ClientFinalInvoiceCardProps) 
               <a href={invoice.paymentLink} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">
                   <ExternalLink className="h-4 w-4" />
-                  Preview PayPal link
+                  Preview {providerName} link
                 </Button>
               </a>
             )}
@@ -108,7 +111,7 @@ export function ClientFinalInvoiceCard({ client }: ClientFinalInvoiceCardProps) 
 
           {!invoice.paymentLink && (
             <p className="text-sm text-accent">
-              PayPal link not available. Check PayPal credentials in .env and restart the server.
+              {providerName} link not available. Check credentials in .env and restart the server.
             </p>
           )}
         </div>

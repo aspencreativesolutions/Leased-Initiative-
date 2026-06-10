@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Plus, Search, Users } from 'lucide-react'
+import { Plus, Search, UserCog, Users } from 'lucide-react'
 import { AddClientModal } from '@/components/clients/AddClientModal'
+import { ClientAccountsModal } from '@/components/clients/ClientAccountsModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -12,8 +13,9 @@ import { countOfficialClients, countPendingClients } from '@/lib/clientUtils'
 import type { ContractStatus, PaymentStatus, ProjectStatus } from '@/types'
 
 export function ClientsPage() {
-  const { clients } = useApp()
+  const { clients, refresh } = useApp()
   const [addOpen, setAddOpen] = useState(false)
+  const [accountsOpen, setAccountsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<ProjectStatus | ''>('')
   const [contractFilter, setContractFilter] = useState<ContractStatus | ''>('')
@@ -77,10 +79,16 @@ export function ClientsPage() {
         title="Clients"
         subtitle="Official clients and pending prospects in your pipeline."
         action={
-          <Button onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Add Client
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setAccountsOpen(true)}>
+              <UserCog className="h-4 w-4" />
+              Client Accounts
+            </Button>
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Client
+            </Button>
+          </div>
         }
       />
 
@@ -180,6 +188,11 @@ export function ClientsPage() {
       </p>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <ClientAccountsModal
+        open={accountsOpen}
+        onClose={() => setAccountsOpen(false)}
+        onChanged={refresh}
+      />
     </div>
   )
 }

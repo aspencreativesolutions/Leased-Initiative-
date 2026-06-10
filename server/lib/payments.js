@@ -10,6 +10,29 @@ function paymentStatusAfterCapture(current, invoiceAmount, contract) {
   return current === 'Overdue' ? 'Partial' : current
 }
 
+function providerPaymentIds(capture, existingProvider) {
+  const provider = capture.provider ?? existingProvider ?? 'paypal'
+  if (provider === 'stripe') {
+    return {
+      paymentProvider: 'stripe',
+      stripeSessionId: capture.orderId,
+      stripePaymentIntentId: capture.captureId,
+    }
+  }
+  if (provider === 'square') {
+    return {
+      paymentProvider: 'square',
+      squareOrderId: capture.orderId,
+      squarePaymentId: capture.captureId,
+    }
+  }
+  return {
+    paymentProvider: 'paypal',
+    paypalOrderId: capture.orderId,
+    paypalCaptureId: capture.captureId,
+  }
+}
+
 export function applyPaymentToStore(store, clientId, capture) {
   const client = store.clients.find((c) => c.id === clientId)
   if (!client) return store
@@ -18,6 +41,12 @@ export function applyPaymentToStore(store, clientId, capture) {
   const amount = parseFloat(capture.amount)
   const now = new Date().toISOString()
   const currency = capture.currency || 'USD'
+  const providerLabel =
+    capture.provider === 'stripe'
+      ? 'Stripe'
+      : capture.provider === 'square'
+        ? 'Square'
+        : 'PayPal'
 
   const isFinalPayment =
     client.finalInvoice &&
@@ -25,10 +54,10 @@ export function applyPaymentToStore(store, clientId, capture) {
     Math.abs(amount - client.finalInvoice.amount) < 0.02
 
   if (isFinalPayment) {
+    if (client.finalInvoice.paidAt) return store
     const finalInvoice = {
       ...client.finalInvoice,
-      paypalOrderId: capture.orderId,
-      paypalCaptureId: capture.captureId,
+      ...providerPaymentIds(capture, client.finalInvoice.paymentProvider),
       paidAt: now,
     }
     return {
@@ -43,7 +72,7 @@ export function applyPaymentToStore(store, clientId, capture) {
                 ...(c.notes ?? []),
                 {
                   id: generateId(),
-                  text: `Final balance received: $${amount.toFixed(2)} ${currency} on ${new Date(now).toLocaleDateString()}.`,
+                  text: `Final balance received via ${providerLabel}: $${amount.toFixed(2)} ${currency} on ${new Date(now).toLocaleDateString()}.`,
                   category: 'Payment',
                   createdAt: now,
                 },
@@ -54,6 +83,8 @@ export function applyPaymentToStore(store, clientId, capture) {
     }
   }
 
+  if (client.invoice?.paidAt) return store
+
   const invoice = {
     ...(client.invoice ?? {
       description: client.projectName,
@@ -63,8 +94,7 @@ export function applyPaymentToStore(store, clientId, capture) {
     }),
     amount,
     currency,
-    paypalOrderId: capture.orderId,
-    paypalCaptureId: capture.captureId,
+    ...providerPaymentIds(capture, client.invoice?.paymentProvider),
     paidAt: now,
     paymentLink: client.invoice?.paymentLink,
     sentToPortalAt: client.invoice?.sentToPortalAt,
@@ -90,7 +120,7 @@ export function applyPaymentToStore(store, clientId, capture) {
               ...(c.notes ?? []),
               {
                 id: generateId(),
-                text: `Down payment received: $${amount.toFixed(2)} ${currency} on ${new Date(now).toLocaleDateString()}.`,
+                text: `Down payment received via ${providerLabel}: $${amount.toFixed(2)} ${currency} on ${new Date(now).toLocaleDateString()}.`,
                 category: 'Payment',
                 createdAt: now,
               },

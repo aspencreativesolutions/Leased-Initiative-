@@ -3,11 +3,11 @@ import type { HTMLAttributes, ReactNode } from 'react'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
-  padding?: 'sm' | 'md' | 'lg'
+  padding?: 'none' | 'sm' | 'md' | 'lg'
 }
 
 export function Card({ children, className, padding = 'md', ...props }: CardProps) {
-  const paddingClass = { sm: 'p-4', md: 'p-5', lg: 'p-6' }[padding]
+  const paddingClass = { none: 'p-0', sm: 'p-4', md: 'p-5', lg: 'p-6' }[padding]
   return (
     <div
       className={cn(

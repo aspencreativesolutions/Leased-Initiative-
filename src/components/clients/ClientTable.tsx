@@ -10,7 +10,12 @@ import { useApp } from '@/context/AppContext'
 import { canStartProject, isProjectActive } from '@/lib/clientUtils'
 import { startClientProject } from '@/lib/projectApi'
 import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import type { Client } from '@/types'
+
+/** Shared fixed box for Start Project / Active — border included in size */
+const projectActionBoxClass =
+  'box-border inline-flex h-8 w-[8rem] shrink-0 items-center justify-center gap-1 rounded-sm border-2 px-2 text-[10px] font-black uppercase leading-none tracking-wide whitespace-nowrap'
 
 interface ClientTableProps {
   clients: Client[]
@@ -64,6 +69,7 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
         <table className="w-full table-auto text-left text-sm">
           <thead>
             <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
+              <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[9%]">Client Status</th>
               <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[14%]">Client</th>
               <th className="label-caps px-3 py-2.5 text-left hidden md:table-cell sm:px-4 w-[12%]">
                 Email
@@ -72,12 +78,12 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
               <th className="label-caps px-3 py-2.5 text-left hidden sm:table-cell sm:px-4 w-[8%]">
                 Tier
               </th>
-              <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[9%]">Status</th>
+              <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[9%]">Project Status</th>
               <th className="label-caps px-3 py-2.5 text-left hidden sm:table-cell sm:px-4 w-[9%]">
                 Contract
               </th>
               <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[10%]">Payment</th>
-              <th className="label-caps px-3 py-2.5 text-left sm:px-4 min-w-[9.5rem]">
+              <th className="label-caps w-[8rem] px-3 py-2.5 text-left sm:px-4">
                 Start Project
               </th>
               <th className="label-caps px-3 py-2.5 text-left sm:px-4 w-[6%]">
@@ -93,8 +99,11 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
               return (
                 <tr key={client.id} className="hover:bg-surface transition-colors">
                   <td className="px-3 py-2.5 align-top sm:px-4">
+                    {client.isOfficialClient ? <OfficialClientBadge /> : <PendingClientBadge />}
+                  </td>
+                  <td className="px-3 py-2.5 align-top sm:px-4">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="min-w-0">
                         <Link
                           to={`/clients/${client.id}`}
                           className="truncate font-semibold text-ink hover:text-brand hover:underline"
@@ -102,11 +111,6 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
                         >
                           {client.name}
                         </Link>
-                        {client.isOfficialClient ? (
-                          <OfficialClientBadge />
-                        ) : (
-                          <PendingClientBadge />
-                        )}
                       </div>
                       <p className="truncate text-xs text-ink-muted">{client.businessName}</p>
                       <p className="truncate text-xs text-ink-faint md:hidden">{client.email}</p>
@@ -140,15 +144,21 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
                   <td className="px-3 py-2.5 align-top sm:px-4">
                     <StatusBadge type="payment" status={client.paymentStatus} />
                   </td>
-                  <td className="px-3 py-2.5 align-top sm:px-4">
+                  <td className="px-3 py-2.5 align-middle sm:px-4">
                     {started ? (
-                      <span className="inline-flex min-w-[9rem] items-center justify-center rounded-sm border-2 border-ink bg-surface px-3 py-2.5 text-[10px] font-black uppercase tracking-caps text-ink">
+                      <span className={cn(projectActionBoxClass, 'border-ink bg-surface text-ink')}>
                         Active
                       </span>
                     ) : (
-                      <Button
-                        size="lg"
-                        className="min-w-[10rem] w-full max-w-[12rem] px-5 py-3 text-xs font-black uppercase tracking-caps shadow-sm"
+                      <button
+                        type="button"
+                        className={cn(
+                          projectActionBoxClass,
+                          'transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+                          canStart && startingId !== client.id
+                            ? 'border-brand bg-brand text-surface-paper hover:border-brand-light hover:bg-brand-light'
+                            : 'cursor-not-allowed border-brand/30 bg-brand/35 text-surface-paper/90'
+                        )}
                         disabled={!canStart || startingId === client.id}
                         title={
                           canStart
@@ -158,12 +168,12 @@ export function ClientTable({ clients, fullWidth = false }: ClientTableProps) {
                         onClick={() => handleStartProject(client)}
                       >
                         {startingId === client.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
                         ) : (
-                          <Play className="h-4 w-4" />
+                          <Play className="h-3 w-3 shrink-0" strokeWidth={2.5} />
                         )}
                         Start Project
-                      </Button>
+                      </button>
                     )}
                   </td>
                   <td className="px-3 py-2.5 align-top sm:px-4">

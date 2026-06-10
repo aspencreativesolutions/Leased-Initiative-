@@ -7,7 +7,8 @@ import { useApp } from '@/context/AppContext'
 import { downloadContractPdf } from '@/lib/pdf'
 import { generateId } from '@/lib/storage'
 import { SendContractModal } from './SendContractModal'
-import type { BusinessSettings, Client, ContractData, ServiceTier } from '@/types'
+import type { BusinessSettings, Client, ContractData, PaymentProvider, ServiceTier } from '@/types'
+import { paymentMethodsTextForProvider, paymentProviderLabel } from '@/lib/paymentProvider'
 import { SERVICE_TIERS } from '@/lib/scheduler'
 
 const STEPS = [
@@ -53,7 +54,8 @@ function emptyContract(client: Client, settings: BusinessSettings): ContractData
     depositAmount: '',
     remainingBalance: '',
     paymentSchedule: settings.defaultPaymentTerms,
-    paymentMethods: 'Bank transfer, credit card, PayPal',
+    paymentProvider: 'paypal',
+    paymentMethods: paymentMethodsTextForProvider('paypal'),
     latePaymentPolicy: 'Late payments may incur a 1.5% monthly fee on outstanding balances.',
     revisionCount: settings.defaultRevisionLimit,
     extraRevisionFee: '',
@@ -83,7 +85,9 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
 
   const handleSaveDraft = () => {
     saveContract(contract)
-    updateClient(client.id, { contractStatus: 'Draft in Progress' })
+    if (!contract.sentAt) {
+      updateClient(client.id, { contractStatus: 'Draft in Progress' })
+    }
   }
 
   const handleGeneratePdf = () => {
@@ -92,13 +96,26 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
     saveContract(updated)
     downloadContractPdf(updated, settings)
     setPdfGenerated(true)
-    updateClient(client.id, { contractStatus: 'Generated' })
+    if (!contract.sentAt) {
+      updateClient(client.id, { contractStatus: 'Generated' })
+    }
   }
 
   const canProceed = step < STEPS.length - 1
 
+  const wasSentToClient = Boolean(contract.sentAt)
+
   return (
     <div className="space-y-6">
+      {wasSentToClient && (
+        <div className="rounded-sm border-2 border-brand bg-brand/10 px-4 py-3 text-sm text-ink">
+          <p className="font-semibold">Sent contract — edits re-deliver to the client</p>
+          <p className="mt-1 text-ink-muted">
+            Saving changes to a contract already in the portal clears the previous signature and
+            sends the updated version back for review and signing.
+          </p>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {STEPS.map((label, i) => (
           <button
@@ -164,6 +181,24 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               <Input label="Remaining Balance" value={contract.remainingBalance} onChange={(e) => update('remainingBalance', e.target.value)} placeholder="$2,500" />
             </div>
             <Textarea label="Payment Schedule" value={contract.paymentSchedule} onChange={(e) => update('paymentSchedule', e.target.value)} />
+            <Select
+              label="Invoice payment provider"
+              hint="Deposit and final invoices use this checkout method for this client"
+              value={contract.paymentProvider ?? 'paypal'}
+              onChange={(e) => {
+                const provider = e.target.value as PaymentProvider
+                setContract((c) => ({
+                  ...c,
+                  paymentProvider: provider,
+                  paymentMethods: paymentMethodsTextForProvider(provider),
+                }))
+              }}
+              required
+            >
+              <option value="paypal">PayPal</option>
+              <option value="stripe">Stripe</option>
+              <option value="square">Square</option>
+            </Select>
             <Input label="Accepted Payment Methods" value={contract.paymentMethods} onChange={(e) => update('paymentMethods', e.target.value)} />
             <Textarea label="Late Payment Policy" value={contract.latePaymentPolicy} onChange={(e) => update('latePaymentPolicy', e.target.value)} />
           </div>
@@ -206,7 +241,8 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               </p>
               <p className="mt-2 text-ink-muted">
                 Total: {contract.totalCost || '—'} · Deposit: {contract.depositAmount || '—'} · Tier:{' '}
-                {contract.serviceTier || 'Starter'}
+                {contract.serviceTier || 'Starter'} · Payments:{' '}
+                {paymentProviderLabel(contract.paymentProvider)}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

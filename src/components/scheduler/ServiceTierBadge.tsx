@@ -19,8 +19,8 @@ export function ServiceTierBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-sm border-2 font-bold uppercase tracking-caps',
-        small ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-0.5 text-[10px]',
+        'inline-flex items-center rounded-sm border-2 uppercase tracking-caps',
+        small ? 'px-1.5 py-0.5 text-[9px] font-bold' : 'px-3 py-1 text-xs font-extrabold',
         styles[tier],
         className
       )}

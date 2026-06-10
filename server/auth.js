@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { readStore } from './db.js'
+import { isEmailVerified } from './lib/emailVerification.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production'
 const JWT_EXPIRES = '7d'
@@ -38,6 +39,13 @@ export function authMiddleware(req, res, next) {
     if (!user) {
       return res.status(401).json({ error: 'User not found' })
     }
+    if (!isEmailVerified(user)) {
+      return res.status(403).json({
+        error: 'Please verify your email before continuing.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      })
+    }
     req.user = {
       id: user.id,
       email: user.email,
@@ -61,6 +69,14 @@ export function requireRole(...roles) {
 }
 
 export function sanitizeUser(user) {
-  const { passwordHash, ...safe } = user
-  return safe
+  const {
+    passwordHash,
+    emailVerificationToken,
+    emailVerificationExpiresAt,
+    ...safe
+  } = user
+  return {
+    ...safe,
+    emailVerified: isEmailVerified(user),
+  }
 }

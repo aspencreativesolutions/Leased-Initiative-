@@ -30,17 +30,33 @@ export function loadStoredPortalThemeId(): ThemeId {
 
 export function applyThemeToDocument(
   themeId: ThemeId,
-  storageKey: string = THEME_STORAGE_KEY
+  storageKey: string = THEME_STORAGE_KEY,
+  options?: { persist?: boolean }
 ): void {
   const theme = getThemeOption(themeId)
   document.documentElement.setAttribute('data-theme', themeId)
   document.documentElement.setAttribute('data-caps-labels', theme.capsLabels ? '1' : '0')
   document.documentElement.setAttribute('data-caps-buttons', theme.capsButtons ? '1' : '0')
-  localStorage.setItem(storageKey, themeId)
+  if (options?.persist !== false) {
+    localStorage.setItem(storageKey, themeId)
+  }
+}
+
+/** Studio team sign-in/register — always Ocean Office, without overwriting saved preference */
+export function isStudioAuthPath(pathname: string): boolean {
+  return pathname === '/studio/login' || pathname === '/studio/register'
+}
+
+export function applyStudioAuthTheme(): ThemeId {
+  applyThemeToDocument(DEFAULT_THEME_ID, THEME_STORAGE_KEY, { persist: false })
+  return DEFAULT_THEME_ID
 }
 
 /** Call before React mounts to avoid theme flash (admin app) */
 export function initTheme(): ThemeId {
+  if (isStudioAuthPath(window.location.pathname)) {
+    return applyStudioAuthTheme()
+  }
   const id = loadStoredThemeId()
   applyThemeToDocument(id, THEME_STORAGE_KEY)
   return id
@@ -54,5 +70,7 @@ export function initPortalTheme(): ThemeId {
 }
 
 export function isPortalPath(pathname: string): boolean {
-  return pathname.startsWith('/portal')
+  if (pathname.startsWith('/studio')) return false
+  if (pathname.startsWith('/portal')) return true
+  return pathname === '/login' || pathname === '/register'
 }

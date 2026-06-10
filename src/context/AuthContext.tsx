@@ -7,8 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { AuthResponse, User } from '@/types'
+import type { AuthResponse, RegisterResponse, User } from '@/types'
 import { apiFetch, getToken, setToken } from '@/lib/api'
+import { registerAccount } from '@/lib/authApi'
 
 interface AuthContextValue {
   user: User | null
@@ -18,9 +19,10 @@ interface AuthContextValue {
     name: string,
     email: string,
     password: string,
-    portalThemeId?: string
-  ) => Promise<User>
+    options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
+  ) => Promise<RegisterResponse>
   updateProfile: (name: string) => Promise<User>
+  refreshUser: () => Promise<User | null>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   logout: () => void
   isAdmin: boolean
@@ -49,14 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(
-    async (name: string, email: string, password: string, portalThemeId?: string) => {
-      const data = await apiFetch<AuthResponse>('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({ name, email, password, portalThemeId }),
+    async (
+      name: string,
+      email: string,
+      password: string,
+      options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
+    ) => {
+      return registerAccount({
+        name,
+        email,
+        password,
+        accountType: options?.accountType ?? 'client',
+        portalThemeId: options?.portalThemeId,
       })
-      setToken(data.token)
-      setUser(data.user)
-      return data.user
     },
     []
   )
@@ -69,6 +76,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
     return data.user
   }, [])
+
+  const refreshUser = useCallback(async () => {
+    const token = getToken()
+    if (!token) {
+      setUser(null)
+      return null
+    }
+    try {
+      const data = await apiFetch<{ user: User }>('/api/auth/me')
+      setUser(data.user)
+      return data.user
+    } catch {
+      logout()
+      return null
+    }
+  }, [logout])
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
@@ -99,12 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       updateProfile,
+      refreshUser,
       changePassword,
       logout,
       isAdmin: user?.role === 'admin',
       isClient: user?.role === 'client',
     }),
-    [user, loading, login, register, updateProfile, changePassword, logout]
+    [user, loading, login, register, updateProfile, refreshUser, changePassword, logout]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

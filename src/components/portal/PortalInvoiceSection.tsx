@@ -2,6 +2,7 @@ import { CheckCircle, CreditCard, Receipt } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { trackPaymentLinkClick } from '@/lib/portalApi'
+import { portalPayButtonLabel } from '@/lib/paymentProvider'
 import { formatDate } from '@/lib/utils'
 import type { PortalInvoice } from '@/types'
 
@@ -64,13 +65,13 @@ export function PortalInvoiceSection({
             try {
               await trackPaymentLinkClick()
             } catch {
-              /* still open PayPal if tracking fails */
+              /* still open checkout if tracking fails */
             }
             window.open(invoice.paymentLink, '_blank', 'noopener,noreferrer')
           }}
         >
           <CreditCard className="h-4 w-4" />
-          Pay with PayPal
+          {portalPayButtonLabel(invoice.paymentProvider)}
         </Button>
         <p className="mt-3 text-xs text-ink-muted">
           You&apos;ll return here automatically after payment. Your designer will be notified.

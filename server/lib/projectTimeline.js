@@ -1,6 +1,11 @@
 import { listClientFiles } from './fileUpload.js'
+import { isSignatureStale } from './contractReview.js'
 import { PORTAL_SKIP_DETAIL } from './timelineSkipEffects.js'
 import { TIMELINE_STEP_ORDER } from './timelineSteps.js'
+
+function isContractSigned(contract) {
+  return Boolean(contract?.signedAt && contract?.confirmedByClient && !isSignatureStale(contract))
+}
 
 const PORTAL_STEP_LABELS = {
   contract_sent: 'Contract Sent',
@@ -22,7 +27,7 @@ function isRealStepComplete(stepId, client, contract, fileEvents) {
     case 'contract_sent':
       return Boolean(contract?.sentAt)
     case 'contract_signed':
-      return Boolean(contract?.signedAt)
+      return isContractSigned(contract)
     case 'invoice_sent':
       return Boolean(client.invoice?.sentToPortalAt)
     case 'pay_link_clicked':
@@ -45,7 +50,7 @@ function getRealCompletedAt(stepId, client, contract, fileEvents) {
     case 'contract_sent':
       return contract?.sentAt
     case 'contract_signed':
-      return contract?.signedAt
+      return isContractSigned(contract) ? contract?.signedAt : undefined
     case 'invoice_sent':
       return client.invoice?.sentToPortalAt
     case 'pay_link_clicked':
@@ -73,7 +78,7 @@ function getRealDetail(stepId, client, contract, fileEvents, audience = 'admin')
           : 'Contract delivered to client portal'
         : undefined
     case 'contract_signed':
-      return contract?.signedAt
+      return isContractSigned(contract)
         ? portal
           ? 'You signed your contract'
           : 'Client signed electronically'
@@ -168,6 +173,8 @@ export function buildProjectTimeline(client, contract, options = {}) {
     project_completed: 'Project Completed',
   }
 
+  let lastCompletedAt
+
   for (const stepId of TIMELINE_STEP_ORDER) {
     const label =
       audience === 'portal' ? PORTAL_STEP_LABELS[stepId] : adminLabels[stepId]
@@ -197,6 +204,7 @@ export function buildProjectTimeline(client, contract, options = {}) {
       label,
       status,
       completedAt: status === 'completed' ? completedAt : undefined,
+      waitingSince: status === 'active' ? lastCompletedAt : undefined,
       detail: skipped
         ? audience === 'portal'
           ? PORTAL_SKIP_DETAIL
@@ -217,6 +225,10 @@ export function buildProjectTimeline(client, contract, options = {}) {
           activeAssigned = false
         }
       }
+    }
+
+    if (step.status === 'completed' && step.completedAt) {
+      lastCompletedAt = step.completedAt
     }
 
     steps.push(step)
