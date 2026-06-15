@@ -20,10 +20,23 @@ function getCompactLabel(step: ProjectTimelineStep, variant: 'admin' | 'portal')
   return COMPACT_LABELS[step.id]?.[variant] ?? step.label
 }
 
-function Connector({ completed }: { completed: boolean }) {
+function HorizontalConnector({ completed }: { completed: boolean }) {
   return (
     <span
       className={cn('h-0.5 min-w-[2px] flex-1', completed ? 'bg-ink' : 'bg-line')}
+      aria-hidden
+    />
+  )
+}
+
+function VerticalConnector({ completed, compact }: { completed: boolean; compact?: boolean }) {
+  return (
+    <span
+      className={cn(
+        'my-0.5 w-0.5 flex-1',
+        compact ? 'min-h-[0.625rem]' : 'min-h-[1.25rem]',
+        completed ? 'bg-ink' : 'bg-line'
+      )}
       aria-hidden
     />
   )
@@ -43,7 +56,7 @@ function TimelineStepIcon({ step, skippable, onSkipClick, variant }: TimelineSte
     status === 'completed' ? (
       <span
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-surface-paper md:h-8 md:w-8',
+          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-surface-paper md:h-8 md:w-8',
           step.skipped && variant === 'portal'
             ? 'border-ink-muted bg-ink-muted'
             : 'border-ink bg-ink'
@@ -52,23 +65,23 @@ function TimelineStepIcon({ step, skippable, onSkipClick, variant }: TimelineSte
         {step.skipped && variant === 'portal' ? (
           <SkipForward className="h-3 w-3 md:h-3.5 md:w-3.5" />
         ) : (
-          <Check className="h-3.5 w-3.5 md:h-4 md:w-4" strokeWidth={3} />
+          <Check className="h-3 w-3 md:h-4 md:w-4" strokeWidth={3} />
         )}
       </span>
     ) : status === 'active' ? (
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-brand bg-brand/10 text-brand md:h-8 md:w-8">
-        <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-brand bg-brand/10 text-brand md:h-8 md:w-8">
+        <Clock className="h-3 w-3 md:h-4 md:w-4" />
       </span>
     ) : (
       <span
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 bg-surface text-ink-faint md:h-8 md:w-8',
+          'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-surface text-ink-faint md:h-8 md:w-8',
           skippable
             ? 'border-brand/40 hover:border-brand hover:bg-brand/10 hover:text-brand cursor-pointer'
             : 'border-line'
         )}
       >
-        <Circle className="h-2.5 w-2.5 md:h-3 md:w-3" />
+        <Circle className="h-2 w-2 md:h-3 md:w-3" />
       </span>
     )
 
@@ -104,7 +117,7 @@ function StepBadges({
   variant: 'admin' | 'portal'
 }) {
   return (
-    <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+    <div className="mt-0.5 flex flex-wrap items-center justify-start gap-x-1 gap-y-0.5 md:justify-center">
       {step.skipped && (
         <span className="text-[8px] font-semibold uppercase tracking-caps text-ink-faint md:text-[9px]">
           Skipped
@@ -141,6 +154,7 @@ export interface HorizontalTimelineProps {
   onSkipClick?: (step: ProjectTimelineStep) => void
   getStepId?: (step: ProjectTimelineStep) => string | undefined
   renderStepActions?: (step: ProjectTimelineStep) => ReactNode
+  compact?: boolean
 }
 
 export function HorizontalTimeline({
@@ -150,74 +164,94 @@ export function HorizontalTimeline({
   onSkipClick,
   getStepId,
   renderStepActions,
+  compact = false,
 }: HorizontalTimelineProps) {
   return (
-    <div className="max-md:overflow-x-auto md:overflow-visible pb-1">
-      <ol className="flex w-full max-md:w-max max-md:min-w-full items-start gap-0">
-        {steps.map((step, index) => {
-          const skippable = Boolean(skippableIds?.has(step.id))
-          const stepId = getStepId?.(step)
-          const connectorComplete =
-            step.status === 'completed' ||
-            (index > 0 && steps[index - 1]?.status === 'completed')
-          const label = getCompactLabel(step, variant)
+    <ol className="flex flex-col md:flex-row md:items-start">
+      {steps.map((step, index) => {
+        const skippable = Boolean(skippableIds?.has(step.id))
+        const stepId = getStepId?.(step)
+        const connectorComplete =
+          step.status === 'completed' ||
+          (index > 0 && steps[index - 1]?.status === 'completed')
+        const label = getCompactLabel(step, variant)
+        const isLast = index === steps.length - 1
 
-          return (
-            <li
-              key={step.id}
-              id={stepId}
-              title={step.label}
+        return (
+          <li
+            key={step.id}
+            id={stepId}
+            title={step.label}
+            className={cn(
+              'relative flex scroll-mt-24 md:min-w-0 md:flex-1 md:flex-col md:items-center md:gap-0',
+              compact ? 'gap-2' : 'gap-2.5'
+            )}
+          >
+            <div className="hidden w-full items-center md:flex">
+              {index > 0 ? (
+                <HorizontalConnector completed={connectorComplete} />
+              ) : (
+                <span className="min-w-0 flex-1" aria-hidden />
+              )}
+              <TimelineStepIcon
+                step={step}
+                skippable={skippable}
+                onSkipClick={skippable && onSkipClick ? () => onSkipClick(step) : undefined}
+                variant={variant}
+              />
+              {index < steps.length - 1 ? (
+                <HorizontalConnector completed={step.status === 'completed'} />
+              ) : (
+                <span className="min-w-0 flex-1" aria-hidden />
+              )}
+            </div>
+
+            <div className={cn('flex shrink-0 flex-col items-center md:hidden', compact ? 'w-5' : 'w-6')}>
+              <TimelineStepIcon
+                step={step}
+                skippable={skippable}
+                onSkipClick={skippable && onSkipClick ? () => onSkipClick(step) : undefined}
+                variant={variant}
+              />
+              {!isLast && <VerticalConnector completed={connectorComplete} compact={compact} />}
+            </div>
+
+            <div
               className={cn(
-                'relative flex min-w-0 flex-1 basis-0 flex-col items-center scroll-mt-32',
-                'max-md:min-w-[6.75rem] max-md:flex-none max-md:shrink-0'
+                'min-w-0 flex-1 text-left md:mt-3 md:w-full md:px-1 md:text-center',
+                isLast ? 'pb-0' : compact ? 'pb-1 md:pb-0' : 'pb-2 md:pb-0'
               )}
             >
-              <div className="flex w-full items-center">
-                {index > 0 ? (
-                  <Connector completed={connectorComplete} />
-                ) : (
-                  <span className="min-w-0 flex-1" aria-hidden />
+              <p
+                className={cn(
+                  compact ? 'text-[10px] font-semibold leading-tight' : 'text-[11px] font-semibold leading-tight md:text-[10px]',
+                  step.status === 'completed'
+                    ? 'text-ink'
+                    : step.status === 'active'
+                      ? 'text-brand'
+                      : 'text-ink-muted'
                 )}
-                <TimelineStepIcon
-                  step={step}
-                  skippable={skippable}
-                  onSkipClick={skippable && onSkipClick ? () => onSkipClick(step) : undefined}
-                  variant={variant}
-                />
-                {index < steps.length - 1 ? (
-                  <Connector completed={step.status === 'completed'} />
-                ) : (
-                  <span className="min-w-0 flex-1" aria-hidden />
-                )}
-              </div>
-
-              <div className="mt-2 w-full px-0.5 text-center md:mt-3 md:px-1">
-                <p
-                  className={cn(
-                    'text-[9px] font-semibold leading-tight break-words hyphens-auto md:text-[10px]',
-                    step.status === 'completed'
-                      ? 'text-ink'
-                      : step.status === 'active'
-                        ? 'text-brand'
-                        : 'text-ink-muted'
-                  )}
-                >
-                  {label}
-                </p>
-                <StepBadges step={step} skippable={skippable} variant={variant} />
-                <div className="mt-1 text-center md:mt-1.5">
+              >
+                {label}
+              </p>
+              <StepBadges step={step} skippable={skippable} variant={variant} />
+              <div className={cn(compact ? 'mt-0' : 'mt-0.5', 'md:mt-1 md:text-center')}>
+                <div className="md:hidden">
+                  <TimelineStepBody step={step} variant={variant} layout="vertical" compact={compact} />
+                </div>
+                <div className="hidden md:block">
                   <TimelineStepBody step={step} variant={variant} layout="horizontal" />
                 </div>
-                {renderStepActions?.(step) && (
-                  <div className="mt-1.5 flex flex-col items-stretch gap-1 md:mt-2 md:gap-2">
-                    {renderStepActions(step)}
-                  </div>
-                )}
               </div>
-            </li>
-          )
-        })}
-      </ol>
-    </div>
+              {renderStepActions?.(step) && (
+                <div className="mt-1.5 flex flex-col items-stretch gap-1 md:mt-2 md:gap-2">
+                  {renderStepActions(step)}
+                </div>
+              )}
+            </div>
+          </li>
+        )
+      })}
+    </ol>
   )
 }

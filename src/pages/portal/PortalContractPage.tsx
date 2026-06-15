@@ -5,7 +5,7 @@ import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/FormField'
+import { ContractSignatureRow } from '@/components/contracts/ContractFormField'
 import { apiFetch, ApiError } from '@/lib/api'
 import { getPortalContractStatus } from '@/lib/portalContractStatus'
 import type { ContractData, PortalContractClientStatus } from '@/types'
@@ -164,7 +164,7 @@ export function PortalContractPage() {
         </Card>
       )}
 
-      <Card padding="none" className="overflow-hidden border-line/60 shadow-lift">
+      <Card padding="none" className="overflow-hidden border-0 bg-transparent shadow-none">
         <ContractReviewView
           contract={contract}
           designerName={settings.ownerName}
@@ -197,70 +197,80 @@ export function PortalContractPage() {
           </div>
         </Card>
       ) : needsReview ? (
-        <Card padding="lg" className="mt-6">
-          <h2 className="heading-display text-lg">Step 1 — Review the contract</h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            Read the full contract above, including payment terms, scope, and revision limits. When
-            you are ready, confirm that you have reviewed this version.
-          </p>
+        <div className="contract-sign-shell">
+          <div className="contract-sign-paper mx-auto max-w-lg text-center">
+            <h2 className="font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink">
+              Review the Contract.
+            </h2>
+            <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
+              Read the full agreement above, including payment terms, scope, and revision limits.
+              When you are ready, confirm that you have reviewed this version.
+            </p>
 
-          {error && (
-            <div className="mt-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="mt-6 border-b border-accent/40 pb-4 text-sm text-accent">{error}</div>
+            )}
 
-          <Button className="mt-4" onClick={handleMarkReviewed} disabled={reviewing}>
-            <Eye className="h-4 w-4" />
-            {reviewing ? 'Saving…' : 'I have reviewed this contract'}
-          </Button>
-        </Card>
-      ) : readyToSign ? (
-        <Card padding="lg" className="mt-6">
-          <h2 className="heading-display text-lg">Step 2 — Confirm & sign</h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            By typing your full name below, you agree to the terms of this contract.
-          </p>
-
-          {error && (
-            <div className="mt-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleConfirm} className="mt-4 space-y-4">
-            <Input
-              label="Your full name (electronic signature)"
-              value={signature}
-              onChange={(e) => setSignature(e.target.value)}
-              placeholder={contract.clientName}
-              required
-            />
-            <label className="flex items-start gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1"
-                required
-              />
-              <span>
-                I have read and agree to all terms in this contract, including payment schedule,
-                revision limits, and termination conditions.
-              </span>
-            </label>
-            <Button type="submit" disabled={submitting || !agreed || !signature.trim()}>
-              <FileCheck className="h-4 w-4" />
-              {submitting ? 'Confirming…' : 'Accept contract'}
+            <Button className="mt-8" onClick={handleMarkReviewed} disabled={reviewing}>
+              <Eye className="h-4 w-4" />
+              {reviewing ? 'Saving…' : 'I have reviewed this contract'}
             </Button>
-          </form>
-        </Card>
+          </div>
+        </div>
+      ) : readyToSign ? (
+        <div className="contract-sign-shell">
+          <div className="contract-sign-paper mx-auto max-w-lg">
+            <header className="text-center">
+              <h2 className="font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink">
+                Contract Agreement.
+              </h2>
+              <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
+                By typing your full name below, you agree to the terms of this contract.
+              </p>
+            </header>
+
+            {error && (
+              <div className="mt-6 text-center text-sm text-accent">{error}</div>
+            )}
+
+            <form onSubmit={handleConfirm} className="mt-10 space-y-8">
+              <ContractSignatureRow
+                label="Client"
+                hint="Signature & Date"
+                value={signature}
+                onChange={setSignature}
+                placeholder={contract.clientName}
+              />
+              <label className="flex items-start gap-3 font-serif text-sm italic text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-1"
+                  required
+                />
+                <span>
+                  I have read and agree to all terms in this contract, including payment schedule,
+                  revision limits, and termination conditions.
+                </span>
+              </label>
+              <div className="text-center">
+                <Button type="submit" disabled={submitting || !agreed || !signature.trim()}>
+                  <FileCheck className="h-4 w-4" />
+                  {submitting ? 'Confirming…' : 'Accept contract'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : (
-        <Card padding="lg" className="mt-6">
-          <p className="text-sm text-ink-muted">
-            Please review the contract above and confirm you have read it before signing.
-          </p>
-        </Card>
+        <div className="contract-sign-shell">
+          <div className="contract-sign-paper mx-auto max-w-lg text-center">
+            <p className="font-serif text-sm italic text-ink-muted">
+              Please review the contract above and confirm you have read it before signing.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   )

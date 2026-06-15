@@ -42,7 +42,10 @@ interface AppContextValue {
   updateClient: (id: string, updates: Partial<Client>) => void
   getClient: (id: string) => Client | undefined
   addNote: (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => void
-  saveContract: (contract: ContractData) => Promise<void>
+  saveContract: (
+    contract: ContractData,
+    options?: { asDraft?: boolean }
+  ) => Promise<void>
   getContractForClient: (clientId: string) => ContractData | undefined
   updateSettings: (updates: Partial<BusinessSettings>) => void
   markOfficialClient: (clientId: string) => void
@@ -247,7 +250,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const saveContract = useCallback(
-    async (contract: ContractData) => {
+    async (contract: ContractData, options?: { asDraft?: boolean }) => {
       const idx = contracts.findIndex((c) => c.id === contract.id)
       const existing = idx >= 0 ? contracts[idx] : undefined
       const contentChanged = existing ? hasContractContentChanged(existing, contract) : false
@@ -277,13 +280,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         idx >= 0
           ? contracts.map((c, i) => (i === idx ? merged : c))
           : [...contracts, merged]
-      const wasSent = Boolean(existing?.sentAt)
-      const nextClients =
-        contract.pdfGenerated && !wasSent
-          ? clients.map((c) =>
-              c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c
-            )
-          : clients
+      const wasSent = Boolean(existing?.sentAt || contract.sentAt)
+      let nextClients = clients
+
+      if (options?.asDraft && !wasSent) {
+        nextClients = clients.map((c) =>
+          c.id === contract.clientId
+            ? { ...c, contractStatus: 'Draft in Progress' as const }
+            : c
+        )
+      } else if (contract.pdfGenerated && !wasSent) {
+        nextClients = clients.map((c) =>
+          c.id === contract.clientId ? { ...c, contractStatus: 'Generated' as const } : c
+        )
+      }
+
       await persist(nextClients, nextContracts)
       if (isAdmin) {
         await refresh()

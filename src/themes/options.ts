@@ -37,16 +37,6 @@ export const themeOptions: ThemeOption[] = [
     capsButtons: true,
   },
   {
-    id: 'golden',
-    name: 'Golden Hour',
-    tagline: 'Warm · Luxe · Inviting',
-    description:
-      'Espresso browns, champagne gold, and cream paper. Boutique hospitality meets creative agency.',
-    swatches: ['#2c2419', '#b8956b', '#f5f0e8'],
-    capsLabels: true,
-    capsButtons: false,
-  },
-  {
     id: 'ocean',
     name: 'Ocean Office',
     tagline: 'Crisp · Professional · Trustworthy',

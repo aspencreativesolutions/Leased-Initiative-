@@ -79,6 +79,7 @@ export function NewRegistrationsModal({
       )}
       {registrations.length === 0 ? (
         <EmptyState
+          compact
           icon={Users}
           title="No pending sign-ups"
           description="When someone registers at the client portal, you'll be notified and they will appear here."

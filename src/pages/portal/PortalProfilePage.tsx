@@ -12,6 +12,7 @@ import { ApiError } from '@/lib/api'
 import { contractSectionHref } from '@/lib/contractSections'
 import { fetchPortalProfile, updatePortalProfile } from '@/lib/portalProfileApi'
 import { getServiceTierInfo } from '@/lib/serviceTierInfo'
+import { migrateServiceTier } from '@/lib/serviceTiers'
 import { formatDate } from '@/lib/utils'
 import type { PortalProfile } from '@/lib/portalProfileApi'
 
@@ -272,7 +273,8 @@ export function PortalProfilePage() {
           ) : (
             <ul className="space-y-4">
               {profile.projects.map((project) => {
-                const tierInfo = getServiceTierInfo(project.serviceTier)
+                const tier = migrateServiceTier(project.serviceTier)
+                const tierInfo = getServiceTierInfo(tier)
                 return (
                   <li key={project.contractId}>
                     <Card padding="lg">
@@ -297,10 +299,12 @@ export function PortalProfilePage() {
                             </p>
                           )}
                         </div>
-                        <ServiceTierBadge tier={project.serviceTier} />
+                        <ServiceTierBadge tier={tier} />
                       </div>
 
-                      <p className="mt-4 text-sm text-ink-muted">{tierInfo.summary}</p>
+                      <p className="mt-1 text-sm font-medium text-ink">{tierInfo.tagline}</p>
+
+                      <p className="mt-3 text-sm text-ink-muted">{tierInfo.summary}</p>
 
                       <ul className="mt-3 space-y-2">
                         {tierInfo.details.map((detail) => (

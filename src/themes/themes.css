@@ -1,5 +1,32 @@
 /* Semantic tokens — overridden per [data-theme] */
 
+:root {
+  --deposit: #047857;
+  --deposit-fg: #064e3b;
+  --deposit-muted: #065f46;
+  --deposit-bg: #ecfdf5;
+  --deposit-border: #a7f3d0;
+  --status-solid-bg: var(--ink);
+  --status-solid-fg: var(--surface-paper);
+  --status-solid-border: var(--ink);
+  --status-card-done-bg: var(--deposit-bg);
+  --status-card-done-border: var(--deposit-border);
+  --status-card-highlight-bg: color-mix(in srgb, var(--accent-light) 40%, transparent);
+  --status-card-idle-bg: color-mix(in srgb, var(--surface-paper) 60%, transparent);
+  --status-highlight-glow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+  --contract-step-complete-border: var(--deposit-border);
+  --contract-step-complete-bg: var(--deposit-bg);
+  --contract-step-complete-fg: var(--deposit-fg);
+  --timeline-connector-complete: var(--deposit);
+  --dashboard-stat-icon-bg: var(--ink);
+  --dashboard-stat-icon-border: var(--ink);
+  --dashboard-stat-icon-fg: var(--surface-paper);
+  --dashboard-stat-icon-active-bg: var(--brand);
+  --dashboard-stat-icon-active-border: var(--brand);
+  --table-row-chip-height: 1.375rem;
+  --dashboard-stat-icon-active-fg: var(--surface-paper);
+}
+
 :root,
 [data-theme='editorial'] {
   --ink: #111111;
@@ -28,6 +55,11 @@
   --tracking-caps: 0.18em;
   --caps-labels: 1;
   --caps-buttons: 1;
+  --deposit: #3d6b52;
+  --deposit-fg: #2d5240;
+  --deposit-muted: #4a7a60;
+  --deposit-bg: #e8f0eb;
+  --deposit-border: #b8cfc4;
 }
 
 [data-theme='soft'] {
@@ -57,6 +89,11 @@
   --tracking-caps: 0.06em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #3a8f7c;
+  --deposit-fg: #1e5c50;
+  --deposit-muted: #2f7566;
+  --deposit-bg: #e6f4f1;
+  --deposit-border: #a8ddd4;
 }
 
 [data-theme='mono'] {
@@ -86,35 +123,11 @@
   --tracking-caps: 0.12em;
   --caps-labels: 1;
   --caps-buttons: 1;
-}
-
-[data-theme='golden'] {
-  --ink: #2c2419;
-  --ink-muted: #5c4f3d;
-  --ink-faint: #9a8b78;
-  --surface: #ede8df;
-  --surface-paper: #f5f0e8;
-  --brand: #2c2419;
-  --brand-light: #4a3f32;
-  --brand-muted: #e8e0d4;
-  --accent: #9a7b4f;
-  --accent-light: #f3ebe0;
-  --line: #d4c9b8;
-  --nav-bg: #2c2419;
-  --nav-fg: #f5f0e8;
-  --nav-fg-muted: rgba(245, 240, 232, 0.6);
-  --nav-border: #2c2419;
-  --nav-active: #c4a574;
-  --font-display: 'Playfair Display', Georgia, serif;
-  --font-sans: 'Karla', system-ui, sans-serif;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --border-width: 1px;
-  --shadow-lift: 0 8px 24px 0 rgba(44, 36, 25, 0.12);
-  --tracking-caps: 0.14em;
-  --caps-labels: 1;
-  --caps-buttons: 0;
+  --deposit: #15803d;
+  --deposit-fg: #14532d;
+  --deposit-muted: #166534;
+  --deposit-bg: #f0fdf4;
+  --deposit-border: #86efac;
 }
 
 [data-theme='ocean'] {
@@ -144,6 +157,11 @@
   --tracking-caps: 0.08em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #0f766e;
+  --deposit-fg: #134e4a;
+  --deposit-muted: #115e59;
+  --deposit-bg: #ecfdf5;
+  --deposit-border: #99f6e4;
 }
 
 [data-theme='rose'] {
@@ -173,6 +191,11 @@
   --tracking-caps: 0.1em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #5f7a6a;
+  --deposit-fg: #3f5349;
+  --deposit-muted: #4d6458;
+  --deposit-bg: #edf3ef;
+  --deposit-border: #c5d5cc;
 }
 
 [data-theme='forest'] {
@@ -202,6 +225,11 @@
   --tracking-caps: 0.08em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #4a7c59;
+  --deposit-fg: #1a3c34;
+  --deposit-muted: #2d5a4e;
+  --deposit-bg: #e4f0e8;
+  --deposit-border: #a8cdb4;
 }
 
 [data-theme='midnight'] {
@@ -221,6 +249,23 @@
   --nav-fg-muted: rgba(232, 232, 239, 0.5);
   --nav-border: #2e2e3a;
   --nav-active: #a599f8;
+  --deposit: #74b384;
+  --deposit-fg: #8cc99a;
+  --deposit-muted: #a5c9ad;
+  --deposit-bg: rgb(116 179 132 / 0.12);
+  --deposit-border: rgb(116 179 132 / 0.45);
+  --status-solid-bg: #2e2e3a;
+  --status-solid-fg: #e8e8ef;
+  --status-solid-border: #8b7cf6;
+  --status-card-highlight-bg: rgb(139 124 246 / 0.12);
+  --status-card-idle-bg: rgb(26 26 36 / 0.75);
+  --status-highlight-glow: 0 0 20px rgb(139 124 246 / 0.35);
+  --dashboard-stat-icon-bg: transparent;
+  --dashboard-stat-icon-border: transparent;
+  --dashboard-stat-icon-fg: var(--ink);
+  --dashboard-stat-icon-active-bg: transparent;
+  --dashboard-stat-icon-active-border: transparent;
+  --dashboard-stat-icon-active-fg: var(--nav-active);
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, sans-serif;
   --radius-sm: 8px;
@@ -231,6 +276,9 @@
   --tracking-caps: 0.06em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --contract-step-complete-border: rgb(116 179 132 / 0.45);
+  --contract-step-complete-bg: rgb(116 179 132 / 0.12);
+  --contract-step-complete-fg: #8cc99a;
 }
 
 [data-theme='citrus'] {
@@ -260,32 +308,47 @@
   --tracking-caps: 0.05em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #548c2f;
+  --deposit-fg: #365314;
+  --deposit-muted: #4a6b24;
+  --deposit-bg: #f0fdf0;
+  --deposit-border: #bbf7d0;
 }
 
 [data-theme='vintage'] {
   --ink: #3d2e26;
   --ink-muted: #6b5a4e;
-  --ink-faint: #9a8b7e;
-  --surface: #e8ddd0;
-  --surface-paper: #f2e8dc;
+  --ink-faint: #8a7a6c;
+  --surface: #e5dcd0;
+  --surface-paper: #faf4eb;
   --brand: #3d2e26;
   --brand-light: #5c4a3d;
   --brand-muted: #e0d4c4;
   --accent: #c45c3e;
   --accent-light: #f5e0d8;
-  --line: #d4c4b0;
+  --line: #c9b8a4;
   --nav-bg: #3d2e26;
   --nav-fg: #f2e8dc;
   --nav-fg-muted: rgba(242, 232, 220, 0.6);
   --nav-border: #3d2e26;
   --nav-active: #c45c3e;
+  --card-border: #b8a68e;
+  --card-bg: #faf4eb;
+  --card-shadow: 2px 2px 0 rgba(61, 46, 38, 0.16), inset 0 1px 0 rgba(255, 250, 244, 0.7);
+  --card-inset-border: #d1c0ab;
+  --card-inset-bg: #f3ebe1;
+  --deposit: #2d5a43;
+  --deposit-fg: #2d5a43;
+  --deposit-muted: #3f6d54;
+  --deposit-bg: #e8f5ee;
+  --deposit-border: #b8d4c4;
   --font-display: 'Libre Baskerville', Georgia, serif;
   --font-sans: 'Source Serif 4', Georgia, serif;
   --radius-sm: 2px;
   --radius-md: 3px;
   --radius-lg: 4px;
-  --border-width: 1px;
-  --shadow-lift: 3px 3px 0 0 rgba(61, 46, 38, 0.15);
+  --border-width: 2px;
+  --shadow-lift: 3px 3px 0 0 rgba(61, 46, 38, 0.2);
   --tracking-caps: 0.12em;
   --caps-labels: 1;
   --caps-buttons: 0;
@@ -303,11 +366,37 @@
   --accent: #00e5cc;
   --accent-light: #0a2828;
   --line: #2a2a38;
+  --status-solid-bg: #2a2a38;
+  --status-solid-fg: #f0f0f5;
+  --status-solid-border: #00e5cc;
+  --status-card-highlight-bg: rgb(0 229 204 / 0.1);
+  --status-card-idle-bg: rgb(18 18 26 / 0.75);
+  --status-highlight-glow: 0 0 20px rgb(0 229 204 / 0.35);
+  --contract-step-complete-border: rgb(78 207 106 / 0.38);
+  --contract-step-complete-bg: rgb(78 207 106 / 0.06);
+  --contract-step-complete-fg: #5ed47a;
+  --card-inset-border: #2a2a38;
+  --card-inset-bg: #12121a;
   --nav-bg: #0a0a0f;
   --nav-fg: #f0f0f5;
   --nav-fg-muted: rgba(240, 240, 245, 0.5);
   --nav-border: #ff2d6a;
   --nav-active: #00e5cc;
+  --deposit: #4ecf6a;
+  --deposit-fg: #5ed47a;
+  --deposit-muted: #8bc99a;
+  --deposit-bg: rgb(78 207 106 / 0.06);
+  --deposit-border: rgb(78 207 106 / 0.38);
+  --deposit-text-glow: 0 0 4px rgb(78 207 106 / 0.32);
+  --deposit-text-glow-muted: 0 0 3px rgb(78 207 106 / 0.18);
+  --deposit-icon-glow: drop-shadow(0 0 2px rgb(78 207 106 / 0.35));
+  --deposit-card-glow: 0 0 8px rgb(78 207 106 / 0.1);
+  --dashboard-stat-icon-bg: transparent;
+  --dashboard-stat-icon-border: transparent;
+  --dashboard-stat-icon-fg: var(--ink);
+  --dashboard-stat-icon-active-bg: transparent;
+  --dashboard-stat-icon-active-border: transparent;
+  --dashboard-stat-icon-active-fg: var(--nav-active);
   --font-display: 'Orbitron', system-ui, sans-serif;
   --font-sans: 'Rajdhani', system-ui, sans-serif;
   --radius-sm: 0px;
@@ -347,6 +436,11 @@
   --tracking-caps: 0.2em;
   --caps-labels: 1;
   --caps-buttons: 1;
+  --deposit: #059669;
+  --deposit-fg: #064e3b;
+  --deposit-muted: #047857;
+  --deposit-bg: #ecfdf5;
+  --deposit-border: #a7f3d0;
 }
 
 [data-theme='terracotta'] {
@@ -376,4 +470,9 @@
   --tracking-caps: 0.1em;
   --caps-labels: 0;
   --caps-buttons: 0;
+  --deposit: #6b7c3e;
+  --deposit-fg: #404925;
+  --deposit-muted: #556030;
+  --deposit-bg: #f0f2e8;
+  --deposit-border: #c8d4a8;
 }

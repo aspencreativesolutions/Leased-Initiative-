@@ -27,7 +27,7 @@ export function PortalStyleButton({
         }
       >
         <Palette className="h-3.5 w-3.5" />
-        Choose Style
+        <span className="hidden sm:inline">Choose Style</span>
       </Button>
       <PortalStyleModal open={open} onClose={() => setOpen(false)} />
     </>

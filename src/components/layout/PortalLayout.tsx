@@ -10,20 +10,22 @@ export function PortalNavbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
-      <div className="flex h-[4.25rem] w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
-        <NavLink to="/portal" className="group flex items-center gap-3 shrink-0">
-          <div className="flex h-10 w-10 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-lg font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active">
+      <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10">
+        <NavLink to="/portal" className="group flex min-w-0 items-center gap-2.5 shrink sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
             CC
           </div>
-          <div className="leading-none">
-            <span className="block font-display text-xl font-semibold tracking-tight">
+          <div className="min-w-0 leading-none">
+            <span className="block truncate font-display text-lg font-semibold tracking-tight sm:text-xl">
               Client Craft
             </span>
-            <span className="label-caps mt-1 block !text-nav-fg-muted">Client Portal</span>
+            <span className="label-caps mt-0.5 hidden !text-nav-fg-muted sm:mt-1 sm:block">
+              Client Portal
+            </span>
           </div>
         </NavLink>
 
-        <nav className="flex items-center gap-4">
+        <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <NavLink
             to="/portal"
             end
@@ -70,10 +72,11 @@ export function PortalNavbar() {
             variant="ghost"
             size="sm"
             onClick={logout}
-            className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
+            className="shrink-0 !border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
+            title="Sign out"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Sign out
+            <span className="hidden sm:inline">Sign out</span>
           </Button>
         </nav>
       </div>
@@ -83,9 +86,9 @@ export function PortalNavbar() {
 
 export function PortalLayout() {
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-surface">
       <PortalNavbar />
-      <main className="w-full px-4 py-8 sm:px-6 sm:py-8 lg:px-10 xl:px-12">
+      <main className="w-full px-4 pt-8 pb-12 sm:px-6 sm:pt-8 sm:pb-14 lg:px-10 xl:px-12">
         <div className="mx-auto w-full min-w-0">
           <Outlet />
         </div>

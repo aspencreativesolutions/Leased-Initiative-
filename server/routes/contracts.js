@@ -10,6 +10,7 @@ import {
   needsClientResign,
 } from '../lib/contractReview.js'
 import { attachPaymentLink } from '../lib/paymentLinks.js'
+import { permanentlyDeleteContract } from '../lib/deleteContract.js'
 
 const router = Router()
 
@@ -209,6 +210,33 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
     ok: true,
     message: 'Contract confirmed successfully',
     invoiceGenerated: Boolean(generatedInvoice),
+  })
+})
+
+/** Admin permanently deletes a contract — irreversible */
+router.post('/:contractId/permanent-delete', authMiddleware, requireRole('admin'), (req, res) => {
+  const { contractId } = req.params
+  const { confirmContractId } = req.body ?? {}
+
+  if (!confirmContractId || confirmContractId.trim() !== contractId) {
+    return res.status(400).json({
+      error: 'Type the exact contract ID to confirm permanent deletion.',
+    })
+  }
+
+  const store = readStore()
+  const result = permanentlyDeleteContract(store, contractId, req.user)
+  if (!result) {
+    return res.status(404).json({ error: 'Contract not found' })
+  }
+
+  updateStore(() => result.store)
+
+  res.json({
+    ok: true,
+    message: 'Contract permanently deleted.',
+    auditEntry: result.auditEntry,
+    clientId: result.clientId,
   })
 })
 

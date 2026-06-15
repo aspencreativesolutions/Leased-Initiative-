@@ -1,12 +1,12 @@
+import {
+  DEFAULT_SERVICE_TIER,
+  SERVICE_TIERS,
+  TIER_PRIORITY,
+  migrateServiceTier,
+} from '@/lib/serviceTiers'
 import type { Client, ContractData, ScheduleBlock, ServiceTier, WeekSchedule } from '@/types'
 
-export const TIER_PRIORITY: Record<ServiceTier, number> = {
-  'Premium Custom': 0,
-  Business: 1,
-  Starter: 2,
-}
-
-export const SERVICE_TIERS: ServiceTier[] = ['Starter', 'Business', 'Premium Custom']
+export { DEFAULT_SERVICE_TIER, SERVICE_TIERS, TIER_PRIORITY }
 
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
@@ -27,6 +27,113 @@ export const DAILY_TIMELINE: Omit<ScheduleBlock, 'id' | 'dayIndex'>[] = [
 
 export function getDayLabels(): readonly string[] {
   return DAY_LABELS
+}
+
+/** Work + lunch rows for mobile timeline grids (buffers omitted). */
+export const MOBILE_TIMELINE_ROWS = DAILY_TIMELINE.filter(
+  (row) => row.blockType === 'work' || row.blockType === 'lunch'
+)
+
+export function getSlotMinHeightPx(startTime: string, endTime: string, dense = false): number {
+  const duration = timeToScheduleMinutes(endTime) - timeToScheduleMinutes(startTime)
+  const scale = dense ? 0.9 : 1
+  const proportional = (duration / SCHEDULE_DAY_SPAN_MINUTES) * SCHEDULE_GRID_HEIGHT_PX * scale
+  return Math.max(dense ? 28 : 36, Math.round(proportional))
+}
+
+export function getMobileTimelineRowTemplate(dense = false): string {
+  return MOBILE_TIMELINE_ROWS.map((row) => {
+    const minPx = getSlotMinHeightPx(row.startTime, row.endTime, dense)
+    return `minmax(${minPx}px, auto)`
+  }).join(' ')
+}
+
+/** Work-only rows for move targets */
+export function getWorkTimelineRows(): Omit<ScheduleBlock, 'id' | 'dayIndex'>[] {
+  return DAILY_TIMELINE.filter((row) => row.blockType === 'work')
+}
+
+export function formatScheduleTime(time: string): string {
+  const [h, m] = time.split(':').map(Number)
+  const d = new Date()
+  d.setHours(h, m)
+  if (m === 0) {
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })
+  }
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+export function formatScheduleTimeRange(start: string, end: string): string {
+  return `${formatScheduleTime(start)} – ${formatScheduleTime(end)}`
+}
+
+/** Same meridiem collapsed to one suffix, e.g. "9 – 10 AM" */
+export function formatScheduleTimeRangeCompact(start: string, end: string): string {
+  const startFormatted = formatScheduleTime(start)
+  const endFormatted = formatScheduleTime(end)
+  const startMatch = startFormatted.match(/^(.+)\s(AM|PM)$/i)
+  const endMatch = endFormatted.match(/^(.+)\s(AM|PM)$/i)
+  if (startMatch && endMatch && startMatch[2].toUpperCase() === endMatch[2].toUpperCase()) {
+    return `${startMatch[1]} – ${endMatch[1]} ${startMatch[2].toUpperCase()}`
+  }
+  return `${startFormatted} – ${endFormatted}`
+}
+
+const SCHEDULE_DAY_START_MINUTES = 9 * 60
+const SCHEDULE_DAY_END_MINUTES = 16 * 60
+export const SCHEDULE_DAY_SPAN_MINUTES = SCHEDULE_DAY_END_MINUTES - SCHEDULE_DAY_START_MINUTES
+export const SCHEDULE_GRID_HOUR_COUNT = 7
+export const SCHEDULE_GRID_HEIGHT_PX = SCHEDULE_GRID_HOUR_COUNT * 48
+export const SCHEDULE_HOUR_MARKS = [9, 10, 11, 12, 13, 14, 15, 16] as const
+
+export function getHourLabelTopPercent(hour: number): number {
+  const minutes = hour * 60 - SCHEDULE_DAY_START_MINUTES
+  return (minutes / SCHEDULE_DAY_SPAN_MINUTES) * 100
+}
+
+export function timeToScheduleMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+export function getHourMarksForRow(
+  startTime: string,
+  endTime: string,
+  nextStartTime?: string
+): { hour: number; topPercent: number }[] {
+  const [startH, startM] = startTime.split(':').map(Number)
+  const [endH, endM] = endTime.split(':').map(Number)
+  const marks: { hour: number; topPercent: number }[] = []
+  const isHourMark = (hour: number) => (SCHEDULE_HOUR_MARKS as readonly number[]).includes(hour)
+
+  if (startM === 0 && isHourMark(startH)) {
+    marks.push({ hour: startH, topPercent: 0 })
+  }
+
+  if (endM === 0 && isHourMark(endH) && nextStartTime !== endTime) {
+    marks.push({ hour: endH, topPercent: 100 })
+  }
+
+  return marks
+}
+
+export function showRowStartBorder(startTime: string, rowIndex: number): boolean {
+  const [, startM] = startTime.split(':').map(Number)
+  return startM === 0 && rowIndex > 0
+}
+
+export function showRowEndBorder(endTime: string, nextStartTime?: string): boolean {
+  const [, endM] = endTime.split(':').map(Number)
+  return endM === 0 && nextStartTime !== endTime
+}
+
+export function getScheduleBlockPosition(startTime: string, endTime: string) {
+  const start = timeToScheduleMinutes(startTime) - SCHEDULE_DAY_START_MINUTES
+  const end = timeToScheduleMinutes(endTime) - SCHEDULE_DAY_START_MINUTES
+  return {
+    topPercent: (start / SCHEDULE_DAY_SPAN_MINUTES) * 100,
+    heightPercent: ((end - start) / SCHEDULE_DAY_SPAN_MINUTES) * 100,
+  }
 }
 
 export function getMondayOfWeek(date: Date = new Date()): Date {
@@ -104,7 +211,7 @@ function collectTasks(
     if (!ACTIVE_STATUSES.has(client.projectStatus)) continue
 
     const contract = contractByClient.get(client.id)
-    const tier: ServiceTier = contract?.serviceTier ?? 'Starter'
+    const tier: ServiceTier = migrateServiceTier(contract?.serviceTier ?? client.serviceTier)
 
     const addTask = (id: string, label: string, deadlineDate: string) => {
       if (!isOverdueOrThisWeek(deadlineDate, weekStart)) return
@@ -159,6 +266,49 @@ function buildEmptyWeek(weekStart: string): ScheduleBlock[] {
   return blocks
 }
 
+function getWorkSlotIndicesByDay(blocks: ScheduleBlock[]): number[][] {
+  const byDay: number[][] = [[], [], [], [], []]
+  blocks.forEach((block, index) => {
+    if (block.blockType === 'work') byDay[block.dayIndex].push(index)
+  })
+  return byDay
+}
+
+function assignTasksAcrossWeek(blocks: ScheduleBlock[], tasks: SchedulableTask[]): void {
+  const slotsByDay = getWorkSlotIndicesByDay(blocks)
+  const dayPointers = [0, 0, 0, 0, 0]
+  let nextDay = 0
+
+  for (const task of tasks) {
+    let placed = false
+
+    for (let offset = 0; offset < 5; offset++) {
+      const dayIndex = (nextDay + offset) % 5
+      const pointer = dayPointers[dayIndex]
+      const daySlots = slotsByDay[dayIndex]
+
+      if (pointer >= daySlots.length) continue
+
+      const blockIndex = daySlots[pointer]
+      blocks[blockIndex] = {
+        ...blocks[blockIndex],
+        clientId: task.clientId,
+        clientName: task.clientName,
+        businessName: task.businessName,
+        serviceTier: task.serviceTier,
+        label: task.label,
+        deadlineDate: task.deadlineDate,
+      }
+      dayPointers[dayIndex] = pointer + 1
+      nextDay = (dayIndex + 1) % 5
+      placed = true
+      break
+    }
+
+    if (!placed) break
+  }
+}
+
 export function generateWeekSchedule(
   weekStart: string,
   clients: Client[],
@@ -166,33 +316,17 @@ export function generateWeekSchedule(
 ): WeekSchedule {
   const blocks = buildEmptyWeek(weekStart)
   const tasks = collectTasks(clients, contracts, weekStart)
-
-  const workSlotIndices: number[] = []
-  blocks.forEach((b, i) => {
-    if (b.blockType === 'work') workSlotIndices.push(i)
-  })
-
-  let slotPtr = 0
-  for (const task of tasks) {
-    if (slotPtr >= workSlotIndices.length) break
-    const idx = workSlotIndices[slotPtr]
-    blocks[idx] = {
-      ...blocks[idx],
-      clientId: task.clientId,
-      clientName: task.clientName,
-      businessName: task.businessName,
-      serviceTier: task.serviceTier,
-      label: task.label,
-      deadlineDate: task.deadlineDate,
-    }
-    slotPtr++
-  }
+  assignTasksAcrossWeek(blocks, tasks)
 
   return {
     weekStart,
     blocks,
     generatedAt: new Date().toISOString(),
   }
+}
+
+export function countScheduledTasks(schedule: WeekSchedule): number {
+  return schedule.blocks.filter((b) => b.blockType === 'work' && b.clientId).length
 }
 
 export function countScheduledClients(schedule: WeekSchedule): number {
@@ -204,12 +338,87 @@ export function countScheduledClients(schedule: WeekSchedule): number {
 
 export function tierCounts(schedule: WeekSchedule): Record<ServiceTier, number> {
   const counts: Record<ServiceTier, number> = {
-    'Premium Custom': 0,
-    Business: 0,
-    Starter: 0,
+    Summit: 0,
+    Studio: 0,
+    Launch: 0,
   }
   for (const b of schedule.blocks) {
-    if (b.blockType === 'work' && b.serviceTier) counts[b.serviceTier]++
+    if (b.blockType === 'work' && b.serviceTier) {
+      counts[migrateServiceTier(b.serviceTier)]++
+    }
   }
   return counts
+}
+
+type ClientAssignment = Pick<
+  ScheduleBlock,
+  'clientId' | 'clientName' | 'businessName' | 'serviceTier' | 'label' | 'deadlineDate'
+>
+
+function pickClientAssignment(block: ScheduleBlock): ClientAssignment {
+  return {
+    clientId: block.clientId,
+    clientName: block.clientName,
+    businessName: block.businessName,
+    serviceTier: block.serviceTier,
+    label: block.label,
+    deadlineDate: block.deadlineDate,
+  }
+}
+
+function clearClientAssignment(block: ScheduleBlock): ScheduleBlock {
+  const next = { ...block }
+  delete next.clientId
+  delete next.clientName
+  delete next.businessName
+  delete next.serviceTier
+  delete next.label
+  delete next.deadlineDate
+  return next
+}
+
+function applyClientAssignment(block: ScheduleBlock, assignment: ClientAssignment): ScheduleBlock {
+  return {
+    ...clearClientAssignment(block),
+    ...(assignment.clientId !== undefined ? { clientId: assignment.clientId } : {}),
+    ...(assignment.clientName !== undefined ? { clientName: assignment.clientName } : {}),
+    ...(assignment.businessName !== undefined ? { businessName: assignment.businessName } : {}),
+    ...(assignment.serviceTier !== undefined ? { serviceTier: assignment.serviceTier } : {}),
+    ...(assignment.label !== undefined ? { label: assignment.label } : {}),
+    ...(assignment.deadlineDate !== undefined ? { deadlineDate: assignment.deadlineDate } : {}),
+  }
+}
+
+/** Move (or swap) a scheduled client to another work slot. */
+export function moveScheduleBlock(
+  schedule: WeekSchedule,
+  sourceBlockId: string,
+  targetDayIndex: number,
+  targetStartTime: string
+): WeekSchedule | null {
+  const sourceIndex = schedule.blocks.findIndex((block) => block.id === sourceBlockId)
+  const targetIndex = schedule.blocks.findIndex(
+    (block) => block.dayIndex === targetDayIndex && block.startTime === targetStartTime
+  )
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return null
+
+  const source = schedule.blocks[sourceIndex]
+  const target = schedule.blocks[targetIndex]
+  if (source.blockType !== 'work' || !source.clientId) return null
+  if (target.blockType !== 'work') return null
+
+  const sourceAssignment = pickClientAssignment(source)
+  const targetAssignment = pickClientAssignment(target)
+
+  const blocks = schedule.blocks.map((block, index) => {
+    if (index === targetIndex) return applyClientAssignment(block, sourceAssignment)
+    if (index === sourceIndex) {
+      return target.clientId
+        ? applyClientAssignment(block, targetAssignment)
+        : clearClientAssignment(block)
+    }
+    return block
+  })
+
+  return { ...schedule, blocks }
 }

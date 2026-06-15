@@ -7,15 +7,18 @@ import {
   Pencil,
   CheckCircle,
   StickyNote,
-  ExternalLink,
   UserMinus,
+  Eye,
+  Trash2,
+  ExternalLink,
+  FileDown,
 } from 'lucide-react'
 import { NotesSection } from '@/components/clients/NotesSection'
 import { AddNoteModal } from '@/components/clients/AddNoteModal'
 import { MarkOfficialClientCard } from '@/components/clients/MarkOfficialClientCard'
 import { RemoveClientModal } from '@/components/clients/RemoveClientModal'
-import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
-import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
+import { ClientStatusIcon } from '@/components/clients/ClientStatusIcon'
+import { ClientContactInfo } from '@/components/clients/ClientContactInfo'
 import { ClientInvoiceCard } from '@/components/payments/ClientInvoiceCard'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -24,33 +27,59 @@ import {
   ClientStatusOverview,
   ContractStatusProgress,
 } from '@/components/clients/ClientStatusOverview'
+import { PaymentDetailsCard } from '@/components/clients/ContractPaymentSummary'
 import { ProjectTimeline } from '@/components/clients/ProjectTimeline'
 import { ProjectFilesSection } from '@/components/files/ProjectFilesSection'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { ContractReviewView } from '@/components/contracts/ContractReviewView'
+import { DeleteContractModal } from '@/components/contracts/DeleteContractModal'
 import { Modal } from '@/components/ui/Modal'
 import { Input, Select, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
+import {
+  canViewClientContract,
+  getContractActionLabel,
+  isProjectActive,
+} from '@/lib/clientUtils'
 import { formatDate } from '@/lib/utils'
+import { contractPdfFilename, openContractPdfInNewTab } from '@/lib/pdf'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ProjectType } from '@/types'
+
+/** Compact profile header actions on small screens */
+const profileActionButtonClass =
+  'gap-1 px-2 py-1 text-[9px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-[11px]'
+
+const profileActionIconClass = 'size-3 shrink-0 sm:size-4'
 
 export function ClientProfilePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const { getClient, updateClient, refresh } = useApp()
+  const { getClient, getContractForClient, updateClient, refresh, settings } = useApp()
   const client = id ? getClient(id) : undefined
+  const contract = client ? getContractForClient(client.id) : undefined
   const [editOpen, setEditOpen] = useState(false)
   const [noteQuickOpen, setNoteQuickOpen] = useState(false)
   const [removeOpen, setRemoveOpen] = useState(false)
+  const [viewContractOpen, setViewContractOpen] = useState(false)
+  const [deleteContractOpen, setDeleteContractOpen] = useState(false)
+  const showViewContract = client
+    ? canViewClientContract(contract, client.contractStatus)
+    : false
+  const hasContractWorkflow = Boolean(client && client.contractStatus !== 'Not Started')
 
   useEffect(() => {
-    if (location.hash === '#project-files') {
-      const el = document.getElementById('project-files')
-      if (el) {
-        requestAnimationFrame(() => {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        })
-      }
+    if (!client || contract || !hasContractWorkflow) return
+    void refresh()
+  }, [client?.id, contract, hasContractWorkflow, refresh])
+
+  useEffect(() => {
+    if (!location.hash) return
+    const targetId = location.hash.slice(1)
+    const el = document.getElementById(targetId)
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
     }
   }, [location.hash, client?.id])
 
@@ -93,33 +122,63 @@ export function ClientProfilePage() {
             title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
           >
             {client.name}
+            <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
           </span>
         }
         subtitle={client.businessName}
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-4 w-4" />
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={() => setEditOpen(true)}
+            >
+              <Pencil className={profileActionIconClass} />
               Edit Client
             </Button>
-            <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>
-              <FileText className="h-4 w-4" />
-              Start Contract
+            <Button
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={() => navigate(`/clients/${client.id}/contract`)}
+            >
+              <FileText className={profileActionIconClass} />
+              {getContractActionLabel(client.contractStatus)}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSendEmail}>
-              <Mail className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={handleSendEmail}
+            >
+              <Mail className={profileActionIconClass} />
               Send Email
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setNoteQuickOpen(true)}>
-              <StickyNote className="h-4 w-4" />
+            <Button
+              variant="outline"
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={() => setNoteQuickOpen(true)}
+            >
+              <StickyNote className={profileActionIconClass} />
               Add Note
             </Button>
-            <Button variant="secondary" size="sm" onClick={handleFollowUpComplete}>
-              <CheckCircle className="h-4 w-4" />
+            <Button
+              variant="secondary"
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={handleFollowUpComplete}
+            >
+              <CheckCircle className={profileActionIconClass} />
               Mark Follow-Up Complete
             </Button>
-            <Button variant="danger" size="sm" onClick={() => setRemoveOpen(true)}>
-              <UserMinus className="h-4 w-4" />
+            <Button
+              variant="danger"
+              size="sm"
+              className={profileActionButtonClass}
+              onClick={() => setRemoveOpen(true)}
+            >
+              <UserMinus className={profileActionIconClass} />
               Remove Client
             </Button>
           </div>
@@ -127,72 +186,92 @@ export function ClientProfilePage() {
       />
 
       <ClientStatusOverview
-        className="mb-6"
+        className="mb-4 sm:mb-6"
         projectStatus={client.projectStatus}
         contractStatus={client.contractStatus}
         paymentStatus={client.paymentStatus}
-        projectStarted={Boolean(client.projectStartedAt)}
+        projectStarted={isProjectActive(client)}
         showProgress={false}
       />
 
-      <ProjectTimeline client={client} />
+      <ProjectTimeline
+        client={client}
+        aside={<ClientContactInfo client={client} compact />}
+      />
 
-      {client.isOfficialClient ? (
-        <div className="mb-6">
-          <OfficialClientBadge />
-        </div>
-      ) : (
-        <div className="mb-6">
-          <PendingClientBadge />
-        </div>
-      )}
-
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <ProjectFilesSection clientId={client.id} projectName={client.projectName} />
       </div>
 
-      <div className="mb-6 grid w-full min-w-0 gap-6 lg:grid-cols-2">
-        <MarkOfficialClientCard client={client} />
+      <section id="deposit-invoice" className="mb-4 scroll-mt-24 space-y-4 sm:mb-6 sm:space-y-6">
+        {!client.isOfficialClient && <MarkOfficialClientCard client={client} />}
         {client.isOfficialClient && <ClientInvoiceCard client={client} />}
-      </div>
 
-      <div className="grid w-full min-w-0 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Contact Information" />
-          <dl className="space-y-3 text-sm">
-            <div>
-              <dt className="text-stone-500">Email</dt>
-              <dd className="font-medium text-stone-800">{client.email}</dd>
-            </div>
-            <div>
-              <dt className="text-stone-500">Phone</dt>
-              <dd className="font-medium text-stone-800">{client.phone || '—'}</dd>
-            </div>
-            {client.website && (
-              <div>
-                <dt className="text-stone-500">Website</dt>
-                <dd>
-                  <a
-                    href={client.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+        <div className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader title="Contract Information" />
+            <div className="space-y-4 text-sm">
+              <ContractStatusProgress
+                status={client.contractStatus}
+                projectStarted={isProjectActive(client)}
+                viewedAt={contract?.viewedAt}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>
+                  <FileText className="h-4 w-4" />
+                  {getContractActionLabel(client.contractStatus)}
+                </Button>
+                {contract && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title={contractPdfFilename(contract)}
+                    onClick={() => openContractPdfInNewTab(contract, settings)}
                   >
-                    {client.website}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </dd>
+                    <FileDown className="h-4 w-4 shrink-0" />
+                    Contract PDF
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                  </Button>
+                )}
+                {hasContractWorkflow && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setDeleteContractOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete contract
+                  </Button>
+                )}
+                {showViewContract && contract && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setViewContractOpen(true)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Contract
+                  </Button>
+                )}
               </div>
-            )}
-            {client.socialLinks && (
-              <div>
-                <dt className="text-stone-500">Social</dt>
-                <dd className="font-medium text-stone-800">{client.socialLinks}</dd>
-              </div>
-            )}
-          </dl>
-        </Card>
+              {!contract && hasContractWorkflow && (
+                <p className="text-xs text-ink-faint">
+                  No contract file stored yet (status: {client.contractStatus}). You can still delete
+                  to reset the timeline to Inquiry.
+                </p>
+              )}
 
+              {contract && (
+                <p className="break-all font-mono text-[10px] text-ink-faint">ID {contract.id}</p>
+              )}
+            </div>
+          </Card>
+
+          <PaymentDetailsCard client={client} contract={contract} />
+        </div>
+      </section>
+
+      <div className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="Project Details" />
           <dl className="space-y-3 text-sm">
@@ -218,58 +297,6 @@ export function ClientProfilePage() {
         </Card>
 
         <Card>
-          <CardHeader title="Contract Information" />
-          <div className="space-y-4 text-sm">
-            <ContractStatusProgress status={client.contractStatus} />
-            <div className="flex items-center justify-between">
-              <span className="text-stone-500">Status</span>
-              <StatusBadge type="contract" status={client.contractStatus} highlighted />
-            </div>
-            <div>
-              <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>
-                <FileText className="h-4 w-4" />
-                {client.contractStatus === 'Not Started' ? 'Start Contract' : 'View / Edit Contract'}
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader title="Payment Information" />
-          <dl className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <dt className="text-stone-500">Payment Status</dt>
-              <StatusBadge type="payment" status={client.paymentStatus} />
-            </div>
-            {client.invoice && (
-              <>
-                <div>
-                  <dt className="text-stone-500">Invoice</dt>
-                  <dd className="font-medium text-stone-800">
-                    ${client.invoice.amount.toFixed(2)} {client.invoice.currency}
-                  </dd>
-                </div>
-                {client.invoice.paymentLink && !client.invoice.paidAt && (
-                  <div>
-                    <dt className="text-stone-500">Payment Link</dt>
-                    <dd>
-                      <a
-                        href={client.invoice.paymentLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-brand hover:underline break-all"
-                      >
-                        Open PayPal checkout
-                      </a>
-                    </dd>
-                  </div>
-                )}
-              </>
-            )}
-          </dl>
-        </Card>
-
-        <Card className="lg:col-span-2">
           <CardHeader title="Important Dates & Deadlines" />
           {client.deadlines.length === 0 && !client.followUpDate ? (
             <p className="text-sm text-stone-500">No deadlines set.</p>
@@ -309,7 +336,57 @@ export function ClientProfilePage() {
         </div>
       </div>
 
+      {contract && (
+        <Modal
+          open={viewContractOpen}
+          onClose={() => setViewContractOpen(false)}
+          title="Contract"
+          size="xl"
+        >
+          <div className="max-h-[calc(90vh-5rem)] overflow-y-auto">
+            <ContractReviewView
+              contract={contract}
+              designerName={settings.ownerName}
+              businessName={settings.businessName}
+            />
+          </div>
+        </Modal>
+      )}
+
       <EditClientModal open={editOpen} onClose={() => setEditOpen(false)} client={client} />
+      {hasContractWorkflow && (
+        <DeleteContractModal
+          open={deleteContractOpen}
+          onClose={() => setDeleteContractOpen(false)}
+          contracts={
+            contract
+              ? [
+                  {
+                    contract,
+                    clientName: client.name,
+                    businessName: client.businessName,
+                  },
+                ]
+              : []
+          }
+          workflowFallback={
+            !contract
+              ? {
+                  clientId: client.id,
+                  clientName: client.name,
+                  businessName: client.businessName,
+                  projectName: client.projectName,
+                  contractStatus: client.contractStatus,
+                }
+              : undefined
+          }
+          preselectedContractId={contract?.id}
+          onDeleted={async () => {
+            await refresh()
+            setDeleteContractOpen(false)
+          }}
+        />
+      )}
       <AddNoteModal open={noteQuickOpen} onClose={() => setNoteQuickOpen(false)} clientId={client.id} />
       <RemoveClientModal
         open={removeOpen}

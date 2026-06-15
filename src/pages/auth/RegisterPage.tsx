@@ -52,13 +52,11 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
 
     setSubmitting(true)
     try {
-      await register(name, email, password, {
+      const user = await register(name, email, password, {
         accountType: mode,
         portalThemeId: mode === 'client' ? loadStoredPortalThemeId() : undefined,
       })
-      const params = new URLSearchParams({ email })
-      if (mode === 'admin') params.set('studio', '1')
-      navigate(`/check-email?${params.toString()}`, { replace: true })
+      navigate(user.role === 'admin' ? '/' : '/portal', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed')
     } finally {
@@ -164,10 +162,10 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             </p>
           )}
         </Card>
-      </div>
-      </div>
 
-      {mode === 'client' && <PaymentPartnerLogos />}
+        {mode === 'client' && <PaymentPartnerLogos />}
+      </div>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { migrateStoreTiers } from './lib/serviceTier.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -22,6 +23,7 @@ const DEFAULT_STORE = {
   },
   projectFiles: [],
   adminNotifications: [],
+  adminAuditLog: [],
 }
 
 function ensureDataDir() {
@@ -37,7 +39,12 @@ export function readStore() {
     return structuredClone(DEFAULT_STORE)
   }
   const raw = fs.readFileSync(DB_FILE, 'utf8')
-  return { ...DEFAULT_STORE, ...JSON.parse(raw) }
+  const parsed = { ...DEFAULT_STORE, ...JSON.parse(raw) }
+  const { clients, contracts, changed } = migrateStoreTiers(parsed)
+  if (changed) {
+    writeStore({ ...parsed, clients, contracts })
+  }
+  return { ...parsed, clients, contracts }
 }
 
 export function writeStore(store) {

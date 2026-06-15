@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { useApp } from '@/context/AppContext'
-import { SERVICE_TIERS } from '@/lib/scheduler'
-import type { ProjectStatus, ProjectType, ServiceTier } from '@/types'
+import { DEFAULT_SERVICE_TIER, SERVICE_TIERS } from '@/lib/serviceTiers'
+import type { ProjectStatus, ProjectType } from '@/types'
 
 const projectTypes: ProjectType[] = [
   'Website Design',
@@ -33,7 +33,7 @@ const EMPTY_FORM = {
   projectName: '',
   projectDescription: '',
   projectStatus: 'Inquiry' as ProjectStatus,
-  serviceTier: 'Starter' as ServiceTier,
+  serviceTier: DEFAULT_SERVICE_TIER,
   notes: '',
   followUpDate: '',
 }

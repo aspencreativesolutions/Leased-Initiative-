@@ -11,7 +11,7 @@ export function PortalTimelineView({ steps, projectName }: PortalTimelineViewPro
   const completedCount = steps.filter((s) => s.status === 'completed').length
 
   return (
-    <Card padding="lg">
+    <Card padding="sm" className="sm:p-5">
       <CardHeader
         title="Project Timeline"
         subtitle={
@@ -19,6 +19,7 @@ export function PortalTimelineView({ steps, projectName }: PortalTimelineViewPro
             ? `${completedCount} of ${steps.length} steps complete for ${projectName}`
             : `${completedCount} of ${steps.length} steps complete`
         }
+        dense
       />
 
       <HorizontalTimeline steps={steps} variant="portal" />

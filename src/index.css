@@ -8,10 +8,24 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-surface font-sans text-ink;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+    position: relative;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
   }
 
   ::selection {
@@ -48,5 +62,226 @@
 
   html[data-caps-labels='1'] .nav-link-label {
     @apply uppercase tracking-caps;
+  }
+
+  .paper-box {
+    border-radius: var(--radius-lg);
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: var(--card-border, var(--line));
+    background-color: var(--card-bg, var(--surface-paper));
+    box-shadow: var(--card-shadow, none);
+  }
+
+  .paper-box-inset {
+    border-radius: var(--radius-sm);
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: var(--card-inset-border, var(--line));
+    background-color: var(--card-inset-bg, var(--surface));
+  }
+
+  .contract-step--past {
+    border-width: var(--border-width);
+    border-style: solid;
+    border-color: var(--contract-step-complete-border);
+    background-color: var(--contract-step-complete-bg);
+    color: var(--contract-step-complete-fg);
+  }
+
+  .step-complete-mark {
+    color: var(--deposit);
+  }
+
+  [data-theme='vintage'] .contract-step--idle {
+    border-color: var(--card-inset-border);
+    background-color: #fffef9;
+    color: var(--ink-muted);
+  }
+
+  [data-theme='vintage'] .portal-status-badge {
+    border-width: var(--border-width);
+    box-shadow: inset 0 1px 0 rgba(255, 250, 244, 0.55);
+  }
+
+  .status-solid {
+    border-color: var(--status-solid-border);
+    background-color: var(--status-solid-bg);
+    color: var(--status-solid-fg);
+  }
+
+  .status-badge--table {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+    box-sizing: border-box;
+    height: var(--table-row-chip-height);
+    min-height: var(--table-row-chip-height);
+    max-height: var(--table-row-chip-height);
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+
+  .table-row-chip {
+    box-sizing: border-box;
+    height: var(--table-row-chip-height);
+    min-height: var(--table-row-chip-height);
+    max-height: var(--table-row-chip-height);
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .status-badge--table-project {
+    width: 9.5rem;
+    min-width: 9.5rem;
+    max-width: 9.5rem;
+  }
+
+  .status-badge--table-contract {
+    width: 5.75rem;
+    min-width: 5.75rem;
+    max-width: 5.75rem;
+  }
+
+  .status-badge--table-payment {
+    width: 6.25rem;
+    min-width: 6.25rem;
+    max-width: 6.25rem;
+  }
+
+  .status-card--idle {
+    border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+    background-color: var(--status-card-idle-bg);
+  }
+
+  .status-card--done {
+    border: 1px solid var(--status-card-done-border);
+    background-color: var(--status-card-done-bg);
+  }
+
+  .status-card--highlight {
+    border: 2px solid var(--accent);
+    background-color: var(--status-card-highlight-bg);
+    box-shadow:
+      0 0 0 1px var(--accent),
+      var(--status-highlight-glow);
+  }
+
+  .summary-stat-icon {
+    border-color: var(--dashboard-stat-icon-border);
+    background-color: var(--dashboard-stat-icon-bg);
+    color: var(--dashboard-stat-icon-fg);
+  }
+
+  .summary-stat-icon--active {
+    border-color: var(--dashboard-stat-icon-active-border);
+    background-color: var(--dashboard-stat-icon-active-bg);
+    color: var(--dashboard-stat-icon-active-fg);
+  }
+
+  [data-theme='neon'] .contract-step--idle {
+    border-color: var(--line);
+    background-color: transparent;
+    color: var(--ink-faint);
+  }
+
+  .portal-payment-text {
+    color: var(--deposit-fg);
+  }
+
+  .portal-payment-text-muted {
+    color: var(--deposit-muted);
+  }
+
+  .portal-payment-icon {
+    color: var(--deposit);
+  }
+
+  [data-theme='neon'] .portal-payment-text {
+    text-shadow: var(--deposit-text-glow);
+  }
+
+  [data-theme='neon'] .portal-payment-text-muted {
+    text-shadow: var(--deposit-text-glow-muted);
+  }
+
+  [data-theme='neon'] .portal-payment-icon {
+    filter: var(--deposit-icon-glow);
+  }
+
+  [data-theme='neon'] .portal-payment-card {
+    box-shadow: var(--deposit-card-glow);
+  }
+
+  [data-theme='midnight'] .contract-step--idle {
+    border-color: var(--line);
+    background-color: transparent;
+    color: var(--ink-faint);
+  }
+
+  .timeline-connector--complete {
+    background-color: var(--timeline-connector-complete);
+  }
+
+  @keyframes active-live-breathe {
+    0%,
+    100% {
+      border-color: var(--ink);
+      background-color: var(--surface);
+      box-shadow:
+        0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent),
+        0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    }
+
+    50% {
+      border-color: color-mix(in srgb, var(--brand) 60%, var(--ink));
+      background-color: color-mix(in srgb, var(--brand) 10%, var(--surface));
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent),
+        0 0 0 5px color-mix(in srgb, var(--brand) 12%, transparent);
+    }
+  }
+
+  .active-live-tag {
+    backface-visibility: hidden;
+    will-change: box-shadow, border-color, background-color;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .active-live-tag {
+      animation: active-live-breathe 2.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    }
+  }
+
+  .table-scroll-shell {
+    width: 0;
+    min-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    contain: inline-size;
+  }
+
+  .contract-form-shell {
+    @apply rounded-lg p-4 sm:p-6;
+    background-color: color-mix(in srgb, var(--line) 28%, var(--surface));
+  }
+
+  .contract-form-paper {
+    @apply mx-auto max-w-3xl bg-surface-paper shadow-sm;
+    min-height: 28rem;
+  }
+
+  .contract-sign-shell {
+    @apply mt-6 rounded-lg p-4 sm:p-6;
+    background-color: color-mix(in srgb, var(--line) 28%, var(--surface));
+  }
+
+  .contract-sign-paper {
+    @apply bg-surface-paper px-5 py-8 sm:px-8 sm:py-10 lg:px-12;
   }
 }

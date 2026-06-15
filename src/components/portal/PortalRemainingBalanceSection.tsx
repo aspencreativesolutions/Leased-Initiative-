@@ -16,7 +16,7 @@ export function PortalRemainingBalanceSection({
         <Receipt className="h-4 w-4" />
         Remaining Balance
       </h2>
-      <Card padding="lg" className="border-line bg-surface/50">
+      <Card padding="lg">
         <p className="font-semibold text-ink">Final project payment</p>
         <p className="mt-1 text-sm text-ink-muted">{balance.description}</p>
         <p className="mt-3 text-2xl font-bold text-ink">

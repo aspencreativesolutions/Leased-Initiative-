@@ -33,6 +33,7 @@ interface PortalProjectFilesSectionProps {
   enabled: boolean
   projectStarted?: boolean
   supportContact?: PortalSupportContact
+  className?: string
 }
 
 async function collectFilesFromDrop(dataTransfer: DataTransfer): Promise<File[]> {
@@ -136,6 +137,7 @@ export function PortalProjectFilesSection({
   enabled,
   projectStarted = false,
   supportContact,
+  className,
 }: PortalProjectFilesSectionProps) {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -218,7 +220,7 @@ export function PortalProjectFilesSection({
 
   if (!enabled) {
     return (
-      <section className="mt-8">
+      <section className={cn('mt-8', className)}>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="label-caps flex items-center gap-2">
             <FolderUp className="h-4 w-4" />
@@ -246,7 +248,7 @@ export function PortalProjectFilesSection({
   }
 
   return (
-    <section className="mt-8">
+    <section className={cn('mt-8', className)}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="label-caps flex items-center gap-2">
           <FolderUp className="h-4 w-4" />
@@ -262,59 +264,61 @@ export function PortalProjectFilesSection({
         sending — your designer sees them linked to each file.
       </p>
 
-      <label className="mb-3 block">
-        <span className="text-xs font-semibold uppercase tracking-caps text-ink-faint">
-          Note for your upload (optional)
-        </span>
-        <textarea
-          value={uploadNote}
-          onChange={(e) => setUploadNote(e.target.value)}
-          rows={2}
-          placeholder="Describe this batch of files — e.g. brand logos, homepage copy, reference photos…"
-          className="mt-1 w-full resize-y rounded-sm border-2 border-ink/10 bg-surface-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
-        />
-      </label>
+      <div className="grid gap-3 sm:grid-cols-2 sm:items-stretch sm:gap-4">
+        <label className="flex min-h-0 flex-col">
+          <span className="text-xs font-semibold uppercase tracking-caps text-ink-faint">
+            Note for your upload (optional)
+          </span>
+          <textarea
+            value={uploadNote}
+            onChange={(e) => setUploadNote(e.target.value)}
+            rows={5}
+            placeholder="Describe this batch of files — e.g. brand logos, homepage copy, reference photos…"
+            className="mt-1 min-h-[10.5rem] w-full flex-1 resize-y rounded-sm border-2 border-ink/10 bg-surface-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none sm:min-h-0"
+          />
+        </label>
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragOver(true)
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={cn(
-          'rounded-sm border-2 border-dashed p-6 transition-colors',
-          dragOver ? 'border-brand bg-brand/5' : 'border-line bg-surface-paper'
-        )}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept={PORTAL_FILE_ACCEPT}
-          className="hidden"
-          onChange={(e) => {
-            const list = e.target.files ? Array.from(e.target.files) : []
-            void uploadFiles(list)
-            if (inputRef.current) inputRef.current.value = ''
+        <div
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
           }}
-        />
-        <div className="flex flex-col items-center gap-3 text-center">
-          <FolderUp className="h-8 w-8 text-ink-faint" />
-          <p className="text-sm font-medium text-ink">Drag and drop files here</p>
-          <p className="text-xs text-ink-muted">{PORTAL_FILE_TYPES_LABEL}</p>
-          <Button
-            size="sm"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            {uploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            Choose files
-          </Button>
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={cn(
+            'flex min-h-[10.5rem] flex-col justify-center rounded-sm border-2 border-dashed p-4 transition-colors sm:min-h-0 sm:p-6',
+            dragOver ? 'border-brand bg-brand/5' : 'border-line bg-surface-paper'
+          )}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept={PORTAL_FILE_ACCEPT}
+            className="hidden"
+            onChange={(e) => {
+              const list = e.target.files ? Array.from(e.target.files) : []
+              void uploadFiles(list)
+              if (inputRef.current) inputRef.current.value = ''
+            }}
+          />
+          <div className="flex flex-col items-center gap-3 text-center">
+            <FolderUp className="h-8 w-8 text-ink-faint" />
+            <p className="text-sm font-medium text-ink">Drag and drop files here</p>
+            <p className="text-xs text-ink-muted">{PORTAL_FILE_TYPES_LABEL}</p>
+            <Button
+              size="sm"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              Choose files
+            </Button>
+          </div>
         </div>
       </div>
 

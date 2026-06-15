@@ -6,6 +6,7 @@ interface TimelineStepBodyProps {
   /** Portal uses softer timestamp styling */
   variant?: 'admin' | 'portal'
   layout?: 'vertical' | 'horizontal'
+  compact?: boolean
 }
 
 function Timestamp({
@@ -13,24 +14,34 @@ function Timestamp({
   value,
   variant,
   horizontal,
+  compact,
 }: {
   label: string
   value: string
   variant: 'admin' | 'portal'
   horizontal: boolean
+  compact?: boolean
 }) {
   return (
     <p
       className={
         horizontal
           ? 'text-[8px] leading-tight text-ink-muted break-words md:text-[9px] md:leading-snug'
-          : variant === 'portal'
-            ? 'mt-0.5 text-xs text-ink-muted'
-            : 'mt-0.5 text-xs font-medium text-ink-muted'
+          : compact
+            ? 'mt-0 text-[10px] leading-snug text-ink-muted'
+            : variant === 'portal'
+              ? 'mt-0.5 text-xs text-ink-muted'
+              : 'mt-0.5 text-xs font-medium text-ink-muted'
       }
     >
-      <span className="text-ink-faint">{label}: </span>
-      {formatDateTime(value)}
+      {label ? (
+        <>
+          <span className="text-ink-faint">{label}: </span>
+          {formatDateTime(value)}
+        </>
+      ) : (
+        formatDateTime(value)
+      )}
     </p>
   )
 }
@@ -39,6 +50,7 @@ export function TimelineStepBody({
   step,
   variant = 'admin',
   layout = 'vertical',
+  compact = false,
 }: TimelineStepBodyProps) {
   const horizontal = layout === 'horizontal'
 
@@ -46,19 +58,21 @@ export function TimelineStepBody({
     <>
       {step.completedAt && (
         <Timestamp
-          label={step.skipped ? 'Skipped' : 'Completed'}
+          label={step.skipped ? 'Skipped' : compact ? '' : 'Completed'}
           value={step.completedAt}
           variant={variant}
           horizontal={horizontal}
+          compact={compact}
         />
       )}
 
       {step.status === 'active' && step.waitingSince && (
         <Timestamp
-          label="Waiting since"
+          label={compact ? 'Since' : 'Waiting since'}
           value={step.waitingSince}
           variant={variant}
           horizontal={horizontal}
+          compact={compact}
         />
       )}
 
@@ -67,7 +81,9 @@ export function TimelineStepBody({
           className={
             horizontal
               ? 'mt-0.5 line-clamp-2 text-[8px] leading-tight text-ink-muted md:mt-1 md:line-clamp-3 md:text-[9px]'
-              : 'mt-1 text-sm text-ink-muted'
+              : compact
+                ? 'mt-0 line-clamp-2 text-[10px] leading-snug text-ink-muted'
+                : 'mt-1 text-sm text-ink-muted'
           }
         >
           {step.detail}

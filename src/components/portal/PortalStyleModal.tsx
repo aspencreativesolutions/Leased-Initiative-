@@ -12,7 +12,7 @@ export function PortalStyleModal({ open, onClose }: PortalStyleModalProps) {
   const { themeId, themes, setTheme, theme } = usePortalTheme()
 
   return (
-    <Modal open={open} onClose={onClose} title="Choose Style" size="lg">
+    <Modal open={open} onClose={onClose} title="Choose Style" size="xl">
       <div className="mb-4 flex items-center gap-2 text-sm text-ink-muted">
         <Palette className="h-4 w-4 shrink-0 text-brand" />
         <p>

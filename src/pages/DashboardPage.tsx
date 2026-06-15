@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Users, UserPlus } from 'lucide-react'
 import { AddClientModal } from '@/components/clients/AddClientModal'
@@ -15,7 +15,14 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
-import { countOfficialClients, countPendingClients } from '@/lib/clientUtils'
+import {
+  DASHBOARD_FILTER_LABELS,
+  dashboardFilterShowsClients,
+  dashboardFilterShowsDeadlines,
+  dashboardFilterShowsTimelineNotes,
+  filterClientsForDashboard,
+  type DashboardFilter,
+} from '@/lib/dashboardFilters'
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -30,7 +37,17 @@ export function DashboardPage() {
   } = useAdminNotifications()
   const [addOpen, setAddOpen] = useState(false)
   const [registrationsOpen, setRegistrationsOpen] = useState(false)
+  const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter | null>(null)
   const prevNotificationCount = useRef(0)
+
+  const filteredClients = useMemo(
+    () => filterClientsForDashboard(clients, dashboardFilter),
+    [clients, dashboardFilter]
+  )
+
+  const showClientsSection = dashboardFilterShowsClients(dashboardFilter)
+  const showDeadlinesSection = dashboardFilterShowsDeadlines(dashboardFilter)
+  const showTimelineNotes = dashboardFilterShowsTimelineNotes(dashboardFilter)
 
   useEffect(() => {
     if (notificationCount > prevNotificationCount.current) {
@@ -56,21 +73,31 @@ export function DashboardPage() {
   return (
     <div className="w-full min-w-0">
       <PageHeader
+        compact
         title="Client Dashboard"
-        subtitle="Manage your clients, contracts, and follow-ups in one place."
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setRegistrationsOpen(true)}>
-              <UserPlus className="h-4 w-4" />
-              View New Registers
-              {(count > 0 || notificationCount > 0) && (
+          <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-w-0 flex-1 gap-1 px-2 py-1 text-[10px] sm:flex-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-[11px] [&_svg]:size-3.5 sm:[&_svg]:size-4"
+              onClick={() => setRegistrationsOpen(true)}
+            >
+              <UserPlus className="h-4 w-4 shrink-0" />
+              <span className="truncate sm:hidden">Registers</span>
+              <span className="hidden sm:inline">View New Registers</span>
+              {count > 0 && (
                 <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {Math.max(count, notificationCount)}
+                  {count}
                 </span>
               )}
             </Button>
-            <Button onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4" />
+            <Button
+              size="sm"
+              className="min-w-0 flex-1 gap-1 px-2 py-1 text-[10px] sm:flex-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-[11px] [&_svg]:size-3.5 sm:[&_svg]:size-4"
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus className="h-4 w-4 shrink-0" />
               Add Client
             </Button>
           </div>
@@ -84,7 +111,11 @@ export function DashboardPage() {
         onDismiss={() => markRead()}
       />
 
-      <SummaryCards clients={clients} />
+      <SummaryCards
+        clients={clients}
+        activeFilter={dashboardFilter}
+        onFilterChange={setDashboardFilter}
+      />
 
       {registrationsError && (
         <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
@@ -94,33 +125,53 @@ export function DashboardPage() {
       )}
 
       <div className="w-full min-w-0 space-y-6">
-        <Card className="w-full min-w-0">
-          <CardHeader
-            title="Clients & Pending"
-            subtitle={`${countOfficialClients(clients)} clients · ${countPendingClients(clients)} pending`}
-          />
-          {clients.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="No clients yet"
-              description="Add your first client to start tracking projects and contracts."
-              action={
-                <Button onClick={() => setAddOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add Client
-                </Button>
+        {showClientsSection && (
+          <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">
+            <CardHeader
+              dense
+              title={dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter] : 'Clients & Pending'}
+              subtitle={
+                dashboardFilter
+                  ? `Showing ${filteredClients.length} matching ${filteredClients.length === 1 ? 'item' : 'items'}`
+                  : `${filteredClients.filter((c) => c.isOfficialClient).length} clients · ${filteredClients.filter((c) => !c.isOfficialClient).length} pending`
               }
             />
-          ) : (
-            <ClientTable clients={clients} fullWidth />
-          )}
-        </Card>
+            {clients.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No clients yet"
+                description="Add your first client to start tracking projects and contracts."
+                action={
+                  <Button onClick={() => setAddOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Client
+                  </Button>
+                }
+              />
+            ) : filteredClients.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title={`No ${dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter].toLowerCase() : 'matching clients'}`}
+                description="Try another filter or clear the selection."
+                action={
+                  <Button variant="outline" onClick={() => setDashboardFilter(null)}>
+                    Show all
+                  </Button>
+                }
+              />
+            ) : (
+              <ClientTable clients={filteredClients} />
+            )}
+          </Card>
+        )}
 
-        <TimelineSkipNotesFeed />
+        {showDeadlinesSection && (
+          <div className="w-full min-w-0">
+            <UpcomingDeadlines clients={filteredClients} />
+          </div>
+        )}
 
-        <div className="w-full min-w-0">
-          <UpcomingDeadlines clients={clients} />
-        </div>
+        {showTimelineNotes && <TimelineSkipNotesFeed />}
       </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />

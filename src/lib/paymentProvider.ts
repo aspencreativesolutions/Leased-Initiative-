@@ -29,6 +29,14 @@ export function portalPayButtonLabel(provider?: PaymentProvider): string {
   }
 }
 
+export function invoiceButtonLabel(
+  provider: PaymentProvider | undefined,
+  invoiceType: 'deposit' | 'final'
+): string {
+  const name = paymentProviderLabel(provider)
+  return invoiceType === 'deposit' ? `${name} deposit invoice` : `${name} balance invoice`
+}
+
 export function paymentMethodsTextForProvider(provider: PaymentProvider): string {
   switch (provider) {
     case 'stripe':

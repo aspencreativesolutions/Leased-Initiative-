@@ -15,9 +15,5 @@ export function getSkippedStepsForTarget(
   const targetIdx = steps.findIndex((s) => s.id === targetStepId)
   if (targetIdx < 0) return []
 
-  const activeIdx = steps.findIndex((s) => s.status === 'active')
-  let startIdx = activeIdx >= 0 ? activeIdx : steps.findIndex((s) => s.status === 'pending')
-  if (startIdx < 0 || targetIdx <= startIdx) return []
-
-  return steps.slice(startIdx, targetIdx)
+  return steps.slice(0, targetIdx).filter((s) => s.status !== 'completed')
 }

@@ -121,6 +121,46 @@ export function UsersPage() {
         <div className="space-y-8">
           <section>
             <div className="mb-3 flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-ink-muted" />
+              <h2 className="heading-display text-lg">Accepted clients</h2>
+              {accepted.length > 0 && (
+                <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
+                  {accepted.length}
+                </span>
+              )}
+            </div>
+
+            {accepted.length === 0 ? (
+              <Card>
+                <EmptyState
+                  icon={UserCheck}
+                  title="No accepted portal users yet"
+                  description="Accept a registration to create a client profile and track their timeline here."
+                />
+              </Card>
+            ) : (
+              <div className="overflow-x-auto rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                      <th className="px-5 py-3">User</th>
+                      <th className="px-5 py-3">Project</th>
+                      <th className="px-5 py-3">Timeline stage</th>
+                      <th className="px-5 py-3 text-right">Profile</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {accepted.map((user) => (
+                      <AcceptedUserRow key={user.userId} user={user} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section>
+            <div className="mb-3 flex items-center gap-2">
               <UserPlus className="h-4 w-4 text-ink-muted" />
               <h2 className="heading-display text-lg">Awaiting acceptance</h2>
               {pending.length > 0 && (
@@ -133,6 +173,7 @@ export function UsersPage() {
             {pending.length === 0 ? (
               <Card>
                 <EmptyState
+                  compact
                   icon={Users}
                   title="No pending sign-ups"
                   description="When someone registers at the client portal, they will appear here until you accept or dismiss them."
@@ -187,47 +228,6 @@ export function UsersPage() {
               </ul>
             )}
           </section>
-
-          <section>
-            <div className="mb-3 flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-ink-muted" />
-              <h2 className="heading-display text-lg">Accepted clients</h2>
-              {accepted.length > 0 && (
-                <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
-                  {accepted.length}
-                </span>
-              )}
-            </div>
-
-            {accepted.length === 0 ? (
-              <Card>
-                <EmptyState
-                  icon={UserCheck}
-                  title="No accepted portal users yet"
-                  description="Accept a registration to create a client profile and track their timeline here."
-                />
-              </Card>
-            ) : (
-              <div className="overflow-x-auto rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
-                <table className="w-full min-w-[640px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                      <th className="px-5 py-3">User</th>
-                      <th className="px-5 py-3">Project</th>
-                      <th className="px-5 py-3">Timeline stage</th>
-                      <th className="px-5 py-3">Handler</th>
-                      <th className="px-5 py-3 text-right">Profile</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {accepted.map((user) => (
-                      <AcceptedUserRow key={user.userId} user={user} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
         </div>
       )}
     </div>
@@ -256,7 +256,6 @@ function AcceptedUserRow({ user }: { user: PortalUserAccepted }) {
           {user.timelineStageLabel}
         </span>
       </td>
-      <td className="px-5 py-4 text-ink-muted">{user.handlerName}</td>
       <td className="px-5 py-4 text-right">
         <Link
           to={`/clients/${user.clientId}`}

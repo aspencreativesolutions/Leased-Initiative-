@@ -2,12 +2,15 @@ import { FolderKanban, FileClock, CalendarClock, BadgeCheck, Clock } from 'lucid
 import type { Client } from '@/types'
 import { cn } from '@/lib/utils'
 import { countOfficialClients, countPendingClients } from '@/lib/clientUtils'
+import type { DashboardFilter } from '@/lib/dashboardFilters'
 
 interface SummaryCardsProps {
   clients: Client[]
+  activeFilter: DashboardFilter | null
+  onFilterChange: (filter: DashboardFilter | null) => void
 }
 
-export function SummaryCards({ clients }: SummaryCardsProps) {
+export function SummaryCards({ clients, activeFilter, onFilterChange }: SummaryCardsProps) {
   const activeProjects = clients.filter(
     (c) => c.projectStatus === 'In Progress' || c.projectStatus === 'Contract Sent'
   ).length
@@ -26,38 +29,74 @@ export function SummaryCards({ clients }: SummaryCardsProps) {
     return acc + open.length + followUp
   }, 0)
 
-  const cards = [
-    { label: 'Clients', value: officialClients, icon: BadgeCheck },
-    { label: 'Pending Clients', value: pendingClients, icon: Clock },
-    { label: 'Active Projects', value: activeProjects, icon: FolderKanban },
-    { label: 'Pending Contracts', value: pendingContracts, icon: FileClock },
-    { label: 'Upcoming Deadlines', value: upcomingDeadlines, icon: CalendarClock },
+  const cards: {
+    id: DashboardFilter
+    label: string
+    shortLabel: string
+    value: number
+    icon: typeof BadgeCheck
+  }[] = [
+    { id: 'clients', label: 'Clients', shortLabel: 'Clients', value: officialClients, icon: BadgeCheck },
+    { id: 'pending', label: 'Pending Clients', shortLabel: 'Pending', value: pendingClients, icon: Clock },
+    { id: 'active', label: 'Active Projects', shortLabel: 'Active', value: activeProjects, icon: FolderKanban },
+    {
+      id: 'contracts',
+      label: 'Pending Contracts',
+      shortLabel: 'Contracts',
+      value: pendingContracts,
+      icon: FileClock,
+    },
+    {
+      id: 'due',
+      label: 'Upcoming Deadlines',
+      shortLabel: 'Due',
+      value: upcomingDeadlines,
+      icon: CalendarClock,
+    },
   ]
 
   return (
-    <div className="mb-4 grid w-full min-w-0 grid-cols-2 gap-2 lg:grid-cols-5">
-      {cards.map(({ label, value, icon: Icon }) => (
-        <div
-          key={label}
-          className={cn(
-            'flex items-center justify-between gap-2 rounded-[var(--radius-sm)]',
-            'border-2 border-ink bg-surface-paper px-2.5 py-2',
-            'shadow-[3px_3px_0_0_rgba(17,17,17,0.85)]'
-          )}
-        >
-          <div className="min-w-0">
-            <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-ink">
-              {label}
-            </p>
-            <p className="font-display text-2xl font-black leading-none tracking-tight text-ink">
-              {value}
-            </p>
-          </div>
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-ink bg-ink text-surface-paper">
-            <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
-          </div>
-        </div>
-      ))}
+    <div className="mb-2 grid w-full min-w-0 grid-cols-5 gap-0.5 sm:mb-4 sm:grid-cols-2 sm:gap-2 lg:grid-cols-5">
+      {cards.map(({ id, label, shortLabel, value, icon: Icon }) => {
+        const isActive = activeFilter === id
+
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onFilterChange(isActive ? null : id)}
+            aria-pressed={isActive}
+            className={cn(
+              'flex items-center justify-between gap-1 rounded-[var(--radius-sm)] text-left transition-colors',
+              'border-2 bg-surface-paper',
+              'max-sm:flex-col max-sm:justify-center max-sm:px-0.5 max-sm:py-1 max-sm:text-center',
+              'sm:gap-2 sm:px-2.5 sm:py-2',
+              'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] sm:shadow-[3px_3px_0_0_rgba(17,17,17,0.85)]',
+              isActive
+                ? 'border-brand bg-brand/10 ring-1 ring-brand ring-offset-0 sm:ring-2 sm:ring-offset-1 sm:ring-offset-surface'
+                : 'border-ink hover:border-brand/50 hover:bg-surface'
+            )}
+          >
+            <div className="min-w-0 max-sm:w-full">
+              <p className="truncate text-[8px] font-black uppercase leading-none tracking-[0.06em] text-ink sm:text-[9px] sm:leading-tight sm:tracking-[0.14em]">
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
+              </p>
+              <p className="mt-0 font-display text-sm font-black leading-none tracking-tight text-ink sm:mt-0.5 sm:text-2xl">
+                {value}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'summary-stat-icon hidden h-7 w-7 shrink-0 items-center justify-center border-2 sm:flex',
+                isActive && 'summary-stat-icon--active'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }

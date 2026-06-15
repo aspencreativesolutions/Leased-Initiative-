@@ -29,6 +29,13 @@ export default {
           DEFAULT: 'var(--accent)',
           light: 'var(--accent-light)',
         },
+        deposit: {
+          DEFAULT: 'var(--deposit)',
+          fg: 'var(--deposit-fg)',
+          muted: 'var(--deposit-muted)',
+          bg: 'var(--deposit-bg)',
+          border: 'var(--deposit-border)',
+        },
         line: 'var(--line)',
         nav: {
           DEFAULT: 'var(--nav-bg)',

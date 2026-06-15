@@ -33,8 +33,11 @@ import {
   retrieveSquareOrder,
   getSquareEnvironment,
 } from './lib/square.js'
-import { updateStore } from './db.js'
+import { readStore, updateStore, writeStore } from './db.js'
+import { ensureSamplePortalUsers } from './lib/samplePortalUsers.js'
+import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
 import { applyPaymentToStore } from './lib/payments.js'
+import { isEmailConfigured, verifySmtpConnection } from './lib/email.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
@@ -111,6 +114,15 @@ app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
+})
+
+app.get('/api/smtp/health', async (_req, res) => {
+  const configured = isEmailConfigured()
+  if (!configured) {
+    return res.json({ ok: false, configured: false, error: 'SMTP not configured in .env' })
+  }
+  const result = await verifySmtpConnection()
+  res.json({ configured: true, ...result })
 })
 
 app.use('/api/auth', authRoutes)
@@ -265,7 +277,42 @@ async function verifyWebhook(req) {
   return data.verification_status === 'SUCCESS'
 }
 
-app.listen(PORT, () => {
+async function bootstrapSamplePortalUsers() {
+  try {
+    let store = readStore()
+    const portalResult = await ensureSamplePortalUsers(store)
+    if (portalResult.changed) {
+      store = portalResult.store
+    }
+
+    const contractResult = ensureSampleClientContracts(store)
+    if (contractResult.changed) {
+      store = contractResult.store
+    }
+
+    if (portalResult.changed || contractResult.changed) {
+      writeStore(store)
+    }
+
+    if (portalResult.createdUsers > 0 || portalResult.restoredClients > 0) {
+      console.log(
+        `Sample portal users: ${portalResult.createdUsers} account(s) created` +
+          (portalResult.restoredClients > 0 ? `, ${portalResult.restoredClients} mock client(s) restored` : '') +
+          '. Demo password → same as email'
+      )
+    }
+    if (contractResult.created > 0 || contractResult.repaired > 0) {
+      console.log(
+        `Sample client contracts: ${contractResult.created} created, ${contractResult.repaired ?? 0} repaired for portal sync.`
+      )
+    }
+  } catch (err) {
+    console.error('sample portal user bootstrap', err)
+  }
+}
+
+app.listen(PORT, async () => {
+  await bootstrapSamplePortalUsers()
   console.log(`Client Craft API → http://localhost:${PORT}`)
   console.log(
     `PayPal mode: ${MODE}`,

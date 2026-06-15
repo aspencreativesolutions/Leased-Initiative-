@@ -1,5 +1,6 @@
 import type { BusinessSettings, Client, ContractData } from '@/types'
 import { normalizeClient } from '@/lib/clientUtils'
+import { migrateServiceTier } from '@/lib/serviceTiers'
 import { seedClients, defaultSettings } from '@/data/seed'
 
 const CLIENTS_KEY = 'client-craft-clients'
@@ -26,7 +27,7 @@ export function loadContracts(): ContractData[] {
   if (!raw) return []
   return (JSON.parse(raw) as ContractData[]).map((c) => ({
     ...c,
-    serviceTier: c.serviceTier ?? 'Starter',
+    serviceTier: migrateServiceTier(c.serviceTier),
   }))
 }
 

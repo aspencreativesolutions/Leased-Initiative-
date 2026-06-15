@@ -2,7 +2,6 @@ export type ThemeId =
   | 'editorial'
   | 'soft'
   | 'mono'
-  | 'golden'
   | 'ocean'
   | 'rose'
   | 'forest'

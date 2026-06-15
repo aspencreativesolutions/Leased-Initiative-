@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -7,28 +7,19 @@ import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
-import { resendVerificationEmail } from '@/lib/authApi'
 
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [needsVerification, setNeedsVerification] = useState(
-    searchParams.get('verify') === '1'
-  )
-  const [resending, setResending] = useState(false)
-  const [resent, setResent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setNeedsVerification(false)
-    setResent(false)
     setSubmitting(true)
     try {
       const user = await login(email, password)
@@ -38,29 +29,9 @@ export function LoginPage() {
       }
       navigate('/portal', { replace: true })
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
-        setNeedsVerification(true)
-        setError(err.message)
-      } else {
-        setError(err instanceof ApiError ? err.message : 'Login failed')
-      }
+      setError(err instanceof ApiError ? err.message : 'Login failed')
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  const handleResend = async () => {
-    if (!email) return
-    setResending(true)
-    setResent(false)
-    try {
-      await resendVerificationEmail(email)
-      setResent(true)
-      setError('')
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not resend email')
-    } finally {
-      setResending(false)
     }
   }
 
@@ -83,25 +54,6 @@ export function LoginPage() {
             {error && (
               <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                 {error}
-              </div>
-            )}
-            {needsVerification && (
-              <div className="rounded-sm border-2 border-brand/30 bg-brand/5 px-3 py-3 text-sm text-ink">
-                <p>Confirm your email before signing in.</p>
-                {resent ? (
-                  <p className="mt-2 text-brand">A new verification email has been sent.</p>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    disabled={resending || !email}
-                    onClick={handleResend}
-                  >
-                    {resending ? 'Sending…' : 'Resend confirmation email'}
-                  </Button>
-                )}
               </div>
             )}
             <Input

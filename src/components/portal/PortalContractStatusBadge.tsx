@@ -21,7 +21,7 @@ export function PortalContractStatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-[var(--radius-sm)] border-2 uppercase tracking-caps',
+        'portal-status-badge inline-flex items-center rounded-[var(--radius-sm)] border-2 uppercase tracking-caps',
         prominent
           ? 'px-3.5 py-1.5 text-xs font-extrabold shadow-sm'
           : 'px-2 py-0.5 text-[10px] font-bold',

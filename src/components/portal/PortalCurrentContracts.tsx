@@ -11,12 +11,14 @@ import type { ContractStatus, PortalContractSummary } from '@/types'
 interface PortalCurrentContractsProps {
   contracts: PortalContractSummary[]
   contractStatus?: ContractStatus
+  projectStarted?: boolean
   emptyDescription?: string
 }
 
 export function PortalCurrentContracts({
   contracts,
   contractStatus,
+  projectStarted = false,
   emptyDescription = "Your designer is preparing your agreement. Once it's sent, it will appear here right away.",
 }: PortalCurrentContractsProps) {
   return (
@@ -35,7 +37,7 @@ export function PortalCurrentContracts({
           />
         </Card>
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-sm)] border-2 border-ink/10 bg-surface-paper">
+        <ul className="paper-box divide-y divide-[var(--card-border,var(--line))] overflow-hidden">
           {contracts.map((contract) => (
             <li key={contract.id} className="transition-colors hover:bg-surface">
               <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-4 sm:py-4">
@@ -57,8 +59,12 @@ export function PortalCurrentContracts({
               </div>
 
               {contractStatus && (
-                <div className="border-t border-line/80 px-3 py-3 sm:px-4">
-                  <ContractStatusProgress status={contractStatus} />
+                <div className="border-t border-[var(--card-border,var(--line))] px-3 py-3 sm:px-4">
+                  <ContractStatusProgress
+                    status={contractStatus}
+                    projectStarted={projectStarted}
+                    viewedAt={contract.viewedAt}
+                  />
                 </div>
               )}
             </li>

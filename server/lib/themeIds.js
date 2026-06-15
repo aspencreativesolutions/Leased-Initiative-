@@ -2,7 +2,6 @@ export const ALL_THEME_IDS = [
   'editorial',
   'soft',
   'mono',
-  'golden',
   'ocean',
   'rose',
   'forest',

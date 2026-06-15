@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
@@ -27,13 +29,37 @@ export function Input({
   required,
   className,
   id,
+  type,
+  readOnly,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & LabelProps) {
   const fieldId = id || props.name
+  const [showPassword, setShowPassword] = useState(false)
+  const isPasswordField = type === 'password' && !readOnly
+  const inputType = isPasswordField && showPassword ? 'text' : type
+
   return (
     <div className={className}>
       {label && <FormLabel label={label} htmlFor={fieldId} hint={hint} required={required} />}
-      <input id={fieldId} className={inputClass} {...props} />
+      <div className={isPasswordField ? 'relative' : undefined}>
+        <input
+          id={fieldId}
+          type={inputType}
+          readOnly={readOnly}
+          className={cn(inputClass, isPasswordField && 'pr-10')}
+          {...props}
+        />
+        {isPasswordField && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((visible) => !visible)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-muted hover:text-ink"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

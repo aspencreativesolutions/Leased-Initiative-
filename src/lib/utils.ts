@@ -11,24 +11,21 @@ function parseDate(dateStr?: string): Date | null {
 export function formatDate(dateStr?: string): string {
   const d = parseDate(dateStr)
   if (!d) return '—'
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
 /** Date + time — used on project timeline actions */
 export function formatDateTime(dateStr?: string): string {
   const d = parseDate(dateStr)
   if (!d) return '—'
-  return d.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  const time = d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   })
+  return `${formatDate(dateStr)}, ${time}`
 }
 
 export type DeadlineUrgency = 'overdue' | 'due-soon' | 'upcoming' | 'completed'

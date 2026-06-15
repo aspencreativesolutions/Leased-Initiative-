@@ -1,4 +1,6 @@
 import { generateId } from './notifications.js'
+import { migrateServiceTier } from './serviceTier.js'
+import { buildContractPlaceholderFields } from './contractPlaceholders.js'
 
 const DEFAULT_CLIENT_RESPONSIBILITIES = `The client agrees to provide all necessary content, images, login credentials, approvals, and feedback in a timely manner. Delays in client responses or deliverables may extend the project timeline and completion date accordingly.`
 
@@ -9,6 +11,8 @@ const DEFAULT_PORTFOLIO = `The designer/developer may display the completed proj
 const DEFAULT_TERMINATION = `Either party may terminate this agreement with written notice. If terminated by the client after work has begun, the deposit is non-refundable and the client is responsible for payment for all work completed to date. If the client becomes unresponsive for more than 14 business days, the designer may pause work and invoice for work completed.`
 
 export function createDraftContract(client, settings) {
+  const placeholders = buildContractPlaceholderFields(client)
+
   return {
     id: generateId(),
     clientId: client.id,
@@ -17,23 +21,23 @@ export function createDraftContract(client, settings) {
     email: client.email,
     phone: client.phone || '',
     clientAddress: '',
-    serviceTier: client.serviceTier || 'Starter',
+    serviceTier: migrateServiceTier(client.serviceTier),
     projectTitle: client.projectName,
     projectScope: client.projectDescription || '',
-    servicesIncluded: '',
-    servicesNotIncluded: '',
-    deliverables: '',
-    startDate: '',
-    completionDate: '',
-    totalCost: '',
-    depositAmount: '',
-    remainingBalance: '',
+    servicesIncluded: placeholders.servicesIncluded,
+    servicesNotIncluded: placeholders.servicesNotIncluded,
+    deliverables: placeholders.deliverables,
+    startDate: placeholders.startDate,
+    completionDate: placeholders.completionDate,
+    totalCost: placeholders.totalCost,
+    depositAmount: placeholders.depositAmount,
+    remainingBalance: placeholders.remainingBalance,
     paymentSchedule: settings.defaultPaymentTerms,
     paymentProvider: 'paypal',
     paymentMethods: 'PayPal (secure checkout link)',
     latePaymentPolicy: 'Late payments may incur a 1.5% monthly fee on outstanding balances.',
     revisionCount: settings.defaultRevisionLimit,
-    extraRevisionFee: '',
+    extraRevisionFee: placeholders.extraRevisionFee,
     revisionLimits: 'Revisions must be requested within 14 days of delivery.',
     clientResponsibilities: DEFAULT_CLIENT_RESPONSIBILITIES,
     communicationMethod: 'Email',
@@ -42,6 +46,7 @@ export function createDraftContract(client, settings) {
     ownershipTerms: DEFAULT_OWNERSHIP,
     portfolioRights: DEFAULT_PORTFOLIO,
     terminationTerms: DEFAULT_TERMINATION,
+    isPlaceholderDraft: true,
     createdAt: new Date().toISOString(),
   }
 }

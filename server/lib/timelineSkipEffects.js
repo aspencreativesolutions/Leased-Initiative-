@@ -67,14 +67,27 @@ function applyContractSigned(contract, client, now) {
     }
   }
 
+  const inProgress =
+    Boolean(client.projectStartedAt) || client.projectStatus === 'In Progress'
+
   let nextClient = { ...client }
   if (!client.isOfficialClient) {
     nextClient = {
       ...nextClient,
       isOfficialClient: true,
       officialClientSince: client.officialClientSince ?? now,
+    }
+  }
+
+  if (client.contractStatus !== 'Signed' && client.contractStatus !== 'Completed') {
+    nextClient = {
+      ...nextClient,
       contractStatus: 'Signed',
-      projectStatus: 'Contract Signed',
+      projectStatus: inProgress
+        ? 'In Progress'
+        : client.projectStatus === 'Inquiry' || client.projectStatus === 'Contract Sent'
+          ? 'Contract Signed'
+          : client.projectStatus,
     }
   }
 
@@ -195,6 +208,11 @@ export function applyStepSkipEffect(stepId, client, contract, now) {
           ...client,
           projectStatus: 'Completed',
           projectCompletedAt: client.projectCompletedAt ?? now,
+          ...(isContractSigned(contract) ||
+          client.contractStatus === 'Signed' ||
+          client.contractStatus === 'Completed'
+            ? { contractStatus: 'Completed' }
+            : {}),
         },
         contract,
       }
@@ -205,7 +223,7 @@ export function applyStepSkipEffect(stepId, client, contract, now) {
 
 /** Apply real workflow side effects for skipped / reached timeline steps */
 export function collectStepsNeedingEffects(skippedStepIds, targetStepId, client, contract) {
-  const steps = new Set(skippedStepIds)
+  const steps = new Set([...skippedStepIds, targetStepId])
 
   const targetIdx = TIMELINE_STEP_ORDER.indexOf(targetStepId)
   const projectStartedIdx = TIMELINE_STEP_ORDER.indexOf('project_started')

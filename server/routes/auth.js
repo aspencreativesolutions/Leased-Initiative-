@@ -45,16 +45,16 @@ async function issueVerificationEmail(user) {
     ),
   }))
 
-  await sendVerificationEmail({
+  const result = await sendVerificationEmail({
     to: user.email,
     name: user.name,
     verifyUrl,
   })
 
-  return verifyUrl
+  return { verifyUrl, ...result }
 }
 
-function notifyAdminOfVerifiedClient(user) {
+function notifyAdminOfNewClient(user) {
   if (user.role !== 'client' || user.clientId) return
 
   updateStore((s) =>
@@ -62,7 +62,7 @@ function notifyAdminOfVerifiedClient(user) {
       type: 'registration',
       userId: user.id,
       title: 'New portal registration',
-      message: `${user.name} (${user.email}) confirmed their email and signed up for the client portal.`,
+      message: `${user.name} (${user.email}) signed up for the client portal.`,
     })
   )
 }
@@ -111,7 +111,6 @@ router.post('/register', async (req, res) => {
       !isAdmin &&
       store.clients.find((c) => c.email.trim().toLowerCase() === normalizedEmail)
 
-    const { token: verificationToken, expiresAt } = createVerificationToken()
     const passwordHash = await hashPassword(password)
     const user = {
       id: generateId(),
@@ -125,9 +124,8 @@ router.post('/register', async (req, res) => {
         : isThemeId(portalThemeId)
           ? portalThemeId
           : DEFAULT_PORTAL_THEME_ID,
-      emailVerified: false,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpiresAt: expiresAt,
+      emailVerified: true,
+      emailVerifiedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     }
 
@@ -142,18 +140,10 @@ router.post('/register', async (req, res) => {
           : s.clients,
     }))
 
-    const verifyUrl = buildVerificationUrl(verificationToken)
-    await sendVerificationEmail({
-      to: user.email,
-      name: user.name,
-      verifyUrl,
-    })
+    notifyAdminOfNewClient(user)
 
-    res.status(201).json({
-      requiresVerification: true,
-      email: user.email,
-      message: 'Check your email to confirm your account before signing in.',
-    })
+    const token = signToken(user)
+    res.status(201).json({ token, user: sanitizeUser(user) })
   } catch (err) {
     console.error('register', err)
     res.status(500).json({ error: 'Registration failed' })
@@ -204,7 +194,7 @@ router.post('/verify-email', async (req, res) => {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    notifyAdminOfVerifiedClient(verifiedUser)
+    notifyAdminOfNewClient(verifiedUser)
 
     const authToken = signToken(verifiedUser)
     res.json({ token: authToken, user: sanitizeUser(verifiedUser) })
@@ -234,7 +224,7 @@ router.post('/resend-verification', async (req, res) => {
       return res.status(400).json({ error: 'This email is already verified. You can sign in.' })
     }
 
-    await issueVerificationEmail(user)
+    const emailResult = await issueVerificationEmail(user)
 
     res.json({
       ok: true,
@@ -263,14 +253,6 @@ router.post('/login', async (req, res) => {
     const valid = await verifyPassword(password, user.passwordHash)
     if (!valid) {
       return res.status(401).json({ error: 'Invalid email or password' })
-    }
-
-    if (!isEmailVerified(user)) {
-      return res.status(403).json({
-        error: 'Please verify your email before signing in. Check your inbox for the confirmation link.',
-        code: 'EMAIL_NOT_VERIFIED',
-        email: user.email,
-      })
     }
 
     const token = signToken(user)

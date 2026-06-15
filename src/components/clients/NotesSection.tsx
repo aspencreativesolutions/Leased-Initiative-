@@ -7,7 +7,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Select, Textarea } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { useApp } from '@/context/AppContext'
-import { formatDate } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import type { Client, NoteCategory } from '@/types'
 
 const categories: NoteCategory[] = ['General', 'Payment', 'Contract', 'Project', 'Follow-Up']
@@ -72,7 +72,7 @@ export function NotesSection({ client }: { client: Client }) {
                       </span>
                     )}
                     <span className="text-xs text-stone-400">
-                      {formatDate(note.createdAt.split('T')[0])}
+                      {formatDateTime(note.createdAt)}
                     </span>
                   </div>
                   <p className="text-sm text-stone-700 whitespace-pre-wrap">{note.text}</p>

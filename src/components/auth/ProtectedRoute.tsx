@@ -26,11 +26,5 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
     return <Navigate to={user.role === 'admin' ? '/' : '/portal'} replace />
   }
 
-  if (user.emailVerified === false) {
-    const params = new URLSearchParams({ email: user.email })
-    if (user.role === 'admin') params.set('studio', '1')
-    return <Navigate to={`/check-email?${params.toString()}`} replace />
-  }
-
   return <Outlet />
 }

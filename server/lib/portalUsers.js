@@ -1,12 +1,10 @@
 import { buildProjectTimeline } from './projectTimeline.js'
-import { isEmailVerified } from './emailVerification.js'
 
 export function isPendingPortalRegistration(user) {
   return (
     user?.role === 'client' &&
     !user.clientId &&
-    !user.registrationDismissed &&
-    isEmailVerified(user)
+    !user.registrationDismissed
   )
 }
 

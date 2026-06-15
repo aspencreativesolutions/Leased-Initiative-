@@ -5,7 +5,6 @@ export const ALL_THEME_IDS: ThemeId[] = [
   'editorial',
   'soft',
   'mono',
-  'golden',
   'ocean',
   'rose',
   'forest',

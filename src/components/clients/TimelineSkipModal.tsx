@@ -4,10 +4,15 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Textarea } from '@/components/ui/FormField'
 import { buildTimelineSkipNoteText } from '@/lib/timelineSkipNote'
-import { getTimelineStepLabel } from '@/lib/timelineSteps'
+import { getTimelineStepLabel, TIMELINE_STEP_ORDER } from '@/lib/timelineSteps'
 import { skipTimelineToStep } from '@/lib/timelineApi'
 import { ApiError } from '@/lib/api'
 import type { Client, ProjectTimelineStep } from '@/types'
+
+function stepRequiresProjectContract(stepId: string) {
+  const idx = TIMELINE_STEP_ORDER.indexOf(stepId as (typeof TIMELINE_STEP_ORDER)[number])
+  return idx >= TIMELINE_STEP_ORDER.indexOf('project_started')
+}
 
 type ModalPhase = 'confirm' | 'note-preview'
 
@@ -17,6 +22,7 @@ interface TimelineSkipModalProps {
   client: Client
   targetStep: ProjectTimelineStep
   skippedSteps: ProjectTimelineStep[]
+  hasContract: boolean
   onComplete: (targetStepId: string) => void
 }
 
@@ -26,6 +32,7 @@ export function TimelineSkipModal({
   client,
   targetStep,
   skippedSteps,
+  hasContract,
   onComplete,
 }: TimelineSkipModalProps) {
   const [phase, setPhase] = useState<ModalPhase>('confirm')
@@ -129,6 +136,10 @@ export function TimelineSkipModal({
     )
   }
 
+  const willAutoGenerateContract =
+    stepRequiresProjectContract(targetStep.id) ||
+    skippedSteps.some((step) => stepRequiresProjectContract(step.id))
+
   return (
     <Modal open={open} onClose={handleClose} title="Skip timeline step" size="md">
       <p className="text-sm font-medium text-ink">
@@ -137,6 +148,14 @@ export function TimelineSkipModal({
       <p className="mt-2 text-sm text-ink-muted">
         Advanced to: <strong className="text-ink">{targetStep.label}</strong>
       </p>
+
+      {willAutoGenerateContract && (
+        <p className="mt-4 rounded-sm border-2 border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink-muted">
+          {hasContract
+            ? 'This client already has a contract on file. It will stay in sync on your dashboard and the client portal.'
+            : 'No contract exists yet — a placeholder contract will be auto-generated with customizable sections before the project can move to In Progress.'}
+        </p>
+      )}
 
       {skippedSteps.length > 0 ? (
         <div className="mt-4">

@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api'
-import type { AuthResponse, RegisterResponse } from '@/types'
+import type { AuthResponse } from '@/types'
 
 export async function verifyEmail(token: string) {
   return apiFetch<AuthResponse & { alreadyVerified?: boolean }>('/api/auth/verify-email', {
@@ -9,10 +9,13 @@ export async function verifyEmail(token: string) {
 }
 
 export async function resendVerificationEmail(email: string) {
-  return apiFetch<{ ok: boolean; message: string }>('/api/auth/resend-verification', {
-    method: 'POST',
-    body: JSON.stringify({ email }),
-  })
+  return apiFetch<{ ok: boolean; message: string; devMode?: boolean }>(
+    '/api/auth/resend-verification',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }
+  )
 }
 
 export async function registerAccount(payload: {
@@ -22,7 +25,7 @@ export async function registerAccount(payload: {
   accountType?: 'client' | 'admin'
   portalThemeId?: string
 }) {
-  return apiFetch<RegisterResponse>('/api/auth/register', {
+  return apiFetch<AuthResponse>('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

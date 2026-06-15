@@ -39,13 +39,6 @@ export function authMiddleware(req, res, next) {
     if (!user) {
       return res.status(401).json({ error: 'User not found' })
     }
-    if (!isEmailVerified(user)) {
-      return res.status(403).json({
-        error: 'Please verify your email before continuing.',
-        code: 'EMAIL_NOT_VERIFIED',
-        email: user.email,
-      })
-    }
     req.user = {
       id: user.id,
       email: user.email,

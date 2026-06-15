@@ -78,6 +78,76 @@ export function hasContractClientStatusMismatch(contract, client) {
   return client.contractStatus === 'Sent' || client.projectStatus === 'Contract Sent'
 }
 
+export function isClientContractSigned(client, contract) {
+  const signedOnRecord =
+    contract?.signedAt &&
+    contract?.confirmedByClient &&
+    !isSignatureStale(contract)
+  const timelineSigned = Boolean(client?.timelineStepSkips?.contract_signed)
+  return (
+    signedOnRecord ||
+    timelineSigned ||
+    client?.contractStatus === 'Signed' ||
+    client?.contractStatus === 'Completed'
+  )
+}
+
+export function isClientProjectComplete(client) {
+  return Boolean(client?.projectCompletedAt)
+}
+
+/** Signed until the project is finished; Completed only when project work is done */
+export function resolveContractStatus(client, contract) {
+  if (!client) return 'Not Started'
+  if (!isClientContractSigned(client, contract)) return client.contractStatus
+  return isClientProjectComplete(client) ? 'Completed' : 'Signed'
+}
+
+/** Align client.contractStatus when the contract record is already signed */
+export function reconcileClientContractStatus(client, contract) {
+  if (!client) return client
+
+  const signedOnRecord =
+    contract?.signedAt &&
+    contract?.confirmedByClient &&
+    !isSignatureStale(contract)
+  const timelineSigned = Boolean(client.timelineStepSkips?.contract_signed)
+  const isSigned = isClientContractSigned(client, contract)
+
+  if (!signedOnRecord && !timelineSigned && !isSigned) return client
+
+  const targetContractStatus = resolveContractStatus(client, contract)
+  const inProgress =
+    Boolean(client.projectStartedAt) || client.projectStatus === 'In Progress'
+
+  let projectStatus = client.projectStatus
+  if (isSigned && !isClientProjectComplete(client)) {
+    if (client.projectStatus === 'Completed' && !client.projectCompletedAt) {
+      projectStatus = client.projectStartedAt ? 'In Progress' : 'Contract Signed'
+    } else if (inProgress && projectStatus !== 'In Progress') {
+      projectStatus = 'In Progress'
+    } else if (
+      !inProgress &&
+      (projectStatus === 'Contract Sent' || projectStatus === 'Inquiry')
+    ) {
+      projectStatus = 'Contract Signed'
+    }
+  }
+
+  if (
+    client.contractStatus === targetContractStatus &&
+    client.projectStatus === projectStatus
+  ) {
+    return client
+  }
+
+  return {
+    ...client,
+    contractStatus: targetContractStatus,
+    projectStatus,
+  }
+}
+
 export function needsClientResign(contract, client) {
   if (!contract?.sentAt || !contract?.confirmedByClient) return false
   return isSignatureStale(contract) || hasContractClientStatusMismatch(contract, client)

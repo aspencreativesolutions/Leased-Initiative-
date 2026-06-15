@@ -1,4 +1,5 @@
 import { CONTRACT_SECTION_IDS } from '@/lib/contractSections'
+import { migrateServiceTier } from '@/lib/serviceTiers'
 import type { ContractSectionId } from '@/lib/contractSections'
 import type { ServiceTier } from '@/types'
 
@@ -8,14 +9,16 @@ export interface TierDetailLink {
 }
 
 export interface ServiceTierInfo {
+  tagline: string
   summary: string
   details: TierDetailLink[]
 }
 
 const TIER_INFO: Record<ServiceTier, ServiceTierInfo> = {
-  Starter: {
+  Launch: {
+    tagline: 'Your essentials, beautifully presented.',
     summary:
-      'Core project support with standard scheduling priority, defined revision rounds, and email-based communication.',
+      'Polished single-page site for a strong online presence fast. Discovery call + co-created layout. Includes: custom single-page design, mobile-responsive layout, about/services/contact sections, contact form, basic SEO, one revision round. Ideal for new businesses, freelancers, and creators ready to go live.',
     details: [
       {
         label: 'Service tier and project terms',
@@ -35,9 +38,10 @@ const TIER_INFO: Record<ServiceTier, ServiceTierInfo> = {
       },
     ],
   },
-  Business: {
+  Studio: {
+    tagline: 'Room to grow, designed with intention.',
     summary:
-      'Elevated scheduling priority with expanded revision allowance, faster response times, and dedicated project attention.',
+      'Multi-page site with custom design and blog. Collaborative site mapping and design refinement. Includes everything in Launch, plus: up to 6 custom pages, blog setup, custom typography & color palette, social media integration, two revision rounds, launch-day walkthrough. Ideal for growing brands, consultants, and small teams building authority.',
     details: [
       {
         label: 'Service tier and project terms',
@@ -57,9 +61,10 @@ const TIER_INFO: Record<ServiceTier, ServiceTierInfo> = {
       },
     ],
   },
-  'Premium Custom': {
+  Summit: {
+    tagline: 'The full creative experience — no limits.',
     summary:
-      'Highest scheduling priority with custom revision terms, direct designer access, and tailored scope for complex projects.',
+      'Fully customized site with e-commerce, maintenance, and advanced features. Most hands-on partnership: strategy workshops, design sprints, long-term evolution. Includes everything in Studio, plus: fully custom design & development, e-commerce setup, advanced integrations (booking, CRM, etc.), performance & accessibility optimization, ongoing maintenance & updates, priority support, quarterly strategy check-ins. Ideal for established businesses and ambitious brands ready to scale.',
     details: [
       {
         label: 'Service tier and project terms',
@@ -81,6 +86,6 @@ const TIER_INFO: Record<ServiceTier, ServiceTierInfo> = {
   },
 }
 
-export function getServiceTierInfo(tier: ServiceTier): ServiceTierInfo {
-  return TIER_INFO[tier] ?? TIER_INFO.Starter
+export function getServiceTierInfo(tier: ServiceTier | string): ServiceTierInfo {
+  return TIER_INFO[migrateServiceTier(tier)]
 }

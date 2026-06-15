@@ -1,6 +1,7 @@
-import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, CalendarClock, Palette, LogOut, ExternalLink, UserCircle } from 'lucide-react'
+import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, CalendarClock, LogOut, ExternalLink, UserCircle } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { AppStyleButton } from '@/components/settings/AppStyleButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
@@ -15,122 +16,95 @@ const links = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 py-2.5 text-[10px] font-semibold transition-colors md:justify-start md:gap-2 md:px-4 md:py-3 md:text-[11px]',
+    isActive
+      ? 'border-nav-active text-nav-fg'
+      : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
+  )
+
 export function Navbar() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
-      <div className="flex h-[4.25rem] w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 xl:px-12">
-        <NavLink to="/" className="group flex items-center gap-3 shrink-0">
-          <div className="flex h-10 w-10 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-lg font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active">
-            CC
-          </div>
-          <div className="leading-none">
-            <span className="block font-display text-xl font-semibold tracking-tight">
-              Client Craft
-            </span>
-            <span className="label-caps mt-1 block !text-nav-fg-muted">Studio OS</span>
-          </div>
-        </NavLink>
+    <>
+      <div className="w-full max-w-full border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
+        <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10 xl:px-12">
+          <NavLink to="/" className="group flex shrink-0 items-center gap-2.5 sm:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
+              CC
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="whitespace-nowrap font-display text-lg font-semibold tracking-tight sm:text-xl">
+                Client Craft
+              </span>
+              <span className="mt-0.5 hidden whitespace-nowrap text-[10px] font-semibold tracking-wide text-nav-fg-muted sm:mt-1 sm:block">
+                StudiOS
+              </span>
+            </div>
+          </NavLink>
 
-        <nav className="hidden items-stretch gap-0 md:flex">
-          {links.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 border-b-2 px-4 py-4 text-[11px] font-semibold transition-colors',
-                  isActive
-                    ? 'border-nav-active text-nav-fg'
-                    : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
-                )
-              }
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <Link
+              to="/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
+              title="Client portal"
             >
-              <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
-              <span className={cn('nav-link-label')}>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <Link
-            to="/login"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
-            title="Client portal"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Portal
-          </Link>
-          {user && (
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                cn(
-                  'hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors',
-                  isActive
-                    ? 'border-nav-active text-nav-fg'
-                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
-                )
-              }
-              title="App style"
-            >
-              <Palette className="h-3.5 w-3.5" />
-              Style
-            </NavLink>
-          )}
-
-          {user && (
-            <NavLink
-              to="/profile"
-              className={({ isActive }) =>
-                cn(
-                  'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
-                  isActive
-                    ? 'border-nav-active text-nav-fg'
-                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
-                )
-              }
-              title="My profile"
-            >
-              <UserCircle className="h-3.5 w-3.5" />
-              {user.name}
-            </NavLink>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={logout}
-            className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
-            title="Sign out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </Button>
-
-          <nav className="flex items-center gap-0 md:hidden overflow-x-auto">
-            {links.map(({ to, label }) => (
+              <ExternalLink className="h-3.5 w-3.5" />
+              Portal
+            </Link>
+            <AppStyleButton />
+            {user && (
               <NavLink
-                key={to}
-                to={to}
-                end={to === '/'}
+                to="/profile"
                 className={({ isActive }) =>
                   cn(
-                    'whitespace-nowrap border-b-2 px-3 py-3 text-[10px] font-semibold',
+                    'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
                     isActive
                       ? 'border-nav-active text-nav-fg'
-                      : 'border-transparent text-nav-fg-muted'
+                      : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
                   )
                 }
+                title="My profile"
               >
-                {label}
+                <UserCircle className="h-3.5 w-3.5" />
+                {user.name}
               </NavLink>
-            ))}
-          </nav>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
+              title="Sign out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
-    </header>
+
+      <nav
+        className="sticky top-0 z-50 grid w-full max-w-full grid-cols-8 items-stretch border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex md:justify-start md:overflow-x-auto md:px-6 lg:px-10 xl:px-12 [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden"
+        aria-label="Main navigation"
+      >
+        {links.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={navLinkClass}
+            title={label}
+            aria-label={label}
+          >
+            <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
+            <span className="nav-link-label hidden md:inline">{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+    </>
   )
 }

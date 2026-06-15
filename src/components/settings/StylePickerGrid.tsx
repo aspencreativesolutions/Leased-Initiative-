@@ -11,7 +11,7 @@ interface StylePickerGridProps {
 
 export function StylePickerGrid({ themeId, themes, onSelect }: StylePickerGridProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
       {themes.map((option) => {
         const selected = themeId === option.id
         return (
@@ -20,34 +20,34 @@ export function StylePickerGrid({ themeId, themes, onSelect }: StylePickerGridPr
             type="button"
             onClick={() => onSelect(option.id)}
             className={cn(
-              'group relative flex flex-col rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-4 text-left transition-all',
+              'group relative flex flex-col rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-3 text-left transition-all',
               selected
                 ? 'border-accent bg-accent-light shadow-lift'
                 : 'border-line bg-surface-paper hover:border-ink-muted hover:shadow-lift'
             )}
           >
             {selected && (
-              <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] bg-accent text-white">
-                <Check className="h-3.5 w-3.5" strokeWidth={3} />
+              <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-[var(--radius-sm)] bg-accent text-white">
+                <Check className="h-3 w-3" strokeWidth={3} />
               </span>
             )}
 
-            <div className="mb-3 flex h-14 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line">
+            <div className="mb-2 flex h-10 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line">
               <ThemePreviewStrip themeId={option.id} swatches={option.swatches} />
             </div>
 
-            <p className="font-display text-lg font-semibold text-ink leading-tight pr-8">
+            <p className="font-display text-sm font-semibold text-ink leading-tight pr-6">
               {option.name}
             </p>
-            <p className="mt-0.5 text-[11px] font-semibold text-accent label-caps">
+            <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent label-caps">
               {option.tagline}
             </p>
 
-            <div className="mt-3 flex gap-1.5">
+            <div className="mt-2 flex gap-1">
               {option.swatches.map((color) => (
                 <span
                   key={color}
-                  className="h-4 w-4 rounded-[var(--radius-sm)] border border-line"
+                  className="h-3 w-3 rounded-[var(--radius-sm)] border border-line"
                   style={{ backgroundColor: color }}
                 />
               ))}
@@ -95,15 +95,6 @@ function ThemePreviewStrip({
           <div className="h-4 border-t-2 border-black" style={{ background: a }} />
         </div>
       </div>
-    ),
-    golden: (
-      <>
-        <div className="w-[22%]" style={{ background: a }} />
-        <div className="flex flex-1 flex-col justify-center gap-1.5 p-2" style={{ background: c }}>
-          <div className="h-1.5 w-4/5 rounded-sm" style={{ background: b }} />
-          <div className="h-7 rounded-sm border" style={{ borderColor: b, background: c }} />
-        </div>
-      </>
     ),
     ocean: (
       <>

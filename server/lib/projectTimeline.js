@@ -1,5 +1,6 @@
 import { listClientFiles } from './fileUpload.js'
 import { isSignatureStale } from './contractReview.js'
+import { isProjectActive } from './clientWorkflow.js'
 import { PORTAL_SKIP_DETAIL } from './timelineSkipEffects.js'
 import { TIMELINE_STEP_ORDER } from './timelineSteps.js'
 
@@ -35,7 +36,7 @@ function isRealStepComplete(stepId, client, contract, fileEvents) {
     case 'payment_confirmed':
       return Boolean(client.depositPaymentConfirmedAt || client.invoice?.paidAt)
     case 'project_started':
-      return Boolean(client.projectStartedAt)
+      return isProjectActive(client)
     case 'file_activity':
       return fileEvents.length > 0
     case 'project_completed':
@@ -58,7 +59,11 @@ function getRealCompletedAt(stepId, client, contract, fileEvents) {
     case 'payment_confirmed':
       return client.depositPaymentConfirmedAt || client.invoice?.paidAt
     case 'project_started':
-      return client.projectStartedAt
+      return (
+        client.projectStartedAt ||
+        getSkippedAt(client, 'project_started') ||
+        (client.projectStatus === 'In Progress' ? client.officialClientSince : undefined)
+      )
     case 'file_activity':
       return fileEvents.length ? fileEvents[fileEvents.length - 1].completedAt : undefined
     case 'project_completed':
@@ -66,6 +71,39 @@ function getRealCompletedAt(stepId, client, contract, fileEvents) {
     default:
       return undefined
   }
+}
+
+function isContractTimelineStep(stepId) {
+  return stepId === 'contract_sent' || stepId === 'contract_signed'
+}
+
+function isStepFulfilled(stepId, client, contract, fileEvents) {
+  if (stepId === 'file_activity' && fileEvents.length > 0) return true
+  if (isProjectActive(client) && isContractTimelineStep(stepId)) return true
+  return (
+    isRealStepComplete(stepId, client, contract, fileEvents) || Boolean(getSkippedAt(client, stepId))
+  )
+}
+
+function hasLaterFulfilledProgress(stepIndex, client, contract, fileEvents) {
+  for (let i = stepIndex + 1; i < TIMELINE_STEP_ORDER.length; i++) {
+    if (isStepFulfilled(TIMELINE_STEP_ORDER[i], client, contract, fileEvents)) {
+      return true
+    }
+  }
+  return false
+}
+
+function getImpliedCompletedAt(stepIndex, client, contract, fileEvents) {
+  const skippedAt = getSkippedAt(client, TIMELINE_STEP_ORDER[stepIndex])
+  if (skippedAt) return skippedAt
+
+  for (let i = stepIndex + 1; i < TIMELINE_STEP_ORDER.length; i++) {
+    const laterId = TIMELINE_STEP_ORDER[i]
+    const at = getRealCompletedAt(laterId, client, contract, fileEvents) || getSkippedAt(client, laterId)
+    if (at) return at
+  }
+  return undefined
 }
 
 function getRealDetail(stepId, client, contract, fileEvents, audience = 'admin') {
@@ -175,18 +213,24 @@ export function buildProjectTimeline(client, contract, options = {}) {
 
   let lastCompletedAt
 
-  for (const stepId of TIMELINE_STEP_ORDER) {
+  for (let stepIndex = 0; stepIndex < TIMELINE_STEP_ORDER.length; stepIndex++) {
+    const stepId = TIMELINE_STEP_ORDER[stepIndex]
     const label =
       audience === 'portal' ? PORTAL_STEP_LABELS[stepId] : adminLabels[stepId]
 
     const skippedAt = getSkippedAt(client, stepId)
     const realComplete = isRealStepComplete(stepId, client, contract, fileEvents)
-    const completedAt = getRealCompletedAt(stepId, client, contract, fileEvents) || skippedAt
+    const fulfilled = isStepFulfilled(stepId, client, contract, fileEvents)
+    const impliedByLater = !fulfilled && hasLaterFulfilledProgress(stepIndex, client, contract, fileEvents)
+    const completedAt =
+      getRealCompletedAt(stepId, client, contract, fileEvents) ||
+      skippedAt ||
+      (impliedByLater ? getImpliedCompletedAt(stepIndex, client, contract, fileEvents) : undefined)
 
     let status
     let skipped = false
 
-    if (realComplete || skippedAt) {
+    if (fulfilled || impliedByLater) {
       status = 'completed'
       skipped = Boolean(skippedAt && !realComplete)
       priorDone = true
@@ -241,9 +285,8 @@ export function getSkippedStepIdsForTarget(steps, targetStepId) {
   const targetIdx = steps.findIndex((s) => s.id === targetStepId)
   if (targetIdx < 0) return []
 
-  const activeIdx = steps.findIndex((s) => s.status === 'active')
-  let startIdx = activeIdx >= 0 ? activeIdx : steps.findIndex((s) => s.status === 'pending')
-  if (startIdx < 0 || targetIdx <= startIdx) return []
-
-  return steps.slice(startIdx, targetIdx).map((s) => s.id)
+  return steps
+    .slice(0, targetIdx)
+    .filter((s) => s.status !== 'completed')
+    .map((s) => s.id)
 }

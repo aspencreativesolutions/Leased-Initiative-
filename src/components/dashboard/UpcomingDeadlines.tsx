@@ -56,15 +56,16 @@ export function UpcomingDeadlines({ clients }: { clients: Client[] }) {
   const deadlines = collectDeadlines(clients)
 
   return (
-    <Card>
+    <Card className="p-3 sm:p-5">
       <CardHeader
+        dense
         title="Upcoming Deadlines"
-        subtitle="Sorted by nearest date — expand a card for meeting links and prep details"
+        subtitle="Sorted by nearest date — tap Details for prep notes and meeting links"
       />
       {deadlines.length === 0 ? (
         <p className="text-sm text-ink-muted">No upcoming deadlines. You&apos;re all caught up.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 xl:gap-4">
           {deadlines.map((item) => (
             <DeadlineGalleryCard key={item.id} item={item} />
           ))}

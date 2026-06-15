@@ -10,11 +10,7 @@ export function Card({ children, className, padding = 'md', ...props }: CardProp
   const paddingClass = { none: 'p-0', sm: 'p-4', md: 'p-5', lg: 'p-6' }[padding]
   return (
     <div
-      className={cn(
-        'w-full min-w-0 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
-        paddingClass,
-        className
-      )}
+      className={cn('paper-box w-full min-w-0', paddingClass, className)}
       {...props}
     >
       {children}
@@ -26,16 +22,29 @@ export function CardHeader({
   title,
   subtitle,
   action,
+  dense = false,
 }: {
   title: string
   subtitle?: string
   action?: ReactNode
+  dense?: boolean
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-start justify-between gap-2 border-b border-line pb-3">
-      <div>
-        <h2 className="heading-display text-xl">{title}</h2>
-        {subtitle && <p className="mt-1 text-sm text-ink-muted">{subtitle}</p>}
+    <div
+      className={cn(
+        'flex flex-wrap items-start justify-between gap-2 border-b border-line',
+        dense ? 'mb-2.5 pb-2 sm:mb-3' : 'mb-3 pb-2 sm:mb-4 sm:pb-3'
+      )}
+    >
+      <div className="min-w-0">
+        <h2 className={cn('heading-display', dense ? 'text-lg sm:text-xl' : 'text-lg sm:text-xl')}>
+          {title}
+        </h2>
+        {subtitle && (
+          <p className={cn('text-ink-muted', dense ? 'mt-0.5 text-xs sm:text-sm' : 'mt-0.5 text-xs sm:mt-1 sm:text-sm')}>
+            {subtitle}
+          </p>
+        )}
       </div>
       {action}
     </div>

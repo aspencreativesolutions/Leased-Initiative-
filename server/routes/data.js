@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { readStore, updateStore } from '../db.js'
+import { readStore, updateStore, writeStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { createDraftContract } from '../lib/contractDraft.js'
 import {
@@ -16,6 +16,16 @@ import { buildProjectTimeline, getSkippedStepIdsForTarget } from '../lib/project
 import { getTimelineStepLabel } from '../lib/timelineSteps.js'
 import { applyTimelineSkipEffects } from '../lib/timelineSkipEffects.js'
 import { ensureClientFileSharing } from '../lib/ensureFileSharing.js'
+import { contractNeedsDetail } from '../lib/contractPlaceholders.js'
+import {
+  appendContractToStore,
+  ensureClientContract,
+  notifyContractNeedsDetail,
+  stepsRequireContract,
+  stepsRequireProjectContract,
+} from '../lib/ensureClientContract.js'
+import { ensureClientContractRecord, ensureSampleClientContracts } from '../lib/sampleClientContracts.js'
+import { permanentlyDeleteClientContract } from '../lib/deleteContract.js'
 import {
   buildPortalUsersOverview,
   isPendingPortalRegistration,
@@ -27,6 +37,9 @@ import {
   deleteClientUploads,
   removeClientFromStore,
 } from '../lib/clientCleanup.js'
+import { refreshAllSampleClientDates } from '../lib/sampleClientDates.js'
+import { reconcileClientContractStatus } from '../lib/contractReview.js'
+import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
 
 const router = Router()
 
@@ -44,12 +57,24 @@ router.use(authMiddleware, requireRole('admin'))
 
 router.get('/', (_req, res) => {
   let store = readStore()
-  let repairedAny = false
-  const clients = store.clients.map((client) => {
-    const repaired = ensureOfficialWhenProjectActive(client)
-    if (repaired !== client) repairedAny = true
-    return repaired
+  const contractRepair = ensureSampleClientContracts(store)
+  if (contractRepair.changed) {
+    store = contractRepair.store
+    writeStore(store)
+  }
+  let repairedAny = contractRepair.changed
+  let clients = store.clients.map((client) => {
+    const contract = store.contracts.find((c) => c.clientId === client.id)
+    let next = ensureOfficialWhenProjectActive(client)
+    const reconciled = reconcileClientContractStatus(next, contract)
+    if (reconciled !== client) repairedAny = true
+    return reconciled
   })
+  const sampleDateRefresh = refreshAllSampleClientDates(clients)
+  if (sampleDateRefresh.changed) {
+    clients = sampleDateRefresh.clients
+    repairedAny = true
+  }
   if (repairedAny) {
     store = updateStore((s) => ({ ...s, clients }))
   }
@@ -67,6 +92,9 @@ router.put('/clients', (req, res) => {
   }
   updateStore((s) => {
     let users = [...s.users]
+    let contracts = s.contracts
+    let adminNotifications = s.adminNotifications ?? []
+
     const linkedClients = clients.map((client) => {
       const email = client.email?.trim().toLowerCase()
       let user = client.accountUserId
@@ -109,9 +137,34 @@ router.put('/clients', (req, res) => {
       } else if (existing.finalInvoice && !merged.finalInvoice) {
         merged.finalInvoice = existing.finalInvoice
       }
+
+      const movedToInProgress =
+        merged.projectStatus === 'In Progress' && existing.projectStatus !== 'In Progress'
+      const needsContract =
+        movedToInProgress ||
+        (merged.contractStatus !== existing.contractStatus &&
+          ['Sent', 'Signed', 'Completed'].includes(merged.contractStatus))
+
+      if (needsContract) {
+        const existingContract = contracts.find((c) => c.clientId === client.id)
+        const ensured = ensureClientContract(merged, existingContract, s.settings)
+        if (ensured.created || ensured.contract !== existingContract) {
+          contracts = appendContractToStore({ ...s, contracts }, ensured.contract).contracts
+        }
+        if (ensured.created || contractNeedsDetail(ensured.contract)) {
+          const nextStore = notifyContractNeedsDetail(
+            { ...s, contracts, adminNotifications },
+            ensured.client,
+            ensured.contract
+          )
+          adminNotifications = nextStore.adminNotifications ?? adminNotifications
+        }
+        return ensured.client
+      }
+
       return merged
     })
-    return { ...s, clients: linkedClients, users }
+    return { ...s, clients: linkedClients, users, contracts, adminNotifications }
   })
   res.json({ ok: true })
 })
@@ -119,6 +172,7 @@ router.put('/clients', (req, res) => {
 /** Admin starts the client project — unlocks portal uploads */
 router.post('/clients/:clientId/start-project', (req, res) => {
   const { clientId } = req.params
+  ensureClientContractRecord(clientId)
   const store = readStore()
   const client = store.clients.find((c) => c.id === clientId)
 
@@ -130,6 +184,14 @@ router.post('/clients/:clientId/start-project', (req, res) => {
     return res.status(400).json({
       error:
         'Contract must be signed and the client must click the PayPal payment link before starting the project.',
+    })
+  }
+
+  const contract = store.contracts.find((c) => c.clientId === clientId)
+  if (!contract) {
+    return res.status(400).json({
+      error:
+        'No contract exists for this client. A placeholder contract should have been created automatically — refresh and try again, or create one from the contract page.',
     })
   }
 
@@ -166,6 +228,35 @@ router.post('/clients/:clientId/start-project', (req, res) => {
   }))
 
   res.json({ ok: true, projectStartedAt: now })
+})
+
+/** Admin permanently deletes / clears a client's contract workflow */
+router.post('/clients/:clientId/permanent-delete-contract', (req, res) => {
+  const { clientId } = req.params
+  const { confirmClientId } = req.body ?? {}
+
+  if (!confirmClientId || confirmClientId.trim() !== clientId) {
+    return res.status(400).json({
+      error: 'Type the exact client ID to confirm permanent contract deletion.',
+    })
+  }
+
+  const store = readStore()
+  const result = permanentlyDeleteClientContract(store, clientId, req.user)
+  if (!result) {
+    return res.status(404).json({
+      error: 'No contract workflow found for this client.',
+    })
+  }
+
+  updateStore(() => result.store)
+
+  res.json({
+    ok: true,
+    message: 'Contract permanently deleted.',
+    auditEntry: result.auditEntry,
+    clientId: result.clientId,
+  })
 })
 
 /** Project timeline for admin client view */
@@ -207,6 +298,27 @@ router.post('/clients/:clientId/timeline/skip', (req, res) => {
     return res.status(400).json({ error: 'No steps to skip — you are already at this stage.' })
   }
 
+  if (stepsRequireProjectContract(targetStepId)) {
+    const ensured = ensureClientContract(client, contract, store.settings)
+    if (!ensured.contract) {
+      return res.status(400).json({
+        error:
+          'Cannot advance to In Progress without a contract. Add client project details first, then try again.',
+      })
+    }
+  }
+
+  let workingClient = client
+  let workingContract = contract
+  let contractCreated = false
+
+  if (stepsRequireContract(targetStepId)) {
+    const ensured = ensureClientContract(workingClient, workingContract, store.settings)
+    workingClient = ensured.client
+    workingContract = ensured.contract
+    contractCreated = ensured.created
+  }
+
   const now = new Date().toISOString()
   const timelineStepSkips = { ...(client.timelineStepSkips ?? {}) }
   for (const stepId of skippedStepIds) {
@@ -225,28 +337,38 @@ router.post('/clients/:clientId/timeline/skip', (req, res) => {
       : null
 
   const { client: effectClient, contract: effectContract } = applyTimelineSkipEffects(
-    client,
-    contract,
+    workingClient,
+    workingContract,
     skippedStepIds,
     targetStepId,
     now
   )
 
-  updateStore((s) => ({
-    ...s,
-    contracts: effectContract
-      ? s.contracts.map((c) => (c.clientId === clientId ? effectContract : c))
-      : s.contracts,
-    clients: s.clients.map((c) =>
-      c.id === clientId
-        ? {
-            ...effectClient,
-            timelineStepSkips,
-            notes: noteEntry ? [...(effectClient.notes ?? []), noteEntry] : effectClient.notes,
-          }
-        : c
-    ),
-  }))
+  updateStore((s) => {
+    let next = {
+      ...s,
+      contracts: contractCreated
+        ? appendContractToStore(s, effectContract).contracts
+        : effectContract
+          ? s.contracts.map((c) => (c.clientId === clientId ? effectContract : c))
+          : s.contracts,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...effectClient,
+              timelineStepSkips,
+              notes: noteEntry ? [...(effectClient.notes ?? []), noteEntry] : effectClient.notes,
+            }
+          : c
+      ),
+    }
+
+    if (contractCreated || (effectContract && contractNeedsDetail(effectContract))) {
+      next = notifyContractNeedsDetail(next, effectClient, effectContract)
+    }
+
+    return next
+  })
 
   res.json({
     ok: true,
@@ -254,6 +376,8 @@ router.post('/clients/:clientId/timeline/skip', (req, res) => {
     targetStepId,
     targetLabel: getTimelineStepLabel(targetStepId),
     noteId: noteEntry?.id,
+    contractCreated,
+    contractId: effectContract?.id,
   })
 })
 
@@ -360,6 +484,10 @@ router.post('/clients/:clientId/complete-project', async (req, res) => {
             ...c,
             projectStatus: 'Completed',
             projectCompletedAt: now,
+            contractStatus:
+              c.contractStatus === 'Signed' || c.contractStatus === 'Completed'
+                ? 'Completed'
+                : c.contractStatus,
             finalInvoice,
             notes: [
               ...(c.notes ?? []),
@@ -438,6 +566,25 @@ router.post('/migrate', (req, res) => {
   res.json({ ok: true, migrated: true })
 })
 
+/** Admin audit trail (contract deletions, etc.) */
+router.get('/audit-log', (req, res) => {
+  const store = readStore()
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100)
+  const type = typeof req.query.type === 'string' ? req.query.type : undefined
+
+  let entries = [...(store.adminAuditLog ?? [])].sort(
+    (a, b) =>
+      new Date(b.deletedAt || b.createdAt || 0).getTime() -
+      new Date(a.deletedAt || a.createdAt || 0).getTime()
+  )
+
+  if (type) {
+    entries = entries.filter((entry) => entry.type === type)
+  }
+
+  res.json({ entries: entries.slice(0, limit), count: entries.length })
+})
+
 /** Unread admin notifications (registrations, signed contracts, etc.) */
 router.get('/notifications', (_req, res) => {
   const store = readStore()
@@ -514,7 +661,7 @@ router.post('/accept-registration/:userId', (req, res) => {
     contractStatus: 'Not Started',
     paymentStatus: 'Unpaid',
     isOfficialClient: false,
-    serviceTier: 'Starter',
+    serviceTier: DEFAULT_SERVICE_TIER,
     accountUserId: user.id,
     notes: [
       {

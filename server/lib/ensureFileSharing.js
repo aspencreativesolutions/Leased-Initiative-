@@ -3,7 +3,15 @@ import { buildProjectTimeline } from './projectTimeline.js'
 import { applyTimelineSkipEffects } from './timelineSkipEffects.js'
 import { TIMELINE_STEP_ORDER } from './timelineSteps.js'
 import { ensureOfficialWhenProjectActive } from './clientWorkflow.js'
+import { reconcileClientContractStatus } from './contractReview.js'
 import { generateId } from './notifications.js'
+import {
+  appendContractToStore,
+  clientNeedsContractRecord,
+  notifyContractNeedsDetail,
+  repairClientContractSync,
+} from './ensureClientContract.js'
+import { contractNeedsDetail } from './contractPlaceholders.js'
 
 /**
  * Apply missing skip side-effects and set projectStartedAt when the timeline
@@ -15,6 +23,20 @@ export function repairClientWorkflow(client, contract) {
   let nextClient = client
   let nextContract = contract ?? null
   let changed = false
+
+  if (clientNeedsContractRecord(client) && !nextContract) {
+    const repaired = repairClientContractSync(nextClient, null, readStore().settings)
+    nextClient = repaired.client
+    nextContract = repaired.contract
+    changed = true
+  } else if (clientNeedsContractRecord(client) && nextContract) {
+    const repaired = repairClientContractSync(nextClient, nextContract, readStore().settings)
+    if (repaired.changed) {
+      nextClient = repaired.client
+      nextContract = repaired.contract
+      changed = true
+    }
+  }
 
   const skippedIds = Object.keys(client.timelineStepSkips ?? {})
   if (skippedIds.length > 0) {
@@ -39,6 +61,12 @@ export function repairClientWorkflow(client, contract) {
   const officialClient = ensureOfficialWhenProjectActive(nextClient)
   if (officialClient !== nextClient) {
     nextClient = officialClient
+    changed = true
+  }
+
+  const reconciled = reconcileClientContractStatus(nextClient, nextContract)
+  if (reconciled !== nextClient) {
+    nextClient = reconciled
     changed = true
   }
 
@@ -122,11 +150,15 @@ export function ensureClientFileSharing(clientId) {
 
   if (!changed) return store
 
-  return updateStore((s) => ({
-    ...s,
-    contracts: repairedContract
-      ? s.contracts.map((c) => (c.clientId === clientId ? repairedContract : c))
-      : s.contracts,
-    clients: s.clients.map((c) => (c.id === clientId ? repaired : c)),
-  }))
+  return updateStore((s) => {
+    let next = appendContractToStore(s, repairedContract)
+    next = {
+      ...next,
+      clients: next.clients.map((c) => (c.id === clientId ? repaired : c)),
+    }
+    if (repairedContract && contractNeedsDetail(repairedContract)) {
+      next = notifyContractNeedsDetail(next, repaired, repairedContract)
+    }
+    return next
+  })
 }

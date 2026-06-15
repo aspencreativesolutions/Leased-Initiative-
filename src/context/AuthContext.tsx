@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { AuthResponse, RegisterResponse, User } from '@/types'
+import type { AuthResponse, User } from '@/types'
 import { apiFetch, getToken, setToken } from '@/lib/api'
 import { registerAccount } from '@/lib/authApi'
 
@@ -20,7 +20,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
-  ) => Promise<RegisterResponse>
+  ) => Promise<User>
   updateProfile: (name: string) => Promise<User>
   refreshUser: () => Promise<User | null>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -57,13 +57,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string,
       options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
     ) => {
-      return registerAccount({
+      const data = await registerAccount({
         name,
         email,
         password,
         accountType: options?.accountType ?? 'client',
         portalThemeId: options?.portalThemeId,
       })
+      setToken(data.token)
+      setUser(data.user)
+      return data.user
     },
     []
   )

@@ -30,6 +30,7 @@ import {
 import { generateId, pushAdminNotification } from '../lib/notifications.js'
 import { verifySquareOrderPayment } from '../lib/square.js'
 import { applyPaymentToStore } from '../lib/payments.js'
+import { DEFAULT_SERVICE_TIER, migrateServiceTier } from '../lib/serviceTier.js'
 
 const router = Router()
 
@@ -52,7 +53,7 @@ function buildPortalProfilePayload({ user, client, settings, store }) {
   const projects = sentContracts.map((contract) => ({
     contractId: contract.id,
     projectTitle: contract.projectTitle,
-    serviceTier: contract.serviceTier || client?.serviceTier || 'Starter',
+    serviceTier: migrateServiceTier(contract.serviceTier || client?.serviceTier),
     developerName: settings.ownerName || 'Your designer',
     businessName: settings.businessName || 'Your studio',
     sentAt: contract.sentAt,

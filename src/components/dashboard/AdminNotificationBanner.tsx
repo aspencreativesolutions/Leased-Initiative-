@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { Bell, CreditCard, FileCheck, UserPlus } from 'lucide-react'
+import { Bell, CreditCard, FileCheck, FilePen, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { formatDateTime } from '@/lib/utils'
 import type { AdminNotification } from '@/types'
 
 interface AdminNotificationBannerProps {
@@ -8,6 +9,79 @@ interface AdminNotificationBannerProps {
   onViewRegistrations: () => void
   onDismiss: () => void
   onViewClient?: (clientId: string, notificationId: string) => void
+}
+
+function NotificationActions({
+  notification,
+  onViewRegistrations,
+  onViewClient,
+}: {
+  notification: AdminNotification
+  onViewRegistrations: () => void
+  onViewClient?: (clientId: string, notificationId: string) => void
+}) {
+  if (notification.type === 'registration') {
+    return (
+      <Button size="sm" onClick={onViewRegistrations}>
+        <UserPlus className="h-4 w-4" />
+        View registrations
+      </Button>
+    )
+  }
+
+  if (!notification.clientId) return null
+
+  const icon =
+    notification.type === 'contract_signed' ? (
+      <FileCheck className="h-4 w-4" />
+    ) : notification.type === 'contract_needs_detail' ? (
+      <FilePen className="h-4 w-4" />
+    ) : (
+      <CreditCard className="h-4 w-4" />
+    )
+  const label =
+    notification.type === 'contract_signed'
+      ? 'View'
+      : notification.type === 'contract_needs_detail'
+        ? 'Edit contract'
+        : 'View client'
+
+  const clientLink =
+    notification.type === 'contract_needs_detail' && notification.clientId
+      ? `/clients/${notification.clientId}/contract`
+      : `/clients/${notification.clientId}`
+
+  if (onViewClient) {
+    if (notification.type === 'contract_needs_detail' && notification.clientId) {
+      return (
+        <Link to={`/clients/${notification.clientId}/contract`}>
+          <Button size="sm">
+            {icon}
+            {label}
+          </Button>
+        </Link>
+      )
+    }
+
+    return (
+      <Button
+        size="sm"
+        onClick={() => onViewClient(notification.clientId!, notification.id)}
+      >
+        {icon}
+        {label}
+      </Button>
+    )
+  }
+
+  return (
+    <Link to={clientLink}>
+      <Button size="sm">
+        {icon}
+        {label}
+      </Button>
+    </Link>
+  )
 }
 
 export function AdminNotificationBanner({
@@ -18,59 +92,53 @@ export function AdminNotificationBanner({
 }: AdminNotificationBannerProps) {
   if (notifications.length === 0) return null
 
-  const latest = notifications[0]
-  const paymentNotification = notifications.find((n) => n.type === 'payment_link_clicked')
-
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-sm border-2 border-accent bg-accent-light px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex gap-3 min-w-0">
-        <Bell className="h-5 w-5 shrink-0 text-accent" />
-        <div className="min-w-0">
-          <p className="font-semibold text-ink">
-            {notifications.length === 1
-              ? latest.title
-              : `${notifications.length} new notifications`}
-          </p>
-          <p className="mt-0.5 text-sm text-ink-muted">{latest.message}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-wrap gap-2">
-        {notifications.some((n) => n.type === 'registration') && (
-          <Button size="sm" onClick={onViewRegistrations}>
-            <UserPlus className="h-4 w-4" />
-            View registrations
-          </Button>
-        )}
-        {paymentNotification?.clientId && (
-          onViewClient ? (
-            <Button
-              size="sm"
-              onClick={() =>
-                onViewClient(paymentNotification.clientId!, paymentNotification.id)
-              }
-            >
-              <CreditCard className="h-4 w-4" />
-              View client
-            </Button>
-          ) : (
-            <Link to={`/clients/${paymentNotification.clientId}`}>
-              <Button size="sm">
-                <CreditCard className="h-4 w-4" />
-                View client
-              </Button>
-            </Link>
-          )
-        )}
-        {notifications.some((n) => n.type === 'contract_signed') && (
-          <span className="flex items-center gap-1 self-center text-xs font-semibold text-emerald-700">
-            <FileCheck className="h-4 w-4" />
-            Contract signed
+    <div className="mb-3 overflow-hidden rounded-sm border-2 border-accent bg-accent-light">
+      <div className="flex items-center justify-between gap-2 border-b border-accent/25 px-3 py-1">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Bell className="h-4 w-4 shrink-0 text-accent" />
+          <p className="text-sm font-semibold text-ink">Recent activity</p>
+          <span className="rounded-sm border border-accent/30 bg-surface-paper/60 px-1 py-0 text-[10px] font-bold leading-4 text-accent">
+            {notifications.length}
           </span>
-        )}
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
-          Dismiss
+        </div>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onDismiss}>
+          Dismiss all
         </Button>
       </div>
+
+      <ul className="divide-y divide-accent/20">
+        {notifications.map((notification) => (
+          <li
+            key={notification.id}
+            className="flex items-start gap-2 px-3 py-1.5 first:pt-1 sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="text-sm font-semibold text-ink">{notification.title}</p>
+                {notification.createdAt && (
+                  <time
+                    dateTime={notification.createdAt}
+                    className="shrink-0 text-[11px] text-ink-faint"
+                  >
+                    {formatDateTime(notification.createdAt)}
+                  </time>
+                )}
+              </div>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-ink-muted">
+                {notification.message}
+              </p>
+            </div>
+            <div className="flex shrink-0 pt-0.5 sm:pt-0">
+              <NotificationActions
+                notification={notification}
+                onViewRegistrations={onViewRegistrations}
+                onViewClient={onViewClient}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

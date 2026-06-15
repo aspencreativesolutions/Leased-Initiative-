@@ -75,7 +75,7 @@ Show each step tab and fill key fields (don't skip steps — this is core demo c
 
 ### Step 2 — Project Scope
 
-- [ ] **Service Tier** (Starter / Business / Premium Custom)
+- [ ] **Service Tier** (Launch / Studio / Summit)
 - [ ] Project Title, Project Scope, Services Included, Services Not Included
 - [ ] Project Deliverables, Start Date, Estimated Completion
 

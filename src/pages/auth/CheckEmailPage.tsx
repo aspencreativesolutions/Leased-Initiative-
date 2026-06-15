@@ -12,6 +12,7 @@ export function CheckEmailPage() {
   const loginPath = searchParams.get('studio') === '1' ? '/studio/login' : '/login'
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
   const [error, setError] = useState('')
 
   const handleResend = async () => {
@@ -19,9 +20,11 @@ export function CheckEmailPage() {
     setResending(true)
     setError('')
     setResent(false)
+    setResendMessage('')
     try {
-      await resendVerificationEmail(email)
+      const result = await resendVerificationEmail(email)
       setResent(true)
+      setResendMessage(result.message)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not resend email')
     } finally {
@@ -71,7 +74,7 @@ export function CheckEmailPage() {
 
           {resent && (
             <p className="mt-4 rounded-sm border-2 border-brand/30 bg-brand/5 px-3 py-2 text-sm text-brand">
-              A new verification email has been sent.
+              {resendMessage}
             </p>
           )}
 

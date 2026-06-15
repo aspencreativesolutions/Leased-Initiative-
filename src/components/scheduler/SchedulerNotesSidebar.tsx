@@ -65,7 +65,7 @@ export function SchedulerNotesSidebar({
   return (
     <aside
       className={cn(
-        'flex w-72 shrink-0 flex-col rounded-sm border-2 border-ink bg-surface-paper',
+        'flex w-full shrink-0 flex-col rounded-sm border-2 border-ink bg-surface-paper lg:w-72',
         'max-h-[calc(100vh-12rem)] lg:max-h-none'
       )}
     >

@@ -1,15 +1,44 @@
+import { Check } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import type { ContractStatus, PaymentStatus, PortalInvoice, ProjectStatus } from '@/types'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
-const CONTRACT_STEPS: { status: ContractStatus; label: string }[] = [
-  { status: 'Not Started', label: 'Not started' },
-  { status: 'Draft in Progress', label: 'Draft' },
-  { status: 'Generated', label: 'Generated' },
-  { status: 'Sent', label: 'Sent' },
-  { status: 'Signed', label: 'Signed' },
-  { status: 'Completed', label: 'Done' },
-]
+const CONTRACT_PROGRESS_STEPS = [
+  { id: 'drafted', label: 'Drafted' },
+  { id: 'generated', label: 'Generated' },
+  { id: 'sent', label: 'Sent' },
+  { id: 'viewed', label: 'Viewed' },
+  { id: 'signed', label: 'Signed' },
+] as const
+
+const MOBILE_STEP_LABELS: Record<(typeof CONTRACT_PROGRESS_STEPS)[number]['id'], string> = {
+  drafted: 'Draft',
+  generated: 'Gen',
+  sent: 'Sent',
+  viewed: 'View',
+  signed: 'Sign',
+}
+
+function resolveContractProgressIndex(
+  status: ContractStatus,
+  viewedAt?: string,
+  projectStarted = false
+): number {
+  if (projectStarted || status === 'Signed' || status === 'Completed') {
+    return CONTRACT_PROGRESS_STEPS.length
+  }
+  if (status === 'Sent' && viewedAt) return 3
+  switch (status) {
+    case 'Generated':
+      return 1
+    case 'Sent':
+      return 2
+    case 'Draft in Progress':
+    case 'Not Started':
+    default:
+      return 0
+  }
+}
 
 type OverviewStage = 'inquiry' | 'contract' | 'payment' | 'project' | 'remaining'
 
@@ -83,13 +112,9 @@ function isStageCompleted(stage: OverviewStage, currentStage: OverviewStage | nu
 }
 
 function completedCardClass(completed: boolean, highlighted: boolean) {
-  if (highlighted) {
-    return 'border-2 border-accent bg-accent-light/40 shadow-[0_0_0_1px_var(--accent),0_0_18px_rgba(109,46,58,0.28)]'
-  }
-  if (completed) {
-    return 'border border-ink/25 bg-ink/5'
-  }
-  return 'border border-line/80 bg-surface-paper/60'
+  if (highlighted) return 'status-card--highlight'
+  if (completed) return 'status-card--done'
+  return 'status-card--idle'
 }
 
 interface StatusGroupProps {
@@ -99,6 +124,34 @@ interface StatusGroupProps {
   badgeLabel?: string
   highlighted?: boolean
   completed?: boolean
+}
+
+function StatusBoxCorner({
+  highlighted,
+  completed,
+}: {
+  highlighted?: boolean
+  completed?: boolean
+}) {
+  if (highlighted) {
+    return (
+      <span className="shrink-0 text-[8px] font-bold uppercase leading-none tracking-caps text-accent sm:text-[9px]">
+        Current stage
+      </span>
+    )
+  }
+
+  if (completed) {
+    return (
+      <Check
+        className="step-complete-mark h-3.5 w-3.5 shrink-0"
+        strokeWidth={2.75}
+        aria-label="Completed"
+      />
+    )
+  }
+
+  return null
 }
 
 function StatusGroup({
@@ -112,18 +165,16 @@ function StatusGroup({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2.5 py-2 transition-shadow',
+        'flex flex-col gap-1 rounded-[var(--radius-sm)] px-2 py-1.5 transition-shadow sm:gap-1.5 sm:px-2.5 sm:py-2',
         completedCardClass(Boolean(completed), Boolean(highlighted))
       )}
     >
-      <span className="text-[9px] font-semibold uppercase tracking-caps text-ink-faint">
-        {label}
-      </span>
-      {highlighted && (
-        <span className="text-[9px] font-bold uppercase tracking-caps text-accent">
-          Current stage
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[8px] font-semibold uppercase tracking-caps text-ink-faint sm:text-[9px]">
+          {label}
         </span>
-      )}
+        <StatusBoxCorner highlighted={highlighted} completed={completed} />
+      </div>
       <StatusBadge
         type={type}
         status={status}
@@ -153,25 +204,23 @@ function RemainingBalanceGroup({
   return (
     <div
       className={cn(
-        'flex flex-col gap-1.5 rounded-[var(--radius-sm)] px-2.5 py-2 transition-shadow',
+        'flex flex-col gap-1 rounded-[var(--radius-sm)] px-2 py-1.5 transition-shadow sm:gap-1.5 sm:px-2.5 sm:py-2',
         completedCardClass(Boolean(completed), Boolean(highlighted))
       )}
     >
-      <span className="text-[9px] font-semibold uppercase tracking-caps text-ink-faint">
-        Final Payment
-      </span>
-      {highlighted && (
-        <span className="text-[9px] font-bold uppercase tracking-caps text-accent">
-          Current stage
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-[8px] font-semibold uppercase tracking-caps text-ink-faint sm:text-[9px]">
+          Final Payment
         </span>
-      )}
+        <StatusBoxCorner highlighted={highlighted} completed={completed} />
+      </div>
       <span
         className={cn(
           'status-badge inline-flex items-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2 py-0.5 text-[10px] font-bold',
           highlighted
-            ? 'border-accent bg-accent text-white shadow-[0_0_0_2px_var(--accent-light),0_0_10px_rgba(109,46,58,0.35)] ring-2 ring-accent ring-offset-1 ring-offset-transparent'
+            ? 'border-accent bg-accent text-white shadow-[0_0_0_2px_var(--accent-light),var(--status-highlight-glow)] ring-2 ring-accent ring-offset-1 ring-offset-transparent'
             : completed
-              ? 'border-ink bg-ink text-surface-paper'
+              ? 'status-solid'
               : 'border-accent text-accent bg-transparent'
         )}
       >
@@ -184,45 +233,90 @@ function RemainingBalanceGroup({
   )
 }
 
-export function ContractStatusProgress({ status }: { status: ContractStatus }) {
+export function ContractStatusProgress({
+  status,
+  projectStarted = false,
+  viewedAt,
+}: {
+  status: ContractStatus
+  projectStarted?: boolean
+  viewedAt?: string
+}) {
   if (status === 'Cancelled') {
     return (
-      <div className="rounded-[var(--radius-sm)] border-2 border-dashed border-accent bg-accent-light/30 px-3 py-2">
+      <div className="paper-box-inset border-dashed border-accent bg-accent-light/30 px-3 py-2">
         <p className="label-caps text-accent">Contract progress</p>
         <p className="mt-1 text-xs font-semibold text-accent">Cancelled</p>
       </div>
     )
   }
 
-  const currentIndex = CONTRACT_STEPS.findIndex((s) => s.status === status)
+  const currentIndex = resolveContractProgressIndex(status, viewedAt, projectStarted)
+  const allComplete = currentIndex >= CONTRACT_PROGRESS_STEPS.length
+
+  const renderStep = (
+    step: (typeof CONTRACT_PROGRESS_STEPS)[number],
+    i: number,
+    variant: 'mobile' | 'desktop'
+  ) => {
+    const isCurrent = !allComplete && i === currentIndex
+    const isPast = allComplete || i < currentIndex
+
+    return (
+      <div
+        key={step.id}
+        className={cn(
+          'inline-flex items-center justify-center gap-0.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] font-bold uppercase transition-shadow',
+          variant === 'mobile'
+            ? 'min-w-0 px-0.5 py-1 text-[7px] leading-none tracking-tight'
+            : 'gap-1 px-2 py-1 text-[9px] tracking-caps',
+          isCurrent &&
+            'border-accent bg-accent text-white shadow-[0_0_0_2px_var(--accent-light),var(--status-highlight-glow)]',
+          isPast && 'contract-step--past',
+          !isCurrent && !isPast && 'contract-step--idle border-line text-ink-faint'
+        )}
+        title={step.label}
+      >
+        {isPast && (
+          <Check
+            className={cn('step-complete-mark shrink-0', variant === 'mobile' ? 'h-2.5 w-2.5' : 'h-3 w-3')}
+            strokeWidth={2.75}
+            aria-hidden
+          />
+        )}
+        <span className={variant === 'mobile' ? 'truncate' : undefined}>
+          {variant === 'mobile' ? MOBILE_STEP_LABELS[step.id] : step.label}
+        </span>
+      </div>
+    )
+  }
 
   return (
-    <div className="rounded-[var(--radius-sm)] border border-line bg-surface-paper/80 px-3 py-3">
+    <div className="paper-box-inset px-3 py-3">
       <p className="label-caps mb-2.5">Contract progress</p>
-      <div className="flex min-w-0 flex-wrap items-center gap-1">
-        {CONTRACT_STEPS.map((step, i) => {
-          const isCurrent = i === currentIndex
-          const isPast = i < currentIndex
+      <div
+        className="grid grid-cols-5 gap-0.5 sm:hidden"
+        role="list"
+        aria-label="Contract progress"
+      >
+        {CONTRACT_PROGRESS_STEPS.map((step, i) => (
+          <div key={step.id} className="min-w-0" role="listitem">
+            {renderStep(step, i, 'mobile')}
+          </div>
+        ))}
+      </div>
+      <div className="hidden items-center gap-1 sm:flex">
+        {CONTRACT_PROGRESS_STEPS.map((step, i) => {
+          const isPast = allComplete || i < currentIndex
 
           return (
-            <div key={step.status} className="flex items-center gap-1">
-              <div
-                className={cn(
-                  'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2 py-1 text-[9px] font-bold uppercase tracking-caps transition-shadow',
-                  isCurrent &&
-                    'border-accent bg-accent text-white shadow-[0_0_0_2px_var(--accent-light),0_0_14px_rgba(109,46,58,0.45)]',
-                  isPast && 'border-ink/40 bg-ink/10 text-ink-muted',
-                  !isCurrent && !isPast && 'border-line text-ink-faint'
-                )}
-                title={step.status}
-              >
-                {step.label}
-              </div>
-              {i < CONTRACT_STEPS.length - 1 && (
+            <div key={step.id} className="flex items-center gap-1">
+              {renderStep(step, i, 'desktop')}
+              {i < CONTRACT_PROGRESS_STEPS.length - 1 && (
                 <span
                   className={cn(
-                    'h-px w-2 sm:w-3',
-                    isPast ? 'bg-ink/30' : 'bg-line'
+                    'h-px w-3',
+                    isPast ? 'timeline-connector--complete' : 'bg-line'
                   )}
                   aria-hidden
                 />
@@ -313,9 +407,11 @@ export function ClientStatusOverview({
   )
 
   return (
-    <div className={cn('space-y-3', className)}>
-      <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">{statusBoxes}</div>
-      {showProgress && <ContractStatusProgress status={contractStatus} />}
+    <div className={cn('space-y-2 sm:space-y-3', className)}>
+      <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-stretch sm:gap-2 md:gap-3">{statusBoxes}</div>
+      {showProgress && (
+        <ContractStatusProgress status={contractStatus} projectStarted={projectStarted} />
+      )}
     </div>
   )
 }

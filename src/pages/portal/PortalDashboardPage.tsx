@@ -1,6 +1,5 @@
 import { AlertTriangle, Rocket } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card } from '@/components/ui/Card'
 import { ClientStatusOverview } from '@/components/clients/ClientStatusOverview'
 import { PortalCurrentContracts } from '@/components/portal/PortalCurrentContracts'
 import { PortalInvoiceSection } from '@/components/portal/PortalInvoiceSection'
@@ -47,22 +46,23 @@ export function PortalDashboardPage() {
       <PageHeader
         title={`Hello, ${data.client?.name ?? 'there'}`}
         subtitle={data.client?.businessName}
-      />
-
-      {data.projectStarted && (
-        <Card padding="md" className="mb-6 border-brand bg-brand/5">
-          <div className="flex gap-3">
-            <Rocket className="h-5 w-5 shrink-0 text-brand" />
-            <div>
-              <p className="font-semibold text-ink">Your project is active</p>
-              <p className="mt-1 text-sm text-ink-muted">
-                Started {data.projectStartedAt ? formatDate(data.projectStartedAt) : 'recently'}.
-                Upload files below and track your status here.
-              </p>
+        tag={
+          data.projectStarted ? (
+            <div className="ml-auto inline-flex max-w-[11rem] items-center gap-2 rounded-sm border border-brand/40 bg-brand/5 px-2.5 py-1.5 sm:ml-0 sm:max-w-none">
+              <Rocket className="h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
+              <div className="min-w-0 leading-tight">
+                <p className="text-[10px] font-bold uppercase tracking-caps text-brand">
+                  Project active
+                </p>
+                <p className="mt-0.5 text-[10px] text-ink-muted">
+                  Since{' '}
+                  {data.projectStartedAt ? formatDate(data.projectStartedAt) : 'recently'}
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
-      )}
+          ) : undefined
+        }
+      />
 
       {data.client && (
         <ClientStatusOverview
@@ -77,10 +77,21 @@ export function PortalDashboardPage() {
         />
       )}
 
+      {data.projectStarted && (
+        <PortalProjectFilesSection
+          className="mb-8 mt-0"
+          projectName={data.client?.projectName ?? 'your project'}
+          enabled
+          projectStarted
+          supportContact={data.supportContact}
+        />
+      )}
+
       <div className="mb-8">
         <PortalCurrentContracts
           contracts={data.contracts}
           contractStatus={data.client?.contractStatus}
+          projectStarted={data.projectStarted}
         />
       </div>
 
@@ -90,12 +101,14 @@ export function PortalDashboardPage() {
       )}
       <PortalInvoiceSection invoice={data.finalInvoice} title="Final Invoice" />
 
-      <PortalProjectFilesSection
-        projectName={data.client?.projectName ?? 'your project'}
-        enabled={data.projectStarted}
-        projectStarted={data.projectStarted}
-        supportContact={data.supportContact}
-      />
+      {!data.projectStarted && (
+        <PortalProjectFilesSection
+          projectName={data.client?.projectName ?? 'your project'}
+          enabled={false}
+          projectStarted={false}
+          supportContact={data.supportContact}
+        />
+      )}
     </div>
   )
 }

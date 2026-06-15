@@ -1,22 +1,44 @@
 import nodemailer from 'nodemailer'
 
+function normalizeSmtpPass(pass) {
+  return pass?.trim().replace(/\s+/g, '') ?? ''
+}
+
 function getTransport() {
-  const host = process.env.SMTP_HOST
+  const host = process.env.SMTP_HOST?.trim()
   if (!host) return null
+
+  const user = process.env.SMTP_USER?.trim()
+  const pass = normalizeSmtpPass(process.env.SMTP_PASS)
+  if (!user || !pass) return null
 
   return nodemailer.createTransport({
     host,
     port: Number(process.env.SMTP_PORT || 587),
     secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+    auth: { user, pass },
   })
 }
 
 export function isEmailConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+  return Boolean(
+    process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      normalizeSmtpPass(process.env.SMTP_PASS)
+  )
+}
+
+export async function verifySmtpConnection() {
+  const transport = getTransport()
+  if (!transport) {
+    return { ok: false, error: 'SMTP_HOST, SMTP_USER, or SMTP_PASS is missing in .env' }
+  }
+  try {
+    await transport.verify()
+    return { ok: true, user: process.env.SMTP_USER?.trim() }
+  } catch (err) {
+    return { ok: false, error: err.message, user: process.env.SMTP_USER?.trim() }
+  }
 }
 
 export async function sendVerificationEmail({ to, name, verifyUrl }) {
@@ -51,24 +73,28 @@ export async function sendVerificationEmail({ to, name, verifyUrl }) {
 
   const transport = getTransport()
   if (!transport) {
-    console.log('\n--- EMAIL VERIFICATION (SMTP not configured) ---')
-    console.log(`To: ${to}`)
-    console.log(`Subject: ${subject}`)
-    console.log(`Verify: ${verifyUrl}`)
-    console.log('Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env to send real emails.')
-    console.log('---\n')
-    return { sent: false, devMode: true }
+    throw new Error(
+      'Email is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env.'
+    )
   }
 
-  await transport.sendMail({
-    from: `"${fromName}" <${fromAddress}>`,
-    to,
-    subject,
-    text,
-    html,
-  })
-
-  return { sent: true, devMode: false }
+  try {
+    await transport.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to,
+      subject,
+      text,
+      html,
+    })
+    return { sent: true }
+  } catch (err) {
+    console.error('SMTP send failed:', err.message)
+    const smtpErr = new Error(
+      'Could not send verification email. For Google Workspace/Gmail, use an App Password (not your regular password) and ensure SMTP_USER matches the account that created it.'
+    )
+    smtpErr.cause = err
+    throw smtpErr
+  }
 }
 
 function escapeHtml(value) {

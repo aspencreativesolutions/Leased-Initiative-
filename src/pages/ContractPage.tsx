@@ -1,14 +1,20 @@
-import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { ContractForm } from '@/components/contracts/ContractForm'
+import { DeleteContractModal } from '@/components/contracts/DeleteContractModal'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Button } from '@/components/ui/Button'
 import { useApp } from '@/context/AppContext'
 
 export function ContractPage() {
   const { id } = useParams<{ id: string }>()
-  const { getClient, getContractForClient } = useApp()
+  const navigate = useNavigate()
+  const { getClient, getContractForClient, refresh } = useApp()
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const client = id ? getClient(id) : undefined
   const existingContract = client ? getContractForClient(client.id) : undefined
+  const hasContractWorkflow = Boolean(client && client.contractStatus !== 'Not Started')
 
   if (!client) {
     return (
@@ -21,6 +27,16 @@ export function ContractPage() {
     )
   }
 
+  const deleteOptions = existingContract
+    ? [
+        {
+          contract: existingContract,
+          clientName: client.name,
+          businessName: client.businessName,
+        },
+      ]
+    : []
+
   return (
     <>
       <Link
@@ -32,11 +48,44 @@ export function ContractPage() {
       </Link>
 
       <PageHeader
-        title="Create Contract"
+        title={existingContract ? 'Edit Contract' : 'Create Contract'}
         subtitle={`Contract for ${client.businessName} — ${client.projectName}`}
+        action={
+          hasContractWorkflow ? (
+            <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" />
+              Delete contract
+            </Button>
+          ) : undefined
+        }
       />
 
       <ContractForm client={client} existingContract={existingContract} />
+
+      {hasContractWorkflow && (
+        <DeleteContractModal
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          contracts={deleteOptions}
+          workflowFallback={
+            !existingContract
+              ? {
+                  clientId: client.id,
+                  clientName: client.name,
+                  businessName: client.businessName,
+                  projectName: client.projectName,
+                  contractStatus: client.contractStatus,
+                }
+              : undefined
+          }
+          preselectedContractId={existingContract?.id}
+          onDeleted={async () => {
+            await refresh()
+            setDeleteOpen(false)
+            navigate(`/clients/${client.id}`)
+          }}
+        />
+      )}
     </>
   )
 }

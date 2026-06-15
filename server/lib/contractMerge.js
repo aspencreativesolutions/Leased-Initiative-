@@ -5,6 +5,7 @@ import {
   needsClientResign,
   prepareContractForClientReview,
 } from './contractReview.js'
+import { contractNeedsDetail } from './contractPlaceholders.js'
 
 /** Fields set by portal send/sign — must not be wiped by ordinary admin saves */
 const PORTAL_FIELDS = [
@@ -31,15 +32,19 @@ function buildRevisedContract(existing, incoming, now) {
 
 export function mergeContractOnAdminSave(existing, incoming, now = new Date().toISOString()) {
   if (!existing) {
-    return { contract: incoming, revised: false }
+    const contract = contractNeedsDetail(incoming)
+      ? incoming
+      : { ...incoming, isPlaceholderDraft: false }
+    return { contract, revised: false }
   }
 
   const wasDelivered = Boolean(existing.sentAt)
   const contentChanged = hasContractContentChanged(existing, incoming)
 
   if (wasDelivered && contentChanged) {
+    const contract = buildRevisedContract(existing, incoming, now)
     return {
-      contract: buildRevisedContract(existing, incoming, now),
+      contract: contractNeedsDetail(contract) ? contract : { ...contract, isPlaceholderDraft: false },
       revised: true,
     }
   }
@@ -47,6 +52,9 @@ export function mergeContractOnAdminSave(existing, incoming, now = new Date().to
   let contract = mergeContractDeliveryFields(existing, incoming)
   if (contentChanged) {
     contract = { ...contract, contentUpdatedAt: now }
+  }
+  if (!contractNeedsDetail(contract)) {
+    contract = { ...contract, isPlaceholderDraft: false }
   }
 
   return { contract, revised: false }

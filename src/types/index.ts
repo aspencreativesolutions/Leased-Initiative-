@@ -33,7 +33,7 @@ export type ProjectType =
 
 export type NoteCategory = 'General' | 'Payment' | 'Contract' | 'Project' | 'Follow-Up'
 
-export type ServiceTier = 'Starter' | 'Business' | 'Premium Custom'
+export type ServiceTier = 'Launch' | 'Studio' | 'Summit'
 
 export type PaymentProvider = 'paypal' | 'stripe' | 'square'
 
@@ -152,11 +152,7 @@ export interface AuthResponse {
   user: User
 }
 
-export interface RegisterResponse {
-  requiresVerification: true
-  email: string
-  message: string
-}
+export type RegisterResponse = AuthResponse
 
 export interface Client {
   id: string
@@ -249,6 +245,8 @@ export interface ContractData {
   signedContentFingerprint?: string
   /** Updated when admin changes contract terms */
   contentUpdatedAt?: string
+  /** Auto-generated contract still using placeholder sections */
+  isPlaceholderDraft?: boolean
 }
 
 export type PortalContractClientStatus = 'Pending Review' | 'Viewed' | 'Accepted'
@@ -300,6 +298,7 @@ export interface PortalUsersOverview {
 export type AdminNotificationType =
   | 'registration'
   | 'contract_signed'
+  | 'contract_needs_detail'
   | 'invoice_sent'
   | 'payment_link_clicked'
 
@@ -313,6 +312,32 @@ export interface AdminNotification {
   userId?: string
   clientId?: string
   contractId?: string
+}
+
+export type AdminAuditEntryType = 'contract_deleted'
+
+export interface AdminAuditEntry {
+  id: string
+  type: AdminAuditEntryType
+  contractId: string
+  clientId: string
+  clientName: string
+  businessName?: string
+  projectTitle: string
+  deletedByUserId: string
+  deletedByEmail: string
+  deletedAt: string
+  summary: string
+  contractSnapshot?: {
+    projectTitle: string
+    clientName: string
+    businessName: string
+    serviceTier?: string
+    sentAt: string | null
+    signedAt: string | null
+    pdfGenerated: boolean
+    createdAt: string
+  }
 }
 
 export interface ProjectFileNote {

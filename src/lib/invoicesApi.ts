@@ -20,3 +20,10 @@ export async function sendFinalInvoiceToPortal(clientId: string) {
     { method: 'POST' }
   )
 }
+
+export async function generateFinalInvoice(clientId: string) {
+  return apiFetch<{ ok: boolean; finalInvoice: Record<string, unknown> }>(
+    `/api/invoices/${clientId}/generate-final`,
+    { method: 'POST' }
+  )
+}
