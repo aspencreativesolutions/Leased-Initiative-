@@ -3,6 +3,7 @@ import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { generateId } from '../lib/notifications.js'
+import { notifyClientByClientId } from '../lib/clientNotifications.js'
 import { buildDepositInvoice } from '../lib/invoice.js'
 import {
   clientCanSignContract,
@@ -71,7 +72,7 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
       }
       return updatedContract
     })
-    return {
+    let next = {
       ...s,
       contracts,
       clients: s.clients.map((c) =>
@@ -80,6 +81,14 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
           : c
       ),
     }
+    next = notifyClientByClientId(next, client.id, {
+      type: 'contract_sent',
+      title: 'Contract ready to review',
+      message: `Your contract for "${contract.projectTitle}" is ready. Review and sign it in your portal.`,
+      actionUrl: `/portal/contracts/${contractId}`,
+      relatedId: `contract-sent-${contractId}`,
+    })
+    return next
   })
 
   res.json({

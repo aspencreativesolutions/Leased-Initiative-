@@ -23,30 +23,35 @@ export function CardHeader({
   subtitle,
   action,
   dense = false,
+  children,
 }: {
   title: string
   subtitle?: string
   action?: ReactNode
   dense?: boolean
+  children?: ReactNode
 }) {
   return (
     <div
       className={cn(
-        'flex flex-wrap items-start justify-between gap-2 border-b border-line',
+        'border-b border-line',
         dense ? 'mb-2.5 pb-2 sm:mb-3' : 'mb-3 pb-2 sm:mb-4 sm:pb-3'
       )}
     >
-      <div className="min-w-0">
-        <h2 className={cn('heading-display', dense ? 'text-lg sm:text-xl' : 'text-lg sm:text-xl')}>
-          {title}
-        </h2>
-        {subtitle && (
-          <p className={cn('text-ink-muted', dense ? 'mt-0.5 text-xs sm:text-sm' : 'mt-0.5 text-xs sm:mt-1 sm:text-sm')}>
-            {subtitle}
-          </p>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className={cn('heading-display', dense ? 'text-lg sm:text-xl' : 'text-lg sm:text-xl')}>
+            {title}
+          </h2>
+          {subtitle && (
+            <p className={cn('text-ink-muted', dense ? 'mt-0.5 text-xs sm:text-sm' : 'mt-0.5 text-xs sm:mt-1 sm:text-sm')}>
+              {subtitle}
+            </p>
+          )}
+        </div>
+        {action}
       </div>
-      {action}
+      {children && <div className="mt-2.5 sm:mt-3">{children}</div>}
     </div>
   )
 }

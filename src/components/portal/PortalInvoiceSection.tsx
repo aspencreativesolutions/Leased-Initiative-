@@ -59,7 +59,7 @@ export function PortalInvoiceSection({
   if (!invoice.paymentLink) return null
 
   return (
-    <section className="mb-8">
+    <section className="mb-8" data-onboarding={isDeposit ? 'portal-invoice' : undefined}>
       <h2
         className={cn(
           'label-caps mb-3 flex items-center gap-2',

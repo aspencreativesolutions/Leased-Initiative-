@@ -93,7 +93,7 @@ export function AdminNotificationBanner({
   if (notifications.length === 0) return null
 
   return (
-    <div className="mb-3 overflow-hidden rounded-sm border-2 border-accent bg-accent-light">
+    <div className="mb-3 overflow-hidden rounded-sm border-2 border-accent bg-accent-light" data-onboarding="admin-notifications">
       <div className="flex items-center justify-between gap-2 border-b border-accent/25 px-3 py-1">
         <div className="flex min-w-0 items-center gap-1.5">
           <Bell className="h-4 w-4 shrink-0 text-accent" />

@@ -22,7 +22,7 @@ export function PortalCurrentContracts({
   emptyDescription = "Your designer is preparing your agreement. Once it's sent, it will appear here right away.",
 }: PortalCurrentContractsProps) {
   return (
-    <section>
+    <section data-onboarding="portal-contracts">
       <h2 className="label-caps mb-3 flex items-center gap-2">
         <FileText className="h-4 w-4" />
         Current Contracts

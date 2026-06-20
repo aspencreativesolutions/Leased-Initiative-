@@ -173,15 +173,17 @@
   }
 
   .summary-stat-icon {
-    border-color: var(--dashboard-stat-icon-border);
     background-color: var(--dashboard-stat-icon-bg);
     color: var(--dashboard-stat-icon-fg);
   }
 
   .summary-stat-icon--active {
-    border-color: var(--dashboard-stat-icon-active-border);
     background-color: var(--dashboard-stat-icon-active-bg);
     color: var(--dashboard-stat-icon-active-fg);
+  }
+
+  .table-remove-button:hover {
+    color: var(--table-remove-hover);
   }
 
   [data-theme='neon'] .contract-step--idle {
@@ -231,25 +233,31 @@
   @keyframes active-live-breathe {
     0%,
     100% {
-      border-color: var(--ink);
-      background-color: var(--surface);
+      border-color: var(--deposit-border);
+      background-color: var(--deposit-bg);
+      color: var(--deposit-fg);
       box-shadow:
-        0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent),
-        0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+        0 0 0 0 color-mix(in srgb, var(--deposit) 0%, transparent),
+        0 0 0 0 color-mix(in srgb, var(--deposit) 0%, transparent);
     }
 
     50% {
-      border-color: color-mix(in srgb, var(--brand) 60%, var(--ink));
-      background-color: color-mix(in srgb, var(--brand) 10%, var(--surface));
+      border-color: var(--deposit);
+      background-color: color-mix(in srgb, var(--deposit) 14%, var(--deposit-bg));
+      color: var(--deposit-fg);
       box-shadow:
-        0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent),
-        0 0 0 5px color-mix(in srgb, var(--brand) 12%, transparent);
+        0 0 0 1px color-mix(in srgb, var(--deposit) 30%, transparent),
+        0 0 0 5px color-mix(in srgb, var(--deposit) 14%, transparent);
     }
   }
 
   .active-live-tag {
     backface-visibility: hidden;
-    will-change: box-shadow, border-color, background-color;
+    will-change: box-shadow, border-color, background-color, color;
+  }
+
+  [data-theme='neon'] .active-live-tag {
+    text-shadow: var(--deposit-text-glow);
   }
 
   @media (prefers-reduced-motion: no-preference) {

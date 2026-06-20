@@ -1,19 +1,21 @@
 import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, CalendarClock, LogOut, ExternalLink, UserCircle } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useDashboardNavActionsOptional } from '@/context/DashboardNavActionsContext'
+import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
 import { AppStyleButton } from '@/components/settings/AppStyleButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/users', label: 'Users', icon: UserPlus },
-  { to: '/clients', label: 'Clients', icon: Users },
-  { to: '/contracts', label: 'Contracts', icon: FileText },
-  { to: '/calendar', label: 'Calendar', icon: Calendar },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
+  { to: '/users', label: 'Users', icon: UserPlus, onboarding: 'admin-users' },
+  { to: '/clients', label: 'Clients', icon: Users, onboarding: 'admin-clients' },
+  { to: '/contracts', label: 'Contracts', icon: FileText, onboarding: 'admin-contracts' },
+  { to: '/calendar', label: 'Calendar', icon: Calendar, onboarding: 'admin-calendar' },
   { to: '/scheduler', label: 'Scheduler', icon: CalendarClock },
   { to: '/profile', label: 'Profile', icon: UserCircle },
-  { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/settings', label: 'Settings', icon: Settings, onboarding: 'admin-settings' },
 ]
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -24,8 +26,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
   )
 
-export function Navbar() {
+export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout } = useAuth()
+  const dashboardActions = useDashboardNavActionsOptional()?.actions
 
   return (
     <>
@@ -57,6 +60,7 @@ export function Navbar() {
               Portal
             </Link>
             <AppStyleButton />
+            <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
             {user && (
               <NavLink
                 to="/profile"
@@ -88,22 +92,30 @@ export function Navbar() {
       </div>
 
       <nav
-        className="sticky top-0 z-50 grid w-full max-w-full grid-cols-8 items-stretch border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex md:justify-start md:overflow-x-auto md:px-6 lg:px-10 xl:px-12 [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden"
+        className="sticky top-0 z-50 flex w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex-row md:items-stretch md:justify-between md:px-6 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={navLinkClass}
-            title={label}
-            aria-label={label}
-          >
-            <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
-            <span className="nav-link-label hidden md:inline">{label}</span>
-          </NavLink>
-        ))}
+        <div className="grid w-full grid-cols-8 items-stretch md:flex md:min-w-0 md:flex-1 md:justify-start md:overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
+          {links.map(({ to, label, icon: Icon, onboarding }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              data-onboarding={onboarding}
+              className={navLinkClass}
+              title={label}
+              aria-label={label}
+            >
+              <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
+              <span className="nav-link-label hidden md:inline">{label}</span>
+            </NavLink>
+          ))}
+        </div>
+        {dashboardActions && (
+          <div className="flex items-center justify-end gap-1.5 border-t border-nav-border px-3 py-2 sm:gap-2 md:border-l md:border-t-0 md:px-4 md:py-0 md:shrink-0">
+            {dashboardActions}
+          </div>
+        )}
       </nav>
     </>
   )

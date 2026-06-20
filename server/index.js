@@ -38,6 +38,7 @@ import { ensureSamplePortalUsers } from './lib/samplePortalUsers.js'
 import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
 import { applyPaymentToStore } from './lib/payments.js'
 import { isEmailConfigured, verifySmtpConnection } from './lib/email.js'
+import { startAutomationScheduler } from './lib/clientAutomation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.join(__dirname, '..', '.env') })
@@ -313,6 +314,7 @@ async function bootstrapSamplePortalUsers() {
 
 app.listen(PORT, async () => {
   await bootstrapSamplePortalUsers()
+  startAutomationScheduler()
   console.log(`Client Craft API → http://localhost:${PORT}`)
   console.log(
     `PayPal mode: ${MODE}`,

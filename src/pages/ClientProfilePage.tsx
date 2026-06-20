@@ -30,6 +30,11 @@ import {
 import { PaymentDetailsCard } from '@/components/clients/ContractPaymentSummary'
 import { ProjectTimeline } from '@/components/clients/ProjectTimeline'
 import { ProjectFilesSection } from '@/components/files/ProjectFilesSection'
+import { ProjectWorkspaceRow } from '@/components/project/ProjectWorkspaceRow'
+import {
+  normalizeCompletedChecklistItems,
+  toggleChecklistItem,
+} from '@/lib/projectChecklist'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { DeleteContractModal } from '@/components/contracts/DeleteContractModal'
 import { Modal } from '@/components/ui/Modal'
@@ -37,6 +42,7 @@ import { Input, Select, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import {
   canViewClientContract,
+  getClientServiceTier,
   getContractActionLabel,
   isProjectActive,
 } from '@/lib/clientUtils'
@@ -105,6 +111,32 @@ export function ClientProfilePage() {
     window.open(`mailto:${client.email}`, '_blank')
   }
 
+  const projectDetailsCard = (
+    <Card className="h-fit lg:sticky lg:top-24">
+      <CardHeader title="Project Details" />
+      <dl className="space-y-3 text-sm">
+        <div>
+          <dt className="text-stone-500">Project Type</dt>
+          <dd className="font-medium text-stone-800">{client.projectType}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">Project Name</dt>
+          <dd className="font-medium text-stone-800">{client.projectName}</dd>
+        </div>
+        {client.projectDescription && (
+          <div>
+            <dt className="text-stone-500">Description</dt>
+            <dd className="text-stone-700">{client.projectDescription}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-stone-500">Next Follow-up</dt>
+          <dd className="font-medium text-stone-800">{formatDate(client.followUpDate)}</dd>
+        </div>
+      </dl>
+    </Card>
+  )
+
   return (
     <div className="w-full min-w-0">
       <Link
@@ -115,93 +147,117 @@ export function ClientProfilePage() {
         Back to clients
       </Link>
 
-      <PageHeader
-        title={
-          <span
-            className="inline-flex items-center gap-2"
-            title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
-          >
-            {client.name}
-            <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
-          </span>
-        }
-        subtitle={client.businessName}
-        action={
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className={profileActionIconClass} />
-              Edit Client
-            </Button>
-            <Button
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={() => navigate(`/clients/${client.id}/contract`)}
-            >
-              <FileText className={profileActionIconClass} />
-              {getContractActionLabel(client.contractStatus)}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={handleSendEmail}
-            >
-              <Mail className={profileActionIconClass} />
-              Send Email
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={() => setNoteQuickOpen(true)}
-            >
-              <StickyNote className={profileActionIconClass} />
-              Add Note
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={handleFollowUpComplete}
-            >
-              <CheckCircle className={profileActionIconClass} />
-              Mark Follow-Up Complete
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              className={profileActionButtonClass}
-              onClick={() => setRemoveOpen(true)}
-            >
-              <UserMinus className={profileActionIconClass} />
-              Remove Client
-            </Button>
-          </div>
-        }
-      />
+      <div className="mb-4 grid w-full min-w-0 gap-4 sm:mb-6 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
+        <div className="min-w-0">
+          <PageHeader
+            title={
+              <span
+                className="inline-flex items-center gap-2"
+                title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
+              >
+                {client.name}
+                <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
+              </span>
+            }
+            subtitle={client.businessName}
+            action={
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={() => setEditOpen(true)}
+                >
+                  <Pencil className={profileActionIconClass} />
+                  Edit Client
+                </Button>
+                <Button
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={() => navigate(`/clients/${client.id}/contract`)}
+                >
+                  <FileText className={profileActionIconClass} />
+                  {getContractActionLabel(client.contractStatus)}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={handleSendEmail}
+                >
+                  <Mail className={profileActionIconClass} />
+                  Send Email
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={() => setNoteQuickOpen(true)}
+                >
+                  <StickyNote className={profileActionIconClass} />
+                  Add Note
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={handleFollowUpComplete}
+                >
+                  <CheckCircle className={profileActionIconClass} />
+                  Mark Follow-Up Complete
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  className={profileActionButtonClass}
+                  onClick={() => setRemoveOpen(true)}
+                >
+                  <UserMinus className={profileActionIconClass} />
+                  Remove Client
+                </Button>
+              </div>
+            }
+          />
 
-      <ClientStatusOverview
-        className="mb-4 sm:mb-6"
-        projectStatus={client.projectStatus}
-        contractStatus={client.contractStatus}
-        paymentStatus={client.paymentStatus}
-        projectStarted={isProjectActive(client)}
-        showProgress={false}
-      />
+          <ClientStatusOverview
+            className="mt-4 sm:mt-6"
+            projectStatus={client.projectStatus}
+            contractStatus={client.contractStatus}
+            paymentStatus={client.paymentStatus}
+            projectStarted={isProjectActive(client)}
+            showProgress={false}
+          />
+        </div>
+
+        {projectDetailsCard}
+      </div>
 
       <ProjectTimeline
         client={client}
         aside={<ClientContactInfo client={client} compact />}
       />
 
-      <div className="mb-4 sm:mb-6">
-        <ProjectFilesSection clientId={client.id} projectName={client.projectName} />
-      </div>
+      <ProjectWorkspaceRow
+        className="mb-4 sm:mb-6"
+        serviceTier={getClientServiceTier(client, contract)}
+        completedItemIds={normalizeCompletedChecklistItems(
+          client.projectChecklistCompleted,
+          getClientServiceTier(client, contract)
+        )}
+        onChecklistToggle={(itemId, completed) => {
+          updateClient(client.id, {
+            projectChecklistCompleted: toggleChecklistItem(
+              client.projectChecklistCompleted,
+              itemId,
+              completed,
+              getClientServiceTier(client, contract)
+            ),
+          })
+        }}
+        files={
+          <ProjectFilesSection clientId={client.id} projectName={client.projectName} />
+        }
+      />
 
       <section id="deposit-invoice" className="mb-4 scroll-mt-24 space-y-4 sm:mb-6 sm:space-y-6">
         {!client.isOfficialClient && <MarkOfficialClientCard client={client} />}
@@ -272,31 +328,7 @@ export function ClientProfilePage() {
       </section>
 
       <div className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Project Details" />
-          <dl className="space-y-3 text-sm">
-            <div>
-              <dt className="text-stone-500">Project Type</dt>
-              <dd className="font-medium text-stone-800">{client.projectType}</dd>
-            </div>
-            <div>
-              <dt className="text-stone-500">Project Name</dt>
-              <dd className="font-medium text-stone-800">{client.projectName}</dd>
-            </div>
-            {client.projectDescription && (
-              <div>
-                <dt className="text-stone-500">Description</dt>
-                <dd className="text-stone-700">{client.projectDescription}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-stone-500">Next Follow-up</dt>
-              <dd className="font-medium text-stone-800">{formatDate(client.followUpDate)}</dd>
-            </div>
-          </dl>
-        </Card>
-
-        <Card>
+        <Card className="lg:max-w-xl">
           <CardHeader title="Important Dates & Deadlines" />
           {client.deadlines.length === 0 && !client.followUpDate ? (
             <p className="text-sm text-stone-500">No deadlines set.</p>

@@ -65,7 +65,7 @@ export function UpcomingDeadlines({ clients }: { clients: Client[] }) {
       {deadlines.length === 0 ? (
         <p className="text-sm text-ink-muted">No upcoming deadlines. You&apos;re all caught up.</p>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 xl:gap-4">
+        <div className="flex flex-col gap-2 sm:gap-3">
           {deadlines.map((item) => (
             <DeadlineGalleryCard key={item.id} item={item} />
           ))}

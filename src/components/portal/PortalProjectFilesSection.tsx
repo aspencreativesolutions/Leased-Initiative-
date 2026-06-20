@@ -220,7 +220,7 @@ export function PortalProjectFilesSection({
 
   if (!enabled) {
     return (
-      <section className={cn('mt-8', className)}>
+      <section className={cn(className)} data-onboarding="portal-files">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="label-caps flex items-center gap-2">
             <FolderUp className="h-4 w-4" />
@@ -248,7 +248,7 @@ export function PortalProjectFilesSection({
   }
 
   return (
-    <section className={cn('mt-8', className)}>
+    <section className={cn(className)} data-onboarding="portal-files">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="label-caps flex items-center gap-2">
           <FolderUp className="h-4 w-4" />

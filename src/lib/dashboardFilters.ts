@@ -41,8 +41,16 @@ export function filterClientsForDashboard(
   return clients.filter((client) => matchesDashboardFilter(client, filter))
 }
 
-export function dashboardFilterShowsClients(filter: DashboardFilter | null): boolean {
-  return filter === null || filter !== 'due'
+export function dashboardFilterShowsClients(_filter: DashboardFilter | null): boolean {
+  return true
+}
+
+export function countMatchingDashboardFilter(
+  clients: Client[],
+  filter: DashboardFilter | null
+): number {
+  if (!filter) return clients.length
+  return clients.filter((client) => matchesDashboardFilter(client, filter)).length
 }
 
 export function dashboardFilterShowsDeadlines(filter: DashboardFilter | null): boolean {

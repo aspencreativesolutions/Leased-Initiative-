@@ -144,6 +144,8 @@ export interface User {
   portalThemeId?: string
   emailVerified?: boolean
   emailVerifiedAt?: string
+  /** Guided tour progress for client or admin onboarding */
+  onboardingProgress?: OnboardingProgress
   createdAt: string
 }
 
@@ -192,6 +194,8 @@ export interface Client {
   projectStartedAt?: string
   /** Admin-skipped timeline steps (step id → skip timestamp) */
   timelineStepSkips?: Record<string, TimelineStepSkip>
+  /** Completed project checklist item ids for the client's current tier */
+  projectChecklistCompleted?: string[]
   createdAt: string
 }
 
@@ -381,6 +385,8 @@ export interface PortalDashboard {
     contractStatus: ContractStatus
     paymentStatus?: PaymentStatus
     portalContractStatus: PortalContractClientStatus | null
+    serviceTier: ServiceTier
+    projectChecklistCompleted?: string[]
   } | null
   contracts: PortalContractSummary[]
   invoice?: PortalInvoice | null
@@ -400,6 +406,43 @@ export interface ProfileReminder {
   createdAt: string
 }
 
+export interface OnboardingProgress {
+  completedSteps: string[]
+  completedAt?: string
+  dismissedAt?: string
+}
+
+export type ClientNotificationType =
+  | 'registration_accepted'
+  | 'contract_sent'
+  | 'invoice_sent'
+  | 'final_invoice_sent'
+  | 'project_started'
+  | 'status_update'
+  | 'deadline_reminder'
+  | 'follow_up'
+
+export interface ClientNotification {
+  id: string
+  userId: string
+  clientId?: string
+  type: ClientNotificationType
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  actionUrl?: string
+  relatedId?: string
+}
+
+export interface AutomationSettings {
+  enabled: boolean
+  deadlineReminderDays: number
+  sendEmailReminders: boolean
+  projectStatusUpdates: boolean
+  followUpReminders: boolean
+}
+
 export interface BusinessSettings {
   businessName: string
   ownerName: string
@@ -411,6 +454,7 @@ export interface BusinessSettings {
   defaultRevisionLimit: string
   defaultContractFooter: string
   profileReminders?: ProfileReminder[]
+  automation?: AutomationSettings
 }
 
 export interface EmailDraft {

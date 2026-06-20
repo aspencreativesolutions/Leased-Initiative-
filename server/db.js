@@ -23,6 +23,7 @@ const DEFAULT_STORE = {
   },
   projectFiles: [],
   adminNotifications: [],
+  clientNotifications: [],
   adminAuditLog: [],
 }
 

@@ -1,19 +1,30 @@
 import { useState } from 'react'
 import { Save, Building2 } from 'lucide-react'
 import { ThemePicker } from '@/components/settings/ThemePicker'
+import { AutomationSettingsSection } from '@/components/settings/AutomationSettingsSection'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Input, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
+import { defaultSettings } from '@/data/seed'
+import type { AutomationSettings } from '@/types'
 
 export function SettingsPage() {
   const { settings, updateSettings } = useApp()
   const [form, setForm] = useState(settings)
   const [saved, setSaved] = useState(false)
 
+  const automation: AutomationSettings =
+    form.automation ?? defaultSettings.automation!
+
   const update = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }))
+    setSaved(false)
+  }
+
+  const updateAutomation = (value: AutomationSettings) => {
+    setForm((f) => ({ ...f, automation: value }))
     setSaved(false)
   }
 
@@ -100,6 +111,8 @@ export function SettingsPage() {
               />
             </div>
           </Card>
+
+          <AutomationSettingsSection value={automation} onChange={updateAutomation} />
 
           <div className="flex items-center gap-4">
             <Button type="submit">

@@ -22,11 +22,12 @@ export function ServiceTierBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center uppercase tracking-caps',
+        'inline-flex items-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] uppercase tracking-caps',
         tiny
-          ? 'rounded-sm border px-1 py-0 text-[7px] font-bold leading-tight'
-          : 'rounded-sm border-2',
-        !tiny && (small ? 'px-1.5 py-0.5 text-[9px] font-bold' : 'px-3 py-1 text-xs font-extrabold'),
+          ? 'px-1 py-0 text-[7px] font-bold leading-tight'
+          : small
+            ? 'px-1.5 py-0.5 text-[9px] font-bold'
+            : 'px-3 py-1 text-xs font-extrabold',
         styles[tier],
         isTopServiceTier(tier) && tiny && 'border-surface-paper/30',
         className

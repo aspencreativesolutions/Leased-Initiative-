@@ -31,7 +31,7 @@ export function TimelineSkipNotesFeed() {
   if (skipNotes.length === 0) return null
 
   return (
-    <Card>
+    <Card className="p-3 sm:p-5">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Check, File, Send, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { statusBadgeTableClass } from '@/components/ui/statusBadgeStyles'
 import type { ContractStatus, PaymentStatus, ProjectStatus } from '@/types'
@@ -65,6 +65,16 @@ export function StatusBadge({
     (type === 'payment' ? paymentLabels[status as PaymentStatus] : undefined) ??
     status
   const showOverdueIcon = type === 'payment' && status === 'Overdue'
+  const showUnpaidIcon = type === 'payment' && status === 'Unpaid'
+  const showDepositHalfIndicator = type === 'payment' && status === 'Deposit Paid'
+  const showContractSignedIcon = type === 'contract' && status === 'Signed'
+  const showContractSentIcon =
+    (type === 'contract' && status === 'Sent') ||
+    (type === 'project' && status === 'Contract Sent')
+  const showProjectFileSharingIcon = type === 'project' && status === 'In Progress'
+  const badgeTitle = showDepositHalfIndicator
+    ? `${displayLabel} — halfway through payment (½ paid)`
+    : String(displayLabel)
   const styles =
     type === 'project'
       ? projectStyles[status as ProjectStatus]
@@ -89,12 +99,32 @@ export function StatusBadge({
           'inline-flex items-center gap-0.5',
           tabular && 'min-w-0 max-w-full justify-center truncate'
         )}
-        title={String(displayLabel)}
+        title={badgeTitle}
       >
         {showOverdueIcon && (
           <AlertTriangle className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
         )}
+        {showProjectFileSharingIcon && (
+          <File className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+        )}
         <span className={tabular ? 'truncate' : undefined}>{displayLabel}</span>
+        {showUnpaidIcon && (
+          <X className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
+        )}
+        {showDepositHalfIndicator && (
+          <span
+            className="shrink-0 text-[11px] font-extrabold leading-none tabular-nums"
+            aria-hidden
+          >
+            ½
+          </span>
+        )}
+        {showContractSignedIcon && (
+          <Check className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
+        )}
+        {showContractSentIcon && (
+          <Send className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+        )}
       </span>
     </span>
   )

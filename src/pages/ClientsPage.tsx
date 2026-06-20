@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/FormField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
-import { countOfficialClients, countPendingClients, getClientServiceTier } from '@/lib/clientUtils'
+import { getClientServiceTier } from '@/lib/clientUtils'
 import { SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ServiceTier } from '@/types'
 
@@ -31,9 +31,6 @@ export function ClientsPage() {
   const [tierFilter, setTierFilter] = useState<ServiceTier | ''>('')
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'upcoming' | 'overdue'>('all')
   const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'clients' | 'pending'>('all')
-
-  const officialCount = countOfficialClients(clients)
-  const pendingCount = countPendingClients(clients)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -95,16 +92,6 @@ export function ClientsPage() {
             <p className="mt-0.5 text-sm text-ink-muted">
               Official clients and pending prospects in your pipeline.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setAccountsOpen(true)}>
-                <UserCog className="h-4 w-4" />
-                Client Accounts
-              </Button>
-              <Button onClick={() => setAddOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Add Client
-              </Button>
-            </div>
           </div>
 
           <Card className="w-full shrink-0 p-3 lg:w-auto" padding="none">
@@ -202,20 +189,21 @@ export function ClientsPage() {
               ? 'Add your first client to get started.'
               : 'Try adjusting your search or filters.'
           }
-          action={
-            clients.length === 0 ? (
-              <Button onClick={() => setAddOpen(true)}>Add Client</Button>
-            ) : undefined
-          }
         />
       ) : (
         <ClientTable clients={filtered} />
       )}
 
-      <p className="mt-4 text-sm text-ink-muted">
-        Showing {filtered.length} of {clients.length} in roster ({officialCount}{' '}
-        {officialCount === 1 ? 'client' : 'clients'}, {pendingCount} pending)
-      </p>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setAccountsOpen(true)}>
+          <UserCog className="h-4 w-4" />
+          Client Accounts
+        </Button>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Add Client
+        </Button>
+      </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
       <ClientAccountsModal

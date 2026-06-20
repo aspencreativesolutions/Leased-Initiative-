@@ -24,6 +24,13 @@ export const defaultSettings: BusinessSettings = {
   defaultContractFooter:
     'This agreement constitutes the entire understanding between the parties. Any modifications must be in writing and signed by both parties.',
   profileReminders: defaultProfileReminders,
+  automation: {
+    enabled: true,
+    deadlineReminderDays: 3,
+    sendEmailReminders: true,
+    projectStatusUpdates: true,
+    followUpReminders: true,
+  },
 }
 
 function daysFromNow(days: number): string {

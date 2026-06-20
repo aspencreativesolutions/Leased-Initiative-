@@ -5,12 +5,16 @@ import { PortalCurrentContracts } from '@/components/portal/PortalCurrentContrac
 import { PortalInvoiceSection } from '@/components/portal/PortalInvoiceSection'
 import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
+import { ProjectWorkspaceRow } from '@/components/project/ProjectWorkspaceRow'
+import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
+import { normalizeCompletedChecklistItems } from '@/lib/projectChecklist'
+import { togglePortalChecklistItem } from '@/lib/projectChecklistApi'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
 import { formatDate } from '@/lib/utils'
 
 export function PortalDashboardPage() {
-  const { data, loading, error } = usePortalDashboard()
+  const { data, loading, error, refresh } = usePortalDashboard()
 
   if (loading) {
     return <div className="py-16 text-center text-ink-muted">Loading your dashboard…</div>
@@ -41,6 +45,17 @@ export function PortalDashboardPage() {
     )
   }
 
+  const serviceTier = data.client?.serviceTier ?? DEFAULT_SERVICE_TIER
+  const completedItemIds = normalizeCompletedChecklistItems(
+    data.client?.projectChecklistCompleted,
+    serviceTier
+  )
+
+  const handleChecklistToggle = async (itemId: string, completed: boolean) => {
+    await togglePortalChecklistItem(itemId, completed)
+    await refresh()
+  }
+
   return (
     <div>
       <PageHeader
@@ -65,25 +80,36 @@ export function PortalDashboardPage() {
       />
 
       {data.client && (
-        <ClientStatusOverview
-          className="mb-6"
-          mode="portal"
-          projectStatus={data.client.projectStatus}
-          contractStatus={data.client.contractStatus}
-          paymentStatus={data.client.paymentStatus}
-          remainingBalance={data.remainingBalance}
-          projectStarted={data.projectStarted}
-          showProgress={false}
-        />
+        <div data-onboarding="portal-status">
+          <ClientStatusOverview
+            className="mb-6"
+            mode="portal"
+            projectStatus={data.client.projectStatus}
+            contractStatus={data.client.contractStatus}
+            paymentStatus={data.client.paymentStatus}
+            remainingBalance={data.remainingBalance}
+            projectStarted={data.projectStarted}
+            showProgress={false}
+          />
+        </div>
       )}
 
       {data.projectStarted && (
-        <PortalProjectFilesSection
+        <ProjectWorkspaceRow
           className="mb-8 mt-0"
-          projectName={data.client?.projectName ?? 'your project'}
-          enabled
-          projectStarted
-          supportContact={data.supportContact}
+          variant="portal"
+          serviceTier={serviceTier}
+          completedItemIds={completedItemIds}
+          onChecklistToggle={handleChecklistToggle}
+          files={
+            <PortalProjectFilesSection
+              className="mt-0"
+              projectName={data.client?.projectName ?? 'your project'}
+              enabled
+              projectStarted
+              supportContact={data.supportContact}
+            />
+          }
         />
       )}
 
@@ -102,11 +128,20 @@ export function PortalDashboardPage() {
       <PortalInvoiceSection invoice={data.finalInvoice} title="Final Invoice" />
 
       {!data.projectStarted && (
-        <PortalProjectFilesSection
-          projectName={data.client?.projectName ?? 'your project'}
-          enabled={false}
-          projectStarted={false}
-          supportContact={data.supportContact}
+        <ProjectWorkspaceRow
+          variant="portal"
+          serviceTier={serviceTier}
+          completedItemIds={completedItemIds}
+          onChecklistToggle={handleChecklistToggle}
+          files={
+            <PortalProjectFilesSection
+              className="mt-0"
+              projectName={data.client?.projectName ?? 'your project'}
+              enabled={false}
+              projectStarted={false}
+              supportContact={data.supportContact}
+            />
+          }
         />
       )}
     </div>

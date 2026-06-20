@@ -104,3 +104,47 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+export async function sendClientReminderEmail({ to, name, title, message, portalUrl }) {
+  const fromAddress =
+    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@clientcraft.app'
+  const fromName = process.env.MAIL_FROM_NAME || 'Aspen Creative Solutions'
+  const subject = `${title} — Client Craft`
+
+  const text = [
+    `Hi ${name},`,
+    '',
+    message,
+    '',
+    `View your portal: ${portalUrl}`,
+    '',
+    'This is an automated reminder from your project portal.',
+  ].join('\n')
+
+  const html = `
+    <p>Hi ${escapeHtml(name)},</p>
+    <p>${escapeHtml(message)}</p>
+    <p style="margin:24px 0">
+      <a href="${portalUrl}" style="display:inline-block;padding:12px 20px;background:#1e4d6b;color:#ffffff;text-decoration:none;font-weight:600;border-radius:4px">
+        Open your portal
+      </a>
+    </p>
+    <p style="font-size:13px;color:#777">This is an automated reminder from your project portal.</p>
+  `
+
+  const transport = getTransport()
+  if (!transport) return { sent: false }
+
+  await transport.sendMail({
+    from: `"${fromName}" <${fromAddress}>`,
+    to,
+    subject,
+    text,
+    html,
+  })
+  return { sent: true }
+}
+
+export async function sendClientUpdateEmail({ to, name, title, message, portalUrl }) {
+  return sendClientReminderEmail({ to, name, title, message, portalUrl })
+}

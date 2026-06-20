@@ -1,15 +1,26 @@
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { FileText, GitBranch, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
+import { PortalNotificationBanner } from '@/components/portal/PortalNotificationBanner'
+import {
+  OnboardingRestartButton,
+  OnboardingTour,
+} from '@/components/onboarding/OnboardingTour'
 import { Button } from '@/components/ui/Button'
+import { useClientNotifications } from '@/hooks/useClientNotifications'
+import { usePortalDashboard } from '@/hooks/usePortalDashboard'
 import { cn } from '@/lib/utils'
 
-export function PortalNavbar() {
+export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout } = useAuth()
 
   return (
-    <header className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
+    <header
+      data-onboarding="portal-nav"
+      className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg"
+    >
       <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10">
         <NavLink to="/portal" className="group flex min-w-0 items-center gap-2.5 shrink sm:gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
@@ -41,6 +52,7 @@ export function PortalNavbar() {
           </NavLink>
           <NavLink
             to="/portal/timeline"
+            data-onboarding="portal-timeline-nav"
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-2 text-[11px] font-semibold transition-colors',
@@ -52,6 +64,7 @@ export function PortalNavbar() {
             <span className="hidden sm:inline">Timeline</span>
           </NavLink>
           <PortalStyleButton />
+          <OnboardingRestartButton role="client" onStart={() => onStartTour?.()} />
           {user && (
             <NavLink
               to="/portal/profile"
@@ -85,17 +98,44 @@ export function PortalNavbar() {
 }
 
 export function PortalLayout() {
+  const { data } = usePortalDashboard()
+  const { notifications, refresh } = useClientNotifications()
+  const [tourStart, setTourStart] = useState(false)
+
+  const onboardingContext = {
+    linked: data?.linked,
+    projectStarted: data?.projectStarted,
+    hasContracts: (data?.contracts?.length ?? 0) > 0,
+    hasInvoice: Boolean(data?.invoice?.sentToPortalAt),
+  }
+
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-surface">
-      <PortalNavbar />
+      <PortalNavbar onStartTour={() => setTourStart(true)} />
       <main className="w-full px-4 pt-8 pb-12 sm:px-6 sm:pt-8 sm:pb-14 lg:px-10 xl:px-12">
         <div className="mx-auto w-full min-w-0">
+          {notifications.length > 0 ? (
+            <PortalNotificationBanner notifications={notifications} onDismiss={refresh} />
+          ) : (
+            <div
+              data-onboarding="portal-notifications"
+              className="mb-6 rounded-sm border border-dashed border-line/80 px-3 py-2 text-xs text-ink-faint"
+            >
+              Project updates and reminders will appear here automatically.
+            </div>
+          )}
           <Outlet />
         </div>
       </main>
       <footer className="border-t border-line py-6 text-center text-xs text-ink-faint">
         Need help? Contact your designer for assistance with your account.
       </footer>
+      <OnboardingTour
+        role="client"
+        context={onboardingContext}
+        forceStart={tourStart}
+        onForceStartHandled={() => setTourStart(false)}
+      />
     </div>
   )
 }

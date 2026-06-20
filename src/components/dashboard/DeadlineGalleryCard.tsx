@@ -92,7 +92,7 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
             >
               {deadline.label}
             </p>
-            <ServiceTierBadge tier={serviceTier} small className="hidden shrink-0 sm:inline-flex" />
+            <ServiceTierBadge tier={serviceTier} tiny className="hidden shrink-0 sm:inline-flex" />
           </div>
 
           <p
@@ -108,13 +108,13 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
             {deadline.type === 'payment' ? (
               <Link
                 to={`/clients/${item.clientId}#deposit-invoice`}
-                className="rounded-sm border border-line px-1.5 py-px text-ink-faint transition-colors hover:border-brand hover:text-brand"
+                className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line px-1.5 py-px text-ink-faint transition-colors hover:border-brand hover:text-brand"
                 title="View invoice on client profile"
               >
                 {typeLabels[deadline.type]}
               </Link>
             ) : (
-              <span className="rounded-sm border border-line px-1.5 py-px text-ink-faint">
+              <span className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line px-1.5 py-px text-ink-faint">
                 {typeLabels[deadline.type]}
               </span>
             )}
@@ -132,7 +132,7 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <ServiceTierBadge tier={serviceTier} small className="sm:hidden" />
+          <ServiceTierBadge tier={serviceTier} tiny className="sm:hidden" />
           <Button
             type="button"
             variant="outline"

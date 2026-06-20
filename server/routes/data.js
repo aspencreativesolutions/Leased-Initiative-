@@ -7,6 +7,8 @@ import {
   mergeContractsList,
 } from '../lib/contractMerge.js'
 import { generateId } from '../lib/notifications.js'
+import { notifyClientByClientId } from '../lib/clientNotifications.js'
+import { notifyProjectStatusChange } from '../lib/clientAutomation.js'
 import {
   canStartProject,
   ensureOfficialWhenProjectActive,
@@ -51,6 +53,7 @@ const CLIENT_PRESERVE_FIELDS = [
   'finalInvoice',
   'officialClientSince',
   'timelineStepSkips',
+  'projectChecklistCompleted',
 ]
 
 router.use(authMiddleware, requireRole('admin'))
@@ -196,36 +199,54 @@ router.post('/clients/:clientId/start-project', (req, res) => {
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    clients: s.clients.map((c) => {
-      if (c.id !== clientId) return c
-      return promoteToOfficialClient(
-        {
-          ...c,
-          projectStatus: 'In Progress',
-          paymentStatus:
-            c.paymentStatus === 'Unpaid' && c.timelineStepSkips?.pay_link_clicked
-              ? 'Deposit Paid'
-              : c.paymentStatus === 'Pay Link Clicked'
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) => {
+        if (c.id !== clientId) return c
+        return promoteToOfficialClient(
+          {
+            ...c,
+            projectStatus: 'In Progress',
+            paymentStatus:
+              c.paymentStatus === 'Unpaid' && c.timelineStepSkips?.pay_link_clicked
                 ? 'Deposit Paid'
-                : c.paymentStatus,
-          depositPaymentConfirmedAt: c.depositPaymentConfirmedAt ?? now,
-          projectStartedAt: now,
-          notes: [
-            ...(c.notes ?? []),
-            {
-              id: generateId(),
-              text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
-              category: 'Project',
-              createdAt: now,
-            },
-          ],
-        },
-        now
+                : c.paymentStatus === 'Pay Link Clicked'
+                  ? 'Deposit Paid'
+                  : c.paymentStatus,
+            depositPaymentConfirmedAt: c.depositPaymentConfirmedAt ?? now,
+            projectStartedAt: now,
+            notes: [
+              ...(c.notes ?? []),
+              {
+                id: generateId(),
+                text: `Project started on ${new Date(now).toLocaleDateString()}. Client portal file sharing is now active.`,
+                category: 'Project',
+                createdAt: now,
+              },
+            ],
+          },
+          now
+        )
+      }),
+    }
+    next = notifyClientByClientId(next, clientId, {
+      type: 'project_started',
+      title: 'Project started',
+      message: `Your project "${client.projectName}" is now active. You can upload files and track progress in your portal.`,
+      actionUrl: '/portal',
+      relatedId: `project-started-${clientId}`,
+    })
+    const updatedClient = next.clients.find((c) => c.id === clientId)
+    if (updatedClient) {
+      next = notifyProjectStatusChange(
+        next,
+        updatedClient,
+        `Your project status is now In Progress. File sharing is unlocked on your dashboard.`
       )
-    }),
-  }))
+    }
+    return next
+  })
 
   res.json({ ok: true, projectStartedAt: now })
 })
@@ -608,6 +629,47 @@ router.post('/notifications/read', (req, res) => {
   res.json({ ok: true })
 })
 
+/** Admin onboarding tour progress */
+router.get('/onboarding', (req, res) => {
+  const store = readStore()
+  const user = store.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'User not found' })
+  res.json({ progress: user.onboardingProgress ?? { completedSteps: [] } })
+})
+
+router.patch('/onboarding', (req, res) => {
+  const { stepId, complete, dismiss, reset } = req.body ?? {}
+  let updatedUser = null
+
+  updateStore((s) => {
+    const users = s.users.map((u) => {
+      if (u.id !== req.user.id) return u
+      const current = u.onboardingProgress ?? { completedSteps: [] }
+      let next = { ...current }
+
+      if (reset) {
+        next = { completedSteps: [] }
+      } else if (dismiss) {
+        next = {
+          ...current,
+          dismissedAt: new Date().toISOString(),
+          completedAt: current.completedAt ?? new Date().toISOString(),
+        }
+      } else if (complete && stepId) {
+        const steps = new Set(current.completedSteps ?? [])
+        steps.add(stepId)
+        next = { ...current, completedSteps: [...steps] }
+      }
+
+      updatedUser = { ...u, onboardingProgress: next }
+      return updatedUser
+    })
+    return { ...s, users }
+  })
+
+  res.json({ progress: updatedUser?.onboardingProgress ?? { completedSteps: [] } })
+})
+
 /** Accept a portal registration, create client + contract draft, link accounts */
 router.post('/accept-registration/:userId', (req, res) => {
   const { userId } = req.params
@@ -622,18 +684,28 @@ router.post('/accept-registration/:userId', (req, res) => {
   )
   if (existingClient) {
     const contract = store.contracts.find((c) => c.clientId === existingClient.id)
-    updateStore((s) => ({
-      ...s,
-      users: s.users.map((u) =>
-        u.id === userId ? { ...u, clientId: existingClient.id } : u
-      ),
-      clients: s.clients.map((c) =>
-        c.id === existingClient.id ? { ...c, accountUserId: user.id } : c
-      ),
-      adminNotifications: (s.adminNotifications ?? []).map((n) =>
-        n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
-      ),
-    }))
+    updateStore((s) => {
+      let next = {
+        ...s,
+        users: s.users.map((u) =>
+          u.id === userId ? { ...u, clientId: existingClient.id } : u
+        ),
+        clients: s.clients.map((c) =>
+          c.id === existingClient.id ? { ...c, accountUserId: user.id } : c
+        ),
+        adminNotifications: (s.adminNotifications ?? []).map((n) =>
+          n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
+        ),
+      }
+      next = notifyClientByClientId(next, existingClient.id, {
+        type: 'registration_accepted',
+        title: 'Welcome to your portal',
+        message: `Your account is now linked. Check your dashboard for contracts and project updates.`,
+        actionUrl: '/portal',
+        relatedId: `registration-accepted-${userId}`,
+      })
+      return next
+    })
     return res.json({
       client: { ...existingClient, accountUserId: user.id },
       contract: contract ?? null,
@@ -677,15 +749,25 @@ router.post('/accept-registration/:userId', (req, res) => {
 
   const contract = createDraftContract(client, store.settings)
 
-  updateStore((s) => ({
-    ...s,
-    users: s.users.map((u) => (u.id === userId ? { ...u, clientId: client.id } : u)),
-    clients: [...s.clients, client],
-    contracts: [...s.contracts, contract],
-    adminNotifications: (s.adminNotifications ?? []).map((n) =>
-      n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
-    ),
-  }))
+  updateStore((s) => {
+    let next = {
+      ...s,
+      users: s.users.map((u) => (u.id === userId ? { ...u, clientId: client.id } : u)),
+      clients: [...s.clients, client],
+      contracts: [...s.contracts, contract],
+      adminNotifications: (s.adminNotifications ?? []).map((n) =>
+        n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
+      ),
+    }
+    next = notifyClientByClientId(next, client.id, {
+      type: 'registration_accepted',
+      title: 'Welcome to your portal',
+      message: `Your registration has been accepted. Your designer is preparing your contract — it will appear here when ready.`,
+      actionUrl: '/portal',
+      relatedId: `registration-accepted-${userId}`,
+    })
+    return next
+  })
 
   res.status(201).json({ client, contract, linked: true })
 })

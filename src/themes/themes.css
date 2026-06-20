@@ -18,13 +18,14 @@
   --contract-step-complete-bg: var(--deposit-bg);
   --contract-step-complete-fg: var(--deposit-fg);
   --timeline-connector-complete: var(--deposit);
-  --dashboard-stat-icon-bg: var(--ink);
-  --dashboard-stat-icon-border: var(--ink);
-  --dashboard-stat-icon-fg: var(--surface-paper);
-  --dashboard-stat-icon-active-bg: var(--brand);
-  --dashboard-stat-icon-active-border: var(--brand);
+  --dashboard-stat-icon-bg: transparent;
+  --dashboard-stat-icon-border: transparent;
+  --dashboard-stat-icon-fg: var(--ink);
+  --dashboard-stat-icon-active-bg: transparent;
+  --dashboard-stat-icon-active-border: transparent;
   --table-row-chip-height: 1.375rem;
-  --dashboard-stat-icon-active-fg: var(--surface-paper);
+  --dashboard-stat-icon-active-fg: var(--brand);
+  --table-remove-hover: #dc2626;
 }
 
 :root,
@@ -60,6 +61,7 @@
   --deposit-muted: #4a7a60;
   --deposit-bg: #e8f0eb;
   --deposit-border: #b8cfc4;
+  --table-remove-hover: #8b2942;
 }
 
 [data-theme='soft'] {
@@ -94,6 +96,7 @@
   --deposit-muted: #2f7566;
   --deposit-bg: #e6f4f1;
   --deposit-border: #a8ddd4;
+  --table-remove-hover: #e11d48;
 }
 
 [data-theme='mono'] {
@@ -162,6 +165,12 @@
   --deposit-muted: #115e59;
   --deposit-bg: #ecfdf5;
   --deposit-border: #99f6e4;
+  --dashboard-stat-icon-bg: transparent;
+  --dashboard-stat-icon-border: transparent;
+  --dashboard-stat-icon-fg: var(--ink);
+  --dashboard-stat-icon-active-bg: transparent;
+  --dashboard-stat-icon-active-border: transparent;
+  --dashboard-stat-icon-active-fg: var(--brand);
 }
 
 [data-theme='rose'] {
@@ -196,6 +205,7 @@
   --deposit-muted: #4d6458;
   --deposit-bg: #edf3ef;
   --deposit-border: #c5d5cc;
+  --table-remove-hover: #be123c;
 }
 
 [data-theme='forest'] {
@@ -279,6 +289,7 @@
   --contract-step-complete-border: rgb(116 179 132 / 0.45);
   --contract-step-complete-bg: rgb(116 179 132 / 0.12);
   --contract-step-complete-fg: #8cc99a;
+  --table-remove-hover: #fb7185;
 }
 
 [data-theme='citrus'] {
@@ -313,6 +324,7 @@
   --deposit-muted: #4a6b24;
   --deposit-bg: #f0fdf0;
   --deposit-border: #bbf7d0;
+  --table-remove-hover: #c2410c;
 }
 
 [data-theme='vintage'] {
@@ -352,6 +364,7 @@
   --tracking-caps: 0.12em;
   --caps-labels: 1;
   --caps-buttons: 0;
+  --table-remove-hover: #c45c3e;
 }
 
 [data-theme='neon'] {
@@ -407,6 +420,7 @@
   --tracking-caps: 0.14em;
   --caps-labels: 1;
   --caps-buttons: 1;
+  --table-remove-hover: #ff2d6a;
 }
 
 [data-theme='slate'] {
@@ -475,4 +489,5 @@
   --deposit-muted: #556030;
   --deposit-bg: #f0f2e8;
   --deposit-border: #c8d4a8;
+  --table-remove-hover: #b55233;
 }

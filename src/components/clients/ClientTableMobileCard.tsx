@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Play, Loader2, UserMinus } from 'lucide-react'
+import { Play, Loader2, UserMinus, ArrowRight } from 'lucide-react'
 import { ServiceTierBadge } from '@/components/scheduler/ServiceTierBadge'
 import { CompactClientTimeline } from '@/components/clients/CompactClientTimeline'
 import { ClientStatusIcon } from './ClientStatusIcon'
 import { getClientServiceTier } from '@/lib/clientUtils'
 import { cn } from '@/lib/utils'
-import { tableActiveBoxClass, tableControlBoxClass, tableRemoveButtonClass, tableViewLinkClass } from '@/components/clients/tableControlStyles'
+import { tableActiveBoxClass, tableControlBoxClass, tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import type { Client, ContractData } from '@/types'
 
 interface ClientTableMobileCardProps {
@@ -15,6 +15,8 @@ interface ClientTableMobileCardProps {
   canStart: boolean
   started: boolean
   starting: boolean
+  highlighted?: boolean
+  dimmed?: boolean
   onStartProject: () => void
   onRemove: () => void
 }
@@ -36,13 +38,22 @@ export function ClientTableMobileCard({
   canStart,
   started,
   starting,
+  highlighted = false,
+  dimmed = false,
   onStartProject,
   onRemove,
 }: ClientTableMobileCardProps) {
   const serviceTier = getClientServiceTier(client, contract)
 
   return (
-    <article className="border-b border-line px-2.5 py-2.5 last:border-b-0 sm:px-3">
+    <article
+      className={cn(
+        'border-b border-line px-2.5 py-2.5 last:border-b-0 sm:px-3',
+        'transition-[background-color,opacity,box-shadow]',
+        highlighted && 'bg-brand/10 ring-1 ring-inset ring-brand/40',
+        dimmed && 'opacity-40'
+      )}
+    >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -55,20 +66,21 @@ export function ClientTableMobileCard({
             </Link>
             <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
           </div>
-          <p className="truncate text-[11px] leading-snug text-ink-muted">{client.businessName}</p>
-          <p className="truncate text-[11px] leading-snug text-ink-faint">{client.email}</p>
+          <p className="truncate pl-2 text-[11px] leading-snug text-ink-muted">{client.businessName}</p>
+          <p className="truncate pl-2 text-[11px] leading-snug text-ink-faint">{client.email}</p>
+
+          <MobileField label="Type">
+            <ServiceTierBadge tier={serviceTier} tiny />
+          </MobileField>
 
           <MobileField label="Project">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <Link
-                to={`/clients/${client.id}#project-files`}
-                className="min-w-0 truncate text-xs font-bold text-ink hover:text-brand hover:underline"
-                title={`Open files for ${client.projectName}`}
-              >
-                {client.projectName || '—'}
-              </Link>
-              <ServiceTierBadge tier={serviceTier} tiny className="shrink-0" />
-            </div>
+            <Link
+              to={`/clients/${client.id}#project-files`}
+              className="min-w-0 truncate text-xs font-bold text-ink hover:text-brand hover:underline"
+              title={`Open files for ${client.projectName}`}
+            >
+              {client.projectName || '—'}
+            </Link>
           </MobileField>
 
           <CompactClientTimeline client={client} contract={contract} />
@@ -105,15 +117,7 @@ export function ClientTableMobileCard({
               Start
             </button>
           )}
-          <div className="flex items-center gap-1.5">
-            <Link
-              to={`/clients/${client.id}`}
-              className={tableViewLinkClass}
-              title={`View ${client.name}`}
-            >
-              View
-              <span aria-hidden="true">&gt;</span>
-            </Link>
+          <div className="flex flex-col items-end gap-0.5">
             <button
               type="button"
               className={tableRemoveButtonClass}
@@ -123,6 +127,14 @@ export function ClientTableMobileCard({
             >
               <UserMinus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
             </button>
+            <Link
+              to={`/clients/${client.id}`}
+              className={tableViewLinkSubtleClass}
+              title={`View ${client.name}`}
+            >
+              View
+              <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+            </Link>
           </div>
         </div>
       </div>

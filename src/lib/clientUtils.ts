@@ -181,7 +181,7 @@ export function canStartProject(client: Client): boolean {
 
 /** Dashboard project-status column label */
 export function getDashboardProjectStatusLabel(status: ProjectStatus): string | undefined {
-  if (status === 'In Progress') return 'Progress: file sharing'
+  if (status === 'In Progress') return 'File Sharing'
   return undefined
 }
 

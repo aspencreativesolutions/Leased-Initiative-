@@ -8,9 +8,16 @@ interface SummaryCardsProps {
   clients: Client[]
   activeFilter: DashboardFilter | null
   onFilterChange: (filter: DashboardFilter | null) => void
+  /** Render inside the Clients & Pending section header */
+  embedded?: boolean
 }
 
-export function SummaryCards({ clients, activeFilter, onFilterChange }: SummaryCardsProps) {
+export function SummaryCards({
+  clients,
+  activeFilter,
+  onFilterChange,
+  embedded = false,
+}: SummaryCardsProps) {
   const activeProjects = clients.filter(
     (c) => c.projectStatus === 'In Progress' || c.projectStatus === 'Contract Sent'
   ).length
@@ -56,7 +63,12 @@ export function SummaryCards({ clients, activeFilter, onFilterChange }: SummaryC
   ]
 
   return (
-    <div className="mb-2 grid w-full min-w-0 grid-cols-5 gap-0.5 sm:mb-4 sm:grid-cols-2 sm:gap-2 lg:grid-cols-5">
+    <div
+      className={cn(
+        'grid w-full min-w-0 grid-cols-5 gap-0.5 sm:grid-cols-2 lg:grid-cols-5',
+        embedded ? 'sm:gap-1.5' : 'mb-2 sm:mb-4 sm:gap-2'
+      )}
+    >
       {cards.map(({ id, label, shortLabel, value, icon: Icon }) => {
         const isActive = activeFilter === id
 
@@ -69,9 +81,9 @@ export function SummaryCards({ clients, activeFilter, onFilterChange }: SummaryC
             className={cn(
               'flex items-center justify-between gap-1 rounded-[var(--radius-sm)] text-left transition-colors',
               'border-2 bg-surface-paper',
-              'max-sm:flex-col max-sm:justify-center max-sm:px-0.5 max-sm:py-1 max-sm:text-center',
-              'sm:gap-2 sm:px-2.5 sm:py-2',
-              'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] sm:shadow-[3px_3px_0_0_rgba(17,17,17,0.85)]',
+              embedded
+                ? 'max-sm:flex-col max-sm:justify-center max-sm:px-0.5 max-sm:py-1 max-sm:text-center sm:gap-1.5 sm:px-2 sm:py-1.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
+                : 'max-sm:flex-col max-sm:justify-center max-sm:px-0.5 max-sm:py-1 max-sm:text-center sm:gap-2 sm:px-2.5 sm:py-2 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] sm:shadow-[3px_3px_0_0_rgba(17,17,17,0.85)]',
               isActive
                 ? 'border-brand bg-brand/10 ring-1 ring-brand ring-offset-0 sm:ring-2 sm:ring-offset-1 sm:ring-offset-surface'
                 : 'border-ink hover:border-brand/50 hover:bg-surface'
@@ -82,18 +94,26 @@ export function SummaryCards({ clients, activeFilter, onFilterChange }: SummaryC
                 <span className="sm:hidden">{shortLabel}</span>
                 <span className="hidden sm:inline">{label}</span>
               </p>
-              <p className="mt-0 font-display text-sm font-black leading-none tracking-tight text-ink sm:mt-0.5 sm:text-2xl">
-                {value}
-              </p>
+              <div
+                className={cn(
+                  'summary-stat-icon mt-0.5 flex shrink-0 items-center max-sm:justify-center sm:mt-1',
+                  isActive && 'summary-stat-icon--active'
+                )}
+              >
+                <Icon
+                  className={cn(embedded ? 'h-3.5 w-3.5 sm:h-4 sm:w-4' : 'h-4 w-4 sm:h-5 sm:w-5')}
+                  strokeWidth={2.5}
+                />
+              </div>
             </div>
-            <div
+            <p
               className={cn(
-                'summary-stat-icon hidden h-7 w-7 shrink-0 items-center justify-center border-2 sm:flex',
-                isActive && 'summary-stat-icon--active'
+                'shrink-0 font-display text-sm font-black leading-none tracking-tight text-ink sm:text-2xl',
+                embedded ? 'max-sm:mt-0.5' : 'max-sm:mt-0.5'
               )}
             >
-              <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
-            </div>
+              {value}
+            </p>
           </button>
         )
       })}

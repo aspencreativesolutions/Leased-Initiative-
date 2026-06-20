@@ -28,6 +28,7 @@ import {
   resolvePortalPaymentStatus,
 } from '../lib/portalPayments.js'
 import { generateId, pushAdminNotification } from '../lib/notifications.js'
+import { getClientNotificationsForUser } from '../lib/clientNotifications.js'
 import { verifySquareOrderPayment } from '../lib/square.js'
 import { applyPaymentToStore } from '../lib/payments.js'
 import { DEFAULT_SERVICE_TIER, migrateServiceTier } from '../lib/serviceTier.js'
@@ -133,6 +134,48 @@ router.patch('/profile', (req, res) => {
   }
 })
 
+/** Toggle a project checklist item for the linked client */
+router.patch('/checklist', (req, res) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a project yet.' })
+  }
+
+  const { itemId, completed } = req.body ?? {}
+  if (typeof itemId !== 'string' || !itemId.trim()) {
+    return res.status(400).json({ error: 'itemId is required' })
+  }
+  if (typeof completed !== 'boolean') {
+    return res.status(400).json({ error: 'completed must be a boolean' })
+  }
+
+  let nextCompleted = []
+
+  updateStore((s) => {
+    const client = s.clients.find((c) => c.id === clientId)
+    if (!client) return s
+
+    const current = Array.isArray(client.projectChecklistCompleted)
+      ? client.projectChecklistCompleted
+      : []
+
+    nextCompleted = completed
+      ? current.includes(itemId)
+        ? current
+        : [...current, itemId]
+      : current.filter((id) => id !== itemId)
+
+    return {
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId ? { ...c, projectChecklistCompleted: nextCompleted } : c
+      ),
+    }
+  })
+
+  res.json({ projectChecklistCompleted: nextCompleted })
+})
+
 /** Client dashboard — own profile + contracts */
 router.get('/dashboard', (req, res) => {
   const clientId = req.user.clientId
@@ -177,6 +220,10 @@ router.get('/dashboard', (req, res) => {
   const primaryContract =
     sentContracts[0] ?? activeStore.contracts.find((c) => c.clientId === clientId)
 
+  const serviceTier = migrateServiceTier(
+    primaryContract?.serviceTier || client?.serviceTier || DEFAULT_SERVICE_TIER
+  )
+
   const portalInvoice = buildPortalDepositInvoice(client, primaryContract)
   const portalFinalInvoice = buildPortalFinalInvoice(client)
   const remainingBalance = buildPortalRemainingBalance(client, primaryContract)
@@ -194,6 +241,8 @@ router.get('/dashboard', (req, res) => {
           contractStatus: client.contractStatus,
           paymentStatus: resolvePortalPaymentStatus(client),
           portalContractStatus: getPortalClientContractStatus(sentContracts),
+          serviceTier,
+          projectChecklistCompleted: client.projectChecklistCompleted ?? [],
         }
       : null,
     contracts: contractSummaries,
@@ -534,6 +583,72 @@ router.post('/verify-square-payment', async (req, res) => {
     console.error('portal verify-square-payment', err)
     res.status(500).json({ error: err.message })
   }
+})
+
+/** Client in-app notifications */
+router.get('/notifications', (req, res) => {
+  const store = readStore()
+  const notifications = getClientNotificationsForUser(store, req.user.id)
+  const unread = notifications.filter((n) => !n.read)
+  res.json({ notifications: unread.slice(0, 20), count: unread.length })
+})
+
+router.post('/notifications/read', (req, res) => {
+  const { ids } = req.body ?? {}
+  updateStore((s) => {
+    const idSet = Array.isArray(ids) && ids.length > 0 ? new Set(ids) : null
+    const clientNotifications = (s.clientNotifications ?? []).map((n) => {
+      if (n.userId !== req.user.id) return n
+      if (idSet && !idSet.has(n.id)) return n
+      return { ...n, read: true }
+    })
+    return { ...s, clientNotifications }
+  })
+  res.json({ ok: true })
+})
+
+/** Onboarding tour progress */
+router.get('/onboarding', (req, res) => {
+  const store = readStore()
+  const user = store.users.find((u) => u.id === req.user.id)
+  if (!user) return res.status(404).json({ error: 'User not found' })
+  res.json({ progress: user.onboardingProgress ?? { completedSteps: [] } })
+})
+
+router.patch('/onboarding', (req, res) => {
+  const { stepId, complete, dismiss, reset } = req.body ?? {}
+  let updatedUser = null
+
+  updateStore((s) => {
+    const users = s.users.map((u) => {
+      if (u.id !== req.user.id) return u
+      const current = u.onboardingProgress ?? { completedSteps: [] }
+      let next = { ...current }
+
+      if (reset) {
+        next = { completedSteps: [] }
+      } else if (dismiss) {
+        next = {
+          ...current,
+          dismissedAt: new Date().toISOString(),
+          completedAt: current.completedAt ?? new Date().toISOString(),
+        }
+      } else if (complete && stepId) {
+        const steps = new Set(current.completedSteps ?? [])
+        steps.add(stepId)
+        next = {
+          ...current,
+          completedSteps: [...steps],
+        }
+      }
+
+      updatedUser = { ...u, onboardingProgress: next }
+      return updatedUser
+    })
+    return { ...s, users }
+  })
+
+  res.json({ progress: updatedUser?.onboardingProgress ?? { completedSteps: [] } })
 })
 
 export default router

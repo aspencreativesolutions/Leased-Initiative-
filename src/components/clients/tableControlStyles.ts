@@ -11,7 +11,8 @@ export const tableControlBoxClass = [
 /** Active project indicator — gentle live pulse while project is running */
 export const tableActiveBoxClass = [
   tableControlBoxClass,
-  'active-live-tag origin-center border-[length:var(--border-width)] border-ink bg-surface text-ink',
+  'active-live-tag origin-center border-[length:var(--border-width)]',
+  'border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
 ].join(' ')
 
 /** Tier dropdown — wider + extra right padding for the native chevron */
@@ -33,12 +34,20 @@ export const tableViewLinkClass = [
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
 ].join(' ')
 
+/** Subtle view link beneath remove control */
+export const tableViewLinkSubtleClass = [
+  'inline-flex shrink-0 items-center gap-0.5',
+  'text-[7px] font-semibold uppercase leading-none tracking-caps text-ink-faint',
+  'transition-colors hover:text-brand',
+  'focus:outline-none focus-visible:ring-1 focus-visible:ring-accent focus-visible:ring-offset-1',
+].join(' ')
+
 /** Compact remove control at row end */
 export const tableRemoveButtonClass = [
-  'table-row-chip inline-flex shrink-0 items-center justify-center',
+  'table-remove-button table-row-chip inline-flex shrink-0 items-center justify-center',
   'w-[var(--table-row-chip-height)] min-w-[var(--table-row-chip-height)] max-w-[var(--table-row-chip-height)]',
-  'rounded-sm border border-line bg-transparent text-ink-muted',
-  'transition-colors hover:border-accent hover:bg-accent-light hover:text-accent',
+  'rounded-sm bg-transparent text-ink-muted',
+  'transition-colors',
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
 ].join(' ')
 

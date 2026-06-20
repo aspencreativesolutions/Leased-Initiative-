@@ -1,32 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Users, UserPlus } from 'lucide-react'
+import { ArrowLeft, Plus, Users } from 'lucide-react'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { AdminNotificationBanner } from '@/components/dashboard/AdminNotificationBanner'
+import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
 import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { SummaryCards } from '@/components/dashboard/SummaryCards'
 import { TimelineSkipNotesFeed } from '@/components/dashboard/TimelineSkipNotesFeed'
 import { UpcomingDeadlines } from '@/components/dashboard/UpcomingDeadlines'
-import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
+import { useDashboardNavActions } from '@/context/DashboardNavActionsContext'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import {
+  countMatchingDashboardFilter,
   DASHBOARD_FILTER_LABELS,
   dashboardFilterShowsClients,
   dashboardFilterShowsDeadlines,
   dashboardFilterShowsTimelineNotes,
-  filterClientsForDashboard,
   type DashboardFilter,
 } from '@/lib/dashboardFilters'
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const { clients, refresh } = useApp()
+  const { setActions } = useDashboardNavActions()
   const { count, registrations, refresh: refreshRegistrations, error: registrationsError } =
     usePendingRegistrations()
   const {
@@ -40,8 +42,8 @@ export function DashboardPage() {
   const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter | null>(null)
   const prevNotificationCount = useRef(0)
 
-  const filteredClients = useMemo(
-    () => filterClientsForDashboard(clients, dashboardFilter),
+  const highlightedCount = useMemo(
+    () => countMatchingDashboardFilter(clients, dashboardFilter),
     [clients, dashboardFilter]
   )
 
@@ -70,52 +72,30 @@ export function DashboardPage() {
     refresh()
   }, [refreshRegistrations, refreshNotifications, refresh])
 
+  const openRegistrations = useCallback(() => setRegistrationsOpen(true), [])
+  const openAddClient = useCallback(() => setAddOpen(true), [])
+
+  useEffect(() => {
+    setActions(
+      <DashboardNavActions
+        registrationCount={count}
+        onOpenRegistrations={openRegistrations}
+        onOpenAddClient={openAddClient}
+      />
+    )
+    return () => setActions(null)
+  }, [count, openAddClient, openRegistrations, setActions])
+
   return (
-    <div className="w-full min-w-0">
-      <PageHeader
-        compact
-        title="Client Dashboard"
-        action={
-          <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-w-0 flex-1 gap-1 px-2 py-1 text-[10px] sm:flex-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-[11px] [&_svg]:size-3.5 sm:[&_svg]:size-4"
-              onClick={() => setRegistrationsOpen(true)}
-            >
-              <UserPlus className="h-4 w-4 shrink-0" />
-              <span className="truncate sm:hidden">Registers</span>
-              <span className="hidden sm:inline">View New Registers</span>
-              {count > 0 && (
-                <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  {count}
-                </span>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              className="min-w-0 flex-1 gap-1 px-2 py-1 text-[10px] sm:flex-none sm:gap-2 sm:px-3 sm:py-1.5 sm:text-[11px] [&_svg]:size-3.5 sm:[&_svg]:size-4"
-              onClick={() => setAddOpen(true)}
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              Add Client
-            </Button>
-          </div>
-        }
-      />
-
-      <AdminNotificationBanner
-        notifications={notifications}
-        onViewRegistrations={() => setRegistrationsOpen(true)}
-        onViewClient={handleViewPaymentClient}
-        onDismiss={() => markRead()}
-      />
-
-      <SummaryCards
-        clients={clients}
-        activeFilter={dashboardFilter}
-        onFilterChange={setDashboardFilter}
-      />
+    <div className="w-full min-w-0" data-onboarding="admin-dashboard">
+      {notifications.length > 0 && (
+        <AdminNotificationBanner
+          notifications={notifications}
+          onViewRegistrations={() => setRegistrationsOpen(true)}
+          onViewClient={handleViewPaymentClient}
+          onDismiss={() => markRead()}
+        />
+      )}
 
       {registrationsError && (
         <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
@@ -125,18 +105,38 @@ export function DashboardPage() {
       )}
 
       <div className="w-full min-w-0 space-y-6">
-        {showClientsSection && (
-          <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">
-            <CardHeader
-              dense
-              title={dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter] : 'Clients & Pending'}
-              subtitle={
-                dashboardFilter
-                  ? `Showing ${filteredClients.length} matching ${filteredClients.length === 1 ? 'item' : 'items'}`
-                  : `${filteredClients.filter((c) => c.isOfficialClient).length} clients · ${filteredClients.filter((c) => !c.isOfficialClient).length} pending`
-              }
+        <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">
+          <CardHeader
+            dense
+            title={dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter] : 'Clients & Pending'}
+            subtitle={
+              dashboardFilter
+                ? `Highlighting ${highlightedCount} matching ${highlightedCount === 1 ? 'client' : 'clients'} in the full list`
+                : undefined
+            }
+            action={
+              dashboardFilter ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDashboardFilter(null)}
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                  Back
+                </Button>
+              ) : undefined
+            }
+          >
+            <SummaryCards
+              embedded
+              clients={clients}
+              activeFilter={dashboardFilter}
+              onFilterChange={setDashboardFilter}
             />
-            {clients.length === 0 ? (
+          </CardHeader>
+          {showClientsSection &&
+            (clients.length === 0 ? (
               <EmptyState
                 icon={Users}
                 title="No clients yet"
@@ -148,30 +148,23 @@ export function DashboardPage() {
                   </Button>
                 }
               />
-            ) : filteredClients.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title={`No ${dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter].toLowerCase() : 'matching clients'}`}
-                description="Try another filter or clear the selection."
-                action={
-                  <Button variant="outline" onClick={() => setDashboardFilter(null)}>
-                    Show all
-                  </Button>
-                }
-              />
             ) : (
-              <ClientTable clients={filteredClients} />
-            )}
-          </Card>
-        )}
+              <ClientTable clients={clients} highlightFilter={dashboardFilter} />
+            ))}
+        </Card>
 
-        {showDeadlinesSection && (
-          <div className="w-full min-w-0">
-            <UpcomingDeadlines clients={filteredClients} />
+        {(showDeadlinesSection || showTimelineNotes) && (
+          <div
+            className={
+              showDeadlinesSection && showTimelineNotes
+                ? 'grid w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:items-start'
+                : 'w-full min-w-0'
+            }
+          >
+            {showDeadlinesSection && <UpcomingDeadlines clients={clients} />}
+            {showTimelineNotes && <TimelineSkipNotesFeed />}
           </div>
         )}
-
-        {showTimelineNotes && <TimelineSkipNotesFeed />}
       </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />

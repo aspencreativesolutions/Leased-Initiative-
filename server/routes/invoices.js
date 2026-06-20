@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { generateId } from '../lib/notifications.js'
+import { notifyClientByClientId } from '../lib/clientNotifications.js'
 import { buildDepositInvoice, buildFinalInvoice } from '../lib/invoice.js'
 import {
   attachPaymentLink,
@@ -89,38 +90,48 @@ router.post('/:clientId/send', authMiddleware, requireRole('admin'), (req, res) 
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    clients: s.clients.map((c) =>
-      c.id === clientId
-        ? {
-            ...c,
-            invoice: { ...c.invoice, sentToPortalAt: now },
-            notes: [
-              ...(c.notes ?? []),
-              {
-                id: generateId(),
-                text: `Deposit invoice ($${c.invoice.amount.toFixed(2)}) sent to client portal on ${new Date(now).toLocaleDateString()}.`,
-                category: 'Payment',
-                createdAt: now,
-              },
-            ],
-          }
-        : c
-    ),
-    adminNotifications: [
-      {
-        id: generateId(),
-        type: 'invoice_sent',
-        read: true,
-        createdAt: now,
-        title: 'Invoice sent',
-        message: `Invoice sent to ${client.name} via portal.`,
-        clientId,
-      },
-      ...(s.adminNotifications ?? []),
-    ],
-  }))
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              invoice: { ...c.invoice, sentToPortalAt: now },
+              notes: [
+                ...(c.notes ?? []),
+                {
+                  id: generateId(),
+                  text: `Deposit invoice ($${c.invoice.amount.toFixed(2)}) sent to client portal on ${new Date(now).toLocaleDateString()}.`,
+                  category: 'Payment',
+                  createdAt: now,
+                },
+              ],
+            }
+          : c
+      ),
+      adminNotifications: [
+        {
+          id: generateId(),
+          type: 'invoice_sent',
+          read: true,
+          createdAt: now,
+          title: 'Invoice sent',
+          message: `Invoice sent to ${client.name} via portal.`,
+          clientId,
+        },
+        ...(s.adminNotifications ?? []),
+      ],
+    }
+    next = notifyClientByClientId(next, clientId, {
+      type: 'invoice_sent',
+      title: 'Deposit invoice ready',
+      message: `Your deposit invoice for ${client.projectName} is ready. Pay from your dashboard.`,
+      actionUrl: '/portal',
+      relatedId: `invoice-sent-${clientId}`,
+    })
+    return next
+  })
 
   res.json({
     ok: true,
@@ -155,26 +166,36 @@ router.post('/:clientId/send-final', authMiddleware, requireRole('admin'), (req,
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    clients: s.clients.map((c) =>
-      c.id === clientId
-        ? {
-            ...c,
-            finalInvoice: { ...c.finalInvoice, sentToPortalAt: now },
-            notes: [
-              ...(c.notes ?? []),
-              {
-                id: generateId(),
-                text: `Final invoice ($${c.finalInvoice.amount.toFixed(2)}) sent to client portal on ${new Date(now).toLocaleDateString()}.`,
-                category: 'Payment',
-                createdAt: now,
-              },
-            ],
-          }
-        : c
-    ),
-  }))
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              finalInvoice: { ...c.finalInvoice, sentToPortalAt: now },
+              notes: [
+                ...(c.notes ?? []),
+                {
+                  id: generateId(),
+                  text: `Final invoice ($${c.finalInvoice.amount.toFixed(2)}) sent to client portal on ${new Date(now).toLocaleDateString()}.`,
+                  category: 'Payment',
+                  createdAt: now,
+                },
+              ],
+            }
+          : c
+      ),
+    }
+    next = notifyClientByClientId(next, clientId, {
+      type: 'final_invoice_sent',
+      title: 'Final invoice ready',
+      message: `Your final invoice for ${client.projectName} is ready. Pay from your dashboard.`,
+      actionUrl: '/portal',
+      relatedId: `final-invoice-sent-${clientId}`,
+    })
+    return next
+  })
 
   res.json({
     ok: true,
