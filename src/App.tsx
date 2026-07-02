@@ -64,19 +64,21 @@ export default function App() {
 
               <Route element={<ProtectedRoute role="admin" />}>
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/users" element={<UsersPage />} />
-                  <Route path="/clients" element={<ClientsPage />} />
-                  <Route path="/clients/:id" element={<ClientProfilePage />} />
-                  <Route path="/clients/:id/contract" element={<ContractPage />} />
-                  <Route path="/clients/:id/payment/success" element={<PaymentSuccessPage />} />
-                  <Route path="/contracts" element={<ContractsPage />} />
-                  <Route path="/calendar" element={<CalendarPage />} />
-                  <Route path="/scheduler" element={<SchedulerPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/studio" element={<DashboardPage />} />
+                  <Route path="/studio/users" element={<UsersPage />} />
+                  <Route path="/studio/clients" element={<ClientsPage />} />
+                  <Route path="/studio/clients/:id" element={<ClientProfilePage />} />
+                  <Route path="/studio/clients/:id/contract" element={<ContractPage />} />
+                  <Route path="/studio/clients/:id/payment/success" element={<PaymentSuccessPage />} />
+                  <Route path="/studio/contracts" element={<ContractsPage />} />
+                  <Route path="/studio/calendar" element={<CalendarPage />} />
+                  <Route path="/studio/scheduler" element={<SchedulerPage />} />
+                  <Route path="/studio/settings" element={<SettingsPage />} />
+                  <Route path="/studio/profile" element={<ProfilePage />} />
                 </Route>
               </Route>
+
+              <Route path="/" element={<Navigate to="/studio" replace />} />
 
               <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>

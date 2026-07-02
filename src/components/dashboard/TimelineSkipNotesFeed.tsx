@@ -69,7 +69,7 @@ export function TimelineSkipNotesFeed() {
           {skipNotes.map((note) => (
             <li key={note.id}>
               <Link
-                to={`/clients/${note.clientId}#timeline-step-${note.timelineStepId}`}
+                to={`/studio/clients/${note.clientId}#timeline-step-${note.timelineStepId}`}
                 className="block px-1 py-3 transition-colors hover:bg-surface"
               >
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

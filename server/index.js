@@ -13,6 +13,7 @@ import contractRoutes from './routes/contracts.js'
 import portalRoutes from './routes/portal.js'
 import filesRoutes from './routes/files.js'
 import invoiceRoutes from './routes/invoices.js'
+import e2eRoutes from './routes/e2e.js'
 import {
   createPayPalOrder,
   capturePayPalOrder,
@@ -51,7 +52,13 @@ const MODE = process.env.PAYPAL_MODE || 'sandbox'
 const app = express()
 app.use(
   cors({
-    origin: [APP_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+      APP_URL,
+      'http://localhost:3010',
+      'http://127.0.0.1:3010',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+    ],
     credentials: true,
   })
 )
@@ -132,6 +139,9 @@ app.use('/api/contracts', contractRoutes)
 app.use('/api/portal', portalRoutes)
 app.use('/api/files', filesRoutes)
 app.use('/api/invoices', invoiceRoutes)
+if (process.env.E2E_TEST === '1') {
+  app.use('/api/e2e', e2eRoutes)
+}
 
 app.get('/api/paypal/health', (_req, res) => {
   res.json({
@@ -184,8 +194,8 @@ app.post('/api/paypal/create-order', async (req, res) => {
       amount,
       currency,
       description,
-      returnPath: returnPath ?? `/clients/${clientId}/payment/success`,
-      cancelPath: cancelPath ?? `/clients/${clientId}?payment=cancelled`,
+      returnPath: returnPath ?? `/studio/clients/${clientId}/payment/success`,
+      cancelPath: cancelPath ?? `/studio/clients/${clientId}?payment=cancelled`,
     })
     res.json({
       orderId: order.orderId,
@@ -313,7 +323,9 @@ async function bootstrapSamplePortalUsers() {
 }
 
 app.listen(PORT, async () => {
-  await bootstrapSamplePortalUsers()
+  if (process.env.E2E_TEST !== '1') {
+    await bootstrapSamplePortalUsers()
+  }
   startAutomationScheduler()
   console.log(`Client Craft API → http://localhost:${PORT}`)
   console.log(

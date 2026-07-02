@@ -73,9 +73,9 @@ export async function sendVerificationEmail({ to, name, verifyUrl }) {
 
   const transport = getTransport()
   if (!transport) {
-    throw new Error(
-      'Email is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env.'
-    )
+    console.log('[dev] SMTP not configured — verification link (not emailed):')
+    console.log(verifyUrl)
+    return { sent: false, devMode: true, verifyUrl }
   }
 
   try {

@@ -93,11 +93,11 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
     target: '[data-onboarding="admin-dashboard"]',
-    title: 'Welcome to StudiOS',
+    title: 'Welcome to ASPEN Creative StudiOS',
     description:
-      'Client Craft helps you manage clients from first inquiry through project completion. This quick tour covers the essentials.',
+      'ASPEN Creative StudiOS helps you manage clients from first inquiry through project completion. This quick tour covers the essentials.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'registrations',
@@ -106,7 +106,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'When clients register at the portal, they appear in Users. Accept them to create a client profile and draft contract automatically.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'clients',
@@ -115,7 +115,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Each client profile has their timeline, contract, invoices, files, and notes. This is your command center for every project.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'contracts',
@@ -124,7 +124,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Build contracts, generate PDFs, and send them to the client portal. Clients sign electronically and become official clients.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'calendar',
@@ -133,7 +133,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Track follow-ups, project deadlines, and meetings on the Calendar. The Scheduler auto-prioritizes work by service tier.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'notifications',
@@ -142,7 +142,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Registrations, signed contracts, and payment activity surface here. Dismiss when handled — clients get their own automated updates.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
   {
     id: 'automation',
@@ -151,7 +151,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Configure automated client reminders, follow-ups, and status updates in Settings. Future team members can manage this without extra setup.',
     placement: 'bottom',
-    route: '/',
+    route: '/studio',
   },
 ]
 

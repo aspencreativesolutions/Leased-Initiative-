@@ -9,3 +9,10 @@ dist-ssr
 .client-craft.log
 tsconfig.tsbuildinfo
 server/data/
+e2e/test-store.json
+test-results/
+playwright-report/
+blob-report/
+.playwright-browsers/
+portfolio/node_modules/
+portfolio/.next/

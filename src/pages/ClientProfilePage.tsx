@@ -93,7 +93,7 @@ export function ClientProfilePage() {
     return (
       <div className="text-center py-16">
         <p className="text-stone-600">Client not found.</p>
-        <Link to="/clients" className="mt-4 inline-block text-brand hover:underline">
+        <Link to="/studio/clients" className="mt-4 inline-block text-brand hover:underline">
           Back to clients
         </Link>
       </div>
@@ -140,7 +140,7 @@ export function ClientProfilePage() {
   return (
     <div className="w-full min-w-0">
       <Link
-        to="/clients"
+        to="/studio/clients"
         className="mb-2 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -174,7 +174,7 @@ export function ClientProfilePage() {
                 <Button
                   size="sm"
                   className={profileActionButtonClass}
-                  onClick={() => navigate(`/clients/${client.id}/contract`)}
+                  onClick={() => navigate(`/studio/clients/${client.id}/contract`)}
                 >
                   <FileText className={profileActionIconClass} />
                   {getContractActionLabel(client.contractStatus)}
@@ -273,7 +273,7 @@ export function ClientProfilePage() {
                 viewedAt={contract?.viewedAt}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" onClick={() => navigate(`/clients/${client.id}/contract`)}>
+                <Button size="sm" onClick={() => navigate(`/studio/clients/${client.id}/contract`)}>
                   <FileText className="h-4 w-4" />
                   {getContractActionLabel(client.contractStatus)}
                 </Button>
@@ -429,7 +429,7 @@ export function ClientProfilePage() {
         onRemoved={async () => {
           setRemoveOpen(false)
           await refresh()
-          navigate('/clients')
+          navigate('/studio/clients')
         }}
       />
     </div>

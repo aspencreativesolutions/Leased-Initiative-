@@ -58,7 +58,7 @@ export function ClientTableMobileCard({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
             <Link
-              to={`/clients/${client.id}`}
+              to={`/studio/clients/${client.id}`}
               className="min-w-0 truncate text-sm font-semibold text-ink hover:text-brand hover:underline"
               title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
             >
@@ -75,7 +75,7 @@ export function ClientTableMobileCard({
 
           <MobileField label="Project">
             <Link
-              to={`/clients/${client.id}#project-files`}
+              to={`/studio/clients/${client.id}#project-files`}
               className="min-w-0 truncate text-xs font-bold text-ink hover:text-brand hover:underline"
               title={`Open files for ${client.projectName}`}
             >
@@ -128,7 +128,7 @@ export function ClientTableMobileCard({
               <UserMinus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
             </button>
             <Link
-              to={`/clients/${client.id}`}
+              to={`/studio/clients/${client.id}`}
               className={tableViewLinkSubtleClass}
               title={`View ${client.name}`}
             >

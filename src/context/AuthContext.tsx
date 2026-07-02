@@ -20,7 +20,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
-  ) => Promise<User>
+  ) => Promise<{ email: string }>
   updateProfile: (name: string) => Promise<User>
   refreshUser: () => Promise<User | null>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -64,9 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accountType: options?.accountType ?? 'client',
         portalThemeId: options?.portalThemeId,
       })
-      setToken(data.token)
-      setUser(data.user)
-      return data.user
+      return { email: data.email }
     },
     []
   )

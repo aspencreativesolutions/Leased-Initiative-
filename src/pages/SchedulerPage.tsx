@@ -73,7 +73,7 @@ export function SchedulerPage() {
         subtitle="Mon–Fri, 9:00 a.m. – 4:00 p.m. · Prioritized by service tier and deadlines"
         action={
           <div className="flex flex-wrap gap-2">
-            <Link to="/calendar">
+            <Link to="/studio/calendar">
               <Button variant="outline" size="sm">
                 <CalendarDays className="h-4 w-4" />
                 Deadlines

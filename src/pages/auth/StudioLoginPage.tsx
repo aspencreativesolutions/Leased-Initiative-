@@ -11,7 +11,7 @@ export function StudioLoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/studio'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,6 +30,14 @@ export function StudioLoginPage() {
       }
       navigate(from, { replace: true })
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+        const targetEmail = err.email ?? email
+        navigate(
+          `/check-email?email=${encodeURIComponent(targetEmail)}&studio=1`,
+          { replace: true }
+        )
+        return
+      }
       setError(err instanceof ApiError ? err.message : 'Login failed')
     } finally {
       setSubmitting(false)
@@ -40,11 +48,11 @@ export function StudioLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-2xl font-bold">
-            CC
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-xl font-bold">
+            AC
           </div>
           <h1 className="heading-display text-2xl">Studio sign in</h1>
-          <p className="mt-2 text-sm text-ink-muted">Aspen Creative Solutions team dashboard</p>
+          <p className="mt-2 text-sm text-ink-muted">ASPEN Creative StudiOS team dashboard</p>
         </div>
 
         <Card padding="lg">
@@ -84,7 +92,7 @@ export function StudioLoginPage() {
           </p>
 
           <p className="mt-4 text-center text-sm text-ink-muted">
-            <Link to="/login" className="font-semibold text-brand hover:underline">
+            <Link to="/login" state={location.state} className="font-semibold text-brand hover:underline">
               Client sign in
             </Link>
           </p>

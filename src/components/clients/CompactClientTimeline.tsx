@@ -55,8 +55,7 @@ export function CompactClientTimeline({ client, contract }: CompactClientTimelin
                 className={cn(
                   'flex h-4 w-full min-w-0 items-center justify-center rounded-sm border px-0.5 text-[7px] font-bold uppercase leading-none tracking-tight',
                   displayStatus === 'completed' && 'border-ink bg-ink text-surface-paper',
-                  displayStatus === 'active' &&
-                    'border-brand bg-brand text-surface-paper shadow-[0_0_0_1px_var(--accent-light)]',
+                  displayStatus === 'active' && 'timeline-pill--current',
                   displayStatus === 'pending' && 'border-line bg-surface text-ink-faint'
                 )}
                 title={step.label}

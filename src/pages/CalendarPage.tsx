@@ -94,7 +94,7 @@ export function CalendarPage() {
         title="Calendar & Deadlines"
         subtitle="Weekly schedule and upcoming deadlines."
         action={
-          <Link to="/scheduler">
+          <Link to="/studio/scheduler">
             <Button variant="outline" size="sm">
               <CalendarClock className="h-4 w-4" />
               Full Scheduler
@@ -179,7 +179,7 @@ export function CalendarPage() {
                 return (
                   <li key={`${client.id}-${deadline.id}-${deadline.date}`}>
                     <Link
-                      to={`/clients/${client.id}`}
+                      to={`/studio/clients/${client.id}`}
                       className={cn(
                         'flex items-center gap-2 rounded-sm border p-2 transition-colors hover:border-ink hover:bg-surface',
                         urgencyStyle[urgency]

@@ -32,7 +32,7 @@ export function VerifyEmailPage() {
         refreshUser().then((user) => {
           if (cancelled) return
           setStatus('success')
-          const destination = user?.role === 'admin' ? '/' : '/portal'
+          const destination = user?.role === 'admin' ? '/studio' : '/portal'
           setTimeout(() => navigate(destination, { replace: true }), 1500)
         })
       })

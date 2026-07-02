@@ -124,8 +124,7 @@ router.post('/register', async (req, res) => {
         : isThemeId(portalThemeId)
           ? portalThemeId
           : DEFAULT_PORTAL_THEME_ID,
-      emailVerified: true,
-      emailVerifiedAt: new Date().toISOString(),
+      emailVerified: false,
       createdAt: new Date().toISOString(),
     }
 
@@ -140,10 +139,14 @@ router.post('/register', async (req, res) => {
           : s.clients,
     }))
 
-    notifyAdminOfNewClient(user)
+    await issueVerificationEmail(user)
 
-    const token = signToken(user)
-    res.status(201).json({ token, user: sanitizeUser(user) })
+    res.status(201).json({
+      ok: true,
+      email: normalizedEmail,
+      requiresVerification: true,
+      message: 'Check your email for a confirmation link to activate your account.',
+    })
   } catch (err) {
     console.error('register', err)
     res.status(500).json({ error: 'Registration failed' })
@@ -253,6 +256,14 @@ router.post('/login', async (req, res) => {
     const valid = await verifyPassword(password, user.passwordHash)
     if (!valid) {
       return res.status(401).json({ error: 'Invalid email or password' })
+    }
+
+    if (!isEmailVerified(user)) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+        email: user.email,
+      })
     }
 
     const token = signToken(user)

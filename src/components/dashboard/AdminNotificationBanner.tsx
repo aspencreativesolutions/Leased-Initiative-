@@ -48,13 +48,13 @@ function NotificationActions({
 
   const clientLink =
     notification.type === 'contract_needs_detail' && notification.clientId
-      ? `/clients/${notification.clientId}/contract`
-      : `/clients/${notification.clientId}`
+      ? `/studio/clients/${notification.clientId}/contract`
+      : `/studio/clients/${notification.clientId}`
 
   if (onViewClient) {
     if (notification.type === 'contract_needs_detail' && notification.clientId) {
       return (
-        <Link to={`/clients/${notification.clientId}/contract`}>
+        <Link to={`/studio/clients/${notification.clientId}/contract`}>
           <Button size="sm">
             {icon}
             {label}

@@ -49,7 +49,7 @@ export function NewRegistrationsModal({
       const result = await acceptRegistration(registration.id)
       onRefresh()
       onClose()
-      navigate(`/clients/${result.client.id}/contract`)
+      navigate(`/studio/clients/${result.client.id}/contract`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not accept registration')
     } finally {

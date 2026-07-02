@@ -5,7 +5,6 @@ import { migrateStoreTiers } from './lib/serviceTier.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
-const DB_FILE = path.join(DATA_DIR, 'store.json')
 
 const DEFAULT_STORE = {
   users: [],
@@ -33,13 +32,18 @@ function ensureDataDir() {
   }
 }
 
+function getDbFile() {
+  return process.env.CLIENT_CRAFT_DB_FILE || path.join(DATA_DIR, 'store.json')
+}
+
 export function readStore() {
   ensureDataDir()
-  if (!fs.existsSync(DB_FILE)) {
+  const dbFile = getDbFile()
+  if (!fs.existsSync(dbFile)) {
     writeStore(DEFAULT_STORE)
     return structuredClone(DEFAULT_STORE)
   }
-  const raw = fs.readFileSync(DB_FILE, 'utf8')
+  const raw = fs.readFileSync(dbFile, 'utf8')
   const parsed = { ...DEFAULT_STORE, ...JSON.parse(raw) }
   const { clients, contracts, changed } = migrateStoreTiers(parsed)
   if (changed) {
@@ -50,9 +54,10 @@ export function readStore() {
 
 export function writeStore(store) {
   ensureDataDir()
-  const tmp = `${DB_FILE}.tmp`
+  const dbFile = getDbFile()
+  const tmp = `${dbFile}.tmp`
   fs.writeFileSync(tmp, JSON.stringify(store, null, 2))
-  fs.renameSync(tmp, DB_FILE)
+  fs.renameSync(tmp, dbFile)
 }
 
 export function updateStore(updater) {

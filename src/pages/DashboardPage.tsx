@@ -61,7 +61,7 @@ export function DashboardPage() {
   const handleViewPaymentClient = useCallback(
     async (clientId: string, notificationId: string) => {
       await markRead({ ids: [notificationId] })
-      navigate(`/clients/${clientId}`)
+      navigate(`/studio/clients/${clientId}`)
     },
     [markRead, navigate]
   )

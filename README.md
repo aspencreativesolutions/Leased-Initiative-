@@ -37,9 +37,26 @@ Open [http://localhost:5173](http://localhost:5173). **Clients:** sign up or sig
 
 `npm run dev` starts the Vite app **and** the API server on port 3001 (auth, data sync, PayPal).
 
+### Merged with portfolio site
+
+The Aspen Creative marketing site lives in `portfolio/`. Run everything together:
+
+```bash
+npm run dev:all
+```
+
+Open [http://localhost:3010](http://localhost:3010) — portfolio at `/`, Client Craft studio at `/studio`, client portal at `/portal` and `/login`. Set `APP_URL=http://localhost:3010` in `.env` when using the merged site (payment redirects and email links).
+
 **PayPal setup:** see [docs/PAYPAL_SETUP.md](docs/PAYPAL_SETUP.md).
 
-**Demo video checklist:** see [docs/DEMO_VIDEO_CHECKLIST.md](docs/DEMO_VIDEO_CHECKLIST.md) — full screen-recording shot list for a ClientCraft walkthrough.
+**E2E test plan:** see [docs/E2E_TEST_PLAN.md](docs/E2E_TEST_PLAN.md) — full manual walkthrough, demo recording checklist, and QA reference.
+
+**Automated E2E (Playwright):**
+
+```bash
+npm run test:e2e:install   # first time only — downloads Chromium
+npm run test:e2e           # runs 11 serial lifecycle tests (~30s)
+```
 
 **Use on your Mac (Dock, no App Store):** see [docs/DESKTOP-APP.md](docs/DESKTOP-APP.md) — run `npm run desktop`.
 

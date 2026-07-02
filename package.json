@@ -5,12 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"node --watch server/index.js\"",
+    "dev:site": "npm run dev --prefix portfolio",
+    "dev:all": "concurrently -n site,craft,api -c magenta,blue,green \"CLIENT_CRAFT_URL=http://127.0.0.1:3021 npm run dev:site\" \"CLIENT_CRAFT_PORT=3021 vite\" \"node --watch server/index.js\"",
+    "postinstall": "npm install --prefix portfolio",
     "dev:web": "vite",
     "dev:server": "node --watch server/index.js",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "desktop": "bash scripts/launch-desktop.sh",
-    "desktop:stop": "bash scripts/stop-desktop.sh"
+    "desktop:stop": "bash scripts/stop-desktop.sh",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=\".playwright-browsers\" playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@paypal/react-paypal-js": "^8.7.0",
@@ -37,8 +45,11 @@
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
     "postcss": "^8.4.49",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9",
+    "@playwright/test": "^1.51.0"
   }
 }

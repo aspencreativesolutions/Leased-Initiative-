@@ -154,7 +154,12 @@ export interface AuthResponse {
   user: User
 }
 
-export type RegisterResponse = AuthResponse
+export interface RegisterResponse {
+  ok: true
+  email: string
+  requiresVerification: true
+  message: string
+}
 
 export interface Client {
   id: string

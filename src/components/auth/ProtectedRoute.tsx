@@ -18,12 +18,18 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
   }
 
   if (!user) {
-    const loginPath = role === 'client' ? '/login' : '/studio/login'
+    const loginPath = role === 'admin' ? '/studio/login' : '/login'
     return <Navigate to={loginPath} state={{ from: location }} replace />
   }
 
   if (role && user.role !== role) {
-    return <Navigate to={user.role === 'admin' ? '/' : '/portal'} replace />
+    return <Navigate to={user.role === 'admin' ? '/studio' : '/portal'} replace />
+  }
+
+  if (user.emailVerified === false) {
+    const params = new URLSearchParams({ email: user.email })
+    if (user.role === 'admin') params.set('studio', '1')
+    return <Navigate to={`/check-email?${params.toString()}`} replace />
   }
 
   return <Outlet />

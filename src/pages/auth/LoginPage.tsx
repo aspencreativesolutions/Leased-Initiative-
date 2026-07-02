@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { LogIn } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
@@ -11,6 +11,7 @@ import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -29,6 +30,11 @@ export function LoginPage() {
       }
       navigate('/portal', { replace: true })
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+        const targetEmail = err.email ?? email
+        navigate(`/check-email?email=${encodeURIComponent(targetEmail)}`, { replace: true })
+        return
+      }
       setError(err instanceof ApiError ? err.message : 'Login failed')
     } finally {
       setSubmitting(false)
@@ -86,10 +92,13 @@ export function LoginPage() {
           </p>
 
           <div className="mt-4 flex justify-center">
-            <Link to="/studio/login">
-              <Button variant="ghost" size="sm" type="button">
-                I&apos;m an Aspen team member
-              </Button>
+            <Link
+              to="/studio/login"
+              state={location.state}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-brand transition-colors hover:text-brand-light"
+            >
+              Go to team member login
+              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
             </Link>
           </div>
         </Card>

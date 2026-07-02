@@ -108,7 +108,7 @@ export function ContractsPage() {
                   </p>
                 )}
                 <div className="mt-auto flex flex-col gap-2">
-                  <Link to={`/clients/${contract.clientId}/contract`}>
+                  <Link to={`/studio/clients/${contract.clientId}/contract`}>
                     <Button variant="outline" size="sm" className="w-full">
                       <FileText className="h-4 w-4" />
                       Open contract

@@ -107,7 +107,7 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9px] font-bold uppercase tracking-caps sm:gap-x-2 sm:text-[10px]">
             {deadline.type === 'payment' ? (
               <Link
-                to={`/clients/${item.clientId}#deposit-invoice`}
+                to={`/studio/clients/${item.clientId}#deposit-invoice`}
                 className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line px-1.5 py-px text-ink-faint transition-colors hover:border-brand hover:text-brand"
                 title="View invoice on client profile"
               >
@@ -207,7 +207,7 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
           </dl>
 
           <Link
-            to={`/clients/${item.clientId}`}
+            to={`/studio/clients/${item.clientId}`}
             className="mt-2 inline-flex text-[11px] font-semibold text-brand hover:underline sm:text-xs"
           >
             View client profile

@@ -11,7 +11,8 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: Number(process.env.CLIENT_CRAFT_PORT) || 3021,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

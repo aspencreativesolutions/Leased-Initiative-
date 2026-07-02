@@ -65,7 +65,7 @@ export function PaymentSuccessPage() {
                 {client.name} · Payment status updated
               </p>
             )}
-            <Link to={id ? `/clients/${id}` : '/clients'} className="mt-6 inline-block">
+            <Link to={id ? `/studio/clients/${id}` : '/studio/clients'} className="mt-6 inline-block">
               <Button>Back to client profile</Button>
             </Link>
           </>
@@ -75,7 +75,7 @@ export function PaymentSuccessPage() {
             <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
             <h1 className="mt-4 text-xl font-semibold">Payment not confirmed</h1>
             <p className="mt-2 text-sm text-stone-600">{message}</p>
-            <Link to={id ? `/clients/${id}` : '/clients'} className="mt-6 inline-block">
+            <Link to={id ? `/studio/clients/${id}` : '/studio/clients'} className="mt-6 inline-block">
               <Button variant="outline">Back to client</Button>
             </Link>
           </>

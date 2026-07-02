@@ -98,7 +98,7 @@ export function ScheduleBlockActionMenu({
         <div className="flex items-start justify-between gap-1.5 border-b border-line px-2 py-1.5">
           {block.clientId ? (
             <Link
-              to={`/clients/${block.clientId}`}
+              to={`/studio/clients/${block.clientId}`}
               onClick={onClose}
               className="min-w-0 break-words text-xs font-semibold text-ink hover:text-brand"
             >

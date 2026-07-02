@@ -52,11 +52,13 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
 
     setSubmitting(true)
     try {
-      const user = await register(name, email, password, {
+      const { email: registeredEmail } = await register(name, email, password, {
         accountType: mode,
         portalThemeId: mode === 'client' ? loadStoredPortalThemeId() : undefined,
       })
-      navigate(user.role === 'admin' ? '/' : '/portal', { replace: true })
+      const params = new URLSearchParams({ email: registeredEmail })
+      if (mode === 'admin') params.set('studio', '1')
+      navigate(`/check-email?${params.toString()}`, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Registration failed')
     } finally {

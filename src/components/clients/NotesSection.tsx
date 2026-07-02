@@ -86,7 +86,7 @@ export function NotesSection({ client }: { client: Client }) {
                 >
                   {note.timelineStepId ? (
                     <Link
-                      to={`/clients/${client.id}#timeline-step-${note.timelineStepId}`}
+                      to={`/studio/clients/${client.id}#timeline-step-${note.timelineStepId}`}
                       className="block rounded-md transition-colors hover:bg-white/80 -m-2 p-2"
                     >
                       {content}

@@ -4,18 +4,19 @@ import { useAuth } from '@/context/AuthContext'
 import { useDashboardNavActionsOptional } from '@/context/DashboardNavActionsContext'
 import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
 import { AppStyleButton } from '@/components/settings/AppStyleButton'
+import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
 const links = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
-  { to: '/users', label: 'Users', icon: UserPlus, onboarding: 'admin-users' },
-  { to: '/clients', label: 'Clients', icon: Users, onboarding: 'admin-clients' },
-  { to: '/contracts', label: 'Contracts', icon: FileText, onboarding: 'admin-contracts' },
-  { to: '/calendar', label: 'Calendar', icon: Calendar, onboarding: 'admin-calendar' },
-  { to: '/scheduler', label: 'Scheduler', icon: CalendarClock },
-  { to: '/profile', label: 'Profile', icon: UserCircle },
-  { to: '/settings', label: 'Settings', icon: Settings, onboarding: 'admin-settings' },
+  { to: '/studio', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
+  { to: '/studio/users', label: 'Users', icon: UserPlus, onboarding: 'admin-users' },
+  { to: '/studio/clients', label: 'Clients', icon: Users, onboarding: 'admin-clients' },
+  { to: '/studio/contracts', label: 'Contracts', icon: FileText, onboarding: 'admin-contracts' },
+  { to: '/studio/calendar', label: 'Calendar', icon: Calendar, onboarding: 'admin-calendar' },
+  { to: '/studio/scheduler', label: 'Scheduler', icon: CalendarClock },
+  { to: '/studio/profile', label: 'Profile', icon: UserCircle },
+  { to: '/studio/settings', label: 'Settings', icon: Settings, onboarding: 'admin-settings' },
 ]
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -34,18 +35,8 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
     <>
       <div className="w-full max-w-full border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
         <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10 xl:px-12">
-          <NavLink to="/" className="group flex shrink-0 items-center gap-2.5 sm:gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
-              CC
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="whitespace-nowrap font-display text-lg font-semibold tracking-tight sm:text-xl">
-                Client Craft
-              </span>
-              <span className="mt-0.5 hidden whitespace-nowrap text-[10px] font-semibold tracking-wide text-nav-fg-muted sm:mt-1 sm:block">
-                StudiOS
-              </span>
-            </div>
+          <NavLink to="/studio" className="group flex shrink-0 items-center gap-2.5 sm:gap-3">
+            <CreativeStudiosBrand />
           </NavLink>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -63,7 +54,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
             {user && (
               <NavLink
-                to="/profile"
+                to="/studio/profile"
                 className={({ isActive }) =>
                   cn(
                     'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
@@ -100,7 +91,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             <NavLink
               key={to}
               to={to}
-              end={to === '/'}
+              end={to === '/studio'}
               data-onboarding={onboarding}
               className={navLinkClass}
               title={label}

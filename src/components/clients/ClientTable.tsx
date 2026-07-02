@@ -142,7 +142,7 @@ export function ClientTable({ clients, highlightFilter = null }: ClientTableProp
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <Link
-                          to={`/clients/${client.id}`}
+                          to={`/studio/clients/${client.id}`}
                           className="min-w-0 truncate font-semibold text-ink hover:text-brand hover:underline"
                           title={client.isSampleClient ? 'THIS IS A MOCK USER.' : undefined}
                         >
@@ -167,7 +167,7 @@ export function ClientTable({ clients, highlightFilter = null }: ClientTableProp
                   <td className="py-2.5 pl-4 pr-3 align-middle sm:pl-5 sm:pr-4">
                     <div className="flex min-w-0 items-center">
                       <Link
-                        to={`/clients/${client.id}#project-files`}
+                        to={`/studio/clients/${client.id}#project-files`}
                         className="min-w-0 truncate font-bold leading-snug text-ink hover:text-brand hover:underline"
                         title={`Open files for ${client.projectName}`}
                       >
@@ -245,7 +245,7 @@ export function ClientTable({ clients, highlightFilter = null }: ClientTableProp
                         <UserMinus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
                       </button>
                       <Link
-                        to={`/clients/${client.id}`}
+                        to={`/studio/clients/${client.id}`}
                         className={tableViewLinkSubtleClass}
                         title={`View ${client.name}`}
                       >

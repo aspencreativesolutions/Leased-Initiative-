@@ -20,7 +20,7 @@ export function ContractPage() {
     return (
       <div className="py-16 text-center">
         <p className="text-stone-600">Client not found.</p>
-        <Link to="/clients" className="mt-4 inline-block text-brand hover:underline">
+        <Link to="/studio/clients" className="mt-4 inline-block text-brand hover:underline">
           Back to clients
         </Link>
       </div>
@@ -40,7 +40,7 @@ export function ContractPage() {
   return (
     <>
       <Link
-        to={`/clients/${client.id}`}
+        to={`/studio/clients/${client.id}`}
         className="mb-2 inline-flex items-center gap-1 text-sm text-stone-500 hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -82,7 +82,7 @@ export function ContractPage() {
           onDeleted={async () => {
             await refresh()
             setDeleteOpen(false)
-            navigate(`/clients/${client.id}`)
+            navigate(`/studio/clients/${client.id}`)
           }}
         />
       )}

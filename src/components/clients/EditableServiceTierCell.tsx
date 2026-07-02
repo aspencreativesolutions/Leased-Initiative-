@@ -60,7 +60,7 @@ export function EditableServiceTierCell({
       const result = await onUpdate(tier)
       closePopover()
       if (result?.requiresResend) {
-        navigate(`/clients/${client.id}/contract`)
+        navigate(`/studio/clients/${client.id}/contract`)
       }
     } finally {
       setSaving(false)

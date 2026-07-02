@@ -54,7 +54,7 @@ export function UsersPage() {
     try {
       const result = await acceptRegistration(registration.id)
       await refresh()
-      navigate(`/clients/${result.client.id}/contract`)
+      navigate(`/studio/clients/${result.client.id}/contract`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not accept registration')
     } finally {
@@ -258,7 +258,7 @@ function AcceptedUserRow({ user }: { user: PortalUserAccepted }) {
       </td>
       <td className="px-5 py-4 text-right">
         <Link
-          to={`/clients/${user.clientId}`}
+          to={`/studio/clients/${user.clientId}`}
           className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
         >
           View

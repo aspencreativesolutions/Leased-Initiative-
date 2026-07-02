@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api'
-import type { AuthResponse } from '@/types'
+import type { AuthResponse, RegisterResponse } from '@/types'
 
 export async function verifyEmail(token: string) {
   return apiFetch<AuthResponse & { alreadyVerified?: boolean }>('/api/auth/verify-email', {
@@ -25,7 +25,7 @@ export async function registerAccount(payload: {
   accountType?: 'client' | 'admin'
   portalThemeId?: string
 }) {
-  return apiFetch<AuthResponse>('/api/auth/register', {
+  return apiFetch<RegisterResponse>('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify(payload),
   })

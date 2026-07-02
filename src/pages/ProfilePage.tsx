@@ -218,7 +218,7 @@ export function ProfilePage() {
               title="No clients yet"
               description="Clients you add will appear here and across the dashboard."
               action={
-                <Link to="/clients">
+                <Link to="/studio/clients">
                   <Button>
                     <UserCircle className="h-4 w-4" />
                     Go to Clients
@@ -245,7 +245,7 @@ export function ProfilePage() {
                       <td className="px-3 py-2.5 align-top sm:px-4">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <Link
-                            to={`/clients/${client.id}`}
+                            to={`/studio/clients/${client.id}`}
                             className="truncate font-semibold text-ink hover:text-brand hover:underline"
                           >
                             {client.name}
@@ -267,7 +267,7 @@ export function ProfilePage() {
                         <StatusBadge type="project" status={client.projectStatus} />
                       </td>
                       <td className="px-3 py-2.5 align-top sm:px-4">
-                        <Link to={`/clients/${client.id}`}>
+                        <Link to={`/studio/clients/${client.id}`}>
                           <Button variant="outline" size="sm">
                             <Eye className="h-3.5 w-3.5" />
                             <span className="hidden xl:inline">View</span>
