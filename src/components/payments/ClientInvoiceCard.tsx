@@ -58,7 +58,7 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
     try {
       await generateDepositInvoice(client.id)
       await refresh()
-      setSuccess('Deposit invoice generated from contract.')
+      setSuccess('Deposit invoice generated from lease.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not generate invoice')
     } finally {
@@ -228,14 +228,14 @@ export function ClientInvoiceCard({ client }: ClientInvoiceCardProps) {
     <Card>
       <CardHeader
         title="Deposit Invoice"
-        subtitle="Auto-generated when the client signed their contract"
+        subtitle="Auto-generated when the tenant signed their lease"
       />
 
       {!invoice ? (
         <div className="space-y-3">
           <p className="text-sm text-ink-muted">
             No invoice yet. It is created automatically when the client signs. For signed clients,
-            generate it from the contract below.
+            generate it from the lease below.
           </p>
           <Button onClick={handleGenerateDeposit} disabled={generating}>
             {generating ? 'Generating…' : 'Generate deposit invoice'}

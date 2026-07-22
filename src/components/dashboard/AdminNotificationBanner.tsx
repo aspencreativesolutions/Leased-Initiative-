@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Bell, CreditCard, FileCheck, FilePen, UserPlus } from 'lucide-react'
+import { AlertTriangle, Bell, CreditCard, FileCheck, FilePen, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import type { AdminNotification } from '@/types'
@@ -29,6 +29,28 @@ function NotificationActions({
     )
   }
 
+  if (notification.type === 'problem_report') {
+    return (
+      <Link to="/studio/alerts">
+        <Button size="sm">
+          <AlertTriangle className="h-4 w-4" />
+          View alert
+        </Button>
+      </Link>
+    )
+  }
+
+  if (notification.type === 'rent_payment' && notification.clientId) {
+    return (
+      <Link to="/studio/payments">
+        <Button size="sm">
+          <CreditCard className="h-4 w-4" />
+          View payments
+        </Button>
+      </Link>
+    )
+  }
+
   if (!notification.clientId) return null
 
   const icon =
@@ -43,7 +65,7 @@ function NotificationActions({
     notification.type === 'contract_signed'
       ? 'View'
       : notification.type === 'contract_needs_detail'
-        ? 'Edit contract'
+        ? 'Edit lease'
         : 'View client'
 
   const clientLink =

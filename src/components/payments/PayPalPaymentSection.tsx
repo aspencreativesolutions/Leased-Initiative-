@@ -93,7 +93,7 @@ export function PayPalPaymentSection({ client }: PayPalPaymentSectionProps) {
   if (!configured) {
     return (
       <Card>
-        <CardHeader title="PayPal Payments" subtitle="Official clients only" />
+        <CardHeader title="PayPal Payments" subtitle="Active tenants only" />
         <div className="flex gap-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
           <AlertCircle className="h-5 w-5 shrink-0" />
           <div>

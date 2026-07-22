@@ -24,6 +24,7 @@ export async function registerAccount(payload: {
   password: string
   accountType?: 'client' | 'admin'
   portalThemeId?: string
+  preferredLeaseMonths?: number
 }) {
   return apiFetch<RegisterResponse>('/api/auth/register', {
     method: 'POST',

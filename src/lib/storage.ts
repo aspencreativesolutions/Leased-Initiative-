@@ -1,7 +1,7 @@
 import type { BusinessSettings, Client, ContractData } from '@/types'
 import { normalizeClient } from '@/lib/clientUtils'
 import { migrateServiceTier } from '@/lib/serviceTiers'
-import { seedClients, defaultSettings } from '@/data/seed'
+import { seedClients, defaultSettings, migrateSampleAddress } from '@/data/seed'
 
 const CLIENTS_KEY = 'client-craft-clients'
 const CONTRACTS_KEY = 'client-craft-contracts'
@@ -15,7 +15,10 @@ export function loadClients(): Client[] {
     return seeded
   }
   const parsed = JSON.parse(raw) as Partial<Client>[]
-  return parsed.map((c) => normalizeClient(c as Client))
+  const clients = parsed.map((c) => normalizeClient(c as Client))
+  const changed = clients.some((client, index) => client.projectName !== parsed[index]?.projectName)
+  if (changed) saveClients(clients)
+  return clients
 }
 
 export function saveClients(clients: Client[]): void {
@@ -25,10 +28,19 @@ export function saveClients(clients: Client[]): void {
 export function loadContracts(): ContractData[] {
   const raw = localStorage.getItem(CONTRACTS_KEY)
   if (!raw) return []
-  return (JSON.parse(raw) as ContractData[]).map((c) => ({
-    ...c,
-    serviceTier: migrateServiceTier(c.serviceTier),
-  }))
+  const parsed = JSON.parse(raw) as ContractData[]
+  let changed = false
+  const contracts = parsed.map((c) => {
+    const migratedAddress = migrateSampleAddress(c.clientAddress)
+    if (migratedAddress !== c.clientAddress) changed = true
+    return {
+      ...c,
+      serviceTier: migrateServiceTier(c.serviceTier),
+      ...(migratedAddress !== c.clientAddress ? { clientAddress: migratedAddress } : {}),
+    }
+  })
+  if (changed) saveContracts(contracts)
+  return contracts
 }
 
 export function saveContracts(contracts: ContractData[]): void {
@@ -41,7 +53,14 @@ export function loadSettings(): BusinessSettings {
     saveSettings(defaultSettings)
     return defaultSettings
   }
-  return { ...defaultSettings, ...JSON.parse(raw) }
+  const parsed = { ...defaultSettings, ...JSON.parse(raw) } as BusinessSettings
+  const migratedAddress = migrateSampleAddress(parsed.address)
+  const settings =
+    migratedAddress && migratedAddress !== parsed.address
+      ? { ...parsed, address: migratedAddress }
+      : parsed
+  if (settings.address !== parsed.address) saveSettings(settings)
+  return settings
 }
 
 export function saveSettings(settings: BusinessSettings): void {

@@ -24,11 +24,10 @@ export type PaymentStatus =
   | 'Overdue'
 
 export type ProjectType =
-  | 'Website Design'
-  | 'Website Redesign'
-  | 'Branding'
-  | 'SEO'
-  | 'Maintenance'
+  | 'Apartment'
+  | 'House'
+  | 'Condo'
+  | 'Townhouse'
   | 'Other'
 
 export type NoteCategory = 'General' | 'Payment' | 'Contract' | 'Project' | 'Follow-Up'
@@ -93,7 +92,10 @@ export interface ClientInvoice {
   sentToPortalAt?: string
   /** When the client opened the PayPal payment link */
   paymentLinkClickedAt?: string
-  invoiceType?: 'deposit' | 'final'
+  invoiceType?: 'deposit' | 'final' | 'rent'
+  /** Rent invoices: due dates covered by this payment */
+  dueDates?: string[]
+  monthCount?: number
 }
 
 export interface PortalInvoice {
@@ -105,7 +107,9 @@ export interface PortalInvoice {
   sentToPortalAt?: string
   paidAt?: string
   dueDate?: string
-  invoiceType?: 'deposit' | 'final'
+  invoiceType?: 'deposit' | 'final' | 'rent'
+  dueDates?: string[]
+  monthCount?: number
 }
 
 export type TimelineStepStatus = 'completed' | 'pending' | 'active'
@@ -138,6 +142,8 @@ export interface User {
   role: UserRole
   clientId?: string | null
   phone?: string
+  /** Preferred lease term in months (tenants choose at registration) */
+  preferredLeaseMonths?: number
   /** Hidden from new registration queue without deleting the account */
   registrationDismissed?: boolean
   /** Client portal style — persisted across sessions */
@@ -181,6 +187,8 @@ export interface Client {
   invoice?: ClientInvoice
   /** Remaining balance invoice — auto-generated when project is marked complete */
   finalInvoice?: ClientInvoice
+  /** Tenant-generated rent checkout for one or more months */
+  rentInvoice?: ClientInvoice
   /** Admin manually confirmed deposit after PayPal verification */
   depositPaymentConfirmedAt?: string
   /** When all deliverables are fulfilled */
@@ -195,6 +203,8 @@ export interface Client {
   accountUserId?: string
   /** Service tier for this project — syncs to contract; changing it requires contract resend */
   serviceTier?: ServiceTier
+  /** Agreed / preferred lease length in months */
+  leaseLengthMonths?: number
   /** Set when admin clicks Start Project — unlocks portal uploads */
   projectStartedAt?: string
   /** Admin-skipped timeline steps (step id → skip timestamp) */
@@ -225,8 +235,10 @@ export interface ContractData {
   depositAmount: string
   remainingBalance: string
   paymentSchedule: string
-  /** Checkout provider for deposit and final invoices */
+  /** Checkout provider for deposit, rent, and final invoices */
   paymentProvider?: PaymentProvider
+  /** When true (default), tenants may pay multiple consecutive months upfront */
+  allowPrepaidRent?: boolean
   paymentMethods: string
   latePaymentPolicy: string
   revisionCount: string
@@ -277,6 +289,8 @@ export interface PendingRegistration {
   name: string
   email: string
   createdAt: string
+  /** Preferred lease term chosen at registration */
+  preferredLeaseMonths?: number
 }
 
 export interface PortalUserAccepted {
@@ -310,6 +324,8 @@ export type AdminNotificationType =
   | 'contract_needs_detail'
   | 'invoice_sent'
   | 'payment_link_clicked'
+  | 'problem_report'
+  | 'rent_payment'
 
 export interface AdminNotification {
   id: string
@@ -321,6 +337,17 @@ export interface AdminNotification {
   userId?: string
   clientId?: string
   contractId?: string
+  /** Attached file from a tenant issue report, when present */
+  fileId?: string
+  /** Original filename of the attached issue report file */
+  fileName?: string
+  problemType?: string
+  /** Tenant's description of the issue (problem reports) */
+  note?: string
+  /** Snapshot of tenant name at report time */
+  tenantName?: string
+  /** Snapshot of property address at report time */
+  address?: string
 }
 
 export type AdminAuditEntryType = 'contract_deleted'
@@ -378,6 +405,43 @@ export interface PortalSupportContact {
   phone: string
 }
 
+export type PortalRentPaymentStatus = 'paid' | 'due' | 'upcoming' | 'overdue'
+
+export interface PortalRentPayment {
+  dueDate: string
+  label: string
+  status: PortalRentPaymentStatus
+}
+
+export interface PortalLeaseSchedule {
+  leaseLengthMonths: number | null
+  leaseStartDate: string | null
+  leaseEndDate: string | null
+  nextDueDate: string | null
+  daysUntilNextDue: number | null
+  payments: PortalRentPayment[]
+}
+
+export interface PortalRentUnpaidMonth {
+  dueDate: string
+  label: string
+  status: PortalRentPaymentStatus
+}
+
+/** Tenant dashboard rent CTA — pay anytime while unpaid months remain */
+export interface PortalRentPaymentInfo {
+  nextDueDate: string | null
+  daysUntilNextDue: number | null
+  monthlyRent: number | null
+  currency: string
+  allowPrepaid: boolean
+  maxMonths: number
+  canPay: boolean
+  unpaidMonths: PortalRentUnpaidMonth[]
+  paymentProvider?: PaymentProvider
+  pendingInvoice?: PortalInvoice | null
+}
+
 export interface PortalDashboard {
   linked: boolean
   isOfficialClient: boolean
@@ -386,11 +450,14 @@ export interface PortalDashboard {
     name: string
     businessName: string
     projectName: string
+    /** Property / unit address for “Tenant at …” */
+    address: string
     projectStatus: ProjectStatus
     contractStatus: ContractStatus
     paymentStatus?: PaymentStatus
     portalContractStatus: PortalContractClientStatus | null
     serviceTier: ServiceTier
+    leaseLengthMonths?: number
     projectChecklistCompleted?: string[]
   } | null
   contracts: PortalContractSummary[]
@@ -398,6 +465,10 @@ export interface PortalDashboard {
   finalInvoice?: PortalInvoice | null
   /** Remaining balance after deposit — due at project completion */
   remainingBalance?: PortalInvoice | null
+  /** Monthly rent due dates for the active lease term */
+  leaseSchedule?: PortalLeaseSchedule | null
+  /** Centered Pay Rent CTA data */
+  rentPayment?: PortalRentPaymentInfo | null
   projectStarted: boolean
   projectStartedAt?: string
   supportContact?: PortalSupportContact
@@ -448,6 +519,16 @@ export interface AutomationSettings {
   followUpReminders: boolean
 }
 
+/** Custom region for filtering contracts by area code and/or state */
+export interface ContractRegion {
+  id: string
+  name: string
+  /** US phone area codes (e.g. "212", "718") */
+  areaCodes: string[]
+  /** US state abbreviations (e.g. "NY", "NJ") */
+  states: string[]
+}
+
 export interface BusinessSettings {
   businessName: string
   ownerName: string
@@ -460,6 +541,8 @@ export interface BusinessSettings {
   defaultContractFooter: string
   profileReminders?: ProfileReminder[]
   automation?: AutomationSettings
+  /** Regional areas used to filter the Leases tab */
+  contractRegions?: ContractRegion[]
 }
 
 export interface EmailDraft {

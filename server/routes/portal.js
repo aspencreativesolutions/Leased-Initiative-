@@ -32,10 +32,35 @@ import { getClientNotificationsForUser } from '../lib/clientNotifications.js'
 import { verifySquareOrderPayment } from '../lib/square.js'
 import { applyPaymentToStore } from '../lib/payments.js'
 import { DEFAULT_SERVICE_TIER, migrateServiceTier } from '../lib/serviceTier.js'
+import {
+  formatLeaseLengthLabel,
+  getLeaseRentSchedule,
+  resolveTenantAddress,
+} from '../lib/leaseSchedule.js'
+import {
+  buildPortalRentPayment,
+  buildRentInvoiceDraft,
+  listUnpaidRentMonths,
+  estimateMonthlyRent,
+  isPrepaidRentAllowed,
+} from '../lib/rentPayments.js'
+import { attachPaymentLink, isPaymentProviderConfigured, paymentProviderLabel, getContractPaymentProvider } from '../lib/paymentLinks.js'
 
 const router = Router()
 
 router.use(authMiddleware, requireRole('client'))
+
+const PROBLEM_TYPES = [
+  'Leaking faucet / plumbing',
+  'Electrical problems',
+  'Heating or cooling issues',
+  'Broken appliance',
+  'Pest infestation',
+  'Water damage / flooding',
+  'Locks or security',
+  'Structural damage',
+  'Other',
+]
 
 function getPortalUserContext(store, userId) {
   const user = store.users.find((u) => u.id === userId)
@@ -134,6 +159,121 @@ router.patch('/profile', (req, res) => {
   }
 })
 
+/** Tenant reports a maintenance / property issue — notifies the landlord with attachment */
+router.post('/problems', (req, res, next) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+  req.portalClientId = clientId
+  // Accept either "file" (preferred) or legacy "image" field name
+  uploadMiddleware.any()(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Upload failed' })
+    }
+    const files = Array.isArray(req.files) ? req.files : []
+    req.file =
+      files.find((f) => f.fieldname === 'file') ||
+      files.find((f) => f.fieldname === 'image') ||
+      files[0]
+    next()
+  })
+}, (req, res) => {
+  try {
+    const clientId = req.user.clientId
+    const problemType =
+      typeof req.body?.problemType === 'string' ? req.body.problemType.trim() : ''
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim() : ''
+
+    if (!PROBLEM_TYPES.includes(problemType)) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({ error: 'Select a valid problem type.' })
+    }
+    if (!note) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({ error: 'Please add a short note describing the issue.' })
+    }
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'Upload a photo or document so your landlord can assess the issue.',
+      })
+    }
+
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    if (!client) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(404).json({ error: 'Tenant profile not found' })
+    }
+
+    const fileEntry = saveUploadedFile({
+      client,
+      file: req.file,
+      uploadedBy: 'client',
+      uploadedByName: req.user.name,
+      initialNote: `Issue report (${problemType}): ${note}`,
+    })
+
+    const leaseLabel = client.leaseLengthMonths
+      ? formatLeaseLengthLabel(client.leaseLengthMonths)
+      : 'lease'
+    const address = resolveTenantAddress(
+      client,
+      store.contracts.find((c) => c.clientId === client.id)
+    )
+
+    const resolvedAddress = address || client.projectName || 'their unit'
+
+    updateStore((s) => {
+      let next = pushAdminNotification(s, {
+        type: 'problem_report',
+        title: `Issue reported: ${problemType}`,
+        message: `${client.name} at ${resolvedAddress} (${leaseLabel}): ${note}`,
+        clientId: client.id,
+        userId: req.user.id,
+        fileId: fileEntry.id,
+        fileName: fileEntry.originalName,
+        problemType,
+        note,
+        tenantName: client.name,
+        address: resolvedAddress,
+      })
+
+      next = {
+        ...next,
+        clients: next.clients.map((c) => {
+          if (c.id !== client.id) return c
+          return {
+            ...c,
+            notes: [
+              ...(c.notes ?? []),
+              {
+                id: generateId(),
+                text: `[Issue report — ${problemType}] ${note} (file: ${fileEntry.originalName})`,
+                category: 'Follow-Up',
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          }
+        }),
+      }
+      return next
+    })
+
+    res.status(201).json({
+      ok: true,
+      message: 'Your landlord has been notified with your attachment.',
+      file: fileEntry,
+    })
+  } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path)
+    }
+    console.error('portal problem report', err)
+    res.status(500).json({ error: err.message || 'Could not submit problem report' })
+  }
+})
+
 /** Toggle a project checklist item for the linked client */
 router.patch('/checklist', (req, res) => {
   const clientId = req.user.clientId
@@ -227,6 +367,14 @@ router.get('/dashboard', (req, res) => {
   const portalInvoice = buildPortalDepositInvoice(client, primaryContract)
   const portalFinalInvoice = buildPortalFinalInvoice(client)
   const remainingBalance = buildPortalRemainingBalance(client, primaryContract)
+  const leaseSchedule = client
+    ? getLeaseRentSchedule(client, primaryContract)
+    : null
+  const rentPayment =
+    client && primaryContract
+      ? buildPortalRentPayment(client, primaryContract)
+      : null
+  const address = client ? resolveTenantAddress(client, primaryContract) : ''
 
   res.json({
     linked: true,
@@ -237,11 +385,14 @@ router.get('/dashboard', (req, res) => {
           name: client.name,
           businessName: client.businessName,
           projectName: client.projectName,
+          address,
           projectStatus: client.projectStatus,
           contractStatus: client.contractStatus,
           paymentStatus: resolvePortalPaymentStatus(client),
           portalContractStatus: getPortalClientContractStatus(sentContracts),
           serviceTier,
+          leaseLengthMonths:
+            client.leaseLengthMonths ?? leaseSchedule?.leaseLengthMonths ?? undefined,
           projectChecklistCompleted: client.projectChecklistCompleted ?? [],
         }
       : null,
@@ -249,6 +400,8 @@ router.get('/dashboard', (req, res) => {
     invoice: portalInvoice,
     finalInvoice: portalFinalInvoice,
     remainingBalance,
+    leaseSchedule,
+    rentPayment,
     projectStarted: isProjectActive(client ?? {}),
     projectStartedAt: client?.projectStartedAt,
     supportContact: {
@@ -258,6 +411,119 @@ router.get('/dashboard', (req, res) => {
       phone: activeStore.settings.phone,
     },
   })
+})
+
+/**
+ * Tenant generates a rent invoice for 1+ consecutive unpaid months
+ * and receives a hosted checkout link (PayPal / Stripe / Square).
+ */
+router.post('/rent-invoice', async (req, res) => {
+  try {
+    const clientId = req.user.clientId
+    if (!clientId) {
+      return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+    }
+
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+
+    const contract =
+      store.contracts.find((c) => c.clientId === clientId && c.sentAt) ??
+      store.contracts.find((c) => c.clientId === clientId)
+    if (!contract) {
+      return res.status(400).json({ error: 'No lease is available for rent payment yet.' })
+    }
+
+    const unpaid = listUnpaidRentMonths(client, contract)
+    if (unpaid.length === 0) {
+      return res.status(400).json({ error: 'All rent for this lease is already paid.' })
+    }
+
+    const monthlyRent = estimateMonthlyRent(client, contract)
+    if (!monthlyRent) {
+      return res.status(400).json({
+        error: 'Monthly rent amount is not set on your lease yet. Contact your landlord.',
+      })
+    }
+
+    const allowPrepaid = isPrepaidRentAllowed(contract)
+    let monthCount = Math.max(1, Math.floor(Number(req.body?.monthCount) || 1))
+    if (!allowPrepaid) monthCount = 1
+    monthCount = Math.min(monthCount, unpaid.length)
+
+    const provider = getContractPaymentProvider(contract)
+    if (!isPaymentProviderConfigured(provider)) {
+      return res.status(400).json({
+        error: `${paymentProviderLabel(provider)} is not configured. Ask your landlord to set up checkout.`,
+      })
+    }
+
+    const draft = buildRentInvoiceDraft({
+      client,
+      contract,
+      monthCount,
+      unpaidMonths: unpaid,
+      monthlyRent,
+    })
+    const now = new Date().toISOString()
+    let invoice = {
+      ...draft,
+      createdAt: now,
+      sentToPortalAt: now,
+    }
+    invoice = await attachPaymentLink(invoice, {
+      contract,
+      clientId,
+      invoiceType: 'rent',
+      returnPath: '/portal/payment/success',
+      cancelPath: '/portal?payment=cancelled',
+    })
+
+    if (!invoice.paymentLink) {
+      return res.status(400).json({
+        error: `Could not create a ${paymentProviderLabel(provider)} checkout link. Try again later.`,
+      })
+    }
+
+    updateStore((s) => ({
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              rentInvoice: invoice,
+              notes: [
+                ...(c.notes ?? []),
+                {
+                  id: generateId(),
+                  text: `Tenant opened rent checkout for ${monthCount} month${monthCount === 1 ? '' : 's'} ($${invoice.amount.toFixed(2)}) on ${new Date(now).toLocaleDateString()}.`,
+                  category: 'Payment',
+                  createdAt: now,
+                },
+              ],
+            }
+          : c
+      ),
+    }))
+
+    res.json({
+      invoice: {
+        amount: invoice.amount,
+        currency: invoice.currency,
+        description: invoice.description,
+        paymentProvider: invoice.paymentProvider,
+        paymentLink: invoice.paymentLink,
+        sentToPortalAt: invoice.sentToPortalAt,
+        invoiceType: 'rent',
+        monthCount: invoice.monthCount,
+        dueDates: invoice.dueDates,
+      },
+    })
+  } catch (err) {
+    console.error('portal rent-invoice', err)
+    res.status(500).json({ error: err.message || 'Could not create rent invoice' })
+  }
 })
 
 /** Client-facing project timeline — mirrors admin view */
@@ -341,7 +607,7 @@ router.get('/contracts/:contractId', (req, res) => {
   let contract = store.contracts.find((c) => c.id === req.params.contractId)
 
   if (!contract) {
-    return res.status(404).json({ error: 'Contract not found' })
+    return res.status(404).json({ error: 'Lease not found' })
   }
 
   if (contract.clientId !== req.user.clientId) {
@@ -398,7 +664,7 @@ router.post('/contracts/:contractId/review', (req, res) => {
   const contract = store.contracts.find((c) => c.id === req.params.contractId)
 
   if (!contract) {
-    return res.status(404).json({ error: 'Contract not found' })
+    return res.status(404).json({ error: 'Lease not found' })
   }
 
   if (contract.clientId !== req.user.clientId) {
@@ -410,7 +676,7 @@ router.post('/contracts/:contractId/review', (req, res) => {
   }
 
   if (contract.confirmedByClient && !needsClientResign(contract, store.clients.find((c) => c.id === contract.clientId))) {
-    return res.status(400).json({ error: 'Contract is already signed' })
+    return res.status(400).json({ error: 'Lease is already signed' })
   }
 
   const now = new Date().toISOString()
@@ -569,6 +835,7 @@ router.post('/verify-square-payment', async (req, res) => {
     if (!client) return res.status(404).json({ error: 'Client profile not found' })
 
     const pendingOrderId =
+      (!client.rentInvoice?.paidAt && client.rentInvoice?.squareOrderId) ||
       (!client.finalInvoice?.paidAt && client.finalInvoice?.squareOrderId) ||
       (!client.invoice?.paidAt && client.invoice?.squareOrderId)
 

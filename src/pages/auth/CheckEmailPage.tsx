@@ -36,8 +36,8 @@ export function CheckEmailPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-2xl font-bold">
-            CC
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink font-display text-2xl font-bold">
+            L
           </div>
           <h1 className="heading-display text-2xl">Check your email</h1>
           <p className="mt-2 text-sm text-ink-muted">

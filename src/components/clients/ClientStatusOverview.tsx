@@ -129,14 +129,16 @@ interface StatusGroupProps {
 function StatusBoxCorner({
   highlighted,
   completed,
+  currentLabel = 'Current stage',
 }: {
   highlighted?: boolean
   completed?: boolean
+  currentLabel?: string
 }) {
   if (highlighted) {
     return (
       <span className="shrink-0 text-[8px] font-bold uppercase leading-none tracking-caps text-accent sm:text-[9px]">
-        Current stage
+        {currentLabel}
       </span>
     )
   }
@@ -161,7 +163,8 @@ function StatusGroup({
   badgeLabel,
   highlighted,
   completed,
-}: StatusGroupProps) {
+  currentLabel,
+}: StatusGroupProps & { currentLabel?: string }) {
   return (
     <div
       className={cn(
@@ -173,7 +176,11 @@ function StatusGroup({
         <span className="text-[8px] font-semibold uppercase tracking-caps text-ink-faint sm:text-[9px]">
           {label}
         </span>
-        <StatusBoxCorner highlighted={highlighted} completed={completed} />
+        <StatusBoxCorner
+          highlighted={highlighted}
+          completed={completed}
+          currentLabel={currentLabel}
+        />
       </div>
       <StatusBadge
         type={type}
@@ -200,7 +207,8 @@ function RemainingBalanceGroup({
   dueDate,
   highlighted,
   completed,
-}: RemainingBalanceGroupProps) {
+  currentLabel = 'Current stage',
+}: RemainingBalanceGroupProps & { currentLabel?: string }) {
   return (
     <div
       className={cn(
@@ -212,7 +220,11 @@ function RemainingBalanceGroup({
         <span className="text-[8px] font-semibold uppercase tracking-caps text-ink-faint sm:text-[9px]">
           Final Payment
         </span>
-        <StatusBoxCorner highlighted={highlighted} completed={completed} />
+        <StatusBoxCorner
+          highlighted={highlighted}
+          completed={completed}
+          currentLabel={currentLabel}
+        />
       </div>
       <span
         className={cn(
@@ -245,7 +257,7 @@ export function ContractStatusProgress({
   if (status === 'Cancelled') {
     return (
       <div className="paper-box-inset border-dashed border-accent bg-accent-light/30 px-3 py-2">
-        <p className="label-caps text-accent">Contract progress</p>
+        <p className="label-caps text-accent">Lease progress</p>
         <p className="mt-1 text-xs font-semibold text-accent">Cancelled</p>
       </div>
     )
@@ -293,11 +305,11 @@ export function ContractStatusProgress({
 
   return (
     <div className="paper-box-inset px-3 py-3">
-      <p className="label-caps mb-2.5">Contract progress</p>
+      <p className="label-caps mb-2.5">Lease progress</p>
       <div
         className="grid grid-cols-5 gap-0.5 sm:hidden"
         role="list"
-        aria-label="Contract progress"
+        aria-label="Lease progress"
       >
         {CONTRACT_PROGRESS_STEPS.map((step, i) => (
           <div key={step.id} className="min-w-0" role="listitem">
@@ -360,39 +372,53 @@ export function ClientStatusOverview({
   )
   const displayPaymentStatus = paymentStatus ?? 'Unpaid'
   const projectWork = getProjectWorkBadge(projectStatus, projectStarted)
+  const isPortal = mode === 'portal'
+  const stageLabel = isPortal ? 'Leasing Stage' : 'Current stage'
+  const projectBadgeLabel =
+    isPortal &&
+    (projectWork.status === 'In Progress' ||
+      (projectStarted && projectWork.status !== 'Completed'))
+      ? 'Next Payment Due'
+      : projectWork.label
   const inquiryCompleted =
     hasPassedInquiry(contractStatus) || isStageCompleted('inquiry', currentStage)
 
   const statusBoxes = (
     <>
+      {!isPortal && (
+        <StatusGroup
+          label="Inquiry"
+          type="project"
+          status="Inquiry"
+          highlighted={currentStage === 'inquiry'}
+          completed={inquiryCompleted}
+          currentLabel={stageLabel}
+        />
+      )}
       <StatusGroup
-        label="Inquiry"
-        type="project"
-        status="Inquiry"
-        highlighted={currentStage === 'inquiry'}
-        completed={inquiryCompleted}
-      />
-      <StatusGroup
-        label="Contract"
+        label="Lease"
         type="contract"
         status={contractStatus}
         highlighted={currentStage === 'contract'}
         completed={isStageCompleted('contract', currentStage)}
+        currentLabel={stageLabel}
       />
       <StatusGroup
-        label={mode === 'portal' ? 'Deposit' : 'Payment'}
+        label={isPortal ? 'Deposit' : 'Payment'}
         type="payment"
         status={displayPaymentStatus}
         highlighted={currentStage === 'payment'}
         completed={isStageCompleted('payment', currentStage)}
+        currentLabel={stageLabel}
       />
       <StatusGroup
-        label="Project"
+        label={isPortal ? 'Lease' : 'Project'}
         type="project"
         status={projectWork.status}
-        badgeLabel={projectWork.label}
+        badgeLabel={projectBadgeLabel}
         highlighted={currentStage === 'project'}
         completed={isStageCompleted('project', currentStage)}
+        currentLabel={stageLabel}
       />
       {hasRemaining && remainingBalance && (
         <RemainingBalanceGroup
@@ -401,6 +427,7 @@ export function ClientStatusOverview({
           dueDate={remainingBalance.dueDate}
           highlighted={currentStage === 'remaining'}
           completed={isStageCompleted('remaining', currentStage)}
+          currentLabel={stageLabel}
         />
       )}
     </>

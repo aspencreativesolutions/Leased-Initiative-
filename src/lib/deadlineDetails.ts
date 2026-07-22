@@ -40,7 +40,7 @@ const DEFAULT_DESCRIPTIONS: Record<Deadline['type'], string> = {
   project:
     'Review the agreed deliverables for this milestone. Gather any feedback, assets, or approvals needed so work can move forward without delays.',
   contract:
-    'Review the contract terms, payment schedule, and revision limits. Prepare any questions before signing so both sides can finalize the agreement confidently.',
+    'Review the lease terms, payment schedule, and revision limits. Prepare any questions before signing so both sides can finalize the agreement confidently.',
   payment:
     'Complete the scheduled payment by the due date. Confirm the invoice amount and payment method ahead of time to avoid processing delays.',
 }

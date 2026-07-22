@@ -109,7 +109,7 @@ export function applyClientContractRevision(client, now = new Date().toISOString
     ...(client.notes ?? []),
     {
       id: generateId(),
-      text: `Contract revised and re-sent to client portal on ${new Date(now).toLocaleDateString()}. Awaiting client review and signature.`,
+      text: `Lease revised and re-sent to tenant portal on ${new Date(now).toLocaleDateString()}. Awaiting client review and signature.`,
       category: 'Contract',
       createdAt: now,
     },

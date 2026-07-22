@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
+import { TenantMarkerBadge } from '@/components/clients/TenantMarkerBadge'
+import { clientNameMarkersClass } from '@/components/clients/clientBadgeStyles'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -21,6 +23,8 @@ import {
   dismissRegistration,
   fetchPortalUsers,
 } from '@/lib/portalUsersApi'
+import { getFirstName } from '@/lib/clientUtils'
+import { formatLeaseLengthLabel } from '@/lib/leaseSchedule'
 import { formatDate } from '@/lib/utils'
 import type { PendingRegistration, PortalUserAccepted, PortalUsersOverview } from '@/types'
 
@@ -82,7 +86,7 @@ export function UsersPage() {
     <div className="w-full min-w-0">
       <PageHeader
         title="Users"
-        subtitle="Portal sign-ups awaiting acceptance and accepted clients with their current timeline stage."
+        subtitle="Tenant sign-ups awaiting approval and accepted tenants with their current lease stage."
       />
 
       {error && (
@@ -95,7 +99,7 @@ export function UsersPage() {
         <Card className="mb-6" padding="sm">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="label-caps text-ink-faint">Team member handling clients</p>
+              <p className="label-caps text-ink-faint">Landlord handling tenants</p>
               <p className="mt-1 font-semibold text-ink">{overview.handlerName}</p>
               {overview.handlerEmail && (
                 <p className="text-sm text-ink-muted">{overview.handlerEmail}</p>
@@ -187,13 +191,29 @@ export function UsersPage() {
                     className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-ink">{registration.name}</p>
+                      <div className={clientNameMarkersClass}>
+                        <p
+                          className="min-w-0 truncate font-semibold text-ink"
+                          title={
+                            registration.name !== getFirstName(registration.name)
+                              ? registration.name
+                              : undefined
+                          }
+                        >
+                          {getFirstName(registration.name)}
+                        </p>
+                        <TenantMarkerBadge />
                         <PendingClientBadge />
                       </div>
                       <p className="truncate text-sm text-ink-muted">{registration.email}</p>
                       <p className="mt-1 text-xs text-ink-faint">
                         Registered {formatDate(registration.createdAt)}
+                        {registration.preferredLeaseMonths != null && (
+                          <>
+                            {' '}
+                            · Prefers {formatLeaseLengthLabel(registration.preferredLeaseMonths)}
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
@@ -220,7 +240,7 @@ export function UsersPage() {
                         ) : (
                           <FileSignature className="h-4 w-4" />
                         )}
-                        Accept &amp; start contract
+                        Accept &amp; start lease
                       </Button>
                     </div>
                   </li>
@@ -238,8 +258,14 @@ function AcceptedUserRow({ user }: { user: PortalUserAccepted }) {
   return (
     <tr>
       <td className="px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-ink">{user.name}</span>
+        <div className={clientNameMarkersClass}>
+          <span
+            className="min-w-0 truncate font-semibold text-ink"
+            title={user.name !== getFirstName(user.name) ? user.name : undefined}
+          >
+            {getFirstName(user.name)}
+          </span>
+          <TenantMarkerBadge />
           {user.isOfficialClient ? <OfficialClientBadge /> : <PendingClientBadge />}
         </div>
         <p className="text-xs text-ink-muted">{user.email}</p>

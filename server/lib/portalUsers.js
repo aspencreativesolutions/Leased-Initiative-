@@ -33,6 +33,7 @@ export function buildPortalUsersOverview(store) {
       name: u.name,
       email: u.email,
       createdAt: u.createdAt,
+      preferredLeaseMonths: u.preferredLeaseMonths,
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 

@@ -16,13 +16,15 @@ import type {
   PayPalCaptureResponse,
   ServiceTier,
 } from '@/types'
-import { buildServiceTierChangeResult, paymentStatusAfterCapture } from '@/lib/clientUtils'
+import { buildServiceTierChangeResult, normalizeClient, paymentStatusAfterCapture } from '@/lib/clientUtils'
 import {
   hasContractContentChanged,
   stripPortalDeliveryFields,
 } from '@/lib/contractReview'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
+import { migrateSampleAddress } from '@/data/seed'
+import { migrateServiceTier } from '@/lib/serviceTiers'
 import {
   generateId,
   loadClients,
@@ -32,6 +34,23 @@ import {
   saveContracts,
   saveSettings,
 } from '@/lib/storage'
+
+function normalizeContracts(contracts: ContractData[]): ContractData[] {
+  return contracts.map((c) => {
+    const migratedAddress = migrateSampleAddress(c.clientAddress)
+    return {
+      ...c,
+      serviceTier: migrateServiceTier(c.serviceTier),
+      ...(migratedAddress !== c.clientAddress ? { clientAddress: migratedAddress } : {}),
+    }
+  })
+}
+
+function normalizeSettings(settings: BusinessSettings): BusinessSettings {
+  const migratedAddress = migrateSampleAddress(settings.address)
+  if (!migratedAddress || migratedAddress === settings.address) return settings
+  return { ...settings, address: migratedAddress }
+}
 
 interface AppContextValue {
   clients: Client[]
@@ -109,12 +128,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSyncing(true)
       try {
         const data = await fetchAdminData()
-        setClients(data.clients)
-        setContracts(data.contracts)
-        setSettings(data.settings)
-        saveClients(data.clients)
-        saveContracts(data.contracts)
-        saveSettings(data.settings)
+        const nextClients = data.clients.map((c) => normalizeClient(c))
+        const nextContracts = normalizeContracts(data.contracts)
+        const nextSettings = normalizeSettings(data.settings)
+        setClients(nextClients)
+        setContracts(nextContracts)
+        setSettings(nextSettings)
+        saveClients(nextClients)
+        saveContracts(nextContracts)
+        saveSettings(nextSettings)
+
+        const addressMigrated =
+          nextClients.some((c, i) => c.projectName !== data.clients[i]?.projectName) ||
+          nextContracts.some((c, i) => c.clientAddress !== data.contracts[i]?.clientAddress) ||
+          nextSettings.address !== data.settings.address
+        if (addressMigrated) {
+          await persistAdminData(nextClients, nextContracts, nextSettings)
+        }
       } finally {
         setSyncing(false)
       }

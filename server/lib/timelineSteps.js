@@ -10,8 +10,8 @@ export const TIMELINE_STEP_ORDER = [
 ]
 
 export const TIMELINE_STEP_LABELS = {
-  contract_sent: 'Contract Sent',
-  contract_signed: 'Contract Signed',
+  contract_sent: 'Lease Sent',
+  contract_signed: 'Lease Signed',
   invoice_sent: 'PayPal Invoice Link Sent',
   pay_link_clicked: 'PayPal Link Clicked',
   payment_confirmed: 'Payment Confirmed',

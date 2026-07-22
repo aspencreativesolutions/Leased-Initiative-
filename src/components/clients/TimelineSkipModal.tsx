@@ -152,8 +152,8 @@ export function TimelineSkipModal({
       {willAutoGenerateContract && (
         <p className="mt-4 rounded-sm border-2 border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink-muted">
           {hasContract
-            ? 'This client already has a contract on file. It will stay in sync on your dashboard and the client portal.'
-            : 'No contract exists yet — a placeholder contract will be auto-generated with customizable sections before the project can move to In Progress.'}
+            ? 'This tenant already has a lease on file. It will stay in sync on your dashboard and the tenant portal.'
+            : 'No lease exists yet — a placeholder lease will be auto-generated with customizable sections before the project can move to In Progress.'}
         </p>
       )}
 

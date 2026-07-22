@@ -140,7 +140,7 @@ export function PortalProfilePage() {
             type="email"
             value={profile.email}
             readOnly
-            hint="Contact your designer if you need to change your login email."
+            hint="Contact your landlord if you need to change your login email."
           />
         </Card>
 
@@ -148,7 +148,7 @@ export function PortalProfilePage() {
           <Card>
             <CardHeader
               title="Personal details"
-              subtitle="Update how your designer sees you on project files and contracts"
+              subtitle="Update how your landlord sees you on project files and leases"
             />
             <div className="space-y-4">
               {profileError && (
@@ -259,14 +259,14 @@ export function PortalProfilePage() {
           {!profile.linked ? (
             <Card padding="md">
               <p className="text-sm text-ink-muted">
-                Your designer hasn&apos;t linked your account to a project yet. Once accepted,
-                your projects, service tier, and contract details will appear here.
+                Your landlord hasn&apos;t linked your account to a project yet. Once accepted,
+                your projects, service tier, and lease details will appear here.
               </p>
             </Card>
           ) : profile.projects.length === 0 ? (
             <Card padding="md">
               <p className="text-sm text-ink-muted">
-                No contracts have been sent yet. When your designer shares a contract, it will
+                No leases have been sent yet. When your landlord shares a lease, it will
                 show up here with your service tier and developer contact.
               </p>
             </Card>
@@ -292,7 +292,7 @@ export function PortalProfilePage() {
                           </p>
                           {project.sentAt && (
                             <p className="mt-0.5 text-xs text-ink-faint">
-                              Contract sent {formatDate(project.sentAt)}
+                              Lease sent {formatDate(project.sentAt)}
                               {project.signedAt
                                 ? ` · Signed ${formatDate(project.signedAt)}`
                                 : ''}
@@ -323,7 +323,7 @@ export function PortalProfilePage() {
                       <div className="mt-4">
                         <Link to={`/portal/contracts/${project.contractId}`}>
                           <Button size="sm" variant="outline">
-                            View full contract
+                            View full lease
                           </Button>
                         </Link>
                       </div>

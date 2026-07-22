@@ -45,7 +45,7 @@ export function DashboardNavActions({
         onClick={onOpenAddClient}
       >
         <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-        Add Client
+        Add Tenant
       </button>
     </>
   )

@@ -63,7 +63,7 @@ export function NotesSection({ client }: { client: Client }) {
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${categoryColors[note.category]}`}
                       >
-                        {note.category}
+                        {note.category === 'Contract' ? 'Lease' : note.category}
                       </span>
                     )}
                     {note.timelineStepId && (
@@ -110,7 +110,7 @@ export function NotesSection({ client }: { client: Client }) {
           >
             {categories.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {c === 'Contract' ? 'Lease' : c}
               </option>
             ))}
           </Select>

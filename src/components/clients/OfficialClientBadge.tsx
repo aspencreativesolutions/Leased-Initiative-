@@ -22,7 +22,7 @@ export function OfficialClientBadge({
           'border-ink bg-surface text-ink',
           className
         )}
-        title="Signed contract — official client"
+        title="Signed lease — active tenant"
       >
         <BadgeCheck className={clientStatusIconClass} strokeWidth={2.5} aria-hidden />
         {label}
@@ -33,10 +33,10 @@ export function OfficialClientBadge({
   return (
     <span
       className={cn(clientStatusIconWrapperClass, 'text-accent', className)}
-      title="Signed contract — official client"
+      title="Signed lease — active tenant"
     >
       <BadgeCheck className={clientStatusIconClass} strokeWidth={2.5} aria-hidden />
-      <span className="sr-only">Official client</span>
+      <span className="sr-only">Active tenant</span>
     </span>
   )
 }

@@ -120,7 +120,7 @@ export function ScheduleBlockActionMenu({
         </div>
         <div className="space-y-1.5 px-2 py-2">
           {block.clientName && block.clientName !== block.businessName && (
-            <DetailRow label="Client">{block.clientName}</DetailRow>
+            <DetailRow label="Tenant">{block.clientName}</DetailRow>
           )}
           {block.label && <DetailRow label="Task">{block.label}</DetailRow>}
           <DetailRow label="Time">

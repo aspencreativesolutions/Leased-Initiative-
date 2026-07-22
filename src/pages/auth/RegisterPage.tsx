@@ -1,12 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/FormField'
+import { Input, Select } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { expectedWorkEmail, isWorkAdminEmail } from '@/lib/workEmail'
+import {
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  formatLeaseLengthLabel,
+  LEASE_LENGTH_OPTIONS,
+  type LeaseLengthMonths,
+} from '@/lib/leaseSchedule'
 import { loadStoredPortalThemeId } from '@/themes/applyTheme'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 
@@ -25,17 +30,11 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [preferredLeaseMonths, setPreferredLeaseMonths] = useState<LeaseLengthMonths>(
+    DEFAULT_LEASE_LENGTH_MONTHS
+  )
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  const workEmailHint = useMemo(
-    () => (mode === 'admin' ? expectedWorkEmail(name) : null),
-    [mode, name]
-  )
-  const willBeAdmin = useMemo(
-    () => mode === 'admin' && Boolean(name && email && isWorkAdminEmail(email, name)),
-    [mode, name, email]
-  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,6 +54,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
       const { email: registeredEmail } = await register(name, email, password, {
         accountType: mode,
         portalThemeId: mode === 'client' ? loadStoredPortalThemeId() : undefined,
+        preferredLeaseMonths: mode === 'client' ? preferredLeaseMonths : undefined,
       })
       const params = new URLSearchParams({ email: registeredEmail })
       if (mode === 'admin') params.set('studio', '1')
@@ -71,16 +71,16 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
       <div className="flex flex-1 items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-2xl font-bold">
-            CC
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink font-display text-2xl font-bold">
+            L
           </div>
           <h1 className="heading-display text-2xl">
-            {mode === 'admin' ? 'Create studio account' : 'Create an account'}
+            {mode === 'admin' ? 'Create landlord account' : 'Create tenant account'}
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
             {mode === 'admin'
-              ? 'Aspen Creative Solutions team members only — use your work email.'
-              : 'Sign up to connect with Aspen Creative Solutions on your project.'}
+              ? 'Sign up with your email to manage tenants and leases.'
+              : 'Sign up to connect with your landlord. After approval, you can review and sign your lease.'}
           </p>
         </div>
 
@@ -89,11 +89,6 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             {error && (
               <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                 {error}
-              </div>
-            )}
-            {willBeAdmin && (
-              <div className="rounded-sm border-2 border-ink bg-surface px-3 py-2 text-sm text-ink">
-                Work email detected — you&apos;ll get studio admin access.
               </div>
             )}
             <Input
@@ -112,12 +107,28 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
               autoComplete="email"
               hint={
                 mode === 'admin'
-                  ? workEmailHint
-                    ? `Team admin: ${workEmailHint}`
-                    : 'Use your aspencreativesolutions.com work email'
-                  : 'Use the email your designer has on file'
+                  ? 'Use any email address you check regularly'
+                  : 'Use the email your landlord has on file'
               }
             />
+            {mode === 'client' && (
+              <Select
+                label="Preferred lease length"
+                name="preferredLeaseMonths"
+                value={String(preferredLeaseMonths)}
+                onChange={(e) =>
+                  setPreferredLeaseMonths(Number(e.target.value) as LeaseLengthMonths)
+                }
+                required
+                hint="Your landlord will use this when setting up your lease term"
+              >
+                {LEASE_LENGTH_OPTIONS.map((months) => (
+                  <option key={months} value={months}>
+                    {formatLeaseLengthLabel(months)}
+                  </option>
+                ))}
+              </Select>
+            )}
             <Input
               label="Password"
               type="password"
@@ -148,21 +159,11 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             </Link>
           </p>
 
-          {mode === 'client' ? (
-            <div className="mt-4 flex justify-center">
-              <Link to="/studio/register">
-                <Button variant="ghost" size="sm" type="button">
-                  I&apos;m an Aspen team member
-                </Button>
-              </Link>
-            </div>
-          ) : (
-            <p className="mt-4 text-center text-sm text-ink-muted">
-              <Link to="/register" className="font-semibold text-brand hover:underline">
-                Client sign up
-              </Link>
-            </p>
-          )}
+          <p className="mt-4 text-center text-sm text-ink-muted">
+            <Link to="/" className="font-semibold text-brand hover:underline">
+              Back to role selection
+            </Link>
+          </p>
         </Card>
 
         {mode === 'client' && <PaymentPartnerLogos />}

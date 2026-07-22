@@ -25,7 +25,7 @@ export function StudioLoginPage() {
     try {
       const user = await login(email, password)
       if (user.role !== 'admin') {
-        setError('This sign-in is for Aspen team accounts. Clients should use the main sign-in page.')
+        setError('This sign-in is for landlord accounts. Tenants should use tenant sign-in.')
         return
       }
       navigate(from, { replace: true })
@@ -48,11 +48,13 @@ export function StudioLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-xl font-bold">
-            AC
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink font-display text-xl font-bold">
+            L
           </div>
-          <h1 className="heading-display text-2xl">Studio sign in</h1>
-          <p className="mt-2 text-sm text-ink-muted">ASPEN Creative StudiOS team dashboard</p>
+          <h1 className="heading-display text-2xl">Landlord sign in</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Approve tenants, send leases, and manage your properties
+          </p>
         </div>
 
         <Card padding="lg">
@@ -63,7 +65,7 @@ export function StudioLoginPage() {
               </div>
             )}
             <Input
-              label="Work email"
+              label="Email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -85,15 +87,15 @@ export function StudioLoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-ink-muted">
-            New team member?{' '}
+            New landlord?{' '}
             <Link to="/studio/register" className="font-semibold text-brand hover:underline">
-              Create studio account
+              Create landlord account
             </Link>
           </p>
 
           <p className="mt-4 text-center text-sm text-ink-muted">
-            <Link to="/login" state={location.state} className="font-semibold text-brand hover:underline">
-              Client sign in
+            <Link to="/" className="font-semibold text-brand hover:underline">
+              Back to role selection
             </Link>
           </p>
         </Card>

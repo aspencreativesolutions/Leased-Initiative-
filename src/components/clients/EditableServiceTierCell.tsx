@@ -150,7 +150,7 @@ export function EditableServiceTierCell({
         </select>
         {needsResend && (
           <p className="mt-1 text-[9px] font-bold uppercase tracking-caps text-accent">
-            Resend contract
+            Resend lease
           </p>
         )}
       </div>
@@ -186,7 +186,7 @@ export function EditableServiceTierCell({
               <div className="mt-2 flex gap-2 rounded-sm border-2 border-accent bg-accent-light p-2 text-xs text-ink">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-accent" />
                 <p>
-                  The contract for {client.name} will reset to draft. Revise and resend it after
+                  The lease for {client.name} will reset to draft. Revise and resend it after
                   updating.
                 </p>
               </div>
@@ -204,7 +204,7 @@ export function EditableServiceTierCell({
                 onClick={() => applyTier(pendingTier)}
               >
                 <FileText className="h-4 w-4" />
-                {saving ? 'Updating…' : 'Update contract'}
+                {saving ? 'Updating…' : 'Update lease'}
               </Button>
               <Button size="sm" variant="ghost" className="w-full" onClick={closePopover}>
                 Cancel

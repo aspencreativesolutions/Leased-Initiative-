@@ -17,7 +17,7 @@ export function PortalAssistanceModal({
 }: PortalAssistanceModalProps) {
   const contactEmail = supportContact?.email?.trim()
   const contactPhone = supportContact?.phone?.trim()
-  const businessName = supportContact?.businessName?.trim() || 'your designer'
+  const businessName = supportContact?.businessName?.trim() || 'your landlord'
 
   return (
     <Modal open={open} onClose={onClose} title="Assistance" size="lg">
@@ -28,13 +28,13 @@ export function PortalAssistanceModal({
             Project steps
           </h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-ink-muted">
-            <li>Review and sign your contract when it appears in Current Contracts.</li>
+            <li>Review and sign your lease when it appears in Current Leases.</li>
             <li>Open the invoice payment link to pay your deposit.</li>
             <li>
-              Once your designer starts the project, upload files and add notes here in the
+              Once your landlord starts the project, upload files and add notes here in the
               portal.
             </li>
-            <li>Track project status on your dashboard — your designer updates it as work progresses.</li>
+            <li>Track project status on your dashboard — your landlord updates it as work progresses.</li>
           </ol>
         </section>
 
@@ -60,7 +60,7 @@ export function PortalAssistanceModal({
               Use <strong className="text-ink">Add Note</strong> on any uploaded file to add
               more context — paste as much detail as you need.
             </li>
-            <li>Notes stay linked to that file so your designer can review them together.</li>
+            <li>Notes stay linked to that file so your landlord can review them together.</li>
           </ul>
         </section>
 
@@ -80,7 +80,7 @@ export function PortalAssistanceModal({
               </a>
             ) : (
               <p className="text-xs text-ink-muted">
-                Contact details will appear here once your designer adds them in studio settings.
+                Contact details will appear here once your landlord adds them in landlord settings.
               </p>
             )}
             {contactPhone && (

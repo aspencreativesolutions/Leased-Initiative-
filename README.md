@@ -1,20 +1,20 @@
-# Client Craft
+# Leased
 
-A clean, modern client management web app for freelance web designers and developers. Manage clients, projects, contracts, deadlines, and notes in one place.
+Lease management for landlords and tenants. Approve tenant sign-ups, send lease contracts, and activate tenants once they sign.
 
 ## Features
 
-- **Dashboard** — Summary metrics, client overview table, upcoming deadlines
-- **Client profiles** — Contact info, project/contract/payment status, notes, deadlines
-- **Add clients** — Simple modal form
-- **Contracts** — Multi-step contract builder with PDF generation and email flow
+- **Role selection** — Tenants and landlords enter through dedicated sign-in paths
+- **Dashboard** — Summary metrics, tenant overview, upcoming deadlines
+- **Tenant profiles** — Contact info, lease/payment status, notes, deadlines
+- **Lease contracts** — Multi-step contract builder with PDF generation and email flow
 - **Calendar** — All deadlines and follow-ups in one view
 - **Settings** — Business info used in generated contracts
-- **Official clients** — Mark signed-contract clients as official; unlocks PayPal
+- **Active tenants** — Tenants become active after signing their lease
 - **PayPal payments** — Payment links + embedded checkout (requires API server)
-- **Client portal** — Clients register, review contracts, and confirm electronically
-- **Secure auth** — Admin studio login + separate client accounts with role-based access
-- **Search & filters** — Find clients by status, payment, deadlines, and official status
+- **Tenant portal** — Tenants register, await landlord approval, review leases, and sign
+- **Secure auth** — Landlord and tenant accounts with role-based access
+- **Search & filters** — Find tenants by status, payment, deadlines, and active status
 
 ## Tech Stack
 
@@ -33,19 +33,19 @@ cp .env.example .env   # set JWT_SECRET and PayPal credentials
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). **Clients:** sign up or sign in at `/register` and `/login`. **Aspen team:** use `/studio/register` and `/studio/login` with your work email (`firstname@aspencreativesolutions.com`).
+Open [http://localhost:5173](http://localhost:5173). Choose **I'm a Tenant** or **I'm a Landlord** on the home screen. Both roles sign up with a standard email address.
 
 `npm run dev` starts the Vite app **and** the API server on port 3001 (auth, data sync, PayPal).
 
 ### Merged with portfolio site
 
-The Aspen Creative marketing site lives in `portfolio/`. Run everything together:
+A marketing site lives in `portfolio/`. Run everything together:
 
 ```bash
 npm run dev:all
 ```
 
-Open [http://localhost:3010](http://localhost:3010) — portfolio at `/`, Client Craft studio at `/studio`, client portal at `/portal` and `/login`. Set `APP_URL=http://localhost:3010` in `.env` when using the merged site (payment redirects and email links).
+Open [http://localhost:3010](http://localhost:3010) — portfolio at `/`, landlord portal at `/studio`, tenant portal at `/portal` and `/login`. Set `APP_URL=http://localhost:3010` in `.env` when using the merged site (payment redirects and email links).
 
 **PayPal setup:** see [docs/PAYPAL_SETUP.md](docs/PAYPAL_SETUP.md).
 

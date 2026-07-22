@@ -22,7 +22,7 @@ export function CreativeStudiosBrand({
         )}
         aria-hidden
       >
-        AC
+        L
       </div>
       <div className="flex flex-col leading-none">
         <span
@@ -31,7 +31,7 @@ export function CreativeStudiosBrand({
             nameClassName
           )}
         >
-          ASPEN Creative
+          Leased
         </span>
         <span
           className={cn(
@@ -39,7 +39,7 @@ export function CreativeStudiosBrand({
             subtitleClassName
           )}
         >
-          StudiOS
+          Landlord Portal
         </span>
       </div>
     </div>

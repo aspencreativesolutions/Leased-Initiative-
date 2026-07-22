@@ -8,7 +8,7 @@ export const E2E_DB_PATH = path.join(__dirname, 'test-store.json')
 
 export const E2E_ADMIN = {
   name: 'E2eadmin',
-  email: 'e2eadmin@aspencreativesolutions.com',
+  email: 'e2eadmin@leased.test',
   password: 'E2eAdmin123!',
 }
 

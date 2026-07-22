@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/FormField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
-import { getClientServiceTier } from '@/lib/clientUtils'
+import { getClientServiceTier, getProjectStatusDisplayLabel } from '@/lib/clientUtils'
 import { SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ServiceTier } from '@/types'
 
@@ -88,9 +88,9 @@ export function ClientsPage() {
       <div className="mb-5 border-b-[length:var(--border-width)] border-ink pb-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <h1 className="heading-display text-2xl sm:text-3xl">Clients</h1>
+            <h1 className="heading-display text-2xl sm:text-3xl">Tenants</h1>
             <p className="mt-0.5 text-sm text-ink-muted">
-              Official clients and pending prospects in your pipeline.
+              Active tenants and pending prospects awaiting lease signature.
             </p>
           </div>
 
@@ -104,7 +104,7 @@ export function ClientsPage() {
                   <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-faint" />
                   <input
                     type="search"
-                    placeholder="Search clients..."
+                    placeholder="Search tenants..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full rounded-sm border-2 border-line bg-surface-paper py-1 pl-7 pr-2 text-[10px] text-ink focus:border-ink focus:outline-none"
@@ -112,18 +112,18 @@ export function ClientsPage() {
                 </div>
               </div>
               <Select
-                label="Project Status"
+                label="Lease Status"
                 value={projectFilter}
                 onChange={(e) => setProjectFilter(e.target.value as ProjectStatus | '')}
                 className={compactFilterSelectClass}
               >
                 <option value="">All</option>
                 {(['Inquiry', 'In Progress', 'Contract Sent', 'Contract Signed', 'Completed', 'Follow-Up Needed'] as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{getProjectStatusDisplayLabel(s)}</option>
                 ))}
               </Select>
               <Select
-                label="Contract Status"
+                label="Lease Progress"
                 value={contractFilter}
                 onChange={(e) => setContractFilter(e.target.value as ContractStatus | '')}
                 className={compactFilterSelectClass}
@@ -172,8 +172,8 @@ export function ClientsPage() {
                 className={compactFilterSelectClass}
               >
                 <option value="all">All</option>
-                <option value="clients">Clients</option>
-                <option value="pending">Pending Clients</option>
+                <option value="clients">Tenants</option>
+                <option value="pending">Pending Tenants</option>
               </Select>
             </div>
           </Card>
@@ -183,10 +183,10 @@ export function ClientsPage() {
       {filtered.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={clients.length === 0 ? 'No clients yet' : 'No matching clients'}
+          title={clients.length === 0 ? 'No tenants yet' : 'No matching tenants'}
           description={
             clients.length === 0
-              ? 'Add your first client to get started.'
+              ? 'Add your first tenant to get started.'
               : 'Try adjusting your search or filters.'
           }
         />
@@ -197,11 +197,11 @@ export function ClientsPage() {
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="outline" onClick={() => setAccountsOpen(true)}>
           <UserCog className="h-4 w-4" />
-          Client Accounts
+          Tenant Accounts
         </Button>
         <Button onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add Client
+          Add Tenant
         </Button>
       </div>
 

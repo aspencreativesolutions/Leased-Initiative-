@@ -48,13 +48,13 @@ export function ContractPage() {
       </Link>
 
       <PageHeader
-        title={existingContract ? 'Edit Contract' : 'Create Contract'}
-        subtitle={`Contract for ${client.businessName} — ${client.projectName}`}
+        title={existingContract ? 'Edit Lease' : 'Create Lease'}
+        subtitle={`Lease for ${client.businessName} — ${client.projectName}`}
         action={
           hasContractWorkflow ? (
             <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" />
-              Delete contract
+              Delete lease
             </Button>
           ) : undefined
         }

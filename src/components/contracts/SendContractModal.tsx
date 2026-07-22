@@ -25,10 +25,10 @@ export function SendContractModal({
   const { updateClient, refresh, saveContract } = useApp()
   const [mode, setMode] = useState<'portal' | 'email'>('portal')
   const [subject, setSubject] = useState(
-    `Website Project Contract for ${client.businessName}`
+    `Lease Agreement for ${client.businessName}`
   )
   const [body, setBody] = useState(
-    `Hi ${client.name},\n\nYour contract is ready in your Client Craft portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/login\n\nBest regards`
+    `Hi ${client.name},\n\nYour lease is ready in your Leased portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/login\n\nBest regards`
   )
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -66,7 +66,7 @@ export function SendContractModal({
         setSuccess('')
       }, 2000)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not send contract')
+      setError(err instanceof ApiError ? err.message : 'Could not send lease')
     } finally {
       setSending(false)
     }
@@ -77,7 +77,7 @@ export function SendContractModal({
     setSending(true)
     setError('')
     try {
-      const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Contract PDF attached — download from Client Craft]')}`
+      const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased]')}`
       window.open(mailto, '_blank')
       await saveContract(contract)
       const result = await apiFetch<{
@@ -95,7 +95,7 @@ export function SendContractModal({
       await saveContract(sentContract)
       updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
       await refresh()
-      setSuccess('Email opened and contract sent to the client portal.')
+      setSuccess('Email opened and lease sent to the tenant portal.')
       onSent()
       setTimeout(() => {
         onClose()
@@ -105,7 +105,7 @@ export function SendContractModal({
       setError(
         err instanceof ApiError
           ? err.message
-          : 'Could not send contract to portal. Use Client portal mode instead.'
+          : 'Could not send lease to portal. Use Client portal mode instead.'
       )
     } finally {
       setSending(false)
@@ -125,7 +125,7 @@ export function SendContractModal({
         reset()
         onClose()
       }}
-      title="Send Contract to Client"
+      title="Send Lease to Tenant"
       size="lg"
     >
       {success ? (
@@ -172,18 +172,18 @@ export function SendContractModal({
           {mode === 'portal' ? (
             <div className="space-y-4">
               <p className="text-sm text-ink-muted">
-                Sends the contract to <strong>{client.name}</strong>&apos;s client portal account.
+                Sends the lease to <strong>{client.name}</strong>&apos;s tenant portal account.
                 They must register at <code className="text-xs">/register</code> with email{' '}
                 <strong>{client.email}</strong> if they haven&apos;t already.
               </p>
-              <Input label="Client email" value={client.email} readOnly />
+              <Input label="Tenant email" value={client.email} readOnly />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
                 <Button onClick={handleSendToPortal} disabled={sending}>
                   <Send className="h-4 w-4" />
-                  {sending ? 'Sending…' : 'Send to client account'}
+                  {sending ? 'Sending…' : 'Send to tenant account'}
                 </Button>
               </div>
             </div>

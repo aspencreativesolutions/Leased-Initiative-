@@ -16,11 +16,13 @@ export function RouteThemeSync() {
 
   useEffect(() => {
     if (isPortalPath(pathname)) {
-      applyThemeToDocument(loadStoredPortalThemeId(), PORTAL_THEME_STORAGE_KEY)
+      applyThemeToDocument(loadStoredPortalThemeId(), PORTAL_THEME_STORAGE_KEY, {
+        persist: false,
+      })
     } else if (isStudioAuthPath(pathname)) {
       applyStudioAuthTheme()
     } else {
-      applyThemeToDocument(loadStoredThemeId(), THEME_STORAGE_KEY)
+      applyThemeToDocument(loadStoredThemeId(), THEME_STORAGE_KEY, { persist: false })
     }
   }, [pathname])
 

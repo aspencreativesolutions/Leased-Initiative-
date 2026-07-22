@@ -1,6 +1,90 @@
 import { isSampleClientEmail } from '@/data/sampleClients'
+import { migrateSampleAddress } from '@/data/seed'
+import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
 import { migrateServiceTier } from '@/lib/serviceTiers'
-import type { Client, ContractData, ContractStatus, Note, ProjectStatus, ServiceTier } from '@/types'
+import { formatDate } from '@/lib/utils'
+import type {
+  Client,
+  ContractData,
+  ContractStatus,
+  Note,
+  ProjectStatus,
+  ProjectType,
+  ServiceTier,
+} from '@/types'
+
+const PROPERTY_TYPES: readonly ProjectType[] = [
+  'Apartment',
+  'House',
+  'Condo',
+  'Townhouse',
+  'Other',
+]
+
+export function migratePropertyType(value?: string): ProjectType {
+  if (value && (PROPERTY_TYPES as readonly string[]).includes(value)) {
+    return value as ProjectType
+  }
+  return 'Other'
+}
+
+function isUsableContractDate(value?: string): value is string {
+  if (!value?.trim()) return false
+  if (value.includes(PLACEHOLDER_MARKER)) return false
+  const parsed = value.includes('T') ? new Date(value) : new Date(`${value}T12:00:00`)
+  return !Number.isNaN(parsed.getTime())
+}
+
+/** First name from a full display name (falls back to the trimmed string). */
+export function getFirstName(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return name
+  return trimmed.split(/\s+/)[0] ?? trimmed
+}
+
+/** Property address for tenant rows — contract address, else project/address field */
+export function getTenantAddress(client: Client, contract?: ContractData): string {
+  const fromContract = contract?.clientAddress?.trim()
+  if (fromContract && !fromContract.includes(PLACEHOLDER_MARKER)) return fromContract
+  return client.projectName?.trim() || '—'
+}
+
+/** Lease length / end date when known; otherwise a lease-oriented status label */
+export function getLeaseStatusLabel(client: Client, contract?: ContractData): string {
+  if (client.leaseLengthMonths && client.leaseLengthMonths > 0) {
+    const end = isUsableContractDate(contract?.completionDate)
+      ? contract!.completionDate
+      : undefined
+    if (end) return `${client.leaseLengthMonths}-mo · Ends ${formatDate(end)}`
+    return `${client.leaseLengthMonths}-mo lease`
+  }
+
+  const start = isUsableContractDate(contract?.startDate) ? contract!.startDate : undefined
+  const end = isUsableContractDate(contract?.completionDate) ? contract!.completionDate : undefined
+
+  if (start && end) {
+    const startDate = new Date(`${start}T12:00:00`)
+    const endDate = new Date(`${end}T12:00:00`)
+    const months = Math.max(
+      1,
+      Math.round(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+      )
+    )
+    return `${months}-mo · Ends ${formatDate(end)}`
+  }
+  if (end) return `Ends ${formatDate(end)}`
+
+  const fallback: Record<ProjectStatus, string> = {
+    Inquiry: 'Inquiry',
+    'In Progress': 'Active',
+    'Contract Sent': 'Lease Sent',
+    'Contract Signed': 'Lease Signed',
+    Completed: 'Ended',
+    'Follow-Up Needed': 'Follow-Up Needed',
+  }
+  return fallback[client.projectStatus] ?? client.projectStatus
+}
 
 const SIGNED_CONTRACT_STATUSES = ['Signed', 'Completed'] as const
 const CONTRACT_STATUSES_NEEDING_RESET = [
@@ -79,7 +163,7 @@ export function buildServiceTierChangeResult(
     clientUpdates,
     contract: updatedContract,
     note: {
-      text: `Service tier changed from ${previousTier} to ${newTier}. Revise the contract and resend it to the client.`,
+      text: `Service tier changed from ${previousTier} to ${newTier}. Revise the lease and resend it to the tenant.`,
       category: 'Contract',
     },
     requiresResend: true,
@@ -147,11 +231,11 @@ export function getDisplayContractStatus(
 }
 
 export function getContractActionLabel(status: ContractStatus): string {
-  if (status === 'Not Started') return 'Start Contract'
+  if (status === 'Not Started') return 'Start Lease'
   if (SIGNED_CONTRACT_STATUSES.includes(status as (typeof SIGNED_CONTRACT_STATUSES)[number])) {
-    return 'Revise Contract'
+    return 'Revise Lease'
   }
-  return 'View / Edit Contract'
+  return 'View / Edit Lease'
 }
 
 export function canViewClientContract(
@@ -179,10 +263,20 @@ export function canStartProject(client: Client): boolean {
   )
 }
 
-/** Dashboard project-status column label */
+/** @deprecated Prefer getLeaseStatusLabel for dashboard rows */
 export function getDashboardProjectStatusLabel(status: ProjectStatus): string | undefined {
-  if (status === 'In Progress') return 'File Sharing'
+  if (status === 'In Progress') return 'Active'
+  if (status === 'Contract Sent') return 'Lease Sent'
+  if (status === 'Contract Signed') return 'Lease Signed'
+  if (status === 'Completed') return 'Ended'
   return undefined
+}
+
+/** User-facing project/lease stage label (keeps stored enum values unchanged) */
+export function getProjectStatusDisplayLabel(status: ProjectStatus): string {
+  if (status === 'Contract Sent') return 'Lease Sent'
+  if (status === 'Contract Signed') return 'Lease Signed'
+  return status
 }
 
 export function isProjectActive(client: Client): boolean {
@@ -289,14 +383,14 @@ export function normalizeClient(raw: Partial<Client> & { id: string }): Client {
     businessName: '',
     email: '',
     phone: '',
-    projectType: 'Website Design',
-    projectName: '',
     projectStatus: 'Inquiry',
     contractStatus: 'Not Started',
     paymentStatus: 'Unpaid',
     createdAt: new Date().toISOString(),
     ...raw,
     id: raw.id,
+    projectName: migrateSampleAddress(raw.projectName) ?? raw.projectName ?? '',
+    projectType: migratePropertyType(raw.projectType),
     isOfficialClient: raw.isOfficialClient ?? false,
     isSampleClient:
       raw.isSampleClient ?? (raw.email ? isSampleClientEmail(raw.email) : false),

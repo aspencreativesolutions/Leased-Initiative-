@@ -1,20 +1,34 @@
-import type { ThemeId, ThemeOption } from './types'
+import type { ThemeAppearance, ThemeId, ThemeOption } from './types'
 
-export const THEME_STORAGE_KEY = 'client-craft-theme'
-export const PORTAL_THEME_STORAGE_KEY = 'client-craft-portal-theme'
-export const DEFAULT_THEME_ID: ThemeId = 'ocean'
-export const DEFAULT_PORTAL_THEME_ID: ThemeId = 'ocean'
+/** Bumped so Graphite Lab becomes the fresh default over legacy Ink Frame prefs */
+export const THEME_STORAGE_KEY = 'leased-app-theme-v2'
+export const PORTAL_THEME_STORAGE_KEY = 'leased-portal-theme-v2'
+export const APPEARANCE_STORAGE_KEY = 'leased-theme-appearance'
+export const DEFAULT_THEME_ID: ThemeId = 'graphite'
+export const DEFAULT_PORTAL_THEME_ID: ThemeId = 'graphite'
+export const DEFAULT_APPEARANCE: ThemeAppearance = 'light'
 
 export const themeOptions: ThemeOption[] = [
   {
-    id: 'editorial',
-    name: 'Editorial Noir',
-    tagline: 'Bold · Classic · Chic',
+    id: 'graphite',
+    name: 'Graphite Lab',
+    tagline: 'Neutral · Formal · Precise',
     description:
-      'Black bar navigation, serif headlines, burgundy accents, and crisp borders. Feels like a design studio magazine.',
-    swatches: ['#111111', '#6d2e3a', '#ebe6de'],
-    capsLabels: true,
-    capsButtons: true,
+      'Midnight Lab’s rounded lab layout with thin 1px chrome, no glow, and a formal graphite palette. Includes a light/dark switch (light by default).',
+    swatches: ['#18181b', '#52525b', '#f4f4f5'],
+    capsLabels: false,
+    capsButtons: false,
+    supportsAppearance: true,
+  },
+  {
+    id: 'ink',
+    name: 'Ink Frame',
+    tagline: 'Sharp · Editorial · Clear',
+    description:
+      'The classic Leased welcome look — square frames, 2px ink borders, Outfit display type. Clean and geometric.',
+    swatches: ['#0f172a', '#0f2942', '#f1f5f9'],
+    capsLabels: false,
+    capsButtons: false,
   },
   {
     id: 'soft',
@@ -27,42 +41,12 @@ export const themeOptions: ThemeOption[] = [
     capsButtons: false,
   },
   {
-    id: 'mono',
-    name: 'Mono Gallery',
-    tagline: 'Stark · Minimal · Art-forward',
-    description:
-      'Pure black and white, square edges, geometric type. Gallery-white walls and confident contrast.',
-    swatches: ['#000000', '#ffffff', '#f0f0f0'],
-    capsLabels: true,
-    capsButtons: true,
-  },
-  {
     id: 'ocean',
     name: 'Ocean Office',
     tagline: 'Crisp · Professional · Trustworthy',
     description:
       'Deep slate blue, bright sky accents, clean sans-serif. Polished and dependable for client-facing work.',
     swatches: ['#0f2942', '#2563eb', '#f1f5f9'],
-    capsLabels: false,
-    capsButtons: false,
-  },
-  {
-    id: 'rose',
-    name: 'Rose Salon',
-    tagline: 'Soft · Feminine · Refined',
-    description:
-      'Blush and dusty rose on cream, delicate serifs, and a light nav. Beauty, wellness, and lifestyle brands.',
-    swatches: ['#5c3d47', '#c9a9a6', '#faf5f4'],
-    capsLabels: false,
-    capsButtons: false,
-  },
-  {
-    id: 'forest',
-    name: 'Forest Studio',
-    tagline: 'Natural · Grounded · Organic',
-    description:
-      'Deep pine and sage greens on warm off-white. Earthy, calm, and perfect for sustainable or outdoor clients.',
-    swatches: ['#1a3c34', '#5a7d6a', '#f4f6f2'],
     capsLabels: false,
     capsButtons: false,
   },
@@ -87,16 +71,6 @@ export const themeOptions: ThemeOption[] = [
     capsButtons: false,
   },
   {
-    id: 'vintage',
-    name: 'Vintage Desk',
-    tagline: 'Retro · Warm · Nostalgic',
-    description:
-      'Terracotta, sepia ink, and textured cream paper. Typewriter-era charm for writers and heritage brands.',
-    swatches: ['#3d2e26', '#c45c3e', '#f2e8dc'],
-    capsLabels: true,
-    capsButtons: false,
-  },
-  {
     id: 'neon',
     name: 'Neon District',
     tagline: 'Electric · Bold · Night-city',
@@ -116,18 +90,12 @@ export const themeOptions: ThemeOption[] = [
     capsLabels: true,
     capsButtons: true,
   },
-  {
-    id: 'terracotta',
-    name: 'Mediterranean',
-    tagline: 'Sun-baked · Artisan · Earthy',
-    description:
-      'Clay red, olive green, and sun-bleached linen. Handmade ceramics and coastal studio energy.',
-    swatches: ['#4a3728', '#b55233', '#f0e6d8'],
-    capsLabels: false,
-    capsButtons: false,
-  },
 ]
 
 export function getThemeOption(id: ThemeId): ThemeOption {
   return themeOptions.find((t) => t.id === id) ?? themeOptions[0]
+}
+
+export function themeSupportsAppearance(id: ThemeId): boolean {
+  return Boolean(getThemeOption(id).supportsAppearance)
 }

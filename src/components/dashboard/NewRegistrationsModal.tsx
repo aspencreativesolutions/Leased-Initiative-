@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
 import { acceptRegistration, dismissRegistration } from '@/lib/portalUsersApi'
+import { formatLeaseLengthLabel } from '@/lib/leaseSchedule'
 import { formatDate } from '@/lib/utils'
 import type { PendingRegistration } from '@/types'
 
@@ -82,7 +83,7 @@ export function NewRegistrationsModal({
           compact
           icon={Users}
           title="No pending sign-ups"
-          description="When someone registers at the client portal, you'll be notified and they will appear here."
+          description="When someone registers as a tenant, you'll be notified and they will appear here."
         />
       ) : (
         <ul className="divide-y divide-line">
@@ -96,6 +97,12 @@ export function NewRegistrationsModal({
                 <p className="truncate text-sm text-ink-muted">{registration.email}</p>
                 <p className="mt-1 text-xs text-ink-faint">
                   Registered {formatDate(registration.createdAt)}
+                  {registration.preferredLeaseMonths != null && (
+                    <>
+                      {' '}
+                      · Prefers {formatLeaseLengthLabel(registration.preferredLeaseMonths)}
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
@@ -126,7 +133,7 @@ export function NewRegistrationsModal({
                   ) : (
                     <FileSignature className="h-4 w-4" />
                   )}
-                  Accept User and Start Contract Draft
+                  Approve Tenant and Start Lease Draft
                 </Button>
               </div>
             </li>

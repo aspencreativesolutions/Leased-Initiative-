@@ -62,9 +62,9 @@ export function dashboardFilterShowsTimelineNotes(filter: DashboardFilter | null
 }
 
 export const DASHBOARD_FILTER_LABELS: Record<DashboardFilter, string> = {
-  clients: 'Official clients',
-  pending: 'Pending clients',
+  clients: 'Active tenants',
+  pending: 'Pending tenants',
   active: 'Active projects',
-  contracts: 'Pending contracts',
+  contracts: 'Pending leases',
   due: 'Upcoming deadlines',
 }

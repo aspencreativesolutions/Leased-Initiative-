@@ -1,7 +1,7 @@
 {
-  "name": "Client Craft",
-  "short_name": "Client Craft",
-  "description": "Client management for freelance designers",
+  "name": "Leased",
+  "short_name": "Leased",
+  "description": "Lease management for landlords and tenants",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ebe6de",

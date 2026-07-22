@@ -43,13 +43,13 @@ export function SummaryCards({
     value: number
     icon: typeof BadgeCheck
   }[] = [
-    { id: 'clients', label: 'Clients', shortLabel: 'Clients', value: officialClients, icon: BadgeCheck },
-    { id: 'pending', label: 'Pending Clients', shortLabel: 'Pending', value: pendingClients, icon: Clock },
-    { id: 'active', label: 'Active Projects', shortLabel: 'Active', value: activeProjects, icon: FolderKanban },
+    { id: 'clients', label: 'Tenants', shortLabel: 'Tenants', value: officialClients, icon: BadgeCheck },
+    { id: 'pending', label: 'Pending Tenants', shortLabel: 'Pending', value: pendingClients, icon: Clock },
+    { id: 'active', label: 'Active Leases', shortLabel: 'Active', value: activeProjects, icon: FolderKanban },
     {
       id: 'contracts',
-      label: 'Pending Contracts',
-      shortLabel: 'Contracts',
+      label: 'Pending Leases',
+      shortLabel: 'Leases',
       value: pendingContracts,
       icon: FileClock,
     },

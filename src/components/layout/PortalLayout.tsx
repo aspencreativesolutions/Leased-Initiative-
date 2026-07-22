@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { FileText, GitBranch, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { usePortalTheme } from '@/context/PortalThemeContext'
+import { AppearanceToggle } from '@/components/settings/AppearanceToggle'
 import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 import { PortalNotificationBanner } from '@/components/portal/PortalNotificationBanner'
 import {
@@ -15,6 +17,7 @@ import { cn } from '@/lib/utils'
 
 export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout } = useAuth()
+  const { appearance, setAppearance, supportsAppearance } = usePortalTheme()
 
   return (
     <header
@@ -24,14 +27,14 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
       <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10">
         <NavLink to="/portal" className="group flex min-w-0 items-center gap-2.5 shrink sm:gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
-            CC
+            L
           </div>
           <div className="min-w-0 leading-none">
             <span className="block truncate font-display text-lg font-semibold tracking-tight sm:text-xl">
-              Client Craft
+              Leased
             </span>
             <span className="label-caps mt-0.5 hidden !text-nav-fg-muted sm:mt-1 sm:block">
-              Client Portal
+              Tenant Portal
             </span>
           </div>
         </NavLink>
@@ -63,6 +66,13 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
             <GitBranch className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Timeline</span>
           </NavLink>
+          {supportsAppearance && (
+            <AppearanceToggle
+              appearance={appearance}
+              onChange={setAppearance}
+              variant="nav"
+            />
+          )}
           <PortalStyleButton />
           <OnboardingRestartButton role="client" onStart={() => onStartTour?.()} />
           {user && (
@@ -128,7 +138,7 @@ export function PortalLayout() {
         </div>
       </main>
       <footer className="border-t border-line py-6 text-center text-xs text-ink-faint">
-        Need help? Contact your designer for assistance with your account.
+        Need help? Contact your landlord for assistance with your account.
       </footer>
       <OnboardingTour
         role="client"

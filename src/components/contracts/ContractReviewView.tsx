@@ -17,7 +17,7 @@ export function ContractReviewView({
   designerName,
   businessName,
 }: ContractReviewViewProps) {
-  const preparedBy = businessName || designerName || 'Your designer'
+  const preparedBy = businessName || designerName || 'Your landlord'
   const tier = migrateServiceTier(contract.serviceTier)
   const tierInfo = getServiceTierInfo(tier)
 
@@ -39,10 +39,10 @@ export function ContractReviewView({
           className="scroll-mt-24 px-8 pb-10 pt-14 text-center sm:px-14 sm:pt-16"
         >
           <h2 className="font-display text-xl font-semibold uppercase tracking-[0.22em] text-ink sm:text-2xl">
-            Contract Agreement
+            Lease Agreement
           </h2>
           <p className="mx-auto mt-5 max-w-md font-serif text-sm italic leading-relaxed text-ink-muted">
-            Contract for <span className="text-ink">{contract.businessName}</span>
+            Lease for <span className="text-ink">{contract.businessName}</span>
             {' — '}
             {contract.projectTitle}
           </p>
@@ -62,7 +62,7 @@ export function ContractReviewView({
         </header>
 
         <div className="contract-document-body space-y-10 px-8 pb-12 sm:px-14">
-          <ContractDocumentSection label="Client information" value={clientBlock} />
+          <ContractDocumentSection label="Tenant information" value={clientBlock} />
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.projectScope}
@@ -119,6 +119,9 @@ export function ContractReviewView({
             value={[
               `Checkout: ${paymentProviderLabel(contract.paymentProvider)}`,
               contract.paymentMethods,
+              contract.allowPrepaidRent === false
+                ? 'Prepaid rent: next month only'
+                : 'Prepaid rent: consecutive months allowed',
             ]
               .filter(Boolean)
               .join('\n')}
@@ -144,7 +147,7 @@ export function ContractReviewView({
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.clientResponsibilities}
-            label="Client responsibilities"
+            label="Tenant responsibilities"
             value={contract.clientResponsibilities}
           />
 
@@ -180,7 +183,7 @@ export function ContractReviewView({
             <div className="mx-auto max-w-md space-y-10 border-t border-line/40 pt-10">
               {contract.designerSignature && (
                 <ContractDocumentSection
-                  label="Designer"
+                  label="Landlord"
                   hint="Signature & date"
                   value={[
                     contract.designerSignature,
@@ -194,7 +197,7 @@ export function ContractReviewView({
               )}
               {contract.clientSignature && (
                 <ContractDocumentSection
-                  label="Client"
+                  label="Tenant"
                   hint="Signature & date"
                   value={[
                     contract.clientSignature,

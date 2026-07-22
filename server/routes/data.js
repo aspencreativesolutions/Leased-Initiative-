@@ -29,6 +29,15 @@ import {
 import { ensureClientContractRecord, ensureSampleClientContracts } from '../lib/sampleClientContracts.js'
 import { permanentlyDeleteClientContract } from '../lib/deleteContract.js'
 import {
+  buildMonthlyRentDeadlines,
+  computeLeaseEndDate,
+  computeLeaseStartDate,
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  formatLeaseLengthLabel,
+  listMonthlyRentDueDates,
+  parseLeaseLengthMonths,
+} from '../lib/leaseSchedule.js'
+import {
   buildPortalUsersOverview,
   isPendingPortalRegistration,
 } from '../lib/portalUsers.js'
@@ -39,9 +48,13 @@ import {
   deleteClientUploads,
   removeClientFromStore,
 } from '../lib/clientCleanup.js'
-import { refreshAllSampleClientDates } from '../lib/sampleClientDates.js'
+import {
+  ensureSampleLeaseAmounts,
+  refreshAllSampleClientDates,
+} from '../lib/sampleClientDates.js'
 import { reconcileClientContractStatus } from '../lib/contractReview.js'
 import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
+import { sendOverdueRentSms } from '../lib/sms.js'
 
 const router = Router()
 
@@ -81,8 +94,13 @@ router.get('/', (_req, res) => {
   if (repairedAny) {
     store = updateStore((s) => ({ ...s, clients }))
   }
+  const leaseAmounts = ensureSampleLeaseAmounts(store)
+  if (leaseAmounts.changed) {
+    store = leaseAmounts.store
+    writeStore(store)
+  }
   res.json({
-    clients,
+    clients: store.clients,
     contracts: store.contracts,
     settings: store.settings,
   })
@@ -186,7 +204,7 @@ router.post('/clients/:clientId/start-project', (req, res) => {
   if (!canStartProject(client)) {
     return res.status(400).json({
       error:
-        'Contract must be signed and the client must click the PayPal payment link before starting the project.',
+        'Lease must be signed and the tenant must click the PayPal payment link before starting the project.',
     })
   }
 
@@ -274,7 +292,7 @@ router.post('/clients/:clientId/permanent-delete-contract', (req, res) => {
 
   res.json({
     ok: true,
-    message: 'Contract permanently deleted.',
+    message: 'Lease permanently deleted.',
     auditEntry: result.auditEntry,
     clientId: result.clientId,
   })
@@ -452,6 +470,98 @@ router.post('/clients/:clientId/confirm-payment', (req, res) => {
   res.json({ ok: true, depositPaymentConfirmedAt: now })
 })
 
+/** Text the tenant an automated overdue-rent SMS reminder */
+router.post('/clients/:clientId/ping-overdue', async (req, res) => {
+  const { clientId } = req.params
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Client not found' })
+
+  const contract = store.contracts.find((c) => c.clientId === clientId)
+  const incompletePayments = (client.deadlines ?? []).filter(
+    (d) => d.type === 'payment' && !d.completed
+  )
+  const today = new Date()
+  const todayYmd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const overdueCount = Math.max(
+    1,
+    incompletePayments.filter((d) => d.date.slice(0, 10) < todayYmd).length
+  )
+
+  const remainingRaw = contract?.remainingBalance || ''
+  const amountMatch = String(remainingRaw).replace(/[^0-9.]/g, '')
+  const amountNum = amountMatch ? Number.parseFloat(amountMatch) : null
+  const amountLabel =
+    Number.isFinite(amountNum) && amountNum > 0
+      ? `$${amountNum.toLocaleString('en-US')}`
+      : null
+
+  if (!client.phone?.trim()) {
+    return res.status(400).json({ error: 'This tenant has no phone number on file.' })
+  }
+
+  const smsResult = await sendOverdueRentSms({
+    phone: client.phone,
+    name: client.name,
+    amountLabel,
+    overdueCount,
+    businessName: store.settings?.businessName,
+  })
+
+  if (!smsResult.sent) {
+    return res.status(502).json({
+      error: smsResult.error || 'Failed to send text message.',
+    })
+  }
+
+  const now = new Date().toISOString()
+  const noteText = smsResult.devMode
+    ? `Overdue rent ping queued (dev mode — SMS logged to server). ${overdueCount} payment${overdueCount === 1 ? '' : 's'} overdue${amountLabel ? ` · ${amountLabel}` : ''}.`
+    : `Overdue rent text sent to ${smsResult.to}. ${overdueCount} payment${overdueCount === 1 ? '' : 's'} overdue${amountLabel ? ` · ${amountLabel}` : ''}.`
+
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              notes: [
+                ...(c.notes ?? []),
+                {
+                  id: generateId(),
+                  text: noteText,
+                  category: 'Payment',
+                  createdAt: now,
+                },
+              ],
+            }
+          : c
+      ),
+    }
+    next = notifyClientByClientId(next, clientId, {
+      type: 'deadline_reminder',
+      title: 'Rent payment overdue',
+      message:
+        overdueCount > 1
+          ? `Reminder: ${overdueCount} rent payments are overdue${amountLabel ? ` (${amountLabel})` : ''}. Please pay as soon as possible.`
+          : `Reminder: your rent payment is overdue${amountLabel ? ` (${amountLabel})` : ''}. Please pay as soon as possible.`,
+      actionUrl: '/portal',
+      relatedId: `overdue-ping-${clientId}-${now.slice(0, 10)}`,
+    })
+    return next
+  })
+
+  res.json({
+    ok: true,
+    sent: true,
+    devMode: Boolean(smsResult.devMode),
+    to: smsResult.to,
+    overdueCount,
+    amountLabel,
+  })
+})
+
 /** Mark project complete and auto-generate final balance invoice */
 router.post('/clients/:clientId/complete-project', async (req, res) => {
   const { clientId } = req.params
@@ -614,12 +724,30 @@ router.get('/audit-log', (req, res) => {
   res.json({ entries: entries.slice(0, limit), count: entries.length })
 })
 
-/** Unread admin notifications (registrations, signed contracts, etc.) */
-router.get('/notifications', (_req, res) => {
+/** Admin notifications (registrations, signed contracts, problem reports, etc.) */
+router.get('/notifications', (req, res) => {
   const store = readStore()
-  const notifications = (store.adminNotifications ?? [])
-    .filter((n) => !n.read)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const type =
+    typeof req.query?.type === 'string' && req.query.type.trim()
+      ? req.query.type.trim()
+      : null
+  const includeRead =
+    req.query?.includeRead === '1' ||
+    req.query?.includeRead === 'true' ||
+    req.query?.includeRead === 'yes'
+
+  let notifications = [...(store.adminNotifications ?? [])]
+  if (!includeRead) {
+    notifications = notifications.filter((n) => !n.read)
+  }
+  if (type) {
+    notifications = notifications.filter((n) => n.type === type)
+  }
+
+  notifications.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+
   res.json({ notifications, count: notifications.length })
 })
 
@@ -708,7 +836,7 @@ router.post('/accept-registration/:userId', (req, res) => {
       next = notifyClientByClientId(next, existingClient.id, {
         type: 'registration_accepted',
         title: 'Welcome to your portal',
-        message: `Your account is now linked. Check your dashboard for contracts and project updates.`,
+        message: `Your account is now linked. Check your dashboard for leases and project updates.`,
         actionUrl: '/portal',
         relatedId: `registration-accepted-${userId}`,
       })
@@ -728,34 +856,48 @@ router.post('/accept-registration/:userId', (req, res) => {
   }
 
   const now = new Date().toISOString()
+  const leaseLengthMonths = parseLeaseLengthMonths(
+    user.preferredLeaseMonths,
+    DEFAULT_LEASE_LENGTH_MONTHS
+  )
+  const leaseStartDate = computeLeaseStartDate()
+  const leaseEndDate = computeLeaseEndDate(leaseStartDate, leaseLengthMonths)
+  const rentDueDates = listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
+  const rentDeadlines = buildMonthlyRentDeadlines(rentDueDates, generateId)
+
   const client = {
     id: generateId(),
     name: user.name,
     businessName: user.name,
     email: user.email,
     phone: '',
-    projectType: 'Website Design',
-    projectName: `${user.name} Project`,
-    projectDescription: '',
+    projectType: 'Apartment',
+    projectName: `${user.name} Lease`,
+    projectDescription: `Preferred lease length: ${formatLeaseLengthLabel(leaseLengthMonths)}.`,
     projectStatus: 'Inquiry',
     contractStatus: 'Not Started',
     paymentStatus: 'Unpaid',
     isOfficialClient: false,
     serviceTier: DEFAULT_SERVICE_TIER,
+    leaseLengthMonths,
     accountUserId: user.id,
     notes: [
       {
         id: generateId(),
-        text: `Accepted from portal registration on ${new Date(now).toLocaleDateString()}. Contract draft started.`,
+        text: `Accepted from portal registration on ${new Date(now).toLocaleDateString()}. Preferred lease: ${formatLeaseLengthLabel(leaseLengthMonths)}. Lease ${leaseStartDate} → ${leaseEndDate}. Monthly rent due on the 1st.`,
         category: 'General',
         createdAt: now,
       },
     ],
-    deadlines: [],
+    deadlines: rentDeadlines,
     createdAt: now,
   }
 
-  const contract = createDraftContract(client, store.settings)
+  const contract = createDraftContract(client, store.settings, {
+    startDate: leaseStartDate,
+    completionDate: leaseEndDate,
+    paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
+  })
 
   updateStore((s) => {
     let next = {
@@ -770,7 +912,7 @@ router.post('/accept-registration/:userId', (req, res) => {
     next = notifyClientByClientId(next, client.id, {
       type: 'registration_accepted',
       title: 'Welcome to your portal',
-      message: `Your registration has been accepted. Your designer is preparing your contract — it will appear here when ready.`,
+      message: `Your registration has been accepted. Your landlord is preparing your lease — it will appear here when ready.`,
       actionUrl: '/portal',
       relatedId: `registration-accepted-${userId}`,
     })
@@ -790,6 +932,7 @@ router.get('/registrations', (_req, res) => {
       name: u.name,
       email: u.email,
       createdAt: u.createdAt,
+      preferredLeaseMonths: u.preferredLeaseMonths,
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ registrations, count: registrations.length })

@@ -96,7 +96,7 @@ function addDocumentHeader(
   doc.setFontSize(10)
   setText(doc, PDF.inkMuted)
   doc.text(
-    `Contract for ${contract.businessName} — ${contract.projectTitle}`,
+    `Lease for ${contract.businessName} — ${contract.projectTitle}`,
     PAGE_WIDTH / 2,
     38,
     { align: 'center' }
@@ -116,7 +116,7 @@ function addDocumentHeader(
   doc.setFontSize(9)
   setText(doc, PDF.inkMuted)
   doc.text(
-    `Prepared by ${settings.businessName || settings.ownerName || 'Your designer'} · Issued ${new Date(contract.createdAt).toLocaleDateString('en-US')}`,
+    `Prepared by ${settings.businessName || settings.ownerName || 'Your landlord'} · Issued ${new Date(contract.createdAt).toLocaleDateString('en-US')}`,
     PAGE_WIDTH / 2,
     53,
     { align: 'center' }
@@ -247,7 +247,7 @@ export function generateContractPdf(
     doc.setFontSize(7.5)
     setText(doc, PDF.inkFaint)
     doc.text(
-      `${settings.businessName || 'Client Craft'} · Page ${i} of ${pageCount}`,
+      `${settings.businessName || 'Leased'} · Page ${i} of ${pageCount}`,
       PAGE_WIDTH / 2,
       PAGE_HEIGHT - 8,
       { align: 'center' }
@@ -265,7 +265,7 @@ export function downloadContractPdf(
   const doc = generateContractPdf(contract, settings)
   const name =
     filename ||
-    `Contract-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
+    `Lease-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
   doc.save(name)
 }
 
@@ -281,5 +281,5 @@ export function openContractPdfInNewTab(
 }
 
 export function contractPdfFilename(contract: ContractData): string {
-  return `Contract-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
+  return `Lease-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
 }

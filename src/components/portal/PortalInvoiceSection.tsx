@@ -108,7 +108,7 @@ export function PortalInvoiceSection({
           {portalPayButtonLabel(invoice.paymentProvider)}
         </Button>
         <p className="mt-3 text-xs text-ink-muted">
-          You&apos;ll return here automatically after payment. Your designer will be notified.
+          You&apos;ll return here automatically after payment. Your landlord will be notified.
         </p>
       </Card>
     </section>

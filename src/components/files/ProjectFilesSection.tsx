@@ -127,7 +127,7 @@ export function ProjectFilesSection({ clientId, projectName }: ProjectFilesSecti
           <EmptyState
             icon={File}
             title="No files yet"
-            description="Upload briefs, assets, contracts, or reference materials for this project."
+            description="Upload briefs, assets, leases, or reference materials for this project."
             action={
               <Button size="sm" onClick={() => inputRef.current?.click()}>
                 <Upload className="h-4 w-4" />

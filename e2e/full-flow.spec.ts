@@ -83,7 +83,7 @@ test.describe('Client Craft E2E — full lifecycle', () => {
     await adminPage.getByRole('button', { name: /View New Registers|Registers/i }).click()
     await expect(adminPage.getByRole('heading', { name: 'New Registrations' })).toBeVisible()
     const registrationRow = adminPage.locator('li').filter({ hasText: state.clientEmail })
-    await registrationRow.getByRole('button', { name: 'Accept User and Start Contract Draft' }).click()
+    await registrationRow.getByRole('button', { name: 'Approve Tenant and Start Lease Draft' }).click()
 
     await expect(adminPage).toHaveURL(/\/studio\/clients\/[^/]+\/contract/)
     const match = adminPage.url().match(/\/studio\/clients\/([^/]+)\/contract/)
@@ -106,16 +106,16 @@ test.describe('Client Craft E2E — full lifecycle', () => {
       await adminPage.getByRole('button', { name: 'Next' }).click()
     }
 
-    await expect(adminPage.getByRole('button', { name: 'Generate Contract PDF' })).toBeVisible()
+    await expect(adminPage.getByRole('button', { name: 'Generate Lease PDF' })).toBeVisible()
     const downloadPromise = adminPage.waitForEvent('download')
-    await adminPage.getByRole('button', { name: 'Generate Contract PDF' }).click()
+    await adminPage.getByRole('button', { name: 'Generate Lease PDF' }).click()
     await downloadPromise
     await expect(adminPage.getByText('PDF generated')).toBeVisible()
 
-    await adminPage.getByRole('button', { name: 'Send to Client' }).click()
-    await expect(adminPage.getByRole('heading', { name: 'Send Contract to Client' })).toBeVisible()
-    await adminPage.getByRole('button', { name: 'Send to client account' }).click()
-    await expect(adminPage.getByText(/Contract sent to/i)).toBeVisible({ timeout: 20_000 })
+    await adminPage.getByRole('button', { name: 'Send to Tenant' }).click()
+    await expect(adminPage.getByRole('heading', { name: 'Send Lease to Tenant' })).toBeVisible()
+    await adminPage.getByRole('button', { name: 'Send to tenant account' }).click()
+    await expect(adminPage.getByText(/Lease sent to/i)).toBeVisible({ timeout: 20_000 })
 
     state.contractId = findContractIdForClient(state.clientId)
   })
@@ -124,16 +124,16 @@ test.describe('Client Craft E2E — full lifecycle', () => {
     await clientPage.goto(`/portal/contracts/${state.contractId}`)
     await expect(clientPage.getByRole('heading', { level: 1 })).toBeVisible()
 
-    const reviewButton = clientPage.getByRole('button', { name: 'I have reviewed this contract' })
+    const reviewButton = clientPage.getByRole('button', { name: 'I have reviewed this lease' })
     if (await reviewButton.isVisible()) {
       await reviewButton.click()
     }
 
     await clientPage.locator('.contract-sign-paper input[type="text"]').fill(state.clientName)
     await clientPage.getByRole('checkbox').check()
-    await clientPage.getByRole('button', { name: 'Accept contract' }).click()
+    await clientPage.getByRole('button', { name: 'Accept lease' }).click()
 
-    await expect(clientPage.getByText('Contract accepted')).toBeVisible({ timeout: 20_000 })
+    await expect(clientPage.getByText('Lease accepted')).toBeVisible({ timeout: 20_000 })
     state.clientToken = await loginApi(state.clientEmail, state.clientPassword)
   })
 

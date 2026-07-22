@@ -72,7 +72,7 @@ export async function createSquarePaymentLink({
     )
   }
 
-  const label = (description || 'Client Craft Invoice').slice(0, 255)
+  const label = (description || 'Leased Invoice').slice(0, 255)
   const data = await squareFetch('/v2/online-checkout/payment-links', {
     method: 'POST',
     body: JSON.stringify({
@@ -99,7 +99,7 @@ export async function createSquarePaymentLink({
       checkout_options: {
         redirect_url: `${APP_URL}${returnPath}?square=1`,
       },
-      payment_note: `Client Craft ${invoiceType} for ${clientId}`,
+      payment_note: `Leased ${invoiceType} for ${clientId}`,
     }),
   })
 

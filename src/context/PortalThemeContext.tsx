@@ -6,14 +6,22 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useAppearance } from '@/context/AppearanceContext'
 import {
   applyThemeToDocument,
   loadStoredPortalThemeId,
 } from '@/themes/applyTheme'
 import { savePortalTheme } from '@/lib/portalThemeApi'
 import { getToken } from '@/lib/api'
-import { PORTAL_THEME_STORAGE_KEY, getThemeOption, themeOptions } from '@/themes/options'
-import type { ThemeId, ThemeOption } from '@/themes/types'
+import {
+  DEFAULT_PORTAL_THEME_ID,
+  DEFAULT_APPEARANCE,
+  PORTAL_THEME_STORAGE_KEY,
+  getThemeOption,
+  themeOptions,
+  themeSupportsAppearance,
+} from '@/themes/options'
+import type { ThemeAppearance, ThemeId, ThemeOption } from '@/themes/types'
 
 interface SetThemeOptions {
   /** When false, only apply locally (e.g. restoring from account on login) */
@@ -24,29 +32,50 @@ interface PortalThemeContextValue {
   themeId: ThemeId
   theme: ThemeOption
   themes: ThemeOption[]
+  appearance: ThemeAppearance
+  supportsAppearance: boolean
   setTheme: (id: ThemeId, options?: SetThemeOptions) => void
+  setAppearance: (appearance: ThemeAppearance) => void
+  /** Restore default theme and clear the saved preference (e.g. first-time restart) */
+  resetToDefault: () => void
 }
 
 const PortalThemeContext = createContext<PortalThemeContextValue | null>(null)
 
 export function PortalThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>(() => loadStoredPortalThemeId())
+  const { appearance, setAppearance, resetAppearance } = useAppearance()
 
   const setTheme = useCallback((id: ThemeId, options?: SetThemeOptions) => {
-    applyThemeToDocument(id, PORTAL_THEME_STORAGE_KEY)
+    // Always mirror onto the device so route sync stays consistent; API save is opt-in.
+    applyThemeToDocument(id, PORTAL_THEME_STORAGE_KEY, { persist: true })
     setThemeId(id)
     if (options?.persist === false || !getToken()) return
     savePortalTheme(id).catch(() => {})
   }, [])
+
+  const resetToDefault = useCallback(() => {
+    localStorage.removeItem(PORTAL_THEME_STORAGE_KEY)
+    applyThemeToDocument(DEFAULT_PORTAL_THEME_ID, PORTAL_THEME_STORAGE_KEY, {
+      persist: false,
+      appearance: DEFAULT_APPEARANCE,
+    })
+    resetAppearance()
+    setThemeId(DEFAULT_PORTAL_THEME_ID)
+  }, [resetAppearance])
 
   const value = useMemo(
     () => ({
       themeId,
       theme: getThemeOption(themeId),
       themes: themeOptions,
+      appearance,
+      supportsAppearance: themeSupportsAppearance(themeId),
       setTheme,
+      setAppearance,
+      resetToDefault,
     }),
-    [themeId, setTheme]
+    [themeId, appearance, setTheme, setAppearance, resetToDefault]
   )
 
   return (

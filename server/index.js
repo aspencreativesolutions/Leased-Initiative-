@@ -1,5 +1,5 @@
 /**
- * Client Craft API server — auth, data sync, PayPal, Stripe, and client portal.
+ * Leased API server — auth, data sync, PayPal, Stripe, and tenant portal.
  * Run: node server/index.js  (or npm run dev:server)
  */
 import express from 'express'
@@ -37,6 +37,11 @@ import {
 import { readStore, updateStore, writeStore } from './db.js'
 import { ensureSamplePortalUsers } from './lib/samplePortalUsers.js'
 import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
+import devRoutes, { isAdminModeApiEnabled } from './routes/dev.js'
+import {
+  ensureLeasedDemoUsers,
+  formatLeasedDemoLogins,
+} from './lib/leasedDemoUsers.js'
 import { applyPaymentToStore } from './lib/payments.js'
 import { isEmailConfigured, verifySmtpConnection } from './lib/email.js'
 import { startAutomationScheduler } from './lib/clientAutomation.js'
@@ -141,6 +146,9 @@ app.use('/api/files', filesRoutes)
 app.use('/api/invoices', invoiceRoutes)
 if (process.env.E2E_TEST === '1') {
   app.use('/api/e2e', e2eRoutes)
+}
+if (isAdminModeApiEnabled()) {
+  app.use('/api/dev', devRoutes)
 }
 
 app.get('/api/paypal/health', (_req, res) => {
@@ -291,6 +299,12 @@ async function verifyWebhook(req) {
 async function bootstrapSamplePortalUsers() {
   try {
     let store = readStore()
+
+    const demoResult = await ensureLeasedDemoUsers(store)
+    if (demoResult.changed) {
+      store = demoResult.store
+    }
+
     const portalResult = await ensureSamplePortalUsers(store)
     if (portalResult.changed) {
       store = portalResult.store
@@ -301,10 +315,15 @@ async function bootstrapSamplePortalUsers() {
       store = contractResult.store
     }
 
-    if (portalResult.changed || contractResult.changed) {
+    if (demoResult.changed || portalResult.changed || contractResult.changed) {
       writeStore(store)
     }
 
+    console.log(formatLeasedDemoLogins())
+
+    if (demoResult.createdUsers > 0) {
+      console.log(`Leased demo users: ${demoResult.createdUsers} account(s) created`)
+    }
     if (portalResult.createdUsers > 0 || portalResult.restoredClients > 0) {
       console.log(
         `Sample portal users: ${portalResult.createdUsers} account(s) created` +
@@ -327,7 +346,7 @@ app.listen(PORT, async () => {
     await bootstrapSamplePortalUsers()
   }
   startAutomationScheduler()
-  console.log(`Client Craft API → http://localhost:${PORT}`)
+  console.log(`Leased API → http://localhost:${PORT}`)
   console.log(
     `PayPal mode: ${MODE}`,
     isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'

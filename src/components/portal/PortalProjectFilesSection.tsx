@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { PortalAssistanceModal } from '@/components/portal/PortalAssistanceModal'
 import { ProjectFilePreviewModal } from '@/components/files/ProjectFilePreviewModal'
 import {
@@ -119,7 +118,7 @@ function FileNoteEditor({
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
-        placeholder="Type or paste notes for your designer — context, revisions, links, etc."
+        placeholder="Type or paste notes for your landlord — context, revisions, links, etc."
         className="w-full resize-y rounded-sm border-2 border-ink/10 bg-surface-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
       />
       <div className="mt-2 flex items-center gap-2">
@@ -224,7 +223,7 @@ export function PortalProjectFilesSection({
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="label-caps flex items-center gap-2">
             <FolderUp className="h-4 w-4" />
-            Project Files
+            Shared Files
           </h2>
           <Button size="sm" variant="outline" onClick={() => setAssistanceOpen(true)}>
             <HelpCircle className="h-4 w-4" />
@@ -235,7 +234,7 @@ export function PortalProjectFilesSection({
           <p className="text-sm text-ink-muted">
             {projectStarted
               ? 'File sharing is being set up.'
-              : 'File sharing unlocks once your designer starts the project. Sign your contract, pay your deposit invoice, and your designer will activate the project.'}
+              : 'File sharing unlocks once your landlord starts the project. Sign your lease, pay your deposit invoice, and your landlord will activate the project.'}
           </p>
         </Card>
         <PortalAssistanceModal
@@ -252,7 +251,7 @@ export function PortalProjectFilesSection({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="label-caps flex items-center gap-2">
           <FolderUp className="h-4 w-4" />
-          Project Files
+          Shared Files
         </h2>
         <Button size="sm" variant="outline" onClick={() => setAssistanceOpen(true)}>
           <HelpCircle className="h-4 w-4" />
@@ -261,7 +260,7 @@ export function PortalProjectFilesSection({
       </div>
       <p className="mb-3 text-sm text-ink-muted">
         Upload {PORTAL_FILE_TYPES_LABEL} for {projectName}. Add notes to explain what you&apos;re
-        sending — your designer sees them linked to each file.
+        sending — your landlord sees them linked to each file.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 sm:items-stretch sm:gap-4">
@@ -273,7 +272,7 @@ export function PortalProjectFilesSection({
             value={uploadNote}
             onChange={(e) => setUploadNote(e.target.value)}
             rows={5}
-            placeholder="Describe this batch of files — e.g. brand logos, homepage copy, reference photos…"
+            placeholder="Describe this batch of files — e.g. lease docs, photos, receipts…"
             className="mt-1 min-h-[10.5rem] w-full flex-1 resize-y rounded-sm border-2 border-ink/10 bg-surface-paper px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none sm:min-h-0"
           />
         </label>
@@ -303,12 +302,30 @@ export function PortalProjectFilesSection({
             }}
           />
           <div className="flex flex-col items-center gap-3 text-center">
-            <FolderUp className="h-8 w-8 text-ink-faint" />
-            <p className="text-sm font-medium text-ink">Drag and drop files here</p>
-            <p className="text-xs text-ink-muted">{PORTAL_FILE_TYPES_LABEL}</p>
+            {loading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-ink-faint" />
+            ) : files.length === 0 ? (
+              <File className="h-8 w-8 text-ink-faint" />
+            ) : (
+              <FolderUp className="h-8 w-8 text-ink-faint" />
+            )}
+            {!loading && files.length === 0 ? (
+              <>
+                <p className="text-sm font-semibold text-ink">No files shared yet</p>
+                <p className="max-w-xs text-xs text-ink-muted">
+                  Drag and drop files here when you&apos;re ready. Use the note field for context —
+                  your landlord sees it with each upload.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-ink">Drag and drop files here</p>
+                <p className="text-xs text-ink-muted">{PORTAL_FILE_TYPES_LABEL}</p>
+              </>
+            )}
             <Button
               size="sm"
-              disabled={uploading}
+              disabled={uploading || loading}
               onClick={() => inputRef.current?.click()}
             >
               {uploading ? (
@@ -328,16 +345,8 @@ export function PortalProjectFilesSection({
         </p>
       )}
 
-      <div className="mt-4">
-        {loading ? (
-          <p className="text-sm text-ink-muted">Loading files…</p>
-        ) : files.length === 0 ? (
-          <EmptyState
-            icon={File}
-            title="No files shared yet"
-            description="Drop project assets here when you're ready. Use Add Note on each upload to give your designer context."
-          />
-        ) : (
+      {!loading && files.length > 0 && (
+        <div className="mt-4">
           <ul className="divide-y divide-line rounded-sm border-2 border-ink/10 bg-surface-paper">
             {files.map((file) => (
               <li key={file.id} className="px-4 py-3">
@@ -362,7 +371,7 @@ export function PortalProjectFilesSection({
                     </button>
                     <p className="mt-0.5 text-xs text-ink-muted">
                       {formatFileSize(file.size)} · {file.uploadedByName}{' '}
-                      {file.uploadedBy === 'client' ? '(you)' : '(designer)'} ·{' '}
+                      {file.uploadedBy === 'client' ? '(you)' : '(landlord)'} ·{' '}
                       {formatDate(file.createdAt)}
                     </p>
                   </div>
@@ -449,8 +458,8 @@ export function PortalProjectFilesSection({
               </li>
             ))}
           </ul>
-        )}
-      </div>
+        </div>
+      )}
 
       <PortalAssistanceModal
         open={assistanceOpen}

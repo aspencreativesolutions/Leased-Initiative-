@@ -43,9 +43,9 @@ export async function verifySmtpConnection() {
 
 export async function sendVerificationEmail({ to, name, verifyUrl }) {
   const fromAddress =
-    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@clientcraft.app'
-  const fromName = process.env.MAIL_FROM_NAME || 'Aspen Creative Solutions'
-  const subject = 'Confirm your Client Craft account'
+    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased'
+  const subject = 'Confirm your Leased account'
 
   const text = [
     `Hi ${name},`,
@@ -61,7 +61,7 @@ export async function sendVerificationEmail({ to, name, verifyUrl }) {
 
   const html = `
     <p>Hi ${escapeHtml(name)},</p>
-    <p>Thanks for signing up with <strong>Client Craft</strong>. Please confirm your email address to activate your account:</p>
+    <p>Thanks for signing up with <strong>Leased</strong>. Please confirm your email address to activate your account:</p>
     <p style="margin:24px 0">
       <a href="${verifyUrl}" style="display:inline-block;padding:12px 20px;background:#1e4d6b;color:#ffffff;text-decoration:none;font-weight:600;border-radius:4px">
         Confirm email address
@@ -89,11 +89,10 @@ export async function sendVerificationEmail({ to, name, verifyUrl }) {
     return { sent: true }
   } catch (err) {
     console.error('SMTP send failed:', err.message)
-    const smtpErr = new Error(
-      'Could not send verification email. For Google Workspace/Gmail, use an App Password (not your regular password) and ensure SMTP_USER matches the account that created it.'
-    )
-    smtpErr.cause = err
-    throw smtpErr
+    // Don't block local signup when SMTP credentials are invalid — log the link instead.
+    console.log('[dev] Falling back to console verification link after SMTP failure:')
+    console.log(verifyUrl)
+    return { sent: false, devMode: true, verifyUrl, smtpError: err.message }
   }
 }
 
@@ -107,9 +106,9 @@ function escapeHtml(value) {
 
 export async function sendClientReminderEmail({ to, name, title, message, portalUrl }) {
   const fromAddress =
-    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@clientcraft.app'
-  const fromName = process.env.MAIL_FROM_NAME || 'Aspen Creative Solutions'
-  const subject = `${title} — Client Craft`
+    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased'
+  const subject = `${title} — Leased`
 
   const text = [
     `Hi ${name},`,

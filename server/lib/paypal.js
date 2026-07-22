@@ -94,7 +94,7 @@ export async function createPayPalOrder({
         {
           reference_id: clientId,
           custom_id: clientId,
-          description: (description || 'Client Craft Invoice').slice(0, 127),
+          description: (description || 'Leased Invoice').slice(0, 127),
           amount: {
             currency_code: currency,
             value,
@@ -102,7 +102,7 @@ export async function createPayPalOrder({
         },
       ],
       application_context: {
-        brand_name: 'Client Craft',
+        brand_name: 'Leased',
         landing_page: 'NO_PREFERENCE',
         user_action: 'PAY_NOW',
         return_url: `${APP_URL}${returnPath}`,

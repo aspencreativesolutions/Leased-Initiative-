@@ -1,16 +1,15 @@
 export type ThemeId =
-  | 'editorial'
+  | 'ink'
   | 'soft'
-  | 'mono'
   | 'ocean'
-  | 'rose'
-  | 'forest'
   | 'midnight'
+  | 'graphite'
   | 'citrus'
-  | 'vintage'
   | 'neon'
   | 'slate'
-  | 'terracotta'
+
+/** Light/dark surface mode — used by themes that opt in via `supportsAppearance` */
+export type ThemeAppearance = 'light' | 'dark'
 
 export interface ThemeOption {
   id: ThemeId
@@ -21,4 +20,6 @@ export interface ThemeOption {
   swatches: [string, string, string]
   capsLabels: boolean
   capsButtons: boolean
+  /** When true, show a light/dark switch (persisted separately from theme id) */
+  supportsAppearance?: boolean
 }

@@ -22,33 +22,33 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-nav"]',
     title: 'Welcome to your portal',
     description:
-      'This is your Client Craft dashboard — everything about your project lives here. Let us walk you through the key areas.',
+      'This is your Leased tenant dashboard — everything about your lease lives here. Let us walk you through the key areas.',
     placement: 'bottom',
   },
   {
     id: 'registration-waiting',
     target: '[data-onboarding="portal-contracts"]',
-    title: 'Waiting for acceptance',
+    title: 'Waiting for approval',
     description:
-      'After you sign up, your designer reviews your registration. Once accepted, your contract and project details will appear here.',
+      'After you sign up, your landlord reviews your registration. Once approved, your lease will appear here.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
   {
-    id: 'status',
-    target: '[data-onboarding="portal-status"]',
-    title: 'Project status at a glance',
+    id: 'pay-rent',
+    target: '[data-onboarding="portal-pay-rent"]',
+    title: 'Pay rent anytime',
     description:
-      'Track your contract, payment, and project progress in one place. Status updates automatically as your project moves forward.',
-    placement: 'bottom',
+      'See when your next payment is due and tap Pay Rent. If your lease allows, choose consecutive months to pay upfront via PayPal, Stripe, or Square.',
+    placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'contracts',
     target: '[data-onboarding="portal-contracts"]',
-    title: 'Review and sign contracts',
+    title: 'Review and sign your lease',
     description:
-      'When your designer sends your agreement, it appears here. Open it, review the terms, and sign electronically.',
+      'When your landlord sends your lease, it appears here. Open it, review the terms, and sign electronically.',
     placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
@@ -64,18 +64,27 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'files',
     target: '[data-onboarding="portal-files"]',
-    title: 'Share project files',
+    title: 'Share documents',
     description:
-      'Once your project starts, upload logos, copy, images, and other assets here. Add notes to each file so your designer knows what you are sending.',
+      'Once you are active, upload documents and other files here. Add notes so your landlord knows what you are sending.',
     placement: 'top',
+    when: (ctx) => ctx.linked === true,
+  },
+  {
+    id: 'report-problem',
+    target: '[data-onboarding="portal-report-problem"]',
+    title: 'Report Issue',
+    description:
+      'Under the Lease active tag, tap Report Issue. Pick a household problem, describe it, and upload a required photo — your landlord is notified under Tenant Alerts.',
+    placement: 'bottom',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'timeline',
     target: '[data-onboarding="portal-timeline-nav"]',
-    title: 'Follow your project timeline',
+    title: 'Follow your lease timeline',
     description:
-      'The Timeline page shows every milestone — contract, payment, project start, and completion — so you always know what is next.',
+      'The Timeline page shows every milestone — approval, lease signing, payment, and more — so you always know what is next.',
     placement: 'bottom',
     when: (ctx) => ctx.linked === true,
   },
@@ -93,45 +102,54 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
     target: '[data-onboarding="admin-dashboard"]',
-    title: 'Welcome to ASPEN Creative StudiOS',
+    title: 'Welcome to Leased',
     description:
-      'ASPEN Creative StudiOS helps you manage clients from first inquiry through project completion. This quick tour covers the essentials.',
+      'Leased helps you manage tenants from sign-up through an active lease. This quick tour covers the essentials.',
     placement: 'bottom',
     route: '/studio',
   },
   {
     id: 'registrations',
     target: '[data-onboarding="admin-users"]',
-    title: 'New client sign-ups',
+    title: 'New tenant sign-ups',
     description:
-      'When clients register at the portal, they appear in Users. Accept them to create a client profile and draft contract automatically.',
+      'When tenants register, they appear in Users. Approve them to create a tenant profile and draft lease automatically.',
     placement: 'bottom',
     route: '/studio',
   },
   {
     id: 'clients',
     target: '[data-onboarding="admin-clients"]',
-    title: 'Manage clients',
+    title: 'Manage tenants',
     description:
-      'Each client profile has their timeline, contract, invoices, files, and notes. This is your command center for every project.',
+      'Each tenant profile has their timeline, lease, invoices, files, and notes. This is your command center for every lease.',
     placement: 'bottom',
     route: '/studio',
   },
   {
     id: 'contracts',
     target: '[data-onboarding="admin-contracts"]',
-    title: 'Contracts workflow',
+    title: 'Leases',
     description:
-      'Build contracts, generate PDFs, and send them to the client portal. Clients sign electronically and become official clients.',
+      'Build leases, generate PDFs, and send them to the tenant portal. Tenants sign electronically and become active.',
     placement: 'bottom',
     route: '/studio',
+  },
+  {
+    id: 'payments',
+    target: '[data-onboarding="admin-payments"]',
+    title: 'Payments and overdue rent',
+    description:
+      'Track rent under Payments. On the Overdue Rent tab, open Send Message to Tenant — use a template or write your own. Done opens Messages on your phone so replies stay on your device.',
+    placement: 'bottom',
+    route: '/studio/payments/overdue',
   },
   {
     id: 'calendar',
     target: '[data-onboarding="admin-calendar"]',
     title: 'Deadlines and scheduling',
     description:
-      'Track follow-ups, project deadlines, and meetings on the Calendar. The Scheduler auto-prioritizes work by service tier.',
+      'Track follow-ups, lease timelines, appointments, and meetings in one Calendar — prioritized by service tier.',
     placement: 'bottom',
     route: '/studio',
   },
@@ -140,16 +158,25 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-notifications"]',
     title: 'Activity notifications',
     description:
-      'Registrations, signed contracts, and payment activity surface here. Dismiss when handled — clients get their own automated updates.',
+      'Registrations, signed leases, payment activity, and tenant issue reports surface here. Dismiss when handled — tenants get their own automated updates.',
     placement: 'bottom',
     route: '/studio',
+  },
+  {
+    id: 'tenant-alerts',
+    target: '[data-onboarding="admin-tenant-alerts"]',
+    title: 'Tenant Alerts',
+    description:
+      'When a tenant reports an issue with a photo or document, it appears under Tenant Alerts so you can assess the problem and dispatch maintenance.',
+    placement: 'bottom',
+    route: '/studio/alerts',
   },
   {
     id: 'automation',
     target: '[data-onboarding="admin-settings"]',
     title: 'Automation settings',
     description:
-      'Configure automated client reminders, follow-ups, and status updates in Settings. Future team members can manage this without extra setup.',
+      'Configure automated tenant reminders, follow-ups, and status updates in Settings.',
     placement: 'bottom',
     route: '/studio',
   },

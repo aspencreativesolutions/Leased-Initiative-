@@ -22,17 +22,17 @@ export function EmailContractModal({
 }: EmailContractModalProps) {
   const { updateClient } = useApp()
   const [subject, setSubject] = useState(
-    `Website Project Contract for ${client.businessName}`
+    `Lease Agreement for ${client.businessName}`
   )
   const [body, setBody] = useState(
-    `Hi ${client.name},\n\nAttached is the contract for your website project. Please review it carefully, and let me know if you have any questions. Once everything looks good, you can sign and return it so we can move forward.\n\nBest regards`
+    `Hi ${client.name},\n\nAttached is the lease for your rental. Please review it carefully, and let me know if you have any questions. Once everything looks good, you can sign and return it so we can move forward.\n\nBest regards`
   )
   const [sent, setSent] = useState(false)
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     // Simulated email send — opens mail client in production you'd use an API
-    const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Contract PDF attached — download from Client Craft]')}`
+    const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased]')}`
     window.open(mailto, '_blank')
     updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
     setSent(true)
@@ -44,13 +44,13 @@ export function EmailContractModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Email Contract to Client" size="lg">
+    <Modal open={open} onClose={onClose} title="Email Lease to Tenant" size="lg">
       {sent ? (
         <div className="py-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
             <Mail className="h-6 w-6 text-emerald-600" />
           </div>
-          <p className="font-medium text-stone-800">Contract marked as sent!</p>
+          <p className="font-medium text-stone-800">Lease marked as sent!</p>
           <p className="mt-1 text-sm text-stone-500">
             Your email client should open with the message ready to send.
           </p>
@@ -74,7 +74,7 @@ export function EmailContractModal({
           <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600">
             <Paperclip className="h-4 w-4 shrink-0" />
             <span>
-              Contract-{client.businessName.replace(/\s+/g, '-')}.pdf (attached)
+              Lease-{client.businessName.replace(/\s+/g, '-')}.pdf (attached)
             </span>
           </div>
           <p className="text-xs text-stone-400">

@@ -21,7 +21,7 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
   const store = readStore()
   const contract = store.contracts.find((c) => c.id === contractId)
   if (!contract) {
-    return res.status(404).json({ error: 'Contract not found' })
+    return res.status(404).json({ error: 'Lease not found' })
   }
 
   const client = store.clients.find((c) => c.id === contract.clientId)
@@ -83,8 +83,8 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
     }
     next = notifyClientByClientId(next, client.id, {
       type: 'contract_sent',
-      title: 'Contract ready to review',
-      message: `Your contract for "${contract.projectTitle}" is ready. Review and sign it in your portal.`,
+      title: 'Lease ready to review',
+      message: `Your lease for "${contract.projectTitle}" is ready. Review and sign it in your portal.`,
       actionUrl: `/portal/contracts/${contractId}`,
       relatedId: `contract-sent-${contractId}`,
     })
@@ -93,7 +93,7 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
 
   res.json({
     ok: true,
-    message: `Contract sent to ${clientUser.name} (${clientUser.email})`,
+    message: `Lease sent to ${clientUser.name} (${clientUser.email})`,
     contract: updatedContract,
     sentAt: now,
   })
@@ -110,7 +110,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
   const store = readStore()
   const contract = store.contracts.find((c) => c.id === contractId)
   if (!contract) {
-    return res.status(404).json({ error: 'Contract not found' })
+    return res.status(404).json({ error: 'Lease not found' })
   }
 
   if (contract.clientId !== req.user.clientId) {
@@ -118,18 +118,18 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
   }
 
   if (!contract.sentAt) {
-    return res.status(400).json({ error: 'This contract has not been sent yet' })
+    return res.status(400).json({ error: 'This lease has not been sent yet' })
   }
 
   const clientRecord = store.clients.find((c) => c.id === contract.clientId)
 
   if (contract.confirmedByClient && !needsClientResign(contract, clientRecord)) {
-    return res.status(400).json({ error: 'Contract already confirmed' })
+    return res.status(400).json({ error: 'Lease already confirmed' })
   }
 
   if (!clientCanSignContract(contract)) {
     return res.status(400).json({
-      error: 'Please review the full contract before signing.',
+      error: 'Please review the full lease before signing.',
     })
   }
 
@@ -181,7 +181,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
           ...(c.notes ?? []),
           {
             id: generateId(),
-            text: `Client signed contract electronically (${new Date(now).toLocaleDateString()}). Now an official client — portal file sharing is enabled.`,
+            text: `Tenant signed lease electronically (${new Date(now).toLocaleDateString()}). Now an official client — portal file sharing is enabled.`,
             category: 'Contract',
             createdAt: now,
           },
@@ -209,15 +209,15 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
       type: 'contract_signed',
       clientId: contract.clientId,
       contractId,
-      title: 'Contract signed',
-      message: `${clientRecord?.name ?? 'A client'} signed "${contract.projectTitle}". Deposit invoice is ready — send it from their profile.`,
+      title: 'Lease signed',
+      message: `${clientRecord?.name ?? 'A tenant'} signed "${contract.projectTitle}". Deposit invoice is ready — send it from their profile.`,
     })
     return next
   })
 
   res.json({
     ok: true,
-    message: 'Contract confirmed successfully',
+    message: 'Lease confirmed successfully',
     invoiceGenerated: Boolean(generatedInvoice),
   })
 })
@@ -229,21 +229,21 @@ router.post('/:contractId/permanent-delete', authMiddleware, requireRole('admin'
 
   if (!confirmContractId || confirmContractId.trim() !== contractId) {
     return res.status(400).json({
-      error: 'Type the exact contract ID to confirm permanent deletion.',
+      error: 'Type the exact lease ID to confirm permanent deletion.',
     })
   }
 
   const store = readStore()
   const result = permanentlyDeleteContract(store, contractId, req.user)
   if (!result) {
-    return res.status(404).json({ error: 'Contract not found' })
+    return res.status(404).json({ error: 'Lease not found' })
   }
 
   updateStore(() => result.store)
 
   res.json({
     ok: true,
-    message: 'Contract permanently deleted.',
+    message: 'Lease permanently deleted.',
     auditEntry: result.auditEntry,
     clientId: result.clientId,
   })

@@ -2,16 +2,12 @@ import type { ThemeId } from './types'
 
 /** Single source of truth for valid theme IDs */
 export const ALL_THEME_IDS: ThemeId[] = [
-  'editorial',
+  'ink',
   'soft',
-  'mono',
   'ocean',
-  'rose',
-  'forest',
   'midnight',
+  'graphite',
   'citrus',
-  'vintage',
   'neon',
   'slate',
-  'terracotta',
 ]

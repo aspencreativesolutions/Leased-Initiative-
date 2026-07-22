@@ -34,7 +34,7 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        'border-b border-line',
+        'border-b-[length:var(--border-width)] border-line',
         dense ? 'mb-2.5 pb-2 sm:mb-3' : 'mb-3 pb-2 sm:mb-4 sm:pb-3'
       )}
     >

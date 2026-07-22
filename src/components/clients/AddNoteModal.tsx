@@ -40,7 +40,7 @@ export function AddNoteModal({
         >
           {categories.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {c === 'Contract' ? 'Lease' : c}
             </option>
           ))}
         </Select>

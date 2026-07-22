@@ -1,5 +1,6 @@
 import { parseMoney } from './parseMoney.js'
 import { generateId } from './notifications.js'
+import { applyRentPaymentToStore } from './rentPayments.js'
 
 function paymentStatusAfterCapture(current, invoiceAmount, contract) {
   const total = contract ? parseMoney(contract.totalCost) : null
@@ -47,6 +48,18 @@ export function applyPaymentToStore(store, clientId, capture) {
       : capture.provider === 'square'
         ? 'Square'
         : 'PayPal'
+
+  const isRentPayment =
+    client.rentInvoice &&
+    !client.rentInvoice.paidAt &&
+    (client.rentInvoice.invoiceType === 'rent' ||
+      Array.isArray(client.rentInvoice.dueDates)) &&
+    Number.isFinite(amount) &&
+    Math.abs(amount - client.rentInvoice.amount) < 0.02
+
+  if (isRentPayment) {
+    return applyRentPaymentToStore(store, clientId, capture)
+  }
 
   const isFinalPayment =
     client.finalInvoice &&

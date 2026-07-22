@@ -52,7 +52,7 @@ export function RemoveClientModal({
       )}
       <p className="text-sm text-ink-muted">
         Remove <strong className="text-ink">{clientName}</strong> from your client roster? Their
-        contracts, files, invoices, and project history will be deleted.
+        leases, files, invoices, and project history will be deleted.
       </p>
       {hasLinkedAccount && (
         <p className="mt-3 text-sm text-ink-muted">

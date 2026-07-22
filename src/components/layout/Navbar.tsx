@@ -1,8 +1,10 @@
-import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, CalendarClock, LogOut, ExternalLink, UserCircle } from 'lucide-react'
-import { Link, NavLink } from 'react-router-dom'
+import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, DollarSign, LogOut, ExternalLink, UserCircle } from 'lucide-react'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useDashboardNavActionsOptional } from '@/context/DashboardNavActionsContext'
+import { useTheme } from '@/context/ThemeContext'
 import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
+import { AppearanceToggle } from '@/components/settings/AppearanceToggle'
 import { AppStyleButton } from '@/components/settings/AppStyleButton'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { Button } from '@/components/ui/Button'
@@ -11,10 +13,10 @@ import { cn } from '@/lib/utils'
 const links = [
   { to: '/studio', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
   { to: '/studio/users', label: 'Users', icon: UserPlus, onboarding: 'admin-users' },
-  { to: '/studio/clients', label: 'Clients', icon: Users, onboarding: 'admin-clients' },
-  { to: '/studio/contracts', label: 'Contracts', icon: FileText, onboarding: 'admin-contracts' },
+  { to: '/studio/clients', label: 'Tenants', icon: Users, onboarding: 'admin-clients' },
+  { to: '/studio/contracts', label: 'Leases', icon: FileText, onboarding: 'admin-contracts' },
+  { to: '/studio/payments', label: 'Payments', icon: DollarSign, onboarding: 'admin-payments' },
   { to: '/studio/calendar', label: 'Calendar', icon: Calendar, onboarding: 'admin-calendar' },
-  { to: '/studio/scheduler', label: 'Scheduler', icon: CalendarClock },
   { to: '/studio/profile', label: 'Profile', icon: UserCircle },
   { to: '/studio/settings', label: 'Settings', icon: Settings, onboarding: 'admin-settings' },
 ]
@@ -27,9 +29,15 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
   )
 
+function isDashboardNavActive(pathname: string, isActive: boolean) {
+  return isActive || pathname.startsWith('/studio/alerts')
+}
+
 export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout } = useAuth()
+  const location = useLocation()
   const dashboardActions = useDashboardNavActionsOptional()?.actions
+  const { appearance, setAppearance, supportsAppearance } = useTheme()
 
   return (
     <>
@@ -45,11 +53,18 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
-              title="Client portal"
+              title="Tenant portal"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Portal
             </Link>
+            {supportsAppearance && (
+              <AppearanceToggle
+                appearance={appearance}
+                onChange={setAppearance}
+                variant="nav"
+              />
+            )}
             <AppStyleButton />
             <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
             {user && (
@@ -93,7 +108,14 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
               to={to}
               end={to === '/studio'}
               data-onboarding={onboarding}
-              className={navLinkClass}
+              className={({ isActive }) =>
+                navLinkClass({
+                  isActive:
+                    to === '/studio'
+                      ? isDashboardNavActive(location.pathname, isActive)
+                      : isActive,
+                })
+              }
               title={label}
               aria-label={label}
             >

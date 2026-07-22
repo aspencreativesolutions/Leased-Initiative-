@@ -52,7 +52,7 @@ export function PortalContractPage() {
           setAgreed(false)
         }
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Could not load contract')
+        setError(err instanceof ApiError ? err.message : 'Could not load lease')
       } finally {
         if (!silent) setLoading(false)
       }
@@ -85,7 +85,7 @@ export function PortalContractPage() {
       setCanSign(result.canSign)
       await load(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not mark contract as reviewed')
+      setError(err instanceof ApiError ? err.message : 'Could not mark lease as reviewed')
     } finally {
       setReviewing(false)
     }
@@ -106,14 +106,14 @@ export function PortalContractPage() {
       setCanSign(false)
       await load(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not confirm contract')
+      setError(err instanceof ApiError ? err.message : 'Could not confirm lease')
     } finally {
       setSubmitting(false)
     }
   }
 
   if (loading) {
-    return <div className="py-16 text-center text-ink-muted">Loading contract…</div>
+    return <div className="py-16 text-center text-ink-muted">Loading lease…</div>
   }
 
   if (error && !data) {
@@ -141,14 +141,14 @@ export function PortalContractPage() {
         className="mb-4 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Current Contracts
+        Back to Current Leases
       </Link>
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="heading-display text-2xl">{contract.projectTitle}</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Contract from {settings.businessName || settings.ownerName}
+            Lease from {settings.businessName || settings.ownerName}
           </p>
         </div>
         <PortalContractStatusBadge status={portalStatus} />
@@ -156,9 +156,9 @@ export function PortalContractPage() {
 
       {needsReview && (
         <Card padding="md" className="mb-6 border-brand bg-brand/5">
-          <p className="font-semibold text-ink">Updated contract — please review</p>
+          <p className="font-semibold text-ink">Updated lease — please review</p>
           <p className="mt-1 text-sm text-ink-muted">
-            Your designer has sent a revised contract. Read every section below, then confirm you
+            Your landlord has sent a revised lease. Read every section below, then confirm you
             have reviewed it before signing.
           </p>
         </Card>
@@ -177,13 +177,13 @@ export function PortalContractPage() {
           <div className="flex items-start gap-3">
             <CheckCircle className="h-6 w-6 shrink-0 text-emerald-600" />
             <div>
-              <p className="font-semibold text-emerald-900">Contract accepted</p>
+              <p className="font-semibold text-emerald-900">Lease accepted</p>
               <p className="mt-1 text-sm text-emerald-800">
-                You signed this contract on{' '}
+                You signed this lease on{' '}
                 {contract.signedAt
                   ? new Date(contract.signedAt).toLocaleDateString()
                   : 'today'}
-                . Your designer has been notified and the project can move forward.
+                . Your landlord has been notified and the project can move forward.
               </p>
               <Button
                 variant="outline"
@@ -200,7 +200,7 @@ export function PortalContractPage() {
         <div className="contract-sign-shell">
           <div className="contract-sign-paper mx-auto max-w-lg text-center">
             <h2 className="font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink">
-              Review the Contract.
+              Review the Lease.
             </h2>
             <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
               Read the full agreement above, including payment terms, scope, and revision limits.
@@ -213,7 +213,7 @@ export function PortalContractPage() {
 
             <Button className="mt-8" onClick={handleMarkReviewed} disabled={reviewing}>
               <Eye className="h-4 w-4" />
-              {reviewing ? 'Saving…' : 'I have reviewed this contract'}
+              {reviewing ? 'Saving…' : 'I have reviewed this lease'}
             </Button>
           </div>
         </div>
@@ -222,10 +222,10 @@ export function PortalContractPage() {
           <div className="contract-sign-paper mx-auto max-w-lg">
             <header className="text-center">
               <h2 className="font-display text-lg font-semibold uppercase tracking-[0.2em] text-ink">
-                Contract Agreement.
+                Lease Agreement.
               </h2>
               <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
-                By typing your full name below, you agree to the terms of this contract.
+                By typing your full name below, you agree to the terms of this lease.
               </p>
             </header>
 
@@ -235,7 +235,7 @@ export function PortalContractPage() {
 
             <form onSubmit={handleConfirm} className="mt-10 space-y-8">
               <ContractSignatureRow
-                label="Client"
+                label="Tenant"
                 hint="Signature & Date"
                 value={signature}
                 onChange={setSignature}
@@ -250,14 +250,14 @@ export function PortalContractPage() {
                   required
                 />
                 <span>
-                  I have read and agree to all terms in this contract, including payment schedule,
+                  I have read and agree to all terms in this lease, including payment schedule,
                   revision limits, and termination conditions.
                 </span>
               </label>
               <div className="text-center">
                 <Button type="submit" disabled={submitting || !agreed || !signature.trim()}>
                   <FileCheck className="h-4 w-4" />
-                  {submitting ? 'Confirming…' : 'Accept contract'}
+                  {submitting ? 'Confirming…' : 'Accept lease'}
                 </Button>
               </div>
             </form>
@@ -267,7 +267,7 @@ export function PortalContractPage() {
         <div className="contract-sign-shell">
           <div className="contract-sign-paper mx-auto max-w-lg text-center">
             <p className="font-serif text-sm italic text-ink-muted">
-              Please review the contract above and confirm you have read it before signing.
+              Please review the lease above and confirm you have read it before signing.
             </p>
           </div>
         </div>

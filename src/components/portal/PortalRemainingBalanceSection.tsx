@@ -31,7 +31,7 @@ export function PortalRemainingBalanceSection({
           </p>
         )}
         <p className="mt-3 text-xs text-ink-faint">
-          Your down payment is complete. Your designer will send a final invoice when
+          Your down payment is complete. Your landlord will send a final invoice when
           deliverables are ready.
         </p>
       </Card>

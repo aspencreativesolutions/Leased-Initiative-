@@ -3,6 +3,9 @@ export const clientStatusIconWrapperClass = 'inline-flex shrink-0 items-center'
 
 export const clientStatusIconClass = 'h-4 w-4 shrink-0'
 
+/** Name + role/status markers in admin list rows */
+export const clientNameMarkersClass = 'flex min-w-0 items-center gap-1.5'
+
 /** Text badge for profile headers and labeled contexts */
 export const clientBadgeLabeledClass =
   'status-badge inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-caps leading-none'

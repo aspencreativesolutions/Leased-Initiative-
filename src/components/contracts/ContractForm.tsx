@@ -49,14 +49,14 @@ const STEP_META = [
       'Clarify revision limits, client obligations, and how you will communicate throughout.',
   },
   {
-    heading: 'Contract Agreement.',
+    heading: 'Lease Agreement.',
     intro:
       'Review ownership, termination, and signatures. Both parties should sign before the project begins.',
   },
   {
     heading: 'Review & Generate.',
     intro:
-      'Confirm the details below, then generate your PDF or send the contract to your client.',
+      'Confirm the details below, then generate your PDF or send the lease to your tenant.',
   },
 ]
 
@@ -97,6 +97,7 @@ function emptyContract(client: Client, settings: BusinessSettings): ContractData
     remainingBalance: placeholders.remainingBalance,
     paymentSchedule: settings.defaultPaymentTerms,
     paymentProvider: 'paypal',
+    allowPrepaidRent: true,
     paymentMethods: paymentMethodsTextForProvider('paypal'),
     latePaymentPolicy: 'Late payments may incur a 1.5% monthly fee on outstanding balances.',
     revisionCount: settings.defaultRevisionLimit,
@@ -203,9 +204,9 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
     <div className="space-y-4">
       {wasSentToClient && (
         <div className="rounded-sm border border-line bg-surface-paper px-5 py-3 text-sm text-ink">
-          <p className="font-medium uppercase tracking-[0.1em]">Sent contract — edits re-deliver</p>
+          <p className="font-medium uppercase tracking-[0.1em]">Sent lease — edits re-deliver</p>
           <p className="mt-1 font-serif text-sm italic text-ink-muted">
-            Saving changes to a contract already in the portal clears the previous signature and
+            Saving changes to a lease already in the portal clears the previous signature and
             sends the updated version back for review and signing.
           </p>
         </div>
@@ -223,7 +224,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               <div className="flex flex-wrap justify-center gap-3">
                 <Button onClick={handleGeneratePdf}>
                   <Download className="h-4 w-4" />
-                  Generate Contract PDF
+                  Generate Lease PDF
                 </Button>
                 {pdfGenerated && (
                   <>
@@ -233,7 +234,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                     </Button>
                     <Button variant="secondary" onClick={() => setEmailOpen(true)}>
                       <Mail className="h-4 w-4" />
-                      Send to Client
+                      Send to Tenant
                     </Button>
                   </>
                 )}
@@ -241,7 +242,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               {pdfGenerated && (
                 <p className="mt-4 flex items-center justify-center gap-2 font-serif text-sm italic text-ink-muted">
                   <FileCheck className="h-4 w-4 shrink-0" />
-                  PDF generated. Contract status updated to Generated.
+                  PDF generated. Lease status updated to Generated.
                 </p>
               )}
               <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-line/40 pt-6">
@@ -285,7 +286,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
         {step === 0 && (
           <div className="mx-auto max-w-lg space-y-8">
             <ContractInput
-              label="Client Name"
+              label="Tenant Name"
               value={contract.clientName}
               onChange={(e) => update('clientName', e.target.value)}
             />
@@ -306,7 +307,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               onChange={(e) => update('phone', e.target.value)}
             />
             <ContractInput
-              label="Client Address"
+              label="Tenant Address"
               hint="optional"
               value={contract.clientAddress || ''}
               onChange={(e) => update('clientAddress', e.target.value)}
@@ -419,6 +420,20 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               <option value="stripe">Stripe</option>
               <option value="square">Square</option>
             </ContractSelect>
+            <ContractSelect
+              label="Prepaid rent"
+              hint="let tenants pay consecutive months upfront from their dashboard"
+              value={contract.allowPrepaidRent === false ? 'no' : 'yes'}
+              onChange={(e) => {
+                setContract((c) => ({
+                  ...c,
+                  allowPrepaidRent: e.target.value === 'yes',
+                }))
+              }}
+            >
+              <option value="yes">Allow multi-month upfront payments</option>
+              <option value="no">Next month only</option>
+            </ContractSelect>
             <ContractInput
               label="Payment Methods"
               value={contract.paymentMethods}
@@ -453,7 +468,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               onChange={(e) => update('revisionLimits', e.target.value)}
             />
             <ContractTextarea
-              label="Client Responsibilities"
+              label="Tenant Responsibilities"
               value={contract.clientResponsibilities}
               onChange={(e) => update('clientResponsibilities', e.target.value)}
               rows={5}
@@ -501,14 +516,14 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
 
             <div className="mx-auto max-w-md space-y-10 border-t border-line/40 pt-10">
               <ContractSignatureRow
-                label="Designer"
+                label="Landlord"
                 hint="Signature & Date"
                 value={contract.designerSignature || settings.ownerName}
                 onChange={(v) => update('designerSignature', v)}
                 placeholder={settings.ownerName}
               />
               <ContractSignatureRow
-                label="Client"
+                label="Tenant"
                 hint="Signature & Date"
                 value={contract.clientSignature || ''}
                 onChange={(v) => update('clientSignature', v)}
@@ -516,13 +531,13 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
               />
               <div className="grid gap-8 sm:grid-cols-2">
                 <ContractInput
-                  label="Designer Date"
+                  label="Landlord Date"
                   type="date"
                   value={contract.designerSignDate || ''}
                   onChange={(e) => update('designerSignDate', e.target.value)}
                 />
                 <ContractInput
-                  label="Client Date"
+                  label="Tenant Date"
                   type="date"
                   value={contract.clientSignDate || ''}
                   onChange={(e) => update('clientSignDate', e.target.value)}

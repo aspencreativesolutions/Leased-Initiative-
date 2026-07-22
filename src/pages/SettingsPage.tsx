@@ -46,7 +46,7 @@ export function SettingsPage() {
           <Card>
             <CardHeader
               title="Business Information"
-              subtitle="Used in contract headers and signatures"
+              subtitle="Used in lease headers and signatures"
             />
             <div className="space-y-4">
               <Input
@@ -90,7 +90,7 @@ export function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Contract Defaults" />
+            <CardHeader title="Lease Defaults" />
             <div className="space-y-4">
               <Textarea
                 label="Default Payment Terms"
@@ -104,7 +104,7 @@ export function SettingsPage() {
                 onChange={(e) => update('defaultRevisionLimit', e.target.value)}
               />
               <Textarea
-                label="Default Contract Footer"
+                label="Default Lease Footer"
                 value={form.defaultContractFooter}
                 onChange={(e) => update('defaultContractFooter', e.target.value)}
                 rows={4}
@@ -130,7 +130,7 @@ export function SettingsPage() {
               <div>
                 <p className="font-display text-lg font-semibold text-ink">Preview</p>
                 <p className="text-sm text-ink-muted">
-                  Contracts will show: <strong>{form.businessName}</strong> · {form.email}
+                  Leases will show: <strong>{form.businessName}</strong> · {form.email}
                 </p>
               </div>
             </div>

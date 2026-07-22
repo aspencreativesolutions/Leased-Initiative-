@@ -49,7 +49,7 @@ export async function createStripeCheckoutSession({
           currency: currency.toLowerCase(),
           unit_amount: Math.round(Number(amount) * 100),
           product_data: {
-            name: (description || 'Client Craft Invoice').slice(0, 127),
+            name: (description || 'Leased Invoice').slice(0, 127),
           },
         },
         quantity: 1,

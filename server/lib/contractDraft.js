@@ -10,8 +10,14 @@ const DEFAULT_PORTFOLIO = `The designer/developer may display the completed proj
 
 const DEFAULT_TERMINATION = `Either party may terminate this agreement with written notice. If terminated by the client after work has begun, the deposit is non-refundable and the client is responsible for payment for all work completed to date. If the client becomes unresponsive for more than 14 business days, the designer may pause work and invoice for work completed.`
 
-export function createDraftContract(client, settings) {
+export function createDraftContract(client, settings, leaseOptions = {}) {
   const placeholders = buildContractPlaceholderFields(client)
+  const startDate = leaseOptions.startDate || placeholders.startDate
+  const completionDate = leaseOptions.completionDate || placeholders.completionDate
+  const paymentSchedule =
+    leaseOptions.paymentSchedule ||
+    settings.defaultPaymentTerms ||
+    'Monthly rent due on the 1st of each month.'
 
   return {
     id: generateId(),
@@ -27,13 +33,15 @@ export function createDraftContract(client, settings) {
     servicesIncluded: placeholders.servicesIncluded,
     servicesNotIncluded: placeholders.servicesNotIncluded,
     deliverables: placeholders.deliverables,
-    startDate: placeholders.startDate,
-    completionDate: placeholders.completionDate,
+    startDate,
+    completionDate,
     totalCost: placeholders.totalCost,
     depositAmount: placeholders.depositAmount,
     remainingBalance: placeholders.remainingBalance,
-    paymentSchedule: settings.defaultPaymentTerms,
+    paymentSchedule,
     paymentProvider: 'paypal',
+    /** Tenants may select consecutive unpaid months and pay rent upfront */
+    allowPrepaidRent: true,
     paymentMethods: 'PayPal (secure checkout link)',
     latePaymentPolicy: 'Late payments may incur a 1.5% monthly fee on outstanding balances.',
     revisionCount: settings.defaultRevisionLimit,

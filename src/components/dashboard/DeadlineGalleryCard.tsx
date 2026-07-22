@@ -47,7 +47,7 @@ const urgencyStyle = {
 const typeLabels: Record<Deadline['type'], string> = {
   'follow-up': 'Follow-up',
   project: 'Project',
-  contract: 'Contract',
+  contract: 'Lease',
   payment: 'Payment',
 }
 
@@ -190,7 +190,7 @@ export function DeadlineGalleryCard({ item }: DeadlineGalleryCardProps) {
 
             {showMeeting && !deadline.meetingLink && (
               <p className="text-xs text-ink-muted">
-                Your designer will send a meeting link before this call.
+                Your landlord will send a meeting link before this call.
               </p>
             )}
 

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 
 /** Compact labels so all steps fit across the row on desktop */
 const COMPACT_LABELS: Record<string, { admin: string; portal: string }> = {
-  contract_sent: { admin: 'Contract Sent', portal: 'Contract Sent' },
+  contract_sent: { admin: 'Lease Sent', portal: 'Lease Sent' },
   contract_signed: { admin: 'Signed', portal: 'Signed' },
   invoice_sent: { admin: 'Invoice Sent', portal: 'Invoice Sent' },
   pay_link_clicked: { admin: 'Pay Link', portal: 'Pay Link' },

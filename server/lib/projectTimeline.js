@@ -9,8 +9,8 @@ function isContractSigned(contract) {
 }
 
 const PORTAL_STEP_LABELS = {
-  contract_sent: 'Contract Sent',
-  contract_signed: 'Contract Signed',
+  contract_sent: 'Lease Sent',
+  contract_signed: 'Lease Signed',
   invoice_sent: 'Deposit Invoice Sent',
   pay_link_clicked: 'PayPal Link Clicked',
   payment_confirmed: 'Payment Confirmed',
@@ -113,7 +113,7 @@ function getRealDetail(stepId, client, contract, fileEvents, audience = 'admin')
       return contract?.sentAt
         ? portal
           ? 'Your contract is ready in the portal'
-          : 'Contract delivered to client portal'
+          : 'Lease delivered to tenant portal'
         : undefined
     case 'contract_signed':
       return isContractSigned(contract)
@@ -201,8 +201,8 @@ export function buildProjectTimeline(client, contract, options = {}) {
   let activeAssigned = false
 
   const adminLabels = {
-    contract_sent: 'Contract Sent',
-    contract_signed: 'Contract Signed',
+    contract_sent: 'Lease Sent',
+    contract_signed: 'Lease Signed',
     invoice_sent: 'PayPal Invoice Link Sent',
     pay_link_clicked: 'PayPal Link Clicked',
     payment_confirmed: 'Payment Confirmed',

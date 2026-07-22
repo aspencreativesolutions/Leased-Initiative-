@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Compass, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
+import { isAdminModeEnabled } from '@/lib/adminMode'
 import {
   fetchOnboardingProgress,
   updateOnboardingProgress,
@@ -93,6 +94,7 @@ export function OnboardingTour({
   const { user, refreshUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const adminMode = isAdminModeEnabled()
   const [progress, setProgress] = useState<OnboardingProgress | null>(null)
   const [active, setActive] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
@@ -121,13 +123,19 @@ export function OnboardingTour({
   }, [currentStep])
 
   useEffect(() => {
+    if (adminMode) {
+      setActive(false)
+      setProgress(null)
+      return
+    }
     if (!user) return
     fetchOnboardingProgress(role)
       .then(setProgress)
       .catch(() => setProgress({ completedSteps: [] }))
-  }, [user, role])
+  }, [user, role, adminMode])
 
   useEffect(() => {
+    if (adminMode) return
     if (!progress || progress.dismissedAt) return
     if (pendingSteps.length === 0) return
     if (forceStart) {
@@ -138,7 +146,7 @@ export function OnboardingTour({
     }
     const timer = setTimeout(() => setActive(true), 800)
     return () => clearTimeout(timer)
-  }, [progress, pendingSteps.length, forceStart, onForceStartHandled])
+  }, [progress, pendingSteps.length, forceStart, onForceStartHandled, adminMode])
 
   useEffect(() => {
     if (!active || !currentStep?.route) return
@@ -194,7 +202,7 @@ export function OnboardingTour({
     await refreshUser()
   }, [role, refreshUser])
 
-  if (!active || !currentStep || !spotlight) return null
+  if (adminMode || !active || !currentStep || !spotlight) return null
 
   const tooltipStyle = getTooltipPosition(spotlight, currentStep.placement ?? 'bottom')
   const stepNumber = stepIndex + 1
@@ -227,7 +235,7 @@ export function OnboardingTour({
       </svg>
 
       <div
-        className="pointer-events-none absolute rounded-md border-2 border-brand shadow-[0_0_0_4px_rgba(30,77,107,0.25)]"
+        className="pointer-events-none absolute rounded-[var(--radius-md)] border-[length:var(--border-width)] border-brand shadow-[0_0_0_4px_rgba(30,77,107,0.25)]"
         style={{
           top: spotlight.top,
           left: spotlight.left,
@@ -237,7 +245,7 @@ export function OnboardingTour({
       />
 
       <div
-        className="absolute w-80 rounded-sm border-2 border-brand bg-surface-paper p-4 shadow-xl"
+        className="absolute w-80 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift"
         style={{
           top: tooltipStyle.top,
           left: tooltipStyle.left,
@@ -289,6 +297,8 @@ export function OnboardingRestartButton({
   role: 'admin' | 'client'
   onStart: () => void
 }) {
+  if (isAdminModeEnabled()) return null
+
   const handleClick = async () => {
     await updateOnboardingProgress(role, { reset: true })
     onStart()

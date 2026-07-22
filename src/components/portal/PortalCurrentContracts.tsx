@@ -19,20 +19,20 @@ export function PortalCurrentContracts({
   contracts,
   contractStatus,
   projectStarted = false,
-  emptyDescription = "Your designer is preparing your agreement. Once it's sent, it will appear here right away.",
+  emptyDescription = "Your landlord is preparing your agreement. Once it's sent, it will appear here right away.",
 }: PortalCurrentContractsProps) {
   return (
     <section data-onboarding="portal-contracts">
       <h2 className="label-caps mb-3 flex items-center gap-2">
         <FileText className="h-4 w-4" />
-        Current Contracts
+        Current Leases
       </h2>
 
       {contracts.length === 0 ? (
         <Card padding="lg">
           <EmptyState
             icon={FileText}
-            title="No contracts yet"
+            title="No leases yet"
             description={emptyDescription}
           />
         </Card>

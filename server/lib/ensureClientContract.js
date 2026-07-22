@@ -156,8 +156,8 @@ export function notifyContractNeedsDetail(store, client, contract) {
     type: 'contract_needs_detail',
     clientId: client.id,
     contractId: contract.id,
-    title: 'Contract needs details',
-    message: `A placeholder contract for ${client.name} was auto-generated. Review services, pricing, and deliverables before the client signs.`,
+    title: 'Lease needs details',
+    message: `A placeholder lease for ${client.name} was auto-generated. Review services, pricing, and deliverables before the tenant signs.`,
   })
 }
 

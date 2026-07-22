@@ -1,21 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, AlertCircle, Clock, CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, AlertCircle, Clock, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { MobileWeeklyScheduler } from '@/components/scheduler/MobileWeeklyScheduler'
 import { WeeklySchedulerGrid } from '@/components/scheduler/WeeklySchedulerGrid'
+import { SchedulerNotesSidebar } from '@/components/scheduler/SchedulerNotesSidebar'
+import { ServiceTierBadge } from '@/components/scheduler/ServiceTierBadge'
 import { cn, formatDate, getDeadlineUrgency } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import {
   addWeeks,
+  countScheduledClients,
+  countScheduledTasks,
   formatWeekRange,
   formatWeekStart,
   generateWeekSchedule,
   getMondayOfWeek,
+  tierCounts,
 } from '@/lib/scheduler'
 import { loadWeekSchedule, saveWeekSchedule } from '@/lib/schedulerStorage'
+import { SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { Client, Deadline, WeekSchedule } from '@/types'
 
 interface CalendarItem {
@@ -42,6 +48,7 @@ export function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => formatWeekStart(getMondayOfWeek()))
   const [schedule, setSchedule] = useState<WeekSchedule | null>(null)
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
+  const [notesCollapsed, setNotesCollapsed] = useState(false)
 
   useEffect(() => {
     const cached = loadWeekSchedule(weekStart)
@@ -88,83 +95,118 @@ export function CalendarPage() {
     setSchedule(next)
   }, [weekStart, clients, contracts])
 
+  const stats = useMemo(() => {
+    if (!schedule) return null
+    return {
+      clients: countScheduledClients(schedule),
+      tasks: countScheduledTasks(schedule),
+      tiers: tierCounts(schedule),
+    }
+  }, [schedule])
+
   return (
     <>
       <PageHeader
-        title="Calendar & Deadlines"
-        subtitle="Weekly schedule and upcoming deadlines."
+        title={
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            Calendar
+            <span className="font-display text-lg font-semibold text-ink sm:text-xl">
+              {formatWeekRange(weekStart)}
+            </span>
+          </span>
+        }
+        subtitle="Appointments, lease timelines, and deadlines in one place. Mon–Fri, 9:00 a.m. – 4:00 p.m."
         action={
-          <Link to="/studio/scheduler">
-            <Button variant="outline" size="sm">
-              <CalendarClock className="h-4 w-4" />
-              Full Scheduler
-            </Button>
-          </Link>
+          <Button variant="outline" size="sm" onClick={regenerate}>
+            <RefreshCw className="h-4 w-4" />
+            Regenerate Week
+          </Button>
         }
       />
 
-      <Card className="mb-6 p-3 sm:p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setWeekStart((w) => addWeeks(w, -1))}
-              aria-label="Previous week"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="min-w-0 truncate text-center text-sm font-semibold text-ink sm:text-base">
-              {formatWeekRange(weekStart)}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setWeekStart((w) => addWeeks(w, 1))}
-              aria-label="Next week"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex gap-2">
+      <Card className="mb-4 p-3 sm:p-4">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekStart((w) => addWeeks(w, -1))}
+                aria-label="Previous week"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-0 truncate text-center text-sm font-semibold text-ink sm:text-base">
+                {formatWeekRange(weekStart)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setWeekStart((w) => addWeeks(w, 1))}
+                aria-label="Next week"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setWeekStart(formatWeekStart(getMondayOfWeek()))}
             >
-              This Week
-            </Button>
-            <Button variant="outline" size="sm" onClick={regenerate}>
-              Regenerate
+              This Week{stats ? ` · ${stats.tasks}` : ''}
             </Button>
           </div>
-        </div>
 
-        {schedule ? (
-          <>
-            <div className="md:hidden">
-              <MobileWeeklyScheduler
-                schedule={schedule}
-                onDaySelect={setSelectedDayIndex}
-                onScheduleChange={handleScheduleChange}
-              />
+          {stats && (
+            <div className="flex flex-col gap-1 text-xs text-ink-muted">
+              <span>{stats.clients} tenants scheduled</span>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="text-[10px] font-medium text-ink-faint">Priority</span>
+                {SERVICE_TIERS.map((tier) => (
+                  <div key={tier} className="flex items-center gap-1">
+                    <ServiceTierBadge tier={tier} tiny />
+                    <span className="text-[10px] tabular-nums">{stats.tiers[tier]}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="hidden md:block">
-              <WeeklySchedulerGrid schedule={schedule} onScheduleChange={handleScheduleChange} />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-ink-muted">Building schedule…</p>
-        )}
+          )}
+        </div>
       </Card>
+
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          {schedule ? (
+            <>
+              <div className="md:hidden">
+                <Card className="p-3">
+                  <MobileWeeklyScheduler
+                    schedule={schedule}
+                    onDaySelect={setSelectedDayIndex}
+                    onScheduleChange={handleScheduleChange}
+                  />
+                </Card>
+              </div>
+              <div className="hidden md:block">
+                <WeeklySchedulerGrid schedule={schedule} onScheduleChange={handleScheduleChange} />
+              </div>
+            </>
+          ) : (
+            <div className="rounded-sm border-2 border-line bg-surface-paper p-12 text-center text-ink-muted">
+              Building schedule…
+            </div>
+          )}
+        </div>
+        <SchedulerNotesSidebar
+          weekStart={weekStart}
+          collapsed={notesCollapsed}
+          onToggle={() => setNotesCollapsed((c) => !c)}
+        />
+      </div>
 
       {selectedDayIndex === null && (
         <Card>
-          <CardHeader
-            title="All Deadlines"
-            subtitle="Sorted by date"
-            dense
-          />
+          <CardHeader title="All Deadlines" subtitle="Lease timelines and follow-ups, sorted by date" dense />
           {items.length === 0 ? (
             <p className="text-sm text-ink-muted">No deadlines scheduled.</p>
           ) : (

@@ -3,15 +3,15 @@ import { Button } from '@/components/ui/Button'
 import { Input, Select, Textarea } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { useApp } from '@/context/AppContext'
+import { getProjectStatusDisplayLabel } from '@/lib/clientUtils'
 import { DEFAULT_SERVICE_TIER, SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { ProjectStatus, ProjectType } from '@/types'
 
 const projectTypes: ProjectType[] = [
-  'Website Design',
-  'Website Redesign',
-  'Branding',
-  'SEO',
-  'Maintenance',
+  'Apartment',
+  'House',
+  'Condo',
+  'Townhouse',
   'Other',
 ]
 
@@ -29,7 +29,7 @@ const EMPTY_FORM = {
   businessName: '',
   email: '',
   phone: '',
-  projectType: 'Website Design' as ProjectType,
+  projectType: 'Apartment' as ProjectType,
   projectName: '',
   projectDescription: '',
   projectStatus: 'Inquiry' as ProjectStatus,
@@ -91,7 +91,7 @@ export function AddClientModal({
     setForm(EMPTY_FORM)
   }
 
-  const title = registrationUserId ? 'Add Client from Registration' : 'Add New Client'
+  const title = registrationUserId ? 'Add Tenant from Registration' : 'Add New Tenant'
 
   return (
     <Modal open={open} onClose={onClose} title={title} size="lg">
@@ -104,7 +104,7 @@ export function AddClientModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Client Name"
+            label="Tenant Name"
             name="name"
             required
             placeholder="Jane Smith"
@@ -138,7 +138,7 @@ export function AddClientModal({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
-            label="Project Type"
+            label="Property Type"
             name="projectType"
             value={form.projectType}
             onChange={(e) => update('projectType', e.target.value)}
@@ -150,14 +150,14 @@ export function AddClientModal({
             ))}
           </Select>
           <Select
-            label="Project Status"
+            label="Lease Status"
             name="projectStatus"
             value={form.projectStatus}
             onChange={(e) => update('projectStatus', e.target.value)}
           >
             {projectStatuses.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {getProjectStatusDisplayLabel(s)}
               </option>
             ))}
           </Select>
@@ -175,16 +175,16 @@ export function AddClientModal({
           </Select>
         </div>
         <Input
-          label="Project Name"
+          label="Address"
           name="projectName"
-          placeholder="Homepage Redesign"
+          placeholder="123 Main St, Unit 4B"
           value={form.projectName}
           onChange={(e) => update('projectName', e.target.value)}
         />
         <Textarea
-          label="Project Description"
+          label="Notes on property"
           name="projectDescription"
-          placeholder="Brief overview of the project..."
+          placeholder="Unit details, parking, amenities..."
           value={form.projectDescription}
           onChange={(e) => update('projectDescription', e.target.value)}
         />
@@ -207,7 +207,7 @@ export function AddClientModal({
             Cancel
           </Button>
           <Button type="submit">
-            {registrationUserId ? 'Confirm & Add Client' : 'Save Client'}
+            {registrationUserId ? 'Confirm & Add Tenant' : 'Save Tenant'}
           </Button>
         </div>
       </form>

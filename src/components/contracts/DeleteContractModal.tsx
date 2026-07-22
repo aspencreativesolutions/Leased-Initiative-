@@ -91,7 +91,7 @@ export function DeleteContractModal({
       setAuditEntry(result.auditEntry)
       onDeleted({ auditEntry: result.auditEntry, clientId: result.clientId })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete contract')
+      setError(err instanceof ApiError ? err.message : 'Could not delete lease')
     } finally {
       setSubmitting(false)
     }
@@ -99,8 +99,8 @@ export function DeleteContractModal({
 
   if (contracts.length === 0 && !workflowFallback) {
     return (
-      <Modal open={open} onClose={handleClose} title="Delete contract" size="md">
-        <p className="text-sm text-ink-muted">No contracts exist to delete.</p>
+      <Modal open={open} onClose={handleClose} title="Delete lease" size="md">
+        <p className="text-sm text-ink-muted">No leases exist to delete.</p>
         <div className="mt-6 flex justify-end">
           <Button variant="ghost" onClick={handleClose}>
             Close
@@ -112,7 +112,7 @@ export function DeleteContractModal({
 
   if (auditEntry) {
     return (
-      <Modal open={open} onClose={handleClose} title="Contract deleted" size="md">
+      <Modal open={open} onClose={handleClose} title="Lease deleted" size="md">
         <div className="rounded-sm border-2 border-line bg-surface px-4 py-3 text-sm text-ink-muted">
           <p className="font-medium text-ink">Deletion logged for audit</p>
           <p className="mt-2">{auditEntry.summary}</p>
@@ -132,8 +132,8 @@ export function DeleteContractModal({
           </dl>
         </div>
         <p className="mt-4 text-sm text-ink-muted">
-          The contract is removed from your dashboard and the client portal. You can create a new
-          contract for this client from scratch.
+          The lease is removed from your dashboard and the tenant portal. You can create a new
+          lease for this tenant from scratch.
         </p>
         <div className="mt-6 flex justify-end">
           <Button onClick={handleClose}>Done</Button>
@@ -143,13 +143,13 @@ export function DeleteContractModal({
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Permanently delete contract" size="lg">
+    <Modal open={open} onClose={handleClose} title="Permanently delete lease" size="lg">
       <div className="mb-4 flex gap-3 rounded-sm border-2 border-accent bg-accent-light px-4 py-3 text-sm text-accent">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          This action is <strong>irreversible</strong>. The contract, portal view, signatures,
-          deposit invoice links, and contract workflow steps will be permanently removed. The project
-          timeline returns to the Inquiry stage so you can start a fresh contract.
+          This action is <strong>irreversible</strong>. The lease, portal view, signatures,
+          deposit invoice links, and lease workflow steps will be permanently removed. The project
+          timeline returns to the Inquiry stage so you can start a fresh lease.
         </p>
       </div>
 
@@ -163,7 +163,7 @@ export function DeleteContractModal({
             <strong className="text-ink">{workflowFallback.contractStatus}</strong>
           </p>
           <p className="mt-2 text-xs">
-            No contract file is stored for this client, but the workflow shows contract activity.
+            No lease file is stored for this tenant, but the workflow shows lease activity.
             Deleting will clear the status and portal view so you can start over.
           </p>
           <p className="mt-2 break-all font-mono text-[10px] text-ink-faint">
@@ -173,7 +173,7 @@ export function DeleteContractModal({
       ) : (
         <>
           <Select
-            label="Select contract"
+            label="Select lease"
             value={selectedId}
             onChange={(e) => {
               setSelectedId(e.target.value)
@@ -190,7 +190,7 @@ export function DeleteContractModal({
           {selected && (
             <div className="mt-4 rounded-sm border border-line bg-surface px-4 py-3 text-xs text-ink-muted">
               <p>
-                <span className="font-semibold text-ink">Contract ID:</span>{' '}
+                <span className="font-semibold text-ink">Lease ID:</span>{' '}
                 <span className="font-mono">{selected.contract.id}</span>
               </p>
               <p className="mt-1">
@@ -204,8 +204,8 @@ export function DeleteContractModal({
 
       <div className="mt-4">
         <Input
-          label={workflowOnly ? 'Confirm client ID' : 'Confirm contract ID'}
-          hint={`Type the exact ${workflowOnly ? 'client' : 'contract'} ID above to confirm`}
+          label={workflowOnly ? 'Confirm client ID' : 'Confirm lease ID'}
+          hint={`Type the exact ${workflowOnly ? 'client' : 'lease'} ID above to confirm`}
           value={confirmId}
           onChange={(e) => setConfirmId(e.target.value)}
           placeholder={confirmTargetId}
@@ -221,7 +221,7 @@ export function DeleteContractModal({
           checked={acknowledged}
           onChange={(e) => setAcknowledged(e.target.checked)}
         />
-        <span>I understand this permanently deletes the contract and cannot be undone.</span>
+        <span>I understand this permanently deletes the lease and cannot be undone.</span>
       </label>
 
       {error && (

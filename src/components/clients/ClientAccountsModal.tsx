@@ -60,10 +60,10 @@ export function ClientAccountsModal({ open, onClose, onChanged }: ClientAccounts
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Client Accounts" size="lg">
+    <Modal open={open} onClose={onClose} title="Tenant Accounts" size="lg">
       <p className="mb-4 text-sm text-ink-muted">
         Portal login accounts for your clients. Deleting an account also removes their client
-        profile, contracts, files, and project history.
+        profile, leases, files, and project history.
       </p>
 
       {error && (

@@ -1,19 +1,15 @@
 export const ALL_THEME_IDS = [
-  'editorial',
+  'ink',
   'soft',
-  'mono',
   'ocean',
-  'rose',
-  'forest',
   'midnight',
+  'graphite',
   'citrus',
-  'vintage',
   'neon',
   'slate',
-  'terracotta',
 ]
 
-export const DEFAULT_PORTAL_THEME_ID = 'ocean'
+export const DEFAULT_PORTAL_THEME_ID = 'graphite'
 
 export function isThemeId(value) {
   return typeof value === 'string' && ALL_THEME_IDS.includes(value)

@@ -112,7 +112,7 @@ The E2E runner starts an isolated API + Vite dev server with `E2E_TEST=1` (no sa
 **URL:** `/portal/register` · `PortalRegisterPage`
 
 - [ ] Landing: logo, **Create an account**, Aspen work-email vs client registration subtitle
-- [ ] *(Optional)* **Choose Style** → pick theme in `PortalStyleModal` (13 themes; default Ocean Office)
+- [ ] *(Optional)* **Choose Style** → pick theme in `PortalStyleModal` (themes; default Graphite Lab)
 - [ ] Full name, email (designer-recognized), password (≥8 chars), confirm password
 - [ ] **Create account** → land on `/portal` (unlinked state)
 

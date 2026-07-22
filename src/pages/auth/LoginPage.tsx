@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowRight, LogIn } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
@@ -11,7 +11,6 @@ import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,7 +24,7 @@ export function LoginPage() {
     try {
       const user = await login(email, password)
       if (user.role !== 'client') {
-        setError('This sign-in is for client accounts. Aspen team members should use the studio login.')
+        setError('This sign-in is for tenant accounts. Landlords should use landlord sign-in.')
         return
       }
       navigate('/portal', { replace: true })
@@ -46,12 +45,12 @@ export function LoginPage() {
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center border-2 border-ink font-display text-2xl font-bold">
-            CC
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink font-display text-2xl font-bold">
+            L
           </div>
-          <h1 className="heading-display text-2xl">Client Portal</h1>
+          <h1 className="heading-display text-2xl">Tenant sign in</h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Sign in to work with Aspen Creative Solutions on your project
+            Sign in to review your lease and stay connected with your landlord
           </p>
         </div>
 
@@ -87,20 +86,15 @@ export function LoginPage() {
           <p className="mt-6 text-center text-sm text-ink-muted">
             New here?{' '}
             <Link to="/register" className="font-semibold text-brand hover:underline">
-              Create an account
+              Create a tenant account
             </Link>
           </p>
 
-          <div className="mt-4 flex justify-center">
-            <Link
-              to="/studio/login"
-              state={location.state}
-              className="inline-flex items-center gap-1 text-sm font-semibold text-brand transition-colors hover:text-brand-light"
-            >
-              Go to team member login
-              <ArrowRight className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+          <p className="mt-4 text-center text-sm text-ink-muted">
+            <Link to="/" className="font-semibold text-brand hover:underline">
+              Back to role selection
             </Link>
-          </div>
+          </p>
         </Card>
         </div>
       </div>

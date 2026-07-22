@@ -15,10 +15,10 @@ import {
   verificationTokenValid,
 } from '../lib/emailVerification.js'
 import {
-  expectedWorkEmail,
-  isWorkAdminEmail,
-  isWorkEmailDomain,
-} from '../lib/workEmail.js'
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  isLeaseLengthMonths,
+  parseLeaseLengthMonths,
+} from '../lib/leaseSchedule.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { DEFAULT_PORTAL_THEME_ID, isThemeId } from '../lib/themeIds.js'
 
@@ -61,15 +61,16 @@ function notifyAdminOfNewClient(user) {
     pushAdminNotification(s, {
       type: 'registration',
       userId: user.id,
-      title: 'New portal registration',
-      message: `${user.name} (${user.email}) signed up for the client portal.`,
+      title: 'New tenant registration',
+      message: `${user.name} (${user.email}) signed up as a tenant and is waiting for approval.`,
     })
   )
 }
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, portalThemeId, accountType } = req.body
+    const { email, password, name, portalThemeId, accountType, preferredLeaseMonths } =
+      req.body
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required' })
     }
@@ -79,32 +80,23 @@ router.post('/register', async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase()
     const trimmedName = name.trim()
-    const registeringAsAdmin = accountType === 'admin'
+    const isAdmin = accountType === 'admin'
+    if (
+      !isAdmin &&
+      preferredLeaseMonths != null &&
+      preferredLeaseMonths !== '' &&
+      !isLeaseLengthMonths(preferredLeaseMonths)
+    ) {
+      return res.status(400).json({
+        error: 'Preferred lease length must be 6, 12, 18, or 24 months',
+      })
+    }
     const store = readStore()
     if (store.users.some((u) => u.email === normalizedEmail)) {
       return res.status(409).json({
         error:
           'An account with this email already exists. Sign in with the password you chose when you registered.',
       })
-    }
-
-    const isAdmin =
-      registeringAsAdmin && isWorkAdminEmail(normalizedEmail, trimmedName)
-    if (registeringAsAdmin) {
-      if (isWorkEmailDomain(normalizedEmail) && !isAdmin) {
-        const example = expectedWorkEmail(trimmedName)
-        return res.status(400).json({
-          error: example
-            ? `Work email must match your first name (e.g. ${example})`
-            : 'Work email must match your first name at aspencreativesolutions.com',
-        })
-      }
-      if (!isAdmin) {
-        return res.status(400).json({
-          error:
-            'Studio accounts require an Aspen Creative Solutions work email (firstname@aspencreativesolutions.com).',
-        })
-      }
     }
 
     const linkedClient =
@@ -119,6 +111,14 @@ router.post('/register', async (req, res) => {
       name: trimmedName,
       role: isAdmin ? 'admin' : 'client',
       clientId: linkedClient?.id ?? null,
+      ...(!isAdmin
+        ? {
+            preferredLeaseMonths: parseLeaseLengthMonths(
+              preferredLeaseMonths,
+              DEFAULT_LEASE_LENGTH_MONTHS
+            ),
+          }
+        : {}),
       portalThemeId: isAdmin
         ? undefined
         : isThemeId(portalThemeId)

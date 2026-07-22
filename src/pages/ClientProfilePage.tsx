@@ -44,8 +44,14 @@ import {
   canViewClientContract,
   getClientServiceTier,
   getContractActionLabel,
+  getProjectStatusDisplayLabel,
   isProjectActive,
 } from '@/lib/clientUtils'
+import {
+  formatDaysRemainingLabel,
+  formatLeaseLengthLabel,
+  getLeaseRentSchedule,
+} from '@/lib/leaseSchedule'
 import { formatDate } from '@/lib/utils'
 import { contractPdfFilename, openContractPdfInNewTab } from '@/lib/pdf'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ProjectType } from '@/types'
@@ -100,6 +106,8 @@ export function ClientProfilePage() {
     )
   }
 
+  const leaseSchedule = getLeaseRentSchedule(client, contract)
+
   const handleFollowUpComplete = () => {
     updateClient(client.id, {
       followUpDate: undefined,
@@ -113,20 +121,67 @@ export function ClientProfilePage() {
 
   const projectDetailsCard = (
     <Card className="h-fit lg:sticky lg:top-24">
-      <CardHeader title="Project Details" />
+      <CardHeader title="Lease Details" />
       <dl className="space-y-3 text-sm">
         <div>
-          <dt className="text-stone-500">Project Type</dt>
+          <dt className="text-stone-500">Property Type</dt>
           <dd className="font-medium text-stone-800">{client.projectType}</dd>
         </div>
         <div>
-          <dt className="text-stone-500">Project Name</dt>
+          <dt className="text-stone-500">Address</dt>
           <dd className="font-medium text-stone-800">{client.projectName}</dd>
         </div>
         {client.projectDescription && (
           <div>
             <dt className="text-stone-500">Description</dt>
             <dd className="text-stone-700">{client.projectDescription}</dd>
+          </div>
+        )}
+        {(client.leaseLengthMonths || leaseSchedule.leaseLengthMonths) && (
+          <div>
+            <dt className="text-stone-500">Lease length</dt>
+            <dd className="font-medium text-stone-800">
+              {formatLeaseLengthLabel(
+                client.leaseLengthMonths ?? leaseSchedule.leaseLengthMonths!
+              )}
+            </dd>
+          </div>
+        )}
+        {leaseSchedule.leaseStartDate && (
+          <div>
+            <dt className="text-stone-500">Lease start</dt>
+            <dd className="font-medium text-stone-800">
+              {formatDate(leaseSchedule.leaseStartDate)}
+            </dd>
+          </div>
+        )}
+        {leaseSchedule.leaseEndDate && (
+          <div>
+            <dt className="text-stone-500">Lease end</dt>
+            <dd className="font-medium text-stone-800">
+              {formatDate(leaseSchedule.leaseEndDate)}
+            </dd>
+          </div>
+        )}
+        {leaseSchedule.nextDueDate && (
+          <div>
+            <dt className="text-stone-500">Next rent due</dt>
+            <dd className="font-medium text-stone-800">
+              {formatDate(leaseSchedule.nextDueDate)}
+              {leaseSchedule.daysUntilNextDue != null && (
+                <span className="ml-1 text-stone-500">
+                  ({formatDaysRemainingLabel(leaseSchedule.daysUntilNextDue)})
+                </span>
+              )}
+            </dd>
+          </div>
+        )}
+        {leaseSchedule.finalDueDate && (
+          <div>
+            <dt className="text-stone-500">Final rent due</dt>
+            <dd className="font-medium text-stone-800">
+              {formatDate(leaseSchedule.finalDueDate)}
+            </dd>
           </div>
         )}
         <div>
@@ -265,7 +320,7 @@ export function ClientProfilePage() {
 
         <div className="grid w-full min-w-0 gap-4 sm:gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader title="Contract Information" />
+            <CardHeader title="Lease Information" />
             <div className="space-y-4 text-sm">
               <ContractStatusProgress
                 status={client.contractStatus}
@@ -285,7 +340,7 @@ export function ClientProfilePage() {
                     onClick={() => openContractPdfInNewTab(contract, settings)}
                   >
                     <FileDown className="h-4 w-4 shrink-0" />
-                    Contract PDF
+                    Lease PDF
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
                   </Button>
                 )}
@@ -296,7 +351,7 @@ export function ClientProfilePage() {
                     onClick={() => setDeleteContractOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Delete contract
+                    Delete lease
                   </Button>
                 )}
                 {showViewContract && contract && (
@@ -306,13 +361,13 @@ export function ClientProfilePage() {
                     onClick={() => setViewContractOpen(true)}
                   >
                     <Eye className="h-4 w-4" />
-                    View Contract
+                    View Lease
                   </Button>
                 )}
               </div>
               {!contract && hasContractWorkflow && (
                 <p className="text-xs text-ink-faint">
-                  No contract file stored yet (status: {client.contractStatus}). You can still delete
+                  No lease file stored yet (status: {client.contractStatus}). You can still delete
                   to reset the timeline to Inquiry.
                 </p>
               )}
@@ -372,7 +427,7 @@ export function ClientProfilePage() {
         <Modal
           open={viewContractOpen}
           onClose={() => setViewContractOpen(false)}
-          title="Contract"
+          title="Lease"
           size="xl"
         >
           <div className="max-h-[calc(90vh-5rem)] overflow-y-auto">
@@ -485,20 +540,20 @@ function EditClientModal({
           <Input label="Website" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} />
           <Input label="Social Links" value={form.socialLinks} onChange={(e) => setForm({ ...form, socialLinks: e.target.value })} />
         </div>
-        <Select label="Project Type" value={form.projectType} onChange={(e) => setForm({ ...form, projectType: e.target.value as ProjectType })}>
-          {(['Website Design', 'Website Redesign', 'Branding', 'SEO', 'Maintenance', 'Other'] as ProjectType[]).map((t) => (
+        <Select label="Property Type" value={form.projectType} onChange={(e) => setForm({ ...form, projectType: e.target.value as ProjectType })}>
+          {(['Apartment', 'House', 'Condo', 'Townhouse', 'Other'] as ProjectType[]).map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </Select>
-        <Input label="Project Name" value={form.projectName} onChange={(e) => setForm({ ...form, projectName: e.target.value })} />
+        <Input label="Address" value={form.projectName} onChange={(e) => setForm({ ...form, projectName: e.target.value })} />
         <Textarea label="Description" value={form.projectDescription} onChange={(e) => setForm({ ...form, projectDescription: e.target.value })} />
         <div className="grid gap-4 sm:grid-cols-3">
-          <Select label="Project Status" value={form.projectStatus} onChange={(e) => setForm({ ...form, projectStatus: e.target.value as ProjectStatus })}>
+          <Select label="Lease Status" value={form.projectStatus} onChange={(e) => setForm({ ...form, projectStatus: e.target.value as ProjectStatus })}>
             {(['Inquiry', 'In Progress', 'Contract Sent', 'Contract Signed', 'Completed', 'Follow-Up Needed'] as ProjectStatus[]).map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{getProjectStatusDisplayLabel(s)}</option>
             ))}
           </Select>
-          <Select label="Contract Status" value={form.contractStatus} onChange={(e) => setForm({ ...form, contractStatus: e.target.value as ContractStatus })}>
+          <Select label="Lease Progress" value={form.contractStatus} onChange={(e) => setForm({ ...form, contractStatus: e.target.value as ContractStatus })}>
             {(['Not Started', 'Draft in Progress', 'Generated', 'Sent', 'Signed', 'Completed', 'Cancelled'] as ContractStatus[]).map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}

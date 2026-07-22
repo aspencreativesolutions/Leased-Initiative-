@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Users } from 'lucide-react'
+import { ArrowLeft, Check, Columns3, Plus, Users } from 'lucide-react'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { AdminNotificationBanner } from '@/components/dashboard/AdminNotificationBanner'
 import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
+import { DashboardSectionTabs } from '@/components/dashboard/DashboardSectionTabs'
 import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { SummaryCards } from '@/components/dashboard/SummaryCards'
 import { TimelineSkipNotesFeed } from '@/components/dashboard/TimelineSkipNotesFeed'
 import { UpcomingDeadlines } from '@/components/dashboard/UpcomingDeadlines'
+import { useTenantAlerts } from '@/hooks/useTenantAlerts'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -24,6 +26,11 @@ import {
   dashboardFilterShowsTimelineNotes,
   type DashboardFilter,
 } from '@/lib/dashboardFilters'
+import {
+  loadTenantTableColumnOrder,
+  type TenantTableColumnId,
+} from '@/lib/tenantTableColumns'
+import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -37,9 +44,12 @@ export function DashboardPage() {
     markRead,
     refresh: refreshNotifications,
   } = useAdminNotifications()
+  const { unreadCount: unreadAlertCount } = useTenantAlerts()
   const [addOpen, setAddOpen] = useState(false)
   const [registrationsOpen, setRegistrationsOpen] = useState(false)
   const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter | null>(null)
+  const [arrangeColumns, setArrangeColumns] = useState(false)
+  const [columnOrder, setColumnOrder] = useState<TenantTableColumnId[]>(loadTenantTableColumnOrder)
   const prevNotificationCount = useRef(0)
 
   const highlightedCount = useMemo(
@@ -105,26 +115,61 @@ export function DashboardPage() {
       )}
 
       <div className="w-full min-w-0 space-y-6">
+        <DashboardSectionTabs alertCount={unreadAlertCount} />
+
         <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">
           <CardHeader
             dense
-            title={dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter] : 'Clients & Pending'}
+            title={dashboardFilter ? DASHBOARD_FILTER_LABELS[dashboardFilter] : 'Tenants & Pending'}
             subtitle={
               dashboardFilter
-                ? `Highlighting ${highlightedCount} matching ${highlightedCount === 1 ? 'client' : 'clients'} in the full list`
+                ? `Highlighting ${highlightedCount} matching ${highlightedCount === 1 ? 'tenant' : 'tenants'} in the full list`
                 : undefined
             }
             action={
-              dashboardFilter ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDashboardFilter(null)}
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                  Back
-                </Button>
+              clients.length > 0 || dashboardFilter ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {clients.length > 0 && (
+                    <Button
+                      type="button"
+                      variant={arrangeColumns ? 'primary' : 'outline'}
+                      size="sm"
+                      onClick={() => setArrangeColumns((open) => !open)}
+                      aria-pressed={arrangeColumns}
+                      title={
+                        arrangeColumns
+                          ? 'Done arranging columns'
+                          : 'Edit column arrangement'
+                      }
+                      aria-label={
+                        arrangeColumns
+                          ? 'Done arranging columns'
+                          : 'Edit column arrangement'
+                      }
+                      className={cn(arrangeColumns && 'shadow-sm')}
+                    >
+                      {arrangeColumns ? (
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <Columns3 className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                      <span className="hidden sm:inline">
+                        {arrangeColumns ? 'Done' : 'Edit Column Arrangement'}
+                      </span>
+                    </Button>
+                  )}
+                  {dashboardFilter ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDashboardFilter(null)}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                      Back
+                    </Button>
+                  ) : null}
+                </div>
               ) : undefined
             }
           >
@@ -139,17 +184,23 @@ export function DashboardPage() {
             (clients.length === 0 ? (
               <EmptyState
                 icon={Users}
-                title="No clients yet"
-                description="Add your first client to start tracking projects and contracts."
+                title="No tenants yet"
+                description="Add your first tenant to start tracking leases."
                 action={
                   <Button onClick={() => setAddOpen(true)}>
                     <Plus className="h-4 w-4" />
-                    Add Client
+                    Add Tenant
                   </Button>
                 }
               />
             ) : (
-              <ClientTable clients={clients} highlightFilter={dashboardFilter} />
+              <ClientTable
+                clients={clients}
+                highlightFilter={dashboardFilter}
+                arrangeColumns={arrangeColumns}
+                columnOrder={columnOrder}
+                onColumnOrderChange={setColumnOrder}
+              />
             ))}
         </Card>
 

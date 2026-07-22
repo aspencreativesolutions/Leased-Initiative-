@@ -37,6 +37,13 @@ const paymentLabels: Partial<Record<PaymentStatus, string>> = {
   Paid: 'Fully paid',
 }
 
+const projectLabels: Partial<Record<ProjectStatus, string>> = {
+  'Contract Sent': 'Lease Sent',
+  'Contract Signed': 'Lease Signed',
+  'In Progress': 'Active',
+  Completed: 'Ended',
+}
+
 interface StatusBadgeProps {
   type: BadgeType
   status: ProjectStatus | ContractStatus | PaymentStatus
@@ -62,7 +69,11 @@ export function StatusBadge({
 }: StatusBadgeProps) {
   const displayLabel =
     label ??
-    (type === 'payment' ? paymentLabels[status as PaymentStatus] : undefined) ??
+    (type === 'payment'
+      ? paymentLabels[status as PaymentStatus]
+      : type === 'project'
+        ? projectLabels[status as ProjectStatus]
+        : undefined) ??
     status
   const showOverdueIcon = type === 'payment' && status === 'Overdue'
   const showUnpaidIcon = type === 'payment' && status === 'Unpaid'
@@ -71,7 +82,8 @@ export function StatusBadge({
   const showContractSentIcon =
     (type === 'contract' && status === 'Sent') ||
     (type === 'project' && status === 'Contract Sent')
-  const showProjectFileSharingIcon = type === 'project' && status === 'In Progress'
+  const showProjectFileSharingIcon =
+    type === 'project' && status === 'In Progress' && !label
   const badgeTitle = showDepositHalfIndicator
     ? `${displayLabel} — halfway through payment (½ paid)`
     : String(displayLabel)

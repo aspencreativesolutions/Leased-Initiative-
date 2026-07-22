@@ -5,17 +5,20 @@ import type { ServiceTier } from '@/types'
 
 interface ProjectWorkspaceRowProps {
   files: ReactNode
-  serviceTier: ServiceTier
-  completedItemIds: string[]
-  onChecklistToggle: (itemId: string, completed: boolean) => void | Promise<void>
+  /** Portal: Report Issue panel. Admin: project checklist (default). */
+  sidePanel?: ReactNode
+  serviceTier?: ServiceTier
+  completedItemIds?: string[]
+  onChecklistToggle?: (itemId: string, completed: boolean) => void | Promise<void>
   variant?: 'admin' | 'portal'
   className?: string
 }
 
 export function ProjectWorkspaceRow({
   files,
+  sidePanel,
   serviceTier,
-  completedItemIds,
+  completedItemIds = [],
   onChecklistToggle,
   variant = 'admin',
   className,
@@ -28,12 +31,15 @@ export function ProjectWorkspaceRow({
       )}
     >
       <div className="min-w-0">{files}</div>
-      <ProjectChecklistSection
-        serviceTier={serviceTier}
-        completedItemIds={completedItemIds}
-        onToggle={onChecklistToggle}
-        variant={variant}
-      />
+      {sidePanel ??
+        (serviceTier && onChecklistToggle ? (
+          <ProjectChecklistSection
+            serviceTier={serviceTier}
+            completedItemIds={completedItemIds}
+            onToggle={onChecklistToggle}
+            variant={variant}
+          />
+        ) : null)}
     </div>
   )
 }

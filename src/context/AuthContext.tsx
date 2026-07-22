@@ -19,7 +19,11 @@ interface AuthContextValue {
     name: string,
     email: string,
     password: string,
-    options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
+    options?: {
+      accountType?: 'client' | 'admin'
+      portalThemeId?: string
+      preferredLeaseMonths?: number
+    }
   ) => Promise<{ email: string }>
   updateProfile: (name: string) => Promise<User>
   refreshUser: () => Promise<User | null>
@@ -55,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: string,
       email: string,
       password: string,
-      options?: { accountType?: 'client' | 'admin'; portalThemeId?: string }
+      options?: {
+        accountType?: 'client' | 'admin'
+        portalThemeId?: string
+        preferredLeaseMonths?: number
+      }
     ) => {
       const data = await registerAccount({
         name,
@@ -63,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         accountType: options?.accountType ?? 'client',
         portalThemeId: options?.portalThemeId,
+        preferredLeaseMonths: options?.preferredLeaseMonths,
       })
       return { email: data.email }
     },
