@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  CircleHelp,
   Eye,
   FileSignature,
   LayoutGrid,
@@ -17,7 +16,6 @@ import {
 import { GeneratingLeaseIndicator } from '@/components/clients/GeneratingLeaseIndicator'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
-import { TenantMarkerBadge } from '@/components/clients/TenantMarkerBadge'
 import {
   clientNameMarkersClass,
 } from '@/components/clients/clientBadgeStyles'
@@ -27,6 +25,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
+import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { useApp } from '@/context/AppContext'
 import { ApiError } from '@/lib/api'
 import {
@@ -57,19 +56,6 @@ function readWaitingConnectView(): WaitingConnectView {
     /* sessionStorage unavailable */
   }
   return 'gallery'
-}
-
-function SectionHelpIcon({ label }: { label: string }) {
-  return (
-    <button
-      type="button"
-      className="quick-tooltip quick-tooltip--below quick-tooltip--align-end inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      data-tooltip={label}
-      aria-label={label}
-    >
-      <CircleHelp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-    </button>
-  )
 }
 
 /**
@@ -557,42 +543,45 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
       <div className="min-w-0 space-y-1">
         <div className={clientNameMarkersClass}>
           <p className="min-w-0 truncate font-semibold text-ink">{registration.name}</p>
-          <TenantMarkerBadge />
           <PendingClientBadge />
         </div>
         <p className="truncate text-sm text-ink-muted">{registration.email}</p>
       </div>
 
-      <div className="mt-3 min-w-0 flex-1 space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
-          Desired Address
-        </p>
-        <p className="text-sm font-medium text-ink">{displayAddress}</p>
+      <div className="mt-3 flex min-w-0 flex-1 flex-col">
+        <div className="min-w-0 space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
+            Desired Address
+          </p>
+          <p className="text-sm font-medium text-ink">{displayAddress}</p>
+          {registration.preferredLandlordCompany && (
+            <p className="pt-1 text-xs text-ink-muted">
+              Landlord: {registration.preferredLandlordCompany}
+            </p>
+          )}
+          <p className="text-xs text-ink-faint">
+            Registered {formatDate(registration.createdAt)}
+            {registration.preferredLeaseMonths != null && (
+              <>
+                {' '}
+                · Prefers {formatLeaseLengthLabel(registration.preferredLeaseMonths)}
+              </>
+            )}
+          </p>
+        </div>
+
         {desiredAddress ? (
-          <div className="pt-1">
+          <div className="mt-auto flex min-w-0 justify-start pt-3 pb-0.5">
             <RentalAvailabilityBadge
               availableUnits={availableUnits}
               propertyId={propertyId}
+              className="waiting-connect-tile__availability"
             />
           </div>
         ) : null}
-        {registration.preferredLandlordCompany && (
-          <p className="pt-1 text-xs text-ink-muted">
-            Landlord: {registration.preferredLandlordCompany}
-          </p>
-        )}
-        <p className="text-xs text-ink-faint">
-          Registered {formatDate(registration.createdAt)}
-          {registration.preferredLeaseMonths != null && (
-            <>
-              {' '}
-              · Prefers {formatLeaseLengthLabel(registration.preferredLeaseMonths)}
-            </>
-          )}
-        </p>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 shrink-0">
         <WaitingConnectActions
           registration={registration}
           acceptingId={acceptingId}

@@ -388,36 +388,26 @@ export function paymentToneTagClass(tone: PaymentStatusTone): string {
       return 'border-accent/40 bg-accent-light text-accent'
     case 'neutral':
     default:
-      return 'border-line bg-transparent text-ink-faint'
+      // Deposit Paid (Upcoming leases) — matches StatusBadge payment Deposit Paid.
+      return 'border-ink-muted bg-surface text-ink'
   }
 }
 
-/** Binary status for Official Tenants Payment Status column only. */
-export type OfficialPaymentColumnKind = 'on_time' | 'overdue'
+/** Status kinds for Official Tenants Payment Status column. */
+export type OfficialPaymentColumnKind = 'on_time' | 'overdue' | 'deposit_paid'
 
 export interface OfficialPaymentColumnPresentation {
   kind: OfficialPaymentColumnKind
-  /** Primary tag: On Time | Overdue */
+  /** Primary tag: On Time | Overdue | Deposit Paid */
   tagLabel: string
   /** In-tag hover/focus replacement */
   tagHoverLabel: string
   tone: PaymentStatusTone
   ariaLabel: string
-  /**
-   * Under the tag when on time (e.g. "Next payment in 23 days").
-   * Null when overdue — UI shows Notify → instead.
-   */
-  nextPaymentSubline: string | null
   daysUntilNextDue: number | null
   daysOverdue: number | null
   /** Next unpaid due (oldest overdue when past due) */
   relevantDueDate: string | null
-}
-
-function formatNextPaymentSubline(daysUntilNextDue: number): string {
-  if (daysUntilNextDue === 0) return 'Next payment today'
-  if (daysUntilNextDue === 1) return 'Next payment in 1 day'
-  return `Next payment in ${daysUntilNextDue} days`
 }
 
 function formatDaysLateLabel(daysLate: number): string {
@@ -425,10 +415,13 @@ function formatDaysLateLabel(daysLate: number): string {
 }
 
 /**
- * Official Tenants grid: only On Time / Overdue as primary labels.
- * Overdue = at least one scheduled payment past due and unpaid (oldest due drives days late).
- * On Time hover confirms the last payment date and processor (Stripe / PayPal / Square).
- * Does not treat remaining lease balance alone as overdue.
+ * Official Tenants grid payment labels:
+ * - Overdue when scheduled rent is past due
+ * - Deposit Paid when the lease has not started yet (Upcoming)
+ * - On Time otherwise
+ *
+ * On Time / Deposit Paid hover confirms the last payment date and processor
+ * (Stripe / PayPal / Square). Does not treat remaining lease balance alone as overdue.
  */
 export function buildOfficialPaymentColumnPresentation(input: {
   nextDueDate: string | null
@@ -438,6 +431,8 @@ export function buildOfficialPaymentColumnPresentation(input: {
   lastPaidOn?: string | null
   /** Processor used for that last payment */
   paymentProvider?: PaymentProvider
+  /** When true, show Deposit Paid instead of On Time (lease not started). */
+  leaseUpcoming?: boolean
 }): OfficialPaymentColumnPresentation {
   const { nextDueDate, daysUntilNextDue, overduePaymentCount } = input
 
@@ -474,7 +469,6 @@ export function buildOfficialPaymentColumnPresentation(input: {
       tagHoverLabel,
       tone: 'error',
       ariaLabel,
-      nextPaymentSubline: null,
       daysUntilNextDue,
       daysOverdue: daysLate,
       relevantDueDate: nextDueDate,
@@ -485,13 +479,34 @@ export function buildOfficialPaymentColumnPresentation(input: {
   const paidMonthDay = input.lastPaidOn ? formatMonthDay(input.lastPaidOn) : null
   const longPaid = input.lastPaidOn ? formatLongDate(input.lastPaidOn) : null
   const longDue = nextDueDate ? formatLongDate(nextDueDate) : null
+
+  if (input.leaseUpcoming) {
+    const tagHoverLabel = paidMonthDay
+      ? `Paid ${paidMonthDay} · ${providerLabel}`
+      : 'Deposit received'
+    const ariaLabel = longPaid
+      ? longDue
+        ? `Deposit paid. Last paid ${longPaid} via ${providerLabel}. Lease begins ${longDue}.`
+        : `Deposit paid. Last paid ${longPaid} via ${providerLabel}.`
+      : longDue
+        ? `Deposit paid. Lease begins ${longDue}.`
+        : 'Deposit paid.'
+
+    return {
+      kind: 'deposit_paid',
+      tagLabel: 'Deposit Paid',
+      tagHoverLabel,
+      tone: 'neutral',
+      ariaLabel,
+      daysUntilNextDue,
+      daysOverdue: null,
+      relevantDueDate: nextDueDate,
+    }
+  }
+
   const tagHoverLabel = paidMonthDay
     ? `Paid ${paidMonthDay} · ${providerLabel}`
     : 'Paid in full'
-  const nextPaymentSubline =
-    daysUntilNextDue != null && daysUntilNextDue >= 0
-      ? formatNextPaymentSubline(daysUntilNextDue)
-      : 'All payments complete'
   const ariaLabel = longPaid
     ? longDue
       ? `Payment on time. Last paid ${longPaid} via ${providerLabel}. Next payment due ${longDue}.`
@@ -506,7 +521,6 @@ export function buildOfficialPaymentColumnPresentation(input: {
     tagHoverLabel,
     tone: 'positive',
     ariaLabel,
-    nextPaymentSubline,
     daysUntilNextDue,
     daysOverdue: null,
     relevantDueDate: nextDueDate,

@@ -117,6 +117,27 @@ export function getAddressState(address?: string): string | null {
   return null
 }
 
+/**
+ * Parse a US city/town from a free-text address.
+ * Matches patterns like "123 Main St, Steubenville, OH 43952" or "…, City, OH".
+ */
+export function getAddressCity(address?: string): string | null {
+  if (!address?.trim()) return null
+  const withZip = address.match(
+    /,\s*([^,]+?),\s*[A-Za-z]{2}\s+\d{5}(?:-\d{4})?\b/
+  )
+  if (withZip) {
+    const city = withZip[1].trim()
+    if (city) return city
+  }
+  const trailing = address.match(/,\s*([^,]+?),\s*[A-Za-z]{2}\s*$/)
+  if (trailing) {
+    const city = trailing[1].trim()
+    if (city) return city
+  }
+  return null
+}
+
 export function getContractLocationMeta(
   client: Client | undefined,
   contract: ContractData
@@ -226,6 +247,22 @@ export function contractMatchesLocationFilter(
 
 export function uniqueSorted(values: (string | null | undefined)[]): string[] {
   return [...new Set(values.filter((v): v is string => Boolean(v)))].sort()
+}
+
+/** Dedupe by case-insensitive key; keep first casing; sort alphabetically. */
+export function uniqueSortedInsensitive(
+  values: (string | null | undefined)[]
+): string[] {
+  const byKey = new Map<string, string>()
+  for (const value of values) {
+    const trimmed = value?.trim()
+    if (!trimmed) continue
+    const key = trimmed.toLowerCase()
+    if (!byKey.has(key)) byKey.set(key, trimmed)
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' })
+  )
 }
 
 export function normalizeAreaCodeList(raw: string): string[] {

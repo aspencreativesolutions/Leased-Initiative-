@@ -1,6 +1,13 @@
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { AlertTriangle, Check, File, Send, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
 import { statusBadgeTableClass } from '@/components/ui/statusBadgeStyles'
 import type { ContractStatus, PaymentStatus, ProjectStatus } from '@/types'
 
@@ -57,8 +64,116 @@ interface StatusBadgeProps {
   completed?: boolean
   /** Fixed width for aligned columns in tables */
   tabular?: boolean
-  /** On hover, swap the badge label for this detail (e.g. signed/sent date) */
+  /** On hover, show this detail in a floating tooltip (tag size stays fixed) */
   hoverDetail?: string
+}
+
+function StatusBadgeHoverTooltip({
+  detail,
+  children,
+  className,
+}: {
+  detail: string
+  children: ReactNode
+  className?: string
+}) {
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [open, setOpen] = useState(false)
+  const [visible, setVisible] = useState(false)
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearHideTimer = () => {
+    if (hideTimerRef.current != null) {
+      clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
+  }
+
+  const updatePosition = () => {
+    const el = anchorRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setCoords({
+      top: rect.top,
+      left: rect.left + rect.width / 2,
+    })
+  }
+
+  const show = () => {
+    clearHideTimer()
+    updatePosition()
+    setOpen(true)
+    setVisible(false)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true))
+    })
+  }
+
+  const hide = () => {
+    clearHideTimer()
+    setVisible(false)
+    hideTimerRef.current = setTimeout(() => {
+      setOpen(false)
+      hideTimerRef.current = null
+    }, 80)
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return
+    updatePosition()
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    const onReposition = () => updatePosition()
+    window.addEventListener('scroll', onReposition, true)
+    window.addEventListener('resize', onReposition)
+    return () => {
+      window.removeEventListener('scroll', onReposition, true)
+      window.removeEventListener('resize', onReposition)
+    }
+  }, [open])
+
+  useEffect(() => () => clearHideTimer(), [])
+
+  return (
+    <>
+      <span
+        ref={anchorRef}
+        className={className}
+        tabIndex={0}
+        aria-label={detail}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        {children}
+      </span>
+      {open &&
+        coords &&
+        createPortal(
+          <span
+            role="tooltip"
+            className={cn(
+              'status-badge-hover-tooltip',
+              visible
+                ? 'status-badge-hover-tooltip--visible'
+                : 'status-badge-hover-tooltip--leaving'
+            )}
+            style={{
+              top: coords.top,
+              left: coords.left,
+            }}
+          >
+            {detail}
+          </span>,
+          document.body
+        )}
+    </>
+  )
 }
 
 export function StatusBadge({
@@ -82,14 +197,16 @@ export function StatusBadge({
   const showOverdueIcon = type === 'payment' && status === 'Overdue'
   const showUnpaidIcon = type === 'payment' && status === 'Unpaid'
   const showDepositHalfIndicator = type === 'payment' && status === 'Deposit Paid'
+  // Lease Agreements Signed — checkmark for signed / in-term / completed leases.
   const showContractSignedIcon =
     type === 'contract' &&
-    status === 'Signed' &&
+    (status === 'Signed' || status === 'Completed') &&
     (label == null || label === 'Signed')
+  // Same Send glyph as Pending Tenants “Lease Sent”.
   const showContractSentIcon =
     ((type === 'contract' && status === 'Sent') ||
       (type === 'project' && status === 'Contract Sent')) &&
-    (label == null || label === 'Sent')
+    (label == null || label === 'Sent' || displayLabel === 'Sent')
   const showProjectFileSharingIcon =
     type === 'project' && status === 'In Progress' && !label
   const styles =
@@ -99,22 +216,30 @@ export function StatusBadge({
         ? contractStyles[status as ContractStatus]
         : paymentStyles[status as PaymentStatus]
 
+  const statusIconClass = 'h-3 w-3 shrink-0'
+
   const primary = (
     <span
       className={cn(
         'inline-flex items-center gap-0.5',
-        tabular && 'min-w-0 max-w-full justify-center truncate'
+        tabular && 'min-w-0 max-w-full justify-center'
       )}
     >
       {showOverdueIcon && (
-        <AlertTriangle className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+        <AlertTriangle className={statusIconClass} strokeWidth={2.5} aria-hidden />
+      )}
+      {showContractSignedIcon && (
+        <Check className={statusIconClass} strokeWidth={2.75} aria-hidden />
+      )}
+      {showContractSentIcon && (
+        <Send className={statusIconClass} strokeWidth={2.5} aria-hidden />
       )}
       {showProjectFileSharingIcon && (
-        <File className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+        <File className={statusIconClass} strokeWidth={2.5} aria-hidden />
       )}
       <span className={tabular ? 'truncate' : undefined}>{displayLabel}</span>
       {showUnpaidIcon && (
-        <X className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
+        <X className={statusIconClass} strokeWidth={2.75} aria-hidden />
       )}
       {showDepositHalfIndicator && (
         <span
@@ -124,25 +249,23 @@ export function StatusBadge({
           ½
         </span>
       )}
-      {showContractSignedIcon && (
-        <Check className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
-      )}
-      {showContractSentIcon && (
-        <Send className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-      )}
     </span>
   )
 
   const shellClass = cn(
     'status-badge rounded-[var(--radius-sm)] border-[length:var(--border-width)] text-[10px] font-bold',
-    tabular ? 'py-0 leading-none' : 'px-2 py-0.5',
-    tabular ? statusBadgeTableClass(type) : 'inline-flex items-center',
-    hoverDetail && 'min-w-[5.5rem] justify-center cursor-default',
+    tabular ? 'py-0 leading-none' : 'inline-flex items-center px-2 py-0.5',
+    tabular ? statusBadgeTableClass(type) : undefined,
+    hoverDetail && !tabular && 'min-w-[5.5rem] justify-center',
+    hoverDetail && 'cursor-default',
     completed && !highlighted ? 'status-solid' : styles,
     highlighted &&
       'shadow-[0_0_0_2px_var(--accent-light),var(--status-highlight-glow)] ring-2 ring-accent ring-offset-1 ring-offset-transparent',
     className
   )
+
+  const focusClass =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
 
   if (!hoverDetail) {
     return (
@@ -160,14 +283,11 @@ export function StatusBadge({
   }
 
   return (
-    <InPlaceHoverText
-      primary={primary}
-      secondary={<span className="truncate tabular-nums">{hoverDetail}</span>}
-      ariaLabel={`${displayLabel}. ${hoverDetail}`}
-      className={cn(
-        shellClass,
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
-      )}
-    />
+    <StatusBadgeHoverTooltip
+      detail={hoverDetail}
+      className={cn(shellClass, focusClass)}
+    >
+      {primary}
+    </StatusBadgeHoverTooltip>
   )
 }

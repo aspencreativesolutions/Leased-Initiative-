@@ -10,10 +10,16 @@ import { formatLeaseLengthLabel } from '@/lib/leaseSchedule'
 import { estimateMonthlyRent } from '@/lib/paymentTenantRows'
 import {
   activeTenantsAtProperty,
-  openUnitsForRental,
   remainingTenantCapacity,
+  rentalBedOccupancyForProperty,
   resolveLeaseEndYmd,
 } from '@/lib/properties'
+import {
+  BED_SIZE_LABELS,
+  ensurePropertyBedLayout,
+  findBedInLayout,
+  formatBedAssignmentLabel,
+} from '@/lib/rentalBeds'
 import {
   buildRentalPricingSummary,
   formatUsd,
@@ -44,12 +50,13 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
 
   if (!property) return null
 
-  const currentTenants = activeTenantsAtProperty(property, clients, getContractForClient)
-  const openUnits = openUnitsForRental(property, clients, getContractForClient)
-  const remainingCapacity = remainingTenantCapacity(property, clients, getContractForClient)
-  const typeDescription = getRentalTypeDescription(property.propertyType)
-  const pricing = buildRentalPricingSummary(property, clients, getContractForClient)
-  const unitRent = resolvePropertyMonthlyRent(property)
+  const ensured = ensurePropertyBedLayout(property)
+  const currentTenants = activeTenantsAtProperty(ensured, clients, getContractForClient)
+  const bedOcc = rentalBedOccupancyForProperty(ensured, clients, getContractForClient)
+  const remainingCapacity = remainingTenantCapacity(ensured, clients, getContractForClient)
+  const typeDescription = getRentalTypeDescription(ensured.propertyType)
+  const pricing = buildRentalPricingSummary(ensured, clients, getContractForClient)
+  const unitRent = resolvePropertyMonthlyRent(ensured)
 
   return (
     <Modal open={open} onClose={onClose} title="Rental details" size="xl" fitContent>
@@ -57,20 +64,20 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
         <div>
           <p className="label-caps text-ink-faint">Property Address</p>
           <p className="mt-0.5 font-display text-lg font-semibold leading-snug text-ink sm:text-xl">
-            {property.address}
+            {ensured.address}
           </p>
-          {property.addressDetails ? (
+          {ensured.addressDetails ? (
             <p className="mt-0.5 text-xs text-ink-muted">
               {[
-                property.addressDetails.street,
-                property.addressDetails.city,
-                property.addressDetails.state,
-                property.addressDetails.zip,
+                ensured.addressDetails.street,
+                ensured.addressDetails.city,
+                ensured.addressDetails.state,
+                ensured.addressDetails.zip,
               ]
                 .filter(Boolean)
                 .join(', ')}
-              {property.addressDetails.lat != null && property.addressDetails.lng != null
-                ? ` · ${property.addressDetails.lat.toFixed(5)}, ${property.addressDetails.lng.toFixed(5)}`
+              {ensured.addressDetails.lat != null && ensured.addressDetails.lng != null
+                ? ` · ${ensured.addressDetails.lat.toFixed(5)}, ${ensured.addressDetails.lng.toFixed(5)}`
                 : ''}
             </p>
           ) : null}
@@ -79,7 +86,7 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
         <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2 lg:col-span-3">
             <p className="label-caps text-ink-faint">Rental Type</p>
-            <p className="mt-0.5 text-sm font-semibold text-ink">{property.propertyType}</p>
+            <p className="mt-0.5 text-sm font-semibold text-ink">{ensured.propertyType}</p>
             {typeDescription ? (
               <p className="mt-0.5 text-xs text-ink-muted">{typeDescription}</p>
             ) : null}
@@ -87,23 +94,74 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
           <DetailStat label="Monthly Rent" value={formatUsd(unitRent)} />
           <DetailStat
             label="Occupancy"
-            value={`${pricing.currentOccupancy} of ${pricing.maxOccupancy}`}
+            value={`${bedOcc.currentOccupants} of ${bedOcc.maxOccupancy} people`}
           />
           <DetailStat
-            label="Per-Tenant Share"
+            label="Beds"
+            value={`${bedOcc.occupiedBeds} of ${bedOcc.totalBeds} occupied`}
+          />
+          <DetailStat
+            label="Per-bed share (avg)"
             value={
               pricing.tenantShare != null
                 ? `${formatUsd(pricing.tenantShare)}/month`
                 : '—'
             }
           />
-          <DetailStat label="Bedrooms" value={property.bedrooms} />
-          <DetailStat label="Maximum Tenants" value={property.maxTenants} />
-          <DetailStat label="Number of Units" value={property.unitCount} />
-          <DetailStat label="Current Tenants" value={currentTenants.length} />
-          <DetailStat label="Open Units" value={openUnits} />
-          <DetailStat label="Remaining Tenant Capacity" value={remainingCapacity} />
+          <DetailStat label="Bedrooms" value={ensured.bedrooms} />
+          <DetailStat label="Maximum Occupancy" value={bedOcc.maxOccupancy} />
+          <DetailStat label="Open Beds" value={bedOcc.availableBeds} />
+          <DetailStat label="Remaining People Capacity" value={remainingCapacity} />
+          {ensured.unitCount > 1 ? (
+            <DetailStat label="Number of Units" value={ensured.unitCount} />
+          ) : null}
         </div>
+
+        {ensured.bedroomsLayout && ensured.bedroomsLayout.length > 0 ? (
+          <div>
+            <div className="mb-2 border-b border-line pb-1.5">
+              <p className="label-caps">Bedroom &amp; bed map</p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                A bed with at least one tenant is occupied. Couples share one bed space for rent.
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {ensured.bedroomsLayout.map((room) => (
+                <li
+                  key={room.id}
+                  className="rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2"
+                >
+                  <p className="text-sm font-semibold text-ink">{room.label}</p>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {room.beds.map((bed) => {
+                      const assignees = bedOcc.tenantsByBedId.get(bed.id) ?? []
+                      return (
+                        <li key={bed.id} className="text-xs text-ink">
+                          <span className="font-medium">
+                            {bed.label ?? 'Bed'} · {BED_SIZE_LABELS[bed.size]}
+                          </span>
+                          <span className="text-ink-muted">
+                            {' '}
+                            (capacity {bed.capacity})
+                          </span>
+                          {assignees.length === 0 ? (
+                            <span className="ml-1 text-ink-faint">— open</span>
+                          ) : (
+                            <ul className="mt-0.5 pl-3 text-ink-muted">
+                              {assignees.map((t) => (
+                                <li key={t.id}>{t.name}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <div>
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2 border-b border-line pb-1.5">
@@ -136,6 +194,11 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                   getContractForClient
                 )
                 const address = getTenantAddress(tenant, contract)
+                const bedFound = findBedInLayout(
+                  ensured.bedroomsLayout,
+                  tenant.bedroomId,
+                  tenant.bedId
+                )
 
                 return (
                   <li
@@ -155,6 +218,13 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                           {tenant.email}
                           {tenant.phone ? ` · ${tenant.phone}` : ''}
                         </p>
+                        {bedFound ? (
+                          <p className="mt-0.5 text-xs font-medium text-ink">
+                            {formatBedAssignmentLabel(bedFound.bedroom, bedFound.bed)}
+                          </p>
+                        ) : tenant.unitOrRoomLabel ? (
+                          <p className="mt-0.5 text-xs text-ink-muted">{tenant.unitOrRoomLabel}</p>
+                        ) : null}
                       </div>
                       <LeaseStatusBadge details={leaseStatus} />
                     </div>
@@ -185,35 +255,13 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                         <dd className="mt-0.5 font-medium text-ink">{formatUsd(rent)}</dd>
                       </div>
                       <div>
-                        <dt className="text-ink-faint">Unit rent</dt>
+                        <dt className="text-ink-faint">Property rent</dt>
                         <dd className="mt-0.5 font-medium text-ink">{formatUsd(unitRent)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-ink-faint">Lease status</dt>
-                        <dd className="mt-0.5 font-medium text-ink">{leaseStatus.status}</dd>
                       </div>
                       <div>
                         <dt className="text-ink-faint">Assigned address</dt>
                         <dd className="mt-0.5 break-words font-medium text-ink">{address}</dd>
                       </div>
-                      {tenant.leaseLengthMonths ? (
-                        <div>
-                          <dt className="text-ink-faint">Preferred term</dt>
-                          <dd className="mt-0.5 font-medium text-ink">
-                            {formatLeaseLengthLabel(tenant.leaseLengthMonths)}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {tenant.isOfficialClient ? (
-                        <div>
-                          <dt className="text-ink-faint">Official since</dt>
-                          <dd className="mt-0.5 font-medium text-ink">
-                            {tenant.officialClientSince
-                              ? formatDate(tenant.officialClientSince)
-                              : '—'}
-                          </dd>
-                        </div>
-                      ) : null}
                     </dl>
                   </li>
                 )

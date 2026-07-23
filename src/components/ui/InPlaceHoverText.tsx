@@ -1,4 +1,5 @@
 import {
+  useLayoutEffect,
   useEffect,
   useRef,
   useState,
@@ -34,13 +35,30 @@ type InPlaceHoverTextProps = {
    */
   requireRevealBeforeActivate?: boolean
   /**
-   * Size to primary by default; animate width to fill a host reserved for the
-   * longer of primary/secondary on hover/focus/reveal. Uses a hidden CSS sizer
-   * (no JS pixel measurement). Secondary fades in after width expands so labels
-   * stay fully visible and centered — never clipped.
+   * Size to primary by default; animate width (and height when overlaying)
+   * to the secondary size on hover/focus/reveal. Widths/heights are measured
+   * in px so transitions stay reliable.
    */
   expandOnReveal?: boolean
+  /**
+   * When expanding, reserve only the compact (primary) size in layout and let
+   * the face grow as an overlay. Prevents table row/column reflow when
+   * secondary content is taller or wider (e.g. two-line lease details).
+   */
+  overlayExpand?: boolean
+  /**
+   * Rendered inside the expand host (after the face) so it can inherit size
+   * CSS vars — e.g. a Notify action that tracks compact→full width.
+   */
+  trailing?: ReactNode
   disabled?: boolean
+}
+
+type ExpandSize = {
+  compactW: number
+  fullW: number
+  compactH: number
+  fullH: number
 }
 
 function prefersTouchReveal(): boolean {
@@ -53,7 +71,7 @@ function prefersTouchReveal(): boolean {
 /**
  * Compact status-box interaction: swap primary ↔ secondary text in place
  * (no floating tooltip). Grid-stacks both layers so the box keeps a stable size,
- * or optionally expands width to fit secondary on reveal.
+ * or optionally expands width/height to fit secondary on reveal.
  */
 export function InPlaceHoverText({
   primary,
@@ -67,11 +85,77 @@ export function InPlaceHoverText({
   onActivate,
   requireRevealBeforeActivate = Boolean(to || onActivate),
   expandOnReveal = false,
+  overlayExpand = false,
+  trailing,
   disabled,
 }: InPlaceHoverTextProps) {
   const [revealed, setRevealed] = useState(false)
   const rootRef = useRef<HTMLElement | null>(null)
+  const primaryMeasureRef = useRef<HTMLSpanElement | null>(null)
+  const secondaryMeasureRef = useRef<HTMLSpanElement | null>(null)
+  const [expandSize, setExpandSize] = useState<ExpandSize | null>(null)
   const isActionable = Boolean(to || onActivate)
+
+  useLayoutEffect(() => {
+    if (!expandOnReveal) {
+      setExpandSize(null)
+      return
+    }
+
+    const measure = () => {
+      const primaryEl = primaryMeasureRef.current
+      const secondaryEl = secondaryMeasureRef.current
+      if (!primaryEl || !secondaryEl) return
+
+      const compactW = Math.ceil(primaryEl.getBoundingClientRect().width)
+      const fullW = Math.ceil(secondaryEl.getBoundingClientRect().width)
+      const compactH = Math.ceil(primaryEl.getBoundingClientRect().height)
+      const fullH = Math.ceil(secondaryEl.getBoundingClientRect().height)
+      if (compactW <= 0 || fullW <= 0 || compactH <= 0 || fullH <= 0) return
+
+      setExpandSize((prev) => {
+        const next: ExpandSize = {
+          compactW,
+          fullW: Math.max(compactW, fullW),
+          compactH,
+          fullH: Math.max(compactH, fullH),
+        }
+        if (
+          prev &&
+          prev.compactW === next.compactW &&
+          prev.fullW === next.fullW &&
+          prev.compactH === next.compactH &&
+          prev.fullH === next.fullH
+        ) {
+          return prev
+        }
+        return next
+      })
+    }
+
+    measure()
+
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => measure())
+        : null
+    if (primaryMeasureRef.current) observer?.observe(primaryMeasureRef.current)
+    if (secondaryMeasureRef.current) observer?.observe(secondaryMeasureRef.current)
+
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      void document.fonts.ready.then(measure)
+    }
+
+    return () => observer?.disconnect()
+  }, [
+    expandOnReveal,
+    overlayExpand,
+    primary,
+    secondary,
+    className,
+    layerClassName,
+    secondaryClassName,
+  ])
 
   useEffect(() => {
     if (!revealed) return
@@ -91,10 +175,27 @@ export function InPlaceHoverText({
     'in-place-hover group/in-place relative inline-grid place-items-center items-center justify-items-center text-center',
     !expandOnReveal && 'max-w-full',
     expandOnReveal && 'in-place-hover--expand',
+    expandOnReveal && expandSize && 'in-place-hover--expand-ready',
+    expandOnReveal && overlayExpand && 'in-place-hover--overlay-expand',
     isActionable && 'in-place-hover--action',
     showSecondary && 'in-place-hover--revealed',
     className
   )
+
+  const sizeVars: CSSProperties | null = expandSize
+    ? ({
+        '--in-place-compact-w': `${expandSize.compactW}px`,
+        '--in-place-full-w': `${expandSize.fullW}px`,
+        '--in-place-compact-h': `${expandSize.compactH}px`,
+        '--in-place-full-h': `${expandSize.fullH}px`,
+        // Legacy single-height var: reserve mode keeps face at the larger size.
+        '--in-place-h': `${overlayExpand ? expandSize.compactH : expandSize.fullH}px`,
+      } as CSSProperties)
+    : null
+
+  const expandStyle: CSSProperties | undefined = expandOnReveal
+    ? { ...style, ...sizeVars }
+    : style
 
   const handleActivate = (
     event: MouseEvent<HTMLElement> | KeyboardEvent<HTMLElement>
@@ -147,7 +248,7 @@ export function InPlaceHoverText({
     'aria-label': ariaLabel,
     'data-revealed': showSecondary ? 'true' : undefined,
     className: rootClassName,
-    style,
+    style: expandStyle,
     onBlur: () => setRevealed(false),
     onMouseLeave: () => {
       if (!prefersTouchReveal()) setRevealed(false)
@@ -209,23 +310,47 @@ export function InPlaceHoverText({
 
   if (!expandOnReveal) return control
 
-  // Hidden sizer: stacked full shells so the host is intrinsically as wide as
-  // the longer label (padding/border included). Visible tag grows to 100% on
-  // hover — no JS measurement, so text cannot clip from undersized pixels.
-  const sizerShellClass = cn(
-    rootClassName,
-    'in-place-hover-expand-sizer__shell pointer-events-none'
+  // Hidden full shells (padding/border included) for reliable px measurement.
+  const measureShellClass = cn(
+    className,
+    'in-place-hover-expand-measure pointer-events-none'
   )
 
   return (
-    <span className="in-place-hover-expand-host">
+    <span
+      className={cn(
+        'in-place-hover-expand-host',
+        overlayExpand && 'in-place-hover-expand-host--overlay'
+      )}
+      style={
+        expandSize
+          ? ({
+              '--in-place-compact-w': `${expandSize.compactW}px`,
+              '--in-place-full-w': `${expandSize.fullW}px`,
+              '--in-place-compact-h': `${expandSize.compactH}px`,
+              '--in-place-full-h': `${expandSize.fullH}px`,
+              '--in-place-h': `${
+                overlayExpand ? expandSize.compactH : expandSize.fullH
+              }px`,
+            } as CSSProperties)
+          : undefined
+      }
+    >
       <span className="in-place-hover-expand-sizer" aria-hidden>
-        <span className={sizerShellClass}>
+        <span
+          ref={primaryMeasureRef}
+          data-measure="primary"
+          className={measureShellClass}
+        >
           <span className={cn(layerBase, 'in-place-hover__layer--primary')}>
             {primary}
           </span>
         </span>
-        <span className={sizerShellClass}>
+        <span
+          ref={secondaryMeasureRef}
+          data-measure="secondary"
+          className={measureShellClass}
+        >
           <span
             className={cn(
               layerBase,
@@ -238,6 +363,7 @@ export function InPlaceHoverText({
         </span>
       </span>
       {control}
+      {trailing}
     </span>
   )
 }

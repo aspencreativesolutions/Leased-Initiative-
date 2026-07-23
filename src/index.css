@@ -453,6 +453,52 @@
     grid-template-columns: repeat(auto-fill, var(--lease-tile-size, 260px));
   }
 
+  /*
+   * Mobile section tiles (Rentals, Official Tenants, Lease Agreements):
+   * fixed 1 or 2 columns. Desktop keeps the square auto-fill lease grid.
+   */
+  .section-tile-grid {
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .section-tile-grid--cols-1 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-tile-grid--cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-tile-grid .lease-tile-card {
+    width: 100%;
+    min-height: 0;
+    max-width: none;
+  }
+
+  .section-tile-grid .lease-tile-card__body {
+    padding: 0.75rem;
+  }
+
+  @media (min-width: 768px) {
+    .section-tile-grid {
+      justify-content: start;
+      gap: var(--tile-gap, 1rem);
+      grid-template-columns: repeat(auto-fill, var(--lease-tile-size, 260px));
+    }
+
+    .section-tile-grid .lease-tile-card {
+      width: var(--lease-tile-size, 260px);
+      min-height: var(--lease-tile-size, 260px);
+      max-width: 100%;
+    }
+
+    .section-tile-grid .lease-tile-card__body {
+      padding: var(--tile-pad, 1.1rem);
+    }
+  }
+
   /* Payments gallery — reuses .lease-tile-card shell; payment-only chrome below */
   .payment-tile-card {
     position: relative;
@@ -662,6 +708,18 @@
     line-height: 1.35;
   }
 
+  /* Full address in Official Tenants — wrap on word boundaries; never ellipsize */
+  .official-tenant-address {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+    line-height: 1.35;
+  }
+
   .lease-tile-card .tile-card__title,
   .lease-tile-card .tile-card__body,
   .lease-tile-card .tile-card__meta {
@@ -804,9 +862,10 @@
   }
 
   .status-badge--table-contract {
-    width: 5.75rem;
-    min-width: 5.75rem;
-    max-width: 5.75rem;
+    /* Room for status glyph + label (Active / Sent) without growing chip height */
+    width: 6.75rem;
+    min-width: 6.75rem;
+    max-width: 6.75rem;
   }
 
   .status-badge--table-payment {
@@ -937,35 +996,6 @@
     }
   }
 
-  @keyframes lease-status-badge-scale {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-
-    50% {
-      transform: scale(1.035);
-    }
-  }
-
-  .lease-status-badge--active {
-    transform-origin: center;
-    backface-visibility: hidden;
-    will-change: transform;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .lease-status-badge--active {
-      animation: lease-status-badge-scale 3.2s ease-in-out infinite;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .lease-status-badge--active {
-      animation: none;
-    }
-  }
-
   @keyframes overdue-pulse-glow {
     0%,
     100% {
@@ -1001,10 +1031,48 @@
 
   /* Full-width tables that shrink to fit the container (no horizontal scroll). */
   .table-fit-shell {
+    position: relative;
     width: 100%;
     min-width: 0;
     overflow-x: hidden;
     contain: inline-size;
+  }
+
+  /* Full-column hover / selection outline in Edit Columns mode */
+  .column-arrange-outline {
+    opacity: 0;
+    transition:
+      opacity 180ms ease,
+      top 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      left 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      width 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      height 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .column-arrange-outline--visible {
+    opacity: 1;
+  }
+
+  .column-arrange-outline--hidden {
+    opacity: 0;
+  }
+
+  .column-arrange-outline--dragging {
+    opacity: 0.55;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .column-arrange-outline {
+      transition: none;
+    }
+
+    .column-arrange-outline--visible {
+      opacity: 1;
+    }
+
+    .column-arrange-outline--dragging {
+      opacity: 0.55;
+    }
   }
 
   .contract-form-shell {
@@ -2196,21 +2264,76 @@ a.in-place-hover {
   opacity: 1;
 }
 
-/* Expand-to-fit hover: host intrinsically sizes to the longer label via a
- * hidden sizer; the visible tag shrink-wraps to primary, then grows to 100%
- * of the host on hover/focus/reveal. No JS pixel widths — labels never clip.
- * Overflow stays visible so ascenders/descenders are never cropped; secondary
- * copy fades in only after width has finished expanding. */
+/* Expand-to-fit hover: host tracks compact→full width so siblings (e.g. Notify)
+ * shift with the face; overlay mode reserves compact only and grows in place.
+ * Both labels are absolutely centered in the face so copy never clips. */
 .in-place-hover-expand-host {
   position: relative;
   display: inline-grid;
   justify-items: center;
   align-items: center;
   vertical-align: middle;
-  max-width: 100%;
   flex-shrink: 0;
   overflow: visible;
-  min-width: min-content;
+  width: var(--in-place-compact-w, max-content);
+  min-width: var(--in-place-compact-w, max-content);
+  height: var(--in-place-h, auto);
+  min-height: var(--in-place-h, auto);
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Keep the measure sizer out of flow so host width comes only from CSS vars. */
+.in-place-hover-expand-host > .in-place-hover-expand-sizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.in-place-hover-expand-host:not(.in-place-hover-expand-host--overlay):has(
+    > .in-place-hover--expand-ready:hover
+  ),
+.in-place-hover-expand-host:not(.in-place-hover-expand-host--overlay):has(
+    > .in-place-hover--expand-ready:focus-visible
+  ),
+.in-place-hover-expand-host:not(.in-place-hover-expand-host--overlay):has(
+    > .in-place-hover--expand-ready.in-place-hover--revealed
+  ),
+.in-place-hover-expand-host:not(.in-place-hover-expand-host--overlay):has(
+    > .in-place-hover--expand-ready[data-revealed='true']
+  ) {
+  width: var(--in-place-full-w, max-content);
+  min-width: var(--in-place-full-w, max-content);
+}
+
+/* Overlay mode: reserve compact size only; expanded face grows in-place. */
+.in-place-hover-expand-host--overlay {
+  width: var(--in-place-compact-w, max-content);
+  min-width: var(--in-place-compact-w, max-content);
+  height: var(--in-place-compact-h, auto);
+  min-height: var(--in-place-compact-h, auto);
+  transition: none;
+}
+
+/* Keep the measure sizer out of overlay layout so the host stays compact. */
+.in-place-hover-expand-host--overlay .in-place-hover-expand-sizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* Until px sizes are ready, size the overlay face to the primary label only. */
+.in-place-hover--overlay-expand:not(.in-place-hover--expand-ready)
+  .in-place-hover__layer--secondary {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .in-place-hover-expand-sizer {
@@ -2220,20 +2343,19 @@ a.in-place-hover {
   pointer-events: none;
 }
 
-.in-place-hover-expand-sizer__shell {
+.in-place-hover-expand-measure {
   grid-area: 1 / 1;
-  /* Sizer shells must not use expand absolute-layer rules */
-  position: relative !important;
-  width: max-content !important;
-  height: auto !important;
-  min-height: 0 !important;
-  overflow: visible !important;
-  transform: none !important;
-  left: auto !important;
-  top: auto !important;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  overflow: visible;
 }
 
-.in-place-hover-expand-sizer__shell .in-place-hover__layer {
+.in-place-hover-expand-measure .in-place-hover__layer {
   position: static !important;
   transform: none !important;
   opacity: 1 !important;
@@ -2247,82 +2369,100 @@ a.in-place-hover {
   justify-self: center;
   align-self: center;
   z-index: 5;
-  box-sizing: border-box;
-  /* Fill reserved host box so hover text centers in the full padded area
-   * without changing row height when width expands. */
-  height: 100%;
-  min-height: 100%;
+}
+
+.in-place-hover-expand-host--overlay > .in-place-hover--expand {
+  z-index: 20;
+}
+
+/* Hold layout via the sizer until px widths are ready — avoids a 0-width face. */
+.in-place-hover-expand-host > .in-place-hover--expand:not(.in-place-hover--expand-ready) {
+  visibility: hidden;
 }
 
 .in-place-hover--expand {
   box-sizing: border-box;
-  width: max-content;
-  max-width: 100%;
-  overflow: visible;
-  place-items: center;
-  justify-content: center;
-  align-content: center;
-  align-items: center;
-  text-align: center;
-  transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.in-place-hover--expand:hover,
-.in-place-hover--expand:focus-visible,
-.in-place-hover--expand.in-place-hover--revealed,
-.in-place-hover--expand[data-revealed='true'] {
-  /* Fill the host, which is already as wide as the longer label */
-  width: 100%;
-}
-
-/*
- * Collapsed: primary stays in-flow (defines shrink-wrapped width).
- * Secondary is taken out of flow so it does not widen the tag until hover.
- */
-.in-place-hover--expand .in-place-hover__layer--primary {
   position: relative;
-  z-index: 1;
-  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--in-place-compact-w, max-content);
+  height: var(--in-place-h, auto);
   max-width: none;
+  overflow: visible;
+  text-align: center;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.in-place-hover--expand.in-place-hover--expand-ready:hover,
+.in-place-hover--expand.in-place-hover--expand-ready:focus-visible,
+.in-place-hover--expand.in-place-hover--expand-ready.in-place-hover--revealed,
+.in-place-hover--expand.in-place-hover--expand-ready[data-revealed='true'] {
+  width: var(--in-place-full-w, max-content);
+}
+
+.in-place-hover--overlay-expand.in-place-hover--expand-ready {
+  height: var(--in-place-compact-h, auto);
+}
+
+.in-place-hover--overlay-expand.in-place-hover--expand-ready:hover,
+.in-place-hover--overlay-expand.in-place-hover--expand-ready:focus-visible,
+.in-place-hover--overlay-expand.in-place-hover--expand-ready.in-place-hover--revealed,
+.in-place-hover--overlay-expand.in-place-hover--expand-ready[data-revealed='true'] {
+  height: var(--in-place-full-h, auto);
+}
+
+/* Both labels fill the face and center — width comes only from measured vars. */
+.in-place-hover--expand-ready .in-place-hover__layer--primary,
+.in-place-hover--expand-ready .in-place-hover__layer--secondary-expand {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  transform: none;
   white-space: nowrap;
   text-align: center;
-  justify-content: center;
-  align-items: center;
   line-height: inherit;
   overflow: visible;
+  pointer-events: none;
+}
+
+.in-place-hover--expand-ready .in-place-hover__layer--primary {
+  z-index: 1;
+  opacity: 1;
   transition: opacity 120ms ease;
 }
 
-.in-place-hover--expand .in-place-hover__layer--secondary-expand {
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  width: 100%;
-  max-width: none;
-  height: 100%;
-  margin: 0;
-  transform: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  white-space: nowrap;
-  text-align: center;
-  line-height: inherit;
-  overflow: visible;
+.in-place-hover--expand-ready .in-place-hover__layer--secondary-expand {
+  z-index: 2;
   opacity: 0;
-  pointer-events: none;
-  /* Reveal only once width has nearly finished expanding (240ms). */
+  /* Fade in only once width has nearly finished expanding. */
   transition: opacity 140ms ease 200ms;
 }
 
-.in-place-hover--expand:hover .in-place-hover__layer--secondary-expand,
-.in-place-hover--expand:focus-visible .in-place-hover__layer--secondary-expand,
-.in-place-hover--expand.in-place-hover--revealed .in-place-hover__layer--secondary-expand,
-.in-place-hover--expand[data-revealed='true'] .in-place-hover__layer--secondary-expand {
+.in-place-hover--expand-ready:hover .in-place-hover__layer--primary,
+.in-place-hover--expand-ready:focus-visible .in-place-hover__layer--primary,
+.in-place-hover--expand-ready.in-place-hover--revealed .in-place-hover__layer--primary,
+.in-place-hover--expand-ready[data-revealed='true'] .in-place-hover__layer--primary {
+  opacity: 0;
+}
+
+.in-place-hover--expand-ready:hover .in-place-hover__layer--secondary-expand,
+.in-place-hover--expand-ready:focus-visible .in-place-hover__layer--secondary-expand,
+.in-place-hover--expand-ready.in-place-hover--revealed .in-place-hover__layer--secondary-expand,
+.in-place-hover--expand-ready[data-revealed='true'] .in-place-hover__layer--secondary-expand {
   opacity: 1;
 }
 
-.in-place-hover--expand:not(:hover):not(:focus-visible):not(.in-place-hover--revealed):not(
+.in-place-hover--expand-ready:not(:hover):not(:focus-visible):not(.in-place-hover--revealed):not(
     [data-revealed='true']
   )
   .in-place-hover__layer--secondary-expand {
@@ -2330,40 +2470,222 @@ a.in-place-hover {
 }
 
 /*
- * Official Tenants payment tags: default label stays visually compact in width;
- * host/sizer always reserve the roomy padding + longest hover copy so expand
- * never clips and never shifts Notify / row height.
+ * Official Tenants payment tags — CSS-locked compact shell so On Time /
+ * Overdue / Deposit Paid share identical geometry (origin, size, padding,
+ * type). Overlay expand grows from the left edge; Notify (absolute host child)
+ * tracks compact→full width without shifting the badge.
  */
-.in-place-hover--payment-tag {
-  padding: 0.375rem 0.75rem;
-  line-height: 1.4;
+.payment-status-tag-cell {
+  --payment-status-tag-compact-w: 6.75rem;
+  --payment-status-tag-compact-h: 1.75rem;
+  --payment-status-tag-pad-y: 0.375rem;
+  --payment-status-tag-pad-x: 0.75rem;
+  --payment-status-tag-notify-gap: 0.375rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
 }
 
-.in-place-hover-expand-sizer__shell.in-place-hover--payment-tag {
-  padding: 0.375rem 0.75rem !important;
-  line-height: 1.4 !important;
+.in-place-hover--payment-tag,
+.in-place-hover-expand-measure.in-place-hover--payment-tag {
+  box-sizing: border-box;
+  padding: var(--payment-status-tag-pad-y) var(--payment-status-tag-pad-x);
+  border-width: var(--border-width);
+  border-style: solid;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* Primary measure is a fixed box so every row reports the same compactW/H. */
+.in-place-hover-expand-measure.in-place-hover--payment-tag[data-measure='primary'] {
+  width: var(--payment-status-tag-compact-w);
+  min-width: var(--payment-status-tag-compact-w);
+  max-width: var(--payment-status-tag-compact-w);
+  height: var(--payment-status-tag-compact-h);
+  min-height: var(--payment-status-tag-compact-h);
+  max-height: var(--payment-status-tag-compact-h);
+}
+
+/* Host always reserves the shared compact shell — never content-sized. */
+.payment-status-tag-cell .in-place-hover-expand-host--overlay {
+  width: var(--payment-status-tag-compact-w);
+  min-width: var(--payment-status-tag-compact-w);
+  max-width: var(--payment-status-tag-compact-w);
+  height: var(--payment-status-tag-compact-h);
+  min-height: var(--payment-status-tag-compact-h);
+}
+
+/* Size is CSS-locked, so show the face immediately (no measure flash). */
+.payment-status-tag-cell
+  .in-place-hover-expand-host
+  > .in-place-hover--expand:not(.in-place-hover--expand-ready) {
+  visibility: visible;
+}
+
+/*
+ * Face matches the host in the default state for every status. Grow right from
+ * the same top-left origin on hover/focus/reveal (do not re-center).
+ */
+.payment-status-tag-cell .in-place-hover-expand-host--overlay > .in-place-hover--payment-tag {
+  justify-self: start;
+  align-self: start;
+  width: var(--payment-status-tag-compact-w);
+  min-width: var(--payment-status-tag-compact-w);
+  max-width: none;
+  height: var(--payment-status-tag-compact-h);
+  min-height: var(--payment-status-tag-compact-h);
+}
+
+.payment-status-tag-cell
+  .in-place-hover-expand-host--overlay
+  > .in-place-hover--payment-tag.in-place-hover--expand-ready:hover,
+.payment-status-tag-cell
+  .in-place-hover-expand-host--overlay
+  > .in-place-hover--payment-tag.in-place-hover--expand-ready:focus-visible,
+.payment-status-tag-cell
+  .in-place-hover-expand-host--overlay
+  > .in-place-hover--payment-tag.in-place-hover--expand-ready.in-place-hover--revealed,
+.payment-status-tag-cell
+  .in-place-hover-expand-host--overlay
+  > .in-place-hover--payment-tag.in-place-hover--expand-ready[data-revealed='true'] {
+  width: var(--in-place-full-w, var(--payment-status-tag-compact-w));
+  min-width: var(--in-place-full-w, var(--payment-status-tag-compact-w));
+  height: var(--in-place-full-h, var(--payment-status-tag-compact-h));
+  min-height: var(--in-place-full-h, var(--payment-status-tag-compact-h));
 }
 
 .in-place-hover__payment-label {
   display: block;
-  line-height: 1.4;
+  line-height: 1;
   overflow: visible;
   text-align: center;
+  white-space: nowrap;
 }
 
-.payment-status-tag-cell {
-  /* Reserve room for longest hover labels without crushing the expand host */
-  width: max-content;
-  max-width: 100%;
-  min-width: min(100%, 12rem);
+/*
+ * Sibling of the face inside the expand host — sits to the right of the compact
+ * shell (and tracks full width on expand) without affecting badge layout.
+ */
+.payment-status-notify {
+  position: absolute;
+  left: calc(var(--payment-status-tag-compact-w) + var(--payment-status-tag-notify-gap));
+  top: 0;
+  z-index: 21;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: var(--payment-status-tag-compact-h);
+  margin: 0;
+  transform: none;
+  white-space: nowrap;
+  transition: left 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.in-place-hover-expand-host:has(> .in-place-hover--expand-ready:hover)
+  > .payment-status-notify,
+.in-place-hover-expand-host:has(> .in-place-hover--expand-ready:focus-visible)
+  > .payment-status-notify,
+.in-place-hover-expand-host:has(> .in-place-hover--expand-ready.in-place-hover--revealed)
+  > .payment-status-notify,
+.in-place-hover-expand-host:has(
+    > .in-place-hover--expand-ready[data-revealed='true']
+  )
+  > .payment-status-notify {
+  left: calc(
+    var(--in-place-full-w, var(--payment-status-tag-compact-w)) +
+      var(--payment-status-tag-notify-gap)
+  );
+}
+
+/*
+ * Official Tenants lease tags — compact shell under the tenant name.
+ * Hover expands width only for a single-line summary; overlay mode keeps
+ * the table from reflowing.
+ */
+.in-place-hover--lease-tag {
+  padding: 0.15rem 0.5rem;
+  line-height: 1.2;
+}
+
+.in-place-hover-expand-measure.in-place-hover--lease-tag {
+  padding: 0.15rem 0.5rem;
+  line-height: 1.2;
+}
+
+.in-place-hover__lease-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  line-height: 1.2;
+  overflow: visible;
+  text-align: center;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .in-place-hover__layer,
   .in-place-hover--expand,
-  .in-place-hover--expand .in-place-hover__layer--primary,
-  .in-place-hover--expand .in-place-hover__layer--secondary-expand {
+  .in-place-hover-expand-host,
+  .in-place-hover--expand-ready .in-place-hover__layer--primary,
+  .in-place-hover--expand-ready .in-place-hover__layer--secondary-expand,
+  .payment-status-notify {
     transition: none;
+  }
+}
+
+/* Floating status-badge tooltips (portal) — never expand the tag or clip in tables */
+.status-badge-hover-tooltip {
+  position: fixed;
+  z-index: 70;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 1rem));
+  transform: translate(-50%, calc(-100% - 0.4rem));
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background-color: var(--ink);
+  color: var(--surface-paper);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  text-transform: none;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ink) 16%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 80ms ease,
+    transform 80ms ease;
+}
+
+.status-badge-hover-tooltip--visible {
+  opacity: 1;
+  transform: translate(-50%, calc(-100% - 0.4rem));
+}
+
+.status-badge-hover-tooltip--leaving {
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 0.4rem)) translateY(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-badge-hover-tooltip {
+    transition: none;
+  }
+
+  .status-badge-hover-tooltip--visible,
+  .status-badge-hover-tooltip--leaving {
+    transform: translate(-50%, calc(-100% - 0.4rem));
   }
 }
 
@@ -2402,7 +2724,8 @@ a.in-place-hover {
 }
 
 .quick-tooltip[data-tooltip]:hover::after,
-.quick-tooltip[data-tooltip]:focus-visible::after {
+.quick-tooltip[data-tooltip]:focus-visible::after,
+.quick-tooltip--open[data-tooltip]::after {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
@@ -2416,7 +2739,8 @@ a.in-place-hover {
 }
 
 .quick-tooltip--below[data-tooltip]:hover::after,
-.quick-tooltip--below[data-tooltip]:focus-visible::after {
+.quick-tooltip--below[data-tooltip]:focus-visible::after,
+.quick-tooltip--below.quick-tooltip--open[data-tooltip]::after {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -2433,7 +2757,8 @@ a.in-place-hover {
 }
 
 .quick-tooltip--align-end[data-tooltip]:hover::after,
-.quick-tooltip--align-end[data-tooltip]:focus-visible::after {
+.quick-tooltip--align-end[data-tooltip]:focus-visible::after,
+.quick-tooltip--align-end.quick-tooltip--open[data-tooltip]::after {
   transform: translateY(0);
 }
 
@@ -2442,7 +2767,8 @@ a.in-place-hover {
 }
 
 .quick-tooltip--below.quick-tooltip--align-end[data-tooltip]:hover::after,
-.quick-tooltip--below.quick-tooltip--align-end[data-tooltip]:focus-visible::after {
+.quick-tooltip--below.quick-tooltip--align-end[data-tooltip]:focus-visible::after,
+.quick-tooltip--below.quick-tooltip--align-end.quick-tooltip--open[data-tooltip]::after {
   transform: translateY(0);
 }
 
@@ -2612,58 +2938,6 @@ a.in-place-hover {
   }
 }
 
-/* Ending Soon — attention pulse (red/accent) */
-@keyframes lease-ending-soon-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
-  }
-
-  50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
-  }
-}
-
-/* Fixed width for Month X of Y tags — fits longest expected label, no truncation */
-.lease-status-badge--progress {
-  box-sizing: border-box;
-  width: 6.75rem;
-  flex-shrink: 0;
-  justify-content: center;
-  text-align: center;
-}
-
-.lease-status-badge--ending-soon {
-  transform-origin: center;
-  will-change: transform, box-shadow;
-}
-
-.lease-status-badge--hoverable:hover,
-.lease-status-badge--hoverable:focus-visible {
-  animation: none;
-  z-index: 1;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .lease-status-badge--ending-soon {
-    animation: lease-ending-soon-pulse 2s ease-in-out infinite;
-  }
-
-  .lease-status-badge--ending-soon.lease-status-badge--hoverable:hover,
-  .lease-status-badge--ending-soon.lease-status-badge--hoverable:focus-visible {
-    animation: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lease-status-badge--ending-soon {
-    animation: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
-  }
-}
-
 /* Rentals table — Open Units availability circle */
 .open-units-circle {
   display: inline-flex;
@@ -2725,68 +2999,73 @@ a.in-place-hover {
 @keyframes availability-badge-breathe {
   0%,
   100% {
-    transform: translateY(0) scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, #15803d 0%, transparent);
+    transform: scale(1);
+    opacity: 1;
   }
 
   50% {
-    transform: translateY(-1px) scale(1.03);
-    box-shadow: 0 0 0 4px color-mix(in srgb, #15803d 22%, transparent);
+    transform: scale(1.012);
+    opacity: 0.78;
   }
 }
 
 .availability-badge {
+  box-sizing: border-box;
   width: fit-content;
   max-width: 100%;
+  min-height: 0.95rem;
   align-items: center;
   gap: 0;
-  border-radius: 9999px;
-  padding: 0.08rem 0.34rem;
+  border-radius: calc(var(--radius-sm) - 1px);
+  padding: 0.04rem 0.28rem;
   font-size: 0.5rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.15;
   letter-spacing: 0.01em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .availability-badge--open {
-  background-color: #15803d;
-  color: #fff;
+  background-color: color-mix(in srgb, #15803d 10%, var(--surface-paper));
+  color: color-mix(in srgb, #166534 88%, var(--ink));
+  border: 1px solid color-mix(in srgb, #15803d 26%, transparent);
 }
 
 .availability-badge--full,
 .availability-badge--missing {
-  background-color: color-mix(in srgb, var(--ink-muted) 18%, var(--surface-paper));
+  background-color: color-mix(in srgb, var(--ink-muted) 10%, var(--surface-paper));
   color: var(--ink-muted);
-  border: 1px solid color-mix(in srgb, var(--ink-muted) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 24%, transparent);
 }
 
 .availability-badge--link {
   cursor: pointer;
-  border: none;
   font-family: inherit;
   font-size: inherit;
   font-weight: inherit;
   line-height: inherit;
   letter-spacing: inherit;
   text-align: center;
-  transition: filter 160ms ease;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .availability-badge--link:hover,
 .availability-badge--link:focus-visible {
-  filter: brightness(1.06);
+  background-color: color-mix(in srgb, #15803d 16%, var(--surface-paper));
+  border-color: color-mix(in srgb, #15803d 38%, transparent);
   /* Keep shared breathe running so tags stay in sync after hover. */
 }
 
 .availability-badge--link:focus-visible {
-  outline: 2px solid color-mix(in srgb, #15803d 55%, white);
+  outline: 2px solid color-mix(in srgb, #15803d 40%, transparent);
   outline-offset: 2px;
 }
 
 .availability-badge--breathe {
   transform-origin: center;
-  will-change: transform, box-shadow;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -2802,7 +3081,7 @@ a.in-place-hover {
 @media (prefers-reduced-motion: reduce) {
   .availability-badge--breathe {
     animation: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, #15803d 30%, transparent);
+    opacity: 1;
   }
 }
 
@@ -3149,6 +3428,11 @@ a.in-place-hover {
     box-shadow 220ms ease,
     border-color 220ms ease,
     background-color 220ms ease;
+}
+
+/* Shared unit-request tag slot — bottom-anchored in every gallery tile */
+.waiting-connect-tile__availability {
+  max-width: 100%;
 }
 
 .waiting-connect-row {

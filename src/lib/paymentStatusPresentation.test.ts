@@ -105,7 +105,7 @@ describe('buildPaymentStatusPresentation', () => {
 })
 
 describe('buildOfficialPaymentColumnPresentation', () => {
-  it('shows On Time with next-payment countdown and Paid · processor hover', () => {
+  it('shows On Time with Paid · processor hover (no countdown subline)', () => {
     const column = buildOfficialPaymentColumnPresentation({
       nextDueDate: '2026-08-01',
       daysUntilNextDue: 23,
@@ -116,7 +116,6 @@ describe('buildOfficialPaymentColumnPresentation', () => {
     expect(column.kind).toBe('on_time')
     expect(column.tagLabel).toBe('On Time')
     expect(column.tagHoverLabel).toBe('Paid July 1 · Stripe')
-    expect(column.nextPaymentSubline).toBe('Next payment in 23 days')
     expect(column.ariaLabel).toMatch(/Payment on time/)
     expect(column.ariaLabel).toMatch(/July 1, 2026/)
     expect(column.ariaLabel).toMatch(/Stripe/)
@@ -155,7 +154,6 @@ describe('buildOfficialPaymentColumnPresentation', () => {
       paymentProvider: 'stripe',
     })
     expect(paidInFull.tagLabel).toBe('On Time')
-    expect(paidInFull.nextPaymentSubline).toBe('All payments complete')
     expect(paidInFull.tagHoverLabel).toBe('Paid July 1 · Stripe')
 
     const dueSoon = buildOfficialPaymentColumnPresentation({
@@ -166,8 +164,25 @@ describe('buildOfficialPaymentColumnPresentation', () => {
       paymentProvider: 'paypal',
     })
     expect(dueSoon.tagLabel).toBe('On Time')
-    expect(dueSoon.nextPaymentSubline).toBe('Next payment in 3 days')
     expect(dueSoon.tagHoverLabel).toBe('Paid July 1 · PayPal')
+  })
+
+  it('shows Deposit Paid when the lease is still upcoming', () => {
+    const column = buildOfficialPaymentColumnPresentation({
+      nextDueDate: '2026-08-01',
+      daysUntilNextDue: 10,
+      overduePaymentCount: 0,
+      lastPaidOn: '2026-07-18',
+      paymentProvider: 'stripe',
+      leaseUpcoming: true,
+    })
+    expect(column.kind).toBe('deposit_paid')
+    expect(column.tagLabel).toBe('Deposit Paid')
+    expect(column.tagHoverLabel).toBe('Paid July 18 · Stripe')
+    expect(column.ariaLabel).toMatch(/Deposit paid/)
+    expect(column.ariaLabel).toMatch(/July 18, 2026/)
+    expect(column.ariaLabel).toMatch(/Stripe/)
+    expect(column.tone).toBe('neutral')
   })
 
   it('shows Overdue with days-late hover from the oldest unpaid due', () => {
@@ -179,7 +194,6 @@ describe('buildOfficialPaymentColumnPresentation', () => {
     expect(column.kind).toBe('overdue')
     expect(column.tagLabel).toBe('Overdue')
     expect(column.tagHoverLabel).toBe('12 days late · Due July 1')
-    expect(column.nextPaymentSubline).toBeNull()
     expect(column.daysOverdue).toBe(12)
     expect(column.ariaLabel).toMatch(/Payment overdue by 12 days/)
     expect(column.ariaLabel).toMatch(/July 1, 2026/)

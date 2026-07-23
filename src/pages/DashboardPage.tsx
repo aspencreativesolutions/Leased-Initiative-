@@ -4,23 +4,21 @@ import { useLocation } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { OfficialTenantsSortControls } from '@/components/clients/OfficialTenantsSortControls'
+import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { TenantPipelineSections } from '@/components/clients/TenantPipelineSections'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { useApp } from '@/context/AppContext'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { shouldShowInOfficialTenants } from '@/lib/clientUtils'
-import {
-  loadOfficialTenantLocationDisplayMode,
-  saveOfficialTenantLocationDisplayMode,
-  type OfficialTenantLocationDisplayMode,
-} from '@/lib/officialTenantLocationDisplay'
+import { useMobileTileColumns } from '@/lib/mobileTileColumns'
+import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import {
   sortOfficialTenants,
   type OfficialTenantAddressFocus,
-  type OfficialTenantSortMode,
 } from '@/lib/officialTenantSort'
 import {
   loadTenantTableColumnOrder,
@@ -33,13 +31,13 @@ export function DashboardPage() {
   const { error: registrationsError } = usePendingRegistrations()
   const { count: notificationCount } = useAdminNotifications()
   const [addOpen, setAddOpen] = useState(false)
+  const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [arrangeColumns, setArrangeColumns] = useState(false)
   const [columnOrder, setColumnOrder] = useState<TenantTableColumnId[]>(loadTenantTableColumnOrder)
-  const [sortMode, setSortMode] = useState<OfficialTenantSortMode>('officialDate')
   const [addressFocus, setAddressFocus] = useState<OfficialTenantAddressFocus>({ kind: 'all' })
-  const [locationDisplayMode, setLocationDisplayMode] = useState<OfficialTenantLocationDisplayMode>(
-    loadOfficialTenantLocationDisplayMode
-  )
+  const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
+    useMobileTileColumns()
+  const isMobile = useIsMobileViewport()
   const prevNotificationCount = useRef(0)
 
   const regions = settings.contractRegions ?? []
@@ -56,19 +54,15 @@ export function DashboardPage() {
         officialClients,
         getContractForClient,
         regions,
-        sortMode === 'officialDate'
-          ? { mode: 'officialDate' }
-          : { mode: 'address', focus: addressFocus },
-        { properties, locationDisplayMode }
+        { mode: 'address', focus: addressFocus },
+        { properties, locationDisplayMode: 'address' }
       ),
     [
       officialClients,
       getContractForClient,
       regions,
-      sortMode,
       addressFocus,
       properties,
-      locationDisplayMode,
     ]
   )
 
@@ -106,32 +100,36 @@ export function DashboardPage() {
           <CardHeader
             dense
             title="Official Tenants"
-            subtitle="Tenants with signed leases that are active or starting soon"
+            help="Tenants with signed leases that are active or starting soon"
             action={
               officialClients.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                  {isMobile ? (
+                    <MobileTileColumnsControl
+                      value={mobileTileColumns}
+                      onChange={setMobileTileColumns}
+                    />
+                  ) : null}
                   <OfficialTenantsSortControls
                     clients={officialClients}
                     getContractForClient={getContractForClient}
                     regions={regions}
                     properties={properties}
-                    sortMode={sortMode}
                     addressFocus={addressFocus}
-                    onSortModeChange={setSortMode}
                     onAddressFocusChange={setAddressFocus}
                   />
-                  {!arrangeColumns ? (
+                  {!arrangeColumns && !isMobile ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => setArrangeColumns(true)}
                       aria-pressed={false}
-                      title="Rearrange Columns"
-                      aria-label="Rearrange Columns"
+                      title="Edit Columns"
+                      aria-label="Edit Columns"
                     >
                       <Columns3 className="h-3.5 w-3.5" aria-hidden />
-                      <span className="hidden sm:inline">Rearrange Columns</span>
+                      <span className="hidden sm:inline">Edit Columns</span>
                     </Button>
                   ) : null}
                 </div>
@@ -153,15 +151,13 @@ export function DashboardPage() {
           ) : (
             <ClientTable
               clients={tableClients}
-              arrangeColumns={arrangeColumns}
+              arrangeColumns={arrangeColumns && !isMobile}
               onArrangeDone={() => setArrangeColumns(false)}
               columnOrder={columnOrder}
               onColumnOrderChange={setColumnOrder}
-              locationDisplayMode={locationDisplayMode}
-              onLocationDisplayModeChange={(mode) => {
-                saveOfficialTenantLocationDisplayMode(mode)
-                setLocationDisplayMode(mode)
-              }}
+              mobileTileColumns={mobileTileColumns}
+              onMobileTileColumnsChange={setMobileTileColumns}
+              onOpenTenantDetails={setDetailsTenantId}
             />
           )}
         </Card>
@@ -177,6 +173,12 @@ export function DashboardPage() {
       </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <TenantDetailsModal
+        tenantId={detailsTenantId}
+        open={Boolean(detailsTenantId)}
+        onClose={() => setDetailsTenantId(null)}
+        onSelectTenant={setDetailsTenantId}
+      />
     </div>
   )
 }

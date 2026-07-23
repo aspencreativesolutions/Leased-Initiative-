@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { Loader2, Plus } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { AddressAutocomplete } from '@/components/properties/AddressAutocomplete'
 import { Button } from '@/components/ui/Button'
 import { FormLabel, Input } from '@/components/ui/FormField'
@@ -7,25 +7,45 @@ import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
 import { useApp } from '@/context/AppContext'
 import {
+  BED_SIZE_LABELS,
+  bedCapacityForSize,
+  createBed,
+  createBedroom,
+  findLayoutAssignmentConflicts,
+  isCompleteBedroomsLayout,
+  maxOccupancyFromLayout,
+  totalBedCount,
+} from '@/lib/rentalBeds'
+import {
   RENTAL_TYPE_OPTIONS,
   rentalTypeShowsUnitCount,
   suggestedUnitCount,
 } from '@/lib/rentalTypes'
 import { cn } from '@/lib/utils'
-import type { PropertyAddressDetails, PropertyHousingType } from '@/types'
+import type {
+  BedSize,
+  Property,
+  PropertyAddressDetails,
+  PropertyBedroom,
+  PropertyHousingType,
+} from '@/types'
+import { BED_SIZES } from '@/types'
 
-interface AddPropertyModalProps {
+interface RentalFormModalProps {
   open: boolean
   onClose: () => void
-  onAdded?: () => void
+  onSaved?: () => void
+  /** When set, modal edits this rental instead of creating one. */
+  property?: Property | null
 }
 
 interface FieldErrors {
   address?: string
   propertyType?: string
   bedrooms?: string
-  maxTenants?: string
   unitCount?: string
+  monthlyRent?: string
+  layout?: string
 }
 
 function parseNonNegativeInt(raw: string): number | null {
@@ -35,8 +55,44 @@ function parseNonNegativeInt(raw: string): number | null {
   return Number(trimmed)
 }
 
-export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalProps) {
-  const { addProperty } = useApp()
+function parsePositiveMoney(raw: string): number | null {
+  const trimmed = raw.trim().replace(/[$,\s]/g, '')
+  if (!trimmed) return null
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null
+  const n = Number(trimmed)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function layoutFromBedroomCount(count: number, previous?: PropertyBedroom[]): PropertyBedroom[] {
+  const n = Math.max(0, count)
+  if (n === 0) return [createBedroom(1)]
+  const next: PropertyBedroom[] = []
+  for (let i = 0; i < n; i++) {
+    const existing = previous?.[i]
+    if (existing) {
+      next.push({
+        ...existing,
+        label: `Bedroom ${i + 1}`,
+        beds:
+          existing.beds.length > 0
+            ? existing.beds
+            : [createBed('queen', 1)],
+      })
+    } else {
+      next.push(createBedroom(i + 1))
+    }
+  }
+  return next
+}
+
+export function AddPropertyModal({
+  open,
+  onClose,
+  onSaved,
+  property = null,
+}: RentalFormModalProps) {
+  const { addProperty, updateProperty, clients } = useApp()
+  const isEdit = Boolean(property?.id)
   const rentalTypeListId = useId()
   const rentalTypeRef = useRef<HTMLDivElement>(null)
   const [address, setAddress] = useState('')
@@ -46,18 +102,52 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
   const [rentalTypeOpen, setRentalTypeOpen] = useState(false)
   const [rentalTypeHighlight, setRentalTypeHighlight] = useState(0)
   const [bedrooms, setBedrooms] = useState('')
-  const [maxTenants, setMaxTenants] = useState('')
+  const [layout, setLayout] = useState<PropertyBedroom[]>([])
   const [unitCount, setUnitCount] = useState('1')
+  const [monthlyRent, setMonthlyRent] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   const showUnitCount = propertyType ? rentalTypeShowsUnitCount(propertyType) : false
 
+  const maxOccupancy = useMemo(() => maxOccupancyFromLayout(layout), [layout])
+  const bedCount = useMemo(() => totalBedCount({ bedroomsLayout: layout }), [layout])
+
+  const hydrateFromProperty = (p: Property) => {
+    setAddress(p.address)
+    setAddressConfirmed(Boolean(p.addressConfirmed) || Boolean(p.addressDetails))
+    setAddressDetails(p.addressDetails)
+    setPropertyType(p.propertyType)
+    setBedrooms(String(p.bedrooms ?? p.bedroomsLayout?.length ?? 0))
+    setLayout(
+      p.bedroomsLayout?.length
+        ? p.bedroomsLayout.map((room, i) => ({
+            ...room,
+            label: room.label || `Bedroom ${i + 1}`,
+            beds: room.beds.map((bed, j) => ({
+              ...bed,
+              label: bed.label || `Bed ${j + 1}`,
+              capacity: bedCapacityForSize(bed.size),
+            })),
+          }))
+        : layoutFromBedroomCount(p.bedrooms || 1)
+    )
+    setUnitCount(String(p.unitCount || 1))
+    setMonthlyRent(p.monthlyRent != null ? String(p.monthlyRent) : '')
+  }
+
   useEffect(() => {
-    if (!propertyType) return
+    if (!open) return
+    if (property) {
+      hydrateFromProperty(property)
+    }
+  }, [open, property?.id])
+
+  useEffect(() => {
+    if (!propertyType || isEdit) return
     setUnitCount(String(suggestedUnitCount(propertyType)))
-  }, [propertyType])
+  }, [propertyType, isEdit])
 
   useEffect(() => {
     if (!rentalTypeOpen) return
@@ -78,8 +168,9 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
     setRentalTypeOpen(false)
     setRentalTypeHighlight(0)
     setBedrooms('')
-    setMaxTenants('')
+    setLayout([])
     setUnitCount('1')
+    setMonthlyRent('')
     setFieldErrors({})
     setError('')
     setSubmitting(false)
@@ -90,12 +181,68 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
     onClose()
   }
 
+  const applyBedroomCount = (raw: string) => {
+    setBedrooms(raw)
+    const n = parseNonNegativeInt(raw)
+    if (n === null) return
+    setLayout((prev) => layoutFromBedroomCount(n, prev))
+    if (fieldErrors.bedrooms || fieldErrors.layout) {
+      setFieldErrors((prev) => ({ ...prev, bedrooms: undefined, layout: undefined }))
+    }
+  }
+
+  const updateBedSize = (bedroomId: string, bedId: string, size: BedSize) => {
+    setLayout((prev) =>
+      prev.map((room) =>
+        room.id !== bedroomId
+          ? room
+          : {
+              ...room,
+              beds: room.beds.map((bed) =>
+                bed.id !== bedId
+                  ? bed
+                  : { ...bed, size, capacity: bedCapacityForSize(size) }
+              ),
+            }
+      )
+    )
+    if (fieldErrors.layout) setFieldErrors((prev) => ({ ...prev, layout: undefined }))
+  }
+
+  const addBedToRoom = (bedroomId: string) => {
+    setLayout((prev) =>
+      prev.map((room) =>
+        room.id !== bedroomId
+          ? room
+          : {
+              ...room,
+              beds: [...room.beds, createBed('twin', room.beds.length + 1)],
+            }
+      )
+    )
+  }
+
+  const removeBed = (bedroomId: string, bedId: string) => {
+    setLayout((prev) =>
+      prev.map((room) => {
+        if (room.id !== bedroomId) return room
+        if (room.beds.length <= 1) return room
+        return {
+          ...room,
+          beds: room.beds
+            .filter((b) => b.id !== bedId)
+            .map((b, i) => ({ ...b, label: `Bed ${i + 1}` })),
+        }
+      })
+    )
+  }
+
   const validate = (): FieldErrors => {
     const next: FieldErrors = {}
     const trimmedAddress = address.trim()
     if (!trimmedAddress) {
       next.address = 'Address cannot be blank'
-    } else if (!addressConfirmed) {
+    } else if (!addressConfirmed && !isEdit) {
       next.address = 'Select or confirm a valid address before saving'
     }
 
@@ -112,13 +259,16 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
       next.bedrooms = 'Bedrooms must be zero or greater'
     }
 
-    const capacity = parseNonNegativeInt(maxTenants)
-    if (maxTenants.trim() === '') {
-      next.maxTenants = 'Enter the maximum tenants allowed'
-    } else if (capacity === null) {
-      next.maxTenants = 'Maximum tenants must be a whole number (no letters or decimals)'
-    } else if (capacity < 1) {
-      next.maxTenants = 'Maximum tenant capacity must be at least 1'
+    if (!isCompleteBedroomsLayout(layout)) {
+      next.layout =
+        'Configure at least one bed with a size for every bedroom before saving'
+    }
+
+    if (monthlyRent.trim()) {
+      const rent = parsePositiveMoney(monthlyRent)
+      if (rent === null) {
+        next.monthlyRent = 'Enter a valid monthly rent amount'
+      }
     }
 
     if (showUnitCount) {
@@ -129,6 +279,22 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
         next.unitCount = 'Number of units must be a whole number'
       } else if (units < 1) {
         next.unitCount = 'Number of units must be at least 1'
+      }
+    }
+
+    if (isEdit && property && isCompleteBedroomsLayout(layout)) {
+      const atProperty = clients.filter(
+        (c) =>
+          c.propertyId === property.id ||
+          (c.bedId &&
+            property.bedroomsLayout?.some((r) => r.beds.some((b) => b.id === c.bedId)))
+      )
+      const conflicts = findLayoutAssignmentConflicts(property, layout, atProperty)
+      if (conflicts.length > 0) {
+        const names = conflicts
+          .flatMap((c) => c.tenants.map((t) => t.name))
+          .filter((n, i, arr) => arr.indexOf(n) === i)
+        next.layout = `Reassign tenants before saving: ${names.join(', ')}. A bed they occupy is being removed or no longer has enough capacity.`
       }
     }
 
@@ -143,26 +309,40 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
     if (Object.keys(nextErrors).length > 0) return
 
     const beds = parseNonNegativeInt(bedrooms)
-    const capacity = parseNonNegativeInt(maxTenants)
     const units = showUnitCount ? parseNonNegativeInt(unitCount) : 1
-    if (beds === null || capacity === null || units === null || !propertyType) return
+    if (beds === null || units === null || !propertyType) return
+    const rent = monthlyRent.trim() ? parsePositiveMoney(monthlyRent) : undefined
+
+    const payload = {
+      address: address.trim(),
+      propertyType,
+      bedrooms: Math.max(layout.length, beds),
+      maxTenants: Math.max(1, maxOccupancy),
+      unitCount: units,
+      bedroomsLayout: layout,
+      ...(rent != null ? { monthlyRent: rent } : {}),
+      addressConfirmed: true,
+      addressDetails,
+    }
 
     setSubmitting(true)
     try {
-      await addProperty({
-        address: address.trim(),
-        propertyType,
-        bedrooms: beds,
-        maxTenants: capacity,
-        unitCount: units,
-        addressConfirmed: true,
-        addressDetails,
-      })
+      if (isEdit && property) {
+        await updateProperty(property.id, payload)
+      } else {
+        await addProperty(payload)
+      }
       reset()
-      onAdded?.()
+      onSaved?.()
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add rental')
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : isEdit
+            ? 'Could not update rental'
+            : 'Could not add rental'
+      )
       setSubmitting(false)
     }
   }
@@ -170,11 +350,17 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
   const selectedRentalOption = RENTAL_TYPE_OPTIONS.find((option) => option.value === propertyType)
 
   return (
-    <Modal open={open} onClose={handleClose} title="Add Rental" size="lg">
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEdit ? 'Edit Rental' : 'Add Rental'}
+      size="lg"
+    >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <p className="text-sm text-ink-muted">
-          Add a rental to your portfolio. It appears on the Rentals page, in Upcoming Openings,
-          and in the property list tenants choose at signup.
+          {isEdit
+            ? 'Update this rental’s bedrooms, beds, and rent. Maximum occupancy is calculated from bed sizes.'
+            : 'Add a rental to your portfolio. Configure bedrooms and beds — maximum occupancy is calculated from bed sizes.'}
         </p>
 
         {error && (
@@ -304,29 +490,25 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
             inputMode="numeric"
             pattern="[0-9]*"
             value={bedrooms}
-            onChange={(e) => {
-              setBedrooms(e.target.value)
-              if (fieldErrors.bedrooms) setFieldErrors((prev) => ({ ...prev, bedrooms: undefined }))
-            }}
+            onChange={(e) => applyBedroomCount(e.target.value)}
             placeholder="0"
             required
             error={fieldErrors.bedrooms}
           />
           <Input
-            label="Maximum Tenants"
-            name="maxTenants"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={maxTenants}
+            label="Total Monthly Rent"
+            name="monthlyRent"
+            inputMode="decimal"
+            value={monthlyRent}
             onChange={(e) => {
-              setMaxTenants(e.target.value)
-              if (fieldErrors.maxTenants) {
-                setFieldErrors((prev) => ({ ...prev, maxTenants: undefined }))
+              setMonthlyRent(e.target.value)
+              if (fieldErrors.monthlyRent) {
+                setFieldErrors((prev) => ({ ...prev, monthlyRent: undefined }))
               }
             }}
-            placeholder="1"
-            required
-            error={fieldErrors.maxTenants}
+            placeholder="e.g. 1800"
+            hint="Independent of bed sizes. Rent is allocated by physical beds, not by headcount."
+            error={fieldErrors.monthlyRent}
           />
         </div>
 
@@ -356,13 +538,98 @@ export function AddPropertyModal({ open, onClose, onAdded }: AddPropertyModalPro
           />
         ) : null}
 
+        {layout.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-sm font-bold text-ink">Bedroom &amp; bed configuration</h3>
+              <p className="text-sm font-semibold text-ink">
+                Maximum Occupancy:{' '}
+                <span className="tabular-nums">
+                  {maxOccupancy} {maxOccupancy === 1 ? 'person' : 'people'}
+                </span>
+                <span className="mx-1.5 text-ink-faint">·</span>
+                <span className="font-medium text-ink-muted">
+                  {bedCount} {bedCount === 1 ? 'bed' : 'beds'}
+                </span>
+              </p>
+            </div>
+
+            {fieldErrors.layout ? (
+              <p className="rounded-sm border border-accent/40 bg-accent-light px-3 py-2 text-xs text-accent" role="alert">
+                {fieldErrors.layout}
+              </p>
+            ) : null}
+
+            <div className="max-h-[22rem] space-y-3 overflow-y-auto pr-1">
+              {layout.map((room) => (
+                <div
+                  key={room.id}
+                  className="rounded-[var(--radius-sm)] border border-line bg-surface-paper px-3 py-3"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-ink">{room.label}</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => addBedToRoom(room.id)}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      Add bed
+                    </Button>
+                  </div>
+                  <ul className="space-y-2">
+                    {room.beds.map((bed) => (
+                      <li
+                        key={bed.id}
+                        className="flex flex-wrap items-center gap-2 sm:flex-nowrap"
+                      >
+                        <span className="w-14 shrink-0 text-xs font-medium text-ink-muted">
+                          {bed.label}
+                        </span>
+                        <select
+                          className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+                          value={bed.size}
+                          aria-label={`${room.label} ${bed.label} size`}
+                          onChange={(e) =>
+                            updateBedSize(room.id, bed.id, e.target.value as BedSize)
+                          }
+                        >
+                          {BED_SIZES.map((size) => (
+                            <option key={size} value={size}>
+                              {BED_SIZE_LABELS[size]}
+                              {` (${bedCapacityForSize(size)} ${
+                                bedCapacityForSize(size) === 1 ? 'person' : 'people'
+                              })`}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink-muted hover:bg-accent-light hover:text-accent disabled:opacity-40"
+                          disabled={room.beds.length <= 1}
+                          title="Remove bed"
+                          aria-label={`Remove ${bed.label} from ${room.label}`}
+                          onClick={() => removeBed(room.id, bed.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap justify-end gap-2 pt-1">
           <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {submitting ? 'Saving…' : 'Save Rental'}
+            {submitting ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Rental'}
           </Button>
         </div>
       </form>
@@ -395,3 +662,4 @@ export function AddPropertyButton({
 /** Alias matching Rentals page terminology. */
 export const AddRentalButton = AddPropertyButton
 export const AddRentalModal = AddPropertyModal
+export const EditRentalModal = AddPropertyModal

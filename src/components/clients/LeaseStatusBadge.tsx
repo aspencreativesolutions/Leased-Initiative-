@@ -1,5 +1,6 @@
-import { cn } from '@/lib/utils'
+import { Check, Clock } from 'lucide-react'
 import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
+import { cn } from '@/lib/utils'
 import {
   getLeaseStatusHoverDetail,
   type LeaseStatusDetails,
@@ -9,8 +10,9 @@ import {
 const stateStyles: Record<LeaseTimelineState, string> = {
   Active:
     'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
+  // Ending Soon shares Active green — Official Tenants only shows Active / Upcoming by default.
   'Ending Soon':
-    'lease-status-badge--ending-soon border-accent/40 bg-accent-light text-accent',
+    'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
   Upcoming: 'border-ink/15 bg-surface text-ink-muted',
   Expired: 'border-line bg-transparent text-ink-faint',
 }
@@ -20,15 +22,21 @@ interface LeaseStatusBadgeProps {
   className?: string
 }
 
+function leaseStatusLeadingIcon(state: LeaseTimelineState) {
+  if (state === 'Active' || state === 'Ending Soon') {
+    return <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={2.75} aria-hidden />
+  }
+  if (state === 'Upcoming') {
+    return <Clock className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+  }
+  return null
+}
+
 /** Compact lease timeline badge for Official Tenants (and mobile cards). */
 export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) {
   const state = details.state
   const label = details.status
   const hoverDetail = getLeaseStatusHoverDetail(details)
-  const isProgressTag =
-    (state === 'Active' || state === 'Ending Soon') &&
-    details.currentMonth != null &&
-    details.termMonths != null
 
   if (!state) {
     return (
@@ -43,18 +51,30 @@ export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) 
     )
   }
 
-  const shellClass = cn(
-    'lease-status-badge inline-flex max-w-full items-center justify-center rounded-[var(--radius-sm)] border px-1.5 py-0.5 text-center text-[10px] font-bold leading-none tracking-tight',
-    isProgressTag && 'lease-status-badge--progress',
-    hoverDetail && 'lease-status-badge--hoverable cursor-default',
+  const tagShell = cn(
+    'in-place-hover--lease-tag',
+    'items-center justify-center text-center',
+    'rounded-[var(--radius-sm)] border',
+    'text-[10px] font-bold tracking-tight tabular-nums',
+    'transition-colors duration-150',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
+    'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
+    hoverDetail && 'cursor-default',
     stateStyles[state],
     className
   )
 
+  const tagLayerClass =
+    'in-place-hover__lease-label text-center text-[10px] font-bold tracking-tight'
+  const leadingIcon = leaseStatusLeadingIcon(state)
+
   if (!hoverDetail) {
     return (
-      <span className={shellClass}>
-        <span className={cn(isProgressTag ? 'whitespace-nowrap' : 'truncate')}>{label}</span>
+      <span className={cn(tagShell, 'inline-flex')}>
+        <span className={tagLayerClass}>
+          {leadingIcon}
+          {label}
+        </span>
       </span>
     )
   }
@@ -62,23 +82,16 @@ export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) 
   return (
     <InPlaceHoverText
       primary={
-        <span className={cn(isProgressTag ? 'whitespace-nowrap' : 'truncate')}>{label}</span>
-      }
-      secondary={
-        <span
-          className={cn(
-            'truncate tabular-nums',
-            isProgressTag ? 'text-[9px]' : undefined
-          )}
-        >
-          {hoverDetail}
+        <span className={tagLayerClass}>
+          {leadingIcon}
+          {label}
         </span>
       }
-      ariaLabel={`${label}. ${hoverDetail}`}
-      className={cn(
-        shellClass,
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
-      )}
+      secondary={<span className={tagLayerClass}>{hoverDetail.summaryLine}</span>}
+      ariaLabel={`${label}. ${hoverDetail.summaryLine}`}
+      className={tagShell}
+      expandOnReveal
+      overlayExpand
     />
   )
 }

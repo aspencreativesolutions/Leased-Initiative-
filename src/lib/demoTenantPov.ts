@@ -210,7 +210,7 @@ export const DEMO_TENANT_POV_SECTIONS: { title: string; keys: string[] }[] = [
     keys: ['pending', 'pending-michael', 'pending-olivia'],
   },
   {
-    title: 'Lease stages (Sent → Signed → Active)',
+    title: 'Lease stages (Sent → Signed)',
     keys: ['awaiting', 'sample-emily', 'sample-marcus', 'active'],
   },
   {

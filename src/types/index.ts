@@ -36,6 +36,19 @@ export type ServiceTier = 'Launch' | 'Studio' | 'Summit'
 
 export type PaymentProvider = 'paypal' | 'stripe' | 'square'
 
+/** How a tenant occupies a rental (shown on Tenant Details). */
+export type OccupancyArrangement =
+  | 'entire_home'
+  | 'private_unit'
+  | 'shared_home'
+  | 'shared_apartment'
+  | 'room_rental'
+
+export type LeaseRenewalStatus =
+  | 'renewal_offered'
+  | 're_sign_pending'
+  | 'not_renewing'
+
 export interface SchedulerNote {
   id: string
   text: string
@@ -232,6 +245,26 @@ export interface Client {
    * Used with unit rent / tenant share to compute remaining balance.
    */
   currentPeriodAmountPaid?: number
+  /**
+   * How this tenant occupies the property (entire home, shared apartment, etc.).
+   * When omitted, Tenant Details derives a default from roommates + rental type.
+   */
+  occupancyArrangement?: OccupancyArrangement
+  /**
+   * Tenants with the same leaseGroupId share one lease agreement.
+   * Distinct ids at the same address mean separate leases.
+   */
+  leaseGroupId?: string
+  /** Room or unit label within the property (e.g. "Room 2", "Unit B") */
+  unitOrRoomLabel?: string
+  /** Linked portfolio rental (preferred over address match when set) */
+  propertyId?: string
+  /** Bedroom within property.bedroomsLayout */
+  bedroomId?: string
+  /** Specific bed within that bedroom */
+  bedId?: string
+  /** Renewal / re-sign outreach state when applicable */
+  leaseRenewalStatus?: LeaseRenewalStatus
   /** Created via Company Profile “Import existing leases” */
   importedFromLeaseScan?: boolean
   /** Source document names from the import session */
@@ -684,6 +717,31 @@ export interface PropertyUnit {
   monthlyRent?: number
 }
 
+/** Physical bed size — drives sleeping capacity, not rent price. */
+export type BedSize = 'twin' | 'full' | 'queen' | 'king'
+
+export const BED_SIZES: BedSize[] = ['twin', 'full', 'queen', 'king']
+
+/** One physical bed inside a bedroom. */
+export interface PropertyBed {
+  id: string
+  /** Display label, e.g. "Bed 1" */
+  label?: string
+  size: BedSize
+  /** Sleeping capacity derived from size (Twin=1, Full/Queen/King=2) */
+  capacity: 1 | 2
+  /** Optional monthly rent for this bed space (else equal split of property rent) */
+  monthlyRent?: number
+}
+
+/** One bedroom with one or more physical beds. */
+export interface PropertyBedroom {
+  id: string
+  /** Display label, e.g. "Bedroom 1" */
+  label: string
+  beds: PropertyBed[]
+}
+
 /** Landlord-owned rental (building or single address). */
 export interface Property {
   id: string
@@ -693,16 +751,25 @@ export interface Property {
   propertyType: PropertyHousingType
   /** How many leasable units this rental has (used for open units / openings vacancy) */
   unitCount: number
-  /** Typical bedroom count per unit */
+  /** Bedroom count (= bedroomsLayout.length when layout is set) */
   bedrooms: number
-  /** Maximum number of tenants allowed at this rental */
+  /**
+   * Maximum people allowed — derived cache from sum of bed capacities when
+   * bedroomsLayout is present.
+   */
   maxTenants: number
   /**
    * Stable monthly rent for this rentable property/unit.
    * For duplex/apartment sides stored as separate properties, this is that unit’s rent.
    * Shared source of truth for Rentals and Payments (do not regenerate on reload).
+   * Independent of bed sizes — changing Twin→Queen does not rewrite this.
    */
   monthlyRent?: number
+  /**
+   * Bedroom → bed inventory. Required for new/edited rentals.
+   * Sleeping capacity and rentable bed spaces derive from this layout.
+   */
+  bedroomsLayout?: PropertyBedroom[]
   /** Optional bathroom count used when generating realistic rent */
   bathrooms?: number
   /** Optional interior size (sq ft) used when generating realistic rent */

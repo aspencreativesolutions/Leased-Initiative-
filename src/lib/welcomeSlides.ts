@@ -84,7 +84,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your landlord workspace',
     description:
-      'Manage tenants from sign-up through an active lease — registrations, lease agreements with Sent / Signed / Active status and term progress (Tile or Spreadsheet View in Display Settings; cycle Lease Status through Any, Signed, Sent, or Active, plus state, area code, or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
+      'Manage tenants from sign-up through an active lease — registrations, Official Tenants (Active / Upcoming lease status under each name; on mobile, scrollable tiles two-across by default; Edit Columns on larger screens; click a name for Tenant Details), lease agreements with Sent / Signed status and term progress (mobile tiles by default; Tile or Spreadsheet View in Display Settings on larger screens; Edit Columns in Spreadsheet View; cycle Lease Status through Any, Signed, or Sent, plus state, area code, or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
   },
   {
     id: 'landlord-properties',
@@ -92,7 +92,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Building2,
     title: 'Rentals and lease import',
     description:
-      'Open Rentals to add addresses with rental type, bedrooms, max tenants, units, and monthly rent — they feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, occupancy, and per-tenant share when roommates share a unit; color-code occupancy (dark red when more units are open, green when full). Use Display Settings for Tile or Spreadsheet View (Monthly Rent, Occupancy, Tenant Share columns), tile size, and Filter By — choose Duplex, Apartment, Single-Family Home, Townhouse, or other types in your portfolio (All Rentals clears the filter), plus state and group filters (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
+      'Open Rentals to add addresses with rental type, bedrooms, bed sizes per bedroom, and total monthly rent — maximum occupancy is calculated from beds. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, people occupancy, and bed availability (a bed with at least one tenant is taken); color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
   },
   {
     id: 'landlord-users',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants pick your agency and a rental when they register — or join via your Send Invite link. New sign-ups appear under Waiting to Connect on the Dashboard. Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants.',
+      'Tenants pick your agency and a rental when they register — or join via your Send Invite link. New sign-ups appear under Waiting to Connect on the Dashboard. Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',

@@ -24,7 +24,7 @@ import {
 } from '@/lib/contractReview'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
-import { createProperty as createPropertyRequest } from '@/lib/propertiesApi'
+import { createProperty as createPropertyRequest, updatePropertyRequest } from '@/lib/propertiesApi'
 import { defaultSettings, migrateSampleAddress } from '@/data/seed'
 import { migrateServiceTier } from '@/lib/serviceTiers'
 import {
@@ -77,10 +77,26 @@ interface AppContextValue {
     bedrooms: number
     maxTenants: number
     unitCount?: number
+    bedroomsLayout?: Property['bedroomsLayout']
+    monthlyRent?: number
     importedFromLeaseScan?: boolean
     addressConfirmed?: boolean
     addressDetails?: Property['addressDetails']
   }) => Promise<Property>
+  updateProperty: (
+    propertyId: string,
+    input: {
+      address: string
+      propertyType: Property['propertyType']
+      bedrooms: number
+      maxTenants: number
+      unitCount?: number
+      bedroomsLayout?: Property['bedroomsLayout']
+      monthlyRent?: number
+      addressConfirmed?: boolean
+      addressDetails?: Property['addressDetails']
+    }
+  ) => Promise<Property>
   updateClient: (id: string, updates: Partial<Client>) => void
   getClient: (id: string) => Client | undefined
   addNote: (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => void
@@ -322,6 +338,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bedrooms: number
       maxTenants: number
       unitCount?: number
+      bedroomsLayout?: Property['bedroomsLayout']
+      monthlyRent?: number
       importedFromLeaseScan?: boolean
       addressConfirmed?: boolean
       addressDetails?: Property['addressDetails']
@@ -333,7 +351,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return result.property
       }
       const unitCount = Math.max(1, Math.floor(input.unitCount ?? 1))
-      const property: Property = {
+      let property: Property = {
         id: generateId(),
         address: input.address.trim(),
         propertyType: input.propertyType,
@@ -341,13 +359,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
         bedrooms: Math.max(0, Math.floor(input.bedrooms)),
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         createdAt: new Date().toISOString(),
+        ...(input.bedroomsLayout ? { bedroomsLayout: input.bedroomsLayout } : {}),
+        ...(input.monthlyRent != null && input.monthlyRent > 0
+          ? { monthlyRent: Math.round(input.monthlyRent) }
+          : {}),
         ...(input.importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),
         ...(input.addressConfirmed || input.importedFromLeaseScan
           ? { addressConfirmed: true }
           : {}),
         ...(input.addressDetails ? { addressDetails: input.addressDetails } : {}),
       }
+      property = normalizeProperty(property)
       const next = [...properties, property]
+      setProperties(next)
+      saveProperties(next)
+      return property
+    },
+    [isAdmin, properties]
+  )
+
+  const updateProperty = useCallback(
+    async (
+      propertyId: string,
+      input: {
+        address: string
+        propertyType: Property['propertyType']
+        bedrooms: number
+        maxTenants: number
+        unitCount?: number
+        bedroomsLayout?: Property['bedroomsLayout']
+        monthlyRent?: number
+        addressConfirmed?: boolean
+        addressDetails?: Property['addressDetails']
+      }
+    ) => {
+      if (isAdmin) {
+        const result = await updatePropertyRequest(propertyId, input)
+        setProperties(result.properties)
+        saveProperties(result.properties)
+        return result.property
+      }
+      const existing = properties.find((p) => p.id === propertyId)
+      if (!existing) throw new Error('Rental not found')
+      let property: Property = normalizeProperty({
+        ...existing,
+        address: input.address.trim(),
+        propertyType: input.propertyType,
+        unitCount: Math.max(1, Math.floor(input.unitCount ?? existing.unitCount ?? 1)),
+        bedrooms: Math.max(0, Math.floor(input.bedrooms)),
+        maxTenants: Math.max(1, Math.floor(input.maxTenants)),
+        ...(input.bedroomsLayout ? { bedroomsLayout: input.bedroomsLayout } : {}),
+        ...(input.monthlyRent != null && input.monthlyRent > 0
+          ? { monthlyRent: Math.round(input.monthlyRent) }
+          : {}),
+        ...(input.addressConfirmed ? { addressConfirmed: true } : {}),
+        ...(input.addressDetails ? { addressDetails: input.addressDetails } : {}),
+      })
+      const next = properties.map((p) => (p.id === propertyId ? property : p))
       setProperties(next)
       saveProperties(next)
       return property
@@ -564,6 +632,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addClient,
       addClientWithContract,
       addProperty,
+      updateProperty,
       updateClient,
       getClient,
       addNote,
@@ -585,6 +654,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addClient,
       addClientWithContract,
       addProperty,
+      updateProperty,
       updateClient,
       getClient,
       addNote,

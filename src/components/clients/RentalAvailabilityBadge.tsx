@@ -16,7 +16,7 @@ type RentalAvailabilityBadgeProps = {
 
 /**
  * Phase-align breathe animations to one shared wall-clock timeline so every
- * Waiting to Connect tag expands/contracts together (no per-mount stagger).
+ * Waiting to Connect tag pulses together (same duration, delay, easing, loop).
  */
 function syncedBreatheStyle(): CSSProperties {
   const elapsed =
@@ -28,7 +28,7 @@ function syncedBreatheStyle(): CSSProperties {
 
 /**
  * Compact occupancy badge for Waiting to Connect / New Registrations.
- * Green + pulse when space remains; neutral when full or rental removed.
+ * Soft fill + shared pulse when space remains; neutral when full or rental removed.
  * Open-unit badges navigate to Rentals and briefly highlight the property row.
  */
 export function RentalAvailabilityBadge({

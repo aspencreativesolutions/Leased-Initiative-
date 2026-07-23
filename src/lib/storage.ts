@@ -7,8 +7,9 @@ import {
 import { normalizeClient } from '@/lib/clientUtils'
 import { migrateServiceTier } from '@/lib/serviceTiers'
 import { ensurePropertyMonthlyRent } from '@/lib/rentalRent'
+import { ensurePropertyBedLayout } from '@/lib/rentalBeds'
 import { normalizeRentalType } from '@/lib/rentalTypes'
-import { seedClients, seedProperties, defaultSettings, migrateSampleAddress } from '@/data/seed'
+import { seedClients, seedProperties, defaultSettings, migrateSampleAddress, linkClientsToPropertyBeds } from '@/data/seed'
 import { REMOVED_SAMPLE_CLIENT_EMAILS, REMOVED_SAMPLE_CLIENT_NAMES } from '@/data/sampleClients'
 
 const CLIENTS_KEY = 'client-craft-clients'
@@ -31,13 +32,14 @@ export function normalizeProperty(p: Property): Property {
     ...(Number.isFinite(baths) && baths > 0 ? { bathrooms: baths } : {}),
     ...(Number.isFinite(sqft) && sqft > 0 ? { squareFeet: Math.floor(sqft) } : {}),
   }
-  return ensurePropertyMonthlyRent(base)
+  return ensurePropertyMonthlyRent(ensurePropertyBedLayout(base))
 }
 
 export function loadClients(): Client[] {
   const raw = localStorage.getItem(CLIENTS_KEY)
+  const properties = loadProperties()
   if (!raw) {
-    const seeded = seedClients()
+    const seeded = linkClientsToPropertyBeds(seedClients(), properties)
     saveClients(seeded)
     return seeded
   }
@@ -50,11 +52,19 @@ export function loadClients(): Client[] {
     if (name && REMOVED_SAMPLE_CLIENT_NAMES.has(name)) return false
     return true
   })
+  const linked = linkClientsToPropertyBeds(clients, properties)
   const addressChanged = normalized.some(
     (client, index) => client.projectName !== parsed[index]?.projectName
   )
-  if (addressChanged || clients.length !== normalized.length) saveClients(clients)
-  return clients
+  const bedsLinked = linked.some(
+    (client, index) =>
+      client.bedId !== clients[index]?.bedId ||
+      client.bedroomId !== clients[index]?.bedroomId
+  )
+  if (addressChanged || clients.length !== normalized.length || bedsLinked) {
+    saveClients(linked)
+  }
+  return linked
 }
 
 export function saveClients(clients: Client[]): void {

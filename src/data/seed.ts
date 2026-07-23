@@ -1,5 +1,7 @@
 import type { BusinessSettings, Client, ProfileReminder, Property } from '@/types'
 import { getDemoAsOfIso, getDemoAsOfYmd } from '@/lib/demoClock'
+import { ensurePropertyBedLayout } from '@/lib/rentalBeds'
+import { addressesMatch } from '@/lib/properties'
 import { generateId } from '@/lib/storage'
 
 /** June 9, 2026 + 90 days */
@@ -107,7 +109,7 @@ function demoRelativeDate(daysFromDemoToday: number): string {
 /**
  * Curated landlord portfolio — real addresses within ~40 miles of Steubenville, OH.
  * Types and bedrooms match the actual properties. Duplex units include unit letters.
- * Each mock tenant is assigned a distinct property.
+ * Sample tenants share several of these rentals for household / roommate scenarios.
  */
 export function seedProperties(): Property[] {
   const now = getDemoAsOfIso()
@@ -292,15 +294,82 @@ export function seedProperties(): Property[] {
         zip: '43952',
       },
     },
-  ]
+  ].map((property) => ensurePropertyBedLayout(property as Property))
+}
+
+/**
+ * Map soft room labels onto bed inventory after properties are laid out.
+ * Couples on the same Queen share one bed id (e.g. demo couple scenarios).
+ */
+export function linkClientsToPropertyBeds(
+  clients: Client[],
+  properties: Property[]
+): Client[] {
+  const byAddress = properties.map((p) => ensurePropertyBedLayout(p))
+
+  const bedroomIndexFromLabel = (label?: string): number | null => {
+    if (!label?.trim()) return null
+    const lower = label.toLowerCase()
+    const roomMatch = lower.match(/(?:bedroom|room|bed)\s*([a-d1-4])/i)
+    if (roomMatch?.[1]) {
+      const token = roomMatch[1].toLowerCase()
+      if (/^[1-4]$/.test(token)) return Number(token) - 1
+      if (token === 'a') return 0
+      if (token === 'b') return 1
+      if (token === 'c') return 2
+      if (token === 'd') return 3
+    }
+    if (lower.includes('main')) return 0
+    if (lower.includes('upper')) return 1
+    return null
+  }
+
+  return clients.map((client) => {
+    const property = byAddress.find((p) =>
+      addressesMatch(p.address, client.projectName)
+    )
+    if (!property?.bedroomsLayout?.length) return client
+
+    if (client.bedId && client.bedroomId) {
+      const stillValid = property.bedroomsLayout.some(
+        (room) =>
+          room.id === client.bedroomId &&
+          room.beds.some((bed) => bed.id === client.bedId)
+      )
+      if (stillValid) return { ...client, propertyId: client.propertyId ?? property.id }
+    }
+
+    const index = bedroomIndexFromLabel(client.unitOrRoomLabel) ?? 0
+    const bedroom =
+      property.bedroomsLayout[Math.min(index, property.bedroomsLayout.length - 1)]
+    const bed = bedroom.beds[0]
+    if (!bed) return client
+
+    return {
+      ...client,
+      propertyId: property.id,
+      bedroomId: bedroom.id,
+      bedId: bed.id,
+      unitOrRoomLabel:
+        client.unitOrRoomLabel ||
+        `${bedroom.label} · ${bed.size === 'twin' ? 'Twin' : bed.size === 'full' ? 'Full' : bed.size === 'king' ? 'King' : 'Queen'} Bed`,
+    }
+  })
 }
 
 /**
  * Seed clients use Jan 1 / Aug 1 lease starts (6 or 12 months only). Full payment
  * histories are applied server-side by applyDemoLeaseFixturesToStore so landlord
- * and tenant stay in sync. Each sample tenant has a distinct Steubenville-area
- * property. Official Tenants (and Payments) list signed leases that are upcoming
- * or currently in term as of demo today (July 22).
+ * and tenant stay in sync. Official Tenants (and Payments) list signed leases that
+ * are upcoming or currently in term as of demo today (July 22).
+ *
+ * Household scenarios (bidirectional roommates via shared address):
+ * - Lisa: entire single-family home alone
+ * - James + Jordan: share one lease at Juanita
+ * - Ava + Noah: upcoming August apartment lease at Canton Rd
+ * - Priya + Ethan + Maya: share one house lease at Donnell
+ * - Chris + Sam: same Scioto address, separate upcoming August leases
+ * - Marcus: future lease start (Aug 1), alone
  */
 export function seedClients(): Client[] {
   const now = getDemoAsOfIso()
@@ -314,14 +383,17 @@ export function seedClients(): Client[] {
       projectType: 'House',
       projectName: '523 Juanita Street, Steubenville, OH 43952',
       projectDescription:
-        'January 1, 2026–January 1, 2027 lease — Active; shares $2,400 home with roommate (July rent past due).',
+        'Shares $2,400 home with Jordan on one lease — July rent past due; late payment history.',
       projectStatus: 'In Progress',
       contractStatus: 'Signed',
       paymentStatus: 'Overdue',
       serviceTier: 'Studio',
       leaseLengthMonths: 12,
       isOfficialClient: true,
-      officialClientSince: now,
+      officialClientSince: '2025-12-18T15:00:00.000Z',
+      occupancyArrangement: 'shared_home',
+      leaseGroupId: 'lease-juanita-523',
+      unitOrRoomLabel: 'Main floor',
       notes: [],
       deadlines: [
         {
@@ -336,7 +408,7 @@ export function seedClients(): Client[] {
       ],
       isSampleClient: true,
       demoLeaseStartDate: '2026-01-01',
-      createdAt: now,
+      createdAt: '2025-11-20T14:00:00.000Z',
     },
     {
       id: generateId(),
@@ -347,20 +419,23 @@ export function seedClients(): Client[] {
       projectType: 'House',
       projectName: '523 Juanita Street, Steubenville, OH 43952',
       projectDescription:
-        'Roommate at Juanita — $1,200 share of $2,400; $800 paid toward July (partial balance).',
+        'Roommate at Juanita on the shared lease — never paid late; $800 toward July.',
       projectStatus: 'In Progress',
       contractStatus: 'Signed',
       paymentStatus: 'Unpaid',
       serviceTier: 'Studio',
       leaseLengthMonths: 12,
       isOfficialClient: true,
-      officialClientSince: now,
+      officialClientSince: '2025-12-18T15:00:00.000Z',
       currentPeriodAmountPaid: 800,
+      occupancyArrangement: 'shared_home',
+      leaseGroupId: 'lease-juanita-523',
+      unitOrRoomLabel: 'Upper floor',
       notes: [],
       deadlines: [],
       isSampleClient: true,
       demoLeaseStartDate: '2026-01-01',
-      createdAt: now,
+      createdAt: '2025-11-22T16:30:00.000Z',
     },
     {
       id: generateId(),
@@ -378,6 +453,7 @@ export function seedClients(): Client[] {
       leaseLengthMonths: 12,
       isOfficialClient: false,
       followUpDate: demoRelativeDate(9),
+      occupancyArrangement: 'entire_home',
       notes: [
         {
           id: generateId(),
@@ -400,7 +476,7 @@ export function seedClients(): Client[] {
       ],
       isSampleClient: true,
       demoLeaseStartDate: '2026-08-01',
-      createdAt: now,
+      createdAt: '2026-07-08T12:00:00.000Z',
     },
     {
       id: generateId(),
@@ -411,19 +487,20 @@ export function seedClients(): Client[] {
       projectType: 'House',
       projectName: '77 Maryland Street, Wheeling, WV 26003',
       projectDescription:
-        'Signed 12-month lease begins August 1, 2026 — badge stays Signed until that date (not Active yet); first month already paid early.',
+        'Signed 12-month lease begins August 1, 2026 — lives alone; first month paid early.',
       projectStatus: 'Contract Signed',
       contractStatus: 'Signed',
       paymentStatus: 'Deposit Paid',
       serviceTier: 'Studio',
       leaseLengthMonths: 12,
       isOfficialClient: true,
-      officialClientSince: now,
+      officialClientSince: '2026-07-10T18:00:00.000Z',
+      occupancyArrangement: 'entire_home',
       notes: [],
       deadlines: [],
       isSampleClient: true,
       demoLeaseStartDate: '2026-08-01',
-      createdAt: now,
+      createdAt: '2026-06-28T11:00:00.000Z',
     },
     {
       id: generateId(),
@@ -434,20 +511,201 @@ export function seedClients(): Client[] {
       projectType: 'House',
       projectName: '285 Bethany Pike, Wellsburg, WV 26070',
       projectDescription:
-        'January 1, 2026–January 1, 2027 lease — Active; rent paid through July.',
+        'Entire single-family home alone — Active; rent paid on time through July.',
       projectStatus: 'In Progress',
       contractStatus: 'Signed',
       paymentStatus: 'Paid',
       serviceTier: 'Launch',
       leaseLengthMonths: 12,
       isOfficialClient: true,
-      officialClientSince: now,
+      officialClientSince: '2025-12-20T14:00:00.000Z',
+      occupancyArrangement: 'entire_home',
       followUpDate: demoRelativeDate(4),
       notes: [],
       deadlines: [],
       isSampleClient: true,
       demoLeaseStartDate: '2026-01-01',
-      createdAt: now,
+      createdAt: '2025-11-05T10:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Ava Torres',
+      businessName: 'Torres Design',
+      email: 'ava.torres@example.com',
+      phone: '(740) 555-0142',
+      projectType: 'Apartment',
+      projectName: '430 Canton Road, Unit 11, Wintersville, OH 43953',
+      projectDescription:
+        'Shares apartment Unit 11 with Noah — signed lease begins August 1, 2026; deposit paid.',
+      projectStatus: 'Contract Signed',
+      contractStatus: 'Signed',
+      paymentStatus: 'Deposit Paid',
+      serviceTier: 'Launch',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2026-07-08T16:00:00.000Z',
+      occupancyArrangement: 'shared_apartment',
+      leaseGroupId: 'lease-canton-11',
+      unitOrRoomLabel: 'Unit 11 · Bedroom A',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
+      createdAt: '2026-06-20T09:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Noah Patel',
+      businessName: 'Patel Labs',
+      email: 'noah.patel@example.com',
+      phone: '(740) 555-0177',
+      projectType: 'Apartment',
+      projectName: '430 Canton Road, Unit 11, Wintersville, OH 43953',
+      projectDescription:
+        'Shares apartment Unit 11 with Ava — signed lease begins August 1, 2026; deposit paid.',
+      projectStatus: 'Contract Signed',
+      contractStatus: 'Signed',
+      paymentStatus: 'Deposit Paid',
+      serviceTier: 'Launch',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2026-07-08T16:00:00.000Z',
+      occupancyArrangement: 'shared_apartment',
+      leaseGroupId: 'lease-canton-11',
+      unitOrRoomLabel: 'Unit 11 · Bedroom B',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
+      createdAt: '2026-06-22T13:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Priya Shah',
+      businessName: 'Shah Consulting',
+      email: 'priya.shah@example.com',
+      phone: '(304) 555-0101',
+      projectType: 'House',
+      projectName: '211 Donnell Street, Weirton, WV 26062',
+      projectDescription: 'One of three housemates on a shared Donnell lease.',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
+      paymentStatus: 'Paid',
+      serviceTier: 'Studio',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2025-12-22T12:00:00.000Z',
+      occupancyArrangement: 'shared_home',
+      leaseGroupId: 'lease-donnell-211',
+      unitOrRoomLabel: 'Room 1',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
+      createdAt: '2025-11-28T10:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Ethan Brooks',
+      businessName: 'Brooks Media',
+      email: 'ethan.brooks@example.com',
+      phone: '(304) 555-0102',
+      projectType: 'House',
+      projectName: '211 Donnell Street, Weirton, WV 26062',
+      projectDescription: 'One of three housemates on a shared Donnell lease.',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
+      paymentStatus: 'Paid',
+      serviceTier: 'Studio',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2025-12-22T12:00:00.000Z',
+      occupancyArrangement: 'shared_home',
+      leaseGroupId: 'lease-donnell-211',
+      unitOrRoomLabel: 'Room 2',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
+      createdAt: '2025-11-30T11:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Maya Lopez',
+      businessName: 'Lopez Studio',
+      email: 'maya.lopez@example.com',
+      phone: '(304) 555-0103',
+      projectType: 'House',
+      projectName: '211 Donnell Street, Weirton, WV 26062',
+      projectDescription: 'One of three housemates on a shared Donnell lease.',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
+      paymentStatus: 'Paid',
+      serviceTier: 'Studio',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2025-12-22T12:00:00.000Z',
+      occupancyArrangement: 'shared_home',
+      leaseGroupId: 'lease-donnell-211',
+      unitOrRoomLabel: 'Room 3',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
+      createdAt: '2025-12-01T15:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Chris Nguyen',
+      businessName: 'Nguyen Analytics',
+      email: 'chris.nguyen@example.com',
+      phone: '(740) 555-0188',
+      projectType: 'Townhouse',
+      projectName: '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+      projectDescription:
+        'Room rental at Scioto Unit A — signed lease begins August 1, 2026; deposit paid. Separate lease from Sam.',
+      projectStatus: 'Contract Signed',
+      contractStatus: 'Signed',
+      paymentStatus: 'Deposit Paid',
+      serviceTier: 'Launch',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2026-07-12T14:00:00.000Z',
+      occupancyArrangement: 'room_rental',
+      leaseGroupId: 'lease-scioto-chris',
+      unitOrRoomLabel: 'Room A',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
+      createdAt: '2026-06-25T09:00:00.000Z',
+    },
+    {
+      id: generateId(),
+      name: 'Sam Rivera',
+      businessName: 'Rivera Co.',
+      email: 'sam.rivera@example.com',
+      phone: '(740) 555-0191',
+      projectType: 'Townhouse',
+      projectName: '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+      projectDescription:
+        'Room rental at Scioto Unit A — signed lease begins August 1, 2026; deposit paid. Separate lease from Chris.',
+      projectStatus: 'Contract Signed',
+      contractStatus: 'Signed',
+      paymentStatus: 'Deposit Paid',
+      serviceTier: 'Launch',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: '2026-07-12T14:00:00.000Z',
+      occupancyArrangement: 'room_rental',
+      leaseGroupId: 'lease-scioto-sam',
+      unitOrRoomLabel: 'Room B',
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
+      createdAt: '2026-06-26T10:00:00.000Z',
     },
   ]
 }
+

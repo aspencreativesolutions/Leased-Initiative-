@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronDown,
+  Columns3,
   FileText,
   LayoutGrid,
   LayoutList,
@@ -24,20 +25,26 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/FormField'
-import { TileScaleControl } from '@/components/ui/TileScaleControl'
+import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { useApp } from '@/context/AppContext'
 import { isMappableAddress } from '@/lib/addressMap'
 import {
   getLeaseAgreementBadgeLabel,
   getLeaseAgreementBadgeRank,
   getLeaseAgreementStatusFilterLabel,
+  getLeaseAgreementStatusHoverDetail,
   nextLeaseAgreementStatusFilter,
   type LeaseAgreementStatusFilter,
   getLeaseTermProgress,
 } from '@/lib/clientUtils'
+import {
+  loadContractVisibleColumns,
+  saveContractVisibleColumns,
+  type ContractTableColumnId,
+} from '@/lib/contractTableColumns'
 import { monthsBetweenLeaseDates } from '@/lib/leaseSchedule'
 import { getTenantAssignedProperty } from '@/lib/officialTenantLocationDisplay'
-import { cn, formatDate } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import {
   contractMatchesLocationFilter,
   getContractLocationMeta,
@@ -45,15 +52,19 @@ import {
   type ContractLocationFilterKind,
 } from '@/lib/contractLocationFilters'
 import {
+  sectionTileGridClassName,
+  useMobileTileColumns,
+} from '@/lib/mobileTileColumns'
+import {
   LEASE_TILE_SCALE_DEFAULT,
-  leaseTileGridClassName,
   leaseTileScaleStyle,
-  useTileScale,
 } from '@/lib/tileScale'
+import { useIsMobileViewport } from '@/lib/useMediaQuery'
 
-/** Bumped so the new 100% default applies for existing sessions. */
-const CONTRACTS_TILE_SCALE_KEY = 'contracts-tile-scale-v2'
 const CONTRACTS_VIEW_KEY = 'contracts-view-mode'
+
+const LEASE_AGREEMENTS_HELP =
+  'Track lease status, term progress, and ending urgency across all tenants.'
 
 type ContractsViewMode = 'tile' | 'spreadsheet'
 
@@ -93,13 +104,17 @@ export function ContractsPage() {
   const [mapTarget, setMapTarget] = useState<{ address: string; tenantName: string } | null>(
     null
   )
-  const { scale, setScale, factor } = useTileScale(
-    CONTRACTS_TILE_SCALE_KEY,
-    LEASE_TILE_SCALE_DEFAULT
-  )
   const [viewMode, setViewMode] = useState<ContractsViewMode>(readViewModePreference)
+  const [arrangeColumns, setArrangeColumns] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState<ContractTableColumnId[]>(
+    loadContractVisibleColumns
+  )
   const [tableSortColumn, setTableSortColumn] = useState<ContractSortColumn>('tenant')
   const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('asc')
+  const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
+    useMobileTileColumns()
+  const isMobile = useIsMobileViewport()
+  const effectiveViewMode: ContractsViewMode = isMobile ? 'tile' : viewMode
 
   useEffect(() => {
     try {
@@ -107,7 +122,18 @@ export function ContractsPage() {
     } catch {
       /* ignore quota / private mode */
     }
+    if (viewMode !== 'spreadsheet') {
+      setArrangeColumns(false)
+    }
   }, [viewMode])
+
+  useEffect(() => {
+    if (isMobile) setArrangeColumns(false)
+  }, [isMobile])
+
+  useEffect(() => {
+    saveContractVisibleColumns(visibleColumns)
+  }, [visibleColumns])
 
   const regions = settings.contractRegions ?? []
 
@@ -201,13 +227,9 @@ export function ContractsPage() {
         ? getLeaseAgreementBadgeLabel(client, contract)
         : null
       const statusHoverDetail =
-        statusLabel === 'Active' || statusLabel === 'Signed'
-          ? contract.signedAt
-            ? formatDate(contract.signedAt)
-            : undefined
-          : statusLabel === 'Sent' && contract.sentAt
-            ? formatDate(contract.sentAt)
-            : undefined
+        client && statusLabel
+          ? getLeaseAgreementStatusHoverDetail(statusLabel, client, contract)
+          : undefined
       const durationMonths =
         client?.leaseLengthMonths && client.leaseLengthMonths > 0
           ? client.leaseLengthMonths
@@ -287,6 +309,14 @@ export function ContractsPage() {
   }
 
   useEffect(() => {
+    if (visibleColumns.includes(tableSortColumn)) return
+    const fallback = visibleColumns[0]
+    if (!fallback) return
+    setTableSortColumn(fallback)
+    setTableSortDirection('asc')
+  }, [visibleColumns, tableSortColumn])
+
+  useEffect(() => {
     if (!filterKind || !filterValue) return
     const stillValid = valueOptions.some((opt) => opt.value === filterValue)
     if (!stillValid) setFilterValue('')
@@ -348,7 +378,7 @@ export function ContractsPage() {
             <div
               role="group"
               aria-label="Lease agreements display"
-              className="inline-flex h-9 shrink-0 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-0.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]"
+              className="hidden h-9 shrink-0 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-0.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] md:inline-flex"
             >
               <button
                 type="button"
@@ -384,13 +414,28 @@ export function ContractsPage() {
               </button>
             </div>
 
-            {viewMode === 'tile' ? (
-              <TileScaleControl
-                variant="row"
-                value={scale}
-                onChange={setScale}
-                label="Lease tile size"
-                className="min-w-[12.5rem] flex-none"
+            {effectiveViewMode === 'spreadsheet' && !arrangeColumns ? (
+              <button
+                type="button"
+                onClick={() => setArrangeColumns(true)}
+                aria-pressed={false}
+                title="Edit Columns"
+                aria-label="Edit Columns"
+                className={cn(
+                  filterButtonClass,
+                  'hidden gap-1.5 md:inline-flex',
+                  'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                )}
+              >
+                <Columns3 className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Edit Columns</span>
+              </button>
+            ) : null}
+
+            {isMobile ? (
+              <MobileTileColumnsControl
+                value={mobileTileColumns}
+                onChange={setMobileTileColumns}
               />
             ) : null}
           </div>
@@ -406,8 +451,8 @@ export function ContractsPage() {
               <button
                 type="button"
                 onClick={cycleStatusFilter}
-                aria-label={`Lease status filter: ${getLeaseAgreementStatusFilterLabel(statusFilter)}. Click to cycle Any, Signed, Sent, Active.`}
-                title="Click to cycle lease status: Any → Signed → Sent → Active"
+                aria-label={`Lease status filter: ${getLeaseAgreementStatusFilterLabel(statusFilter)}. Click to cycle Any, Signed, Sent.`}
+                title="Click to cycle lease status: Any → Signed → Sent"
                 className={cn(
                   filterButtonClass,
                   'w-[6rem] shrink-0 justify-center',
@@ -511,7 +556,7 @@ export function ContractsPage() {
     <>
       <PageHeader
         title="Lease Agreements"
-        subtitle="Track lease status, term progress, and ending urgency across all tenants."
+        help={LEASE_AGREEMENTS_HELP}
         below={displaySettings}
       />
 
@@ -525,35 +570,38 @@ export function ContractsPage() {
         <EmptyState
           icon={MapPinned}
           title="No lease agreements match this filter"
-          description="Try another lease status (Any, Signed, Sent, or Active), area code, state, or group."
+          description="Try another lease status (Any, Signed, or Sent), area code, state, or group."
         />
-      ) : viewMode === 'spreadsheet' ? (
+      ) : effectiveViewMode === 'spreadsheet' ? (
         <ContractTable
           rows={tableRows}
           sortColumn={tableSortColumn}
           sortDirection={tableSortDirection}
           onSortChange={handleTableSortChange}
+          visibleColumns={visibleColumns}
+          onVisibleColumnsChange={setVisibleColumns}
+          arrangeColumns={arrangeColumns}
+          onArrangeDone={() => setArrangeColumns(false)}
           onDelete={(contractId) => {
             setPreselectedId(contractId)
             setDeleteOpen(true)
           }}
         />
       ) : (
-        <div className="tile-scale-root" style={leaseTileScaleStyle(factor)}>
-          <div className={leaseTileGridClassName(scale)}>
+        <div
+          className="tile-scale-root"
+          style={leaseTileScaleStyle(LEASE_TILE_SCALE_DEFAULT / 100)}
+        >
+          <div className={sectionTileGridClassName(mobileTileColumns)}>
             {filteredOptions.map(({ contract, client, clientName, address, progress }) => {
               const canMap = isMappableAddress(address)
               const statusLabel = client
                 ? getLeaseAgreementBadgeLabel(client, contract)
                 : null
               const statusHoverDetail =
-                statusLabel === 'Active' || statusLabel === 'Signed'
-                  ? contract.signedAt
-                    ? formatDate(contract.signedAt)
-                    : undefined
-                  : statusLabel === 'Sent' && contract.sentAt
-                    ? formatDate(contract.sentAt)
-                    : undefined
+                client && statusLabel
+                  ? getLeaseAgreementStatusHoverDetail(statusLabel, client, contract)
+                  : undefined
 
               return (
                 <Card
@@ -574,7 +622,11 @@ export function ContractsPage() {
                           <div className="lease-tile-card__status">
                             <StatusBadge
                               type="contract"
-                              status={client.contractStatus}
+                              status={
+                                statusLabel === 'Signed' || statusLabel === 'Sent'
+                                  ? statusLabel
+                                  : client.contractStatus
+                              }
                               label={statusLabel}
                               hoverDetail={statusHoverDetail}
                             />

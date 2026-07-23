@@ -20,8 +20,8 @@ describe('rentalOccupancyTone', () => {
     expect(rentalOccupancyRatio(1, 4)).toBe(0.75)
   })
 
-  it('labels fully occupied without a numeric open-unit cue', () => {
+  it('labels fully occupied without a numeric open-bed cue', () => {
     expect(rentalOccupancyStatusLabel(0, 3)).toBe('Fully occupied')
-    expect(rentalOccupancyStatusLabel(2, 4)).toBe('2 of 4 open units')
+    expect(rentalOccupancyStatusLabel(2, 4)).toBe('2 of 4 open beds')
   })
 })

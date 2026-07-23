@@ -38,6 +38,7 @@ import {
 import { readStore, updateStore, writeStore } from './db.js'
 import { ensureSamplePortalUsers, purgeRemovedSampleClients } from './lib/samplePortalUsers.js'
 import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
+import { ensureSampleHouseholdFields } from './lib/sampleClientDates.js'
 import { applyDemoLeaseFixturesToStore } from './lib/applyDemoLeaseFixtures.js'
 import devRoutes, { isAdminModeApiEnabled } from './routes/dev.js'
 import {
@@ -318,6 +319,11 @@ async function bootstrapSamplePortalUsers() {
       store = portalResult.store
     }
 
+    const householdResult = ensureSampleHouseholdFields(store)
+    if (householdResult.changed) {
+      store = householdResult.store
+    }
+
     const contractResult = ensureSampleClientContracts(store)
     if (contractResult.changed) {
       store = contractResult.store
@@ -332,6 +338,7 @@ async function bootstrapSamplePortalUsers() {
       demoResult.changed ||
       purgeResult.changed ||
       portalResult.changed ||
+      householdResult.changed ||
       contractResult.changed ||
       fixtures.changed
     ) {

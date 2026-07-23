@@ -6,7 +6,7 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { migrateServiceTier } from '@/lib/serviceTiers'
-import { formatDate, formatShortMonthDate } from '@/lib/utils'
+import { formatDate, formatMonthDay } from '@/lib/utils'
 import type {
   Client,
   ContractData,
@@ -84,7 +84,7 @@ export function getTenantAddress(client: Client, contract?: ContractData): strin
 }
 
 export interface LeaseStatusDetails {
-  /** Compact badge label, e.g. "Month 6 of 12" */
+  /** Compact badge label: Active | Upcoming | Expired (or fallback text) */
   status: string
   /** Timeline state used for badge styling */
   state?: LeaseTimelineState
@@ -92,7 +92,7 @@ export interface LeaseStatusDetails {
   currentMonth?: number
   /** Total lease length in months, when known */
   termMonths?: number
-  /** Optional end date (YYYY-MM-DD) shown beneath the status */
+  /** Optional end date (YYYY-MM-DD) — used in hover details */
   endDate?: string
   startDate?: string
   /** Whole days until lease end (Ending Soon); 0 = ends today */
@@ -101,27 +101,57 @@ export interface LeaseStatusDetails {
   daysUntilStart?: number
 }
 
-/** Hover copy for lease status badges — start date when in term, else timing detail. */
-export function getLeaseStatusHoverDetail(details: LeaseStatusDetails): string | undefined {
-  if (
-    details.startDate &&
-    details.currentMonth != null &&
-    details.termMonths != null &&
-    (details.state === 'Active' || details.state === 'Ending Soon')
-  ) {
-    return `Started ${formatShortMonthDate(details.startDate)}`
+/** Single-line hover summary for Official Tenants lease status tags. */
+export interface LeaseStatusHoverDetail {
+  /** e.g. "12 Mo · 01/01/26 - 12/31/26" */
+  summaryLine: string
+}
+
+/** Duration token for lease status hover — "12 Mo" / "MTM". */
+export function formatLeaseDurationHoverLine(termMonths?: number): string {
+  if (termMonths == null || termMonths <= 0) return 'MTM'
+  return `${termMonths} Mo`
+}
+
+/** Numeric lease hover date — MM/DD/YY. */
+export function formatLeaseStatusHoverDate(dateStr?: string): string | null {
+  if (!dateStr) return null
+  const d = dateStr.includes('T')
+    ? new Date(dateStr)
+    : new Date(`${dateStr.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const year = String(d.getFullYear()).slice(-2)
+  return `${month}/${day}/${year}`
+}
+
+/** Hover copy for lease status badges — duration · date range on one line. */
+export function getLeaseStatusHoverDetail(
+  details: LeaseStatusDetails
+): LeaseStatusHoverDetail | undefined {
+  const { startDate, endDate, termMonths } = details
+  if (!startDate && !endDate && (termMonths == null || termMonths <= 0)) {
+    return undefined
   }
-  if (details.state === 'Ending Soon' && details.daysRemaining != null) {
-    const days = details.daysRemaining
-    if (days <= 0) return 'Ends today'
-    return `${days} day${days === 1 ? '' : 's'} left`
+
+  const duration = formatLeaseDurationHoverLine(termMonths)
+  const startLabel = formatLeaseStatusHoverDate(startDate)
+  const endLabel = formatLeaseStatusHoverDate(endDate)
+
+  let summaryLine: string | undefined
+  if (startLabel && endLabel) {
+    summaryLine = `${duration} · ${startLabel} - ${endLabel}`
+  } else if (startLabel) {
+    summaryLine = `${duration} · ${startLabel}`
+  } else if (endLabel) {
+    summaryLine = `${duration} · ${endLabel}`
+  } else if (termMonths != null && termMonths > 0) {
+    summaryLine = duration
   }
-  if (details.state === 'Upcoming' && details.daysUntilStart != null) {
-    const days = details.daysUntilStart
-    if (days <= 0) return 'Starts today'
-    return `Starts in ${days} day${days === 1 ? '' : 's'}`
-  }
-  return undefined
+
+  if (!summaryLine) return undefined
+  return { summaryLine }
 }
 
 function parseLocalYmd(value: string): Date {
@@ -200,25 +230,11 @@ function resolveLeaseTimelineState(
   return 'Active'
 }
 
-function formatLeaseStatusBadgeLabel(
-  state: LeaseTimelineState,
-  currentMonth: number | undefined,
-  termMonths: number | undefined
-): string {
-  if (
-    (state === 'Active' || state === 'Ending Soon') &&
-    currentMonth != null &&
-    termMonths != null
-  ) {
-    return `Month ${currentMonth} of ${termMonths}`
-  }
-  if (state === 'Upcoming' && termMonths != null) {
-    return `Upcoming · ${termMonths}-Month Lease`
-  }
-  if (state === 'Expired') {
-    return 'Expired'
-  }
-  return state
+function formatLeaseStatusBadgeLabel(state: LeaseTimelineState): string {
+  if (state === 'Upcoming') return 'Upcoming'
+  if (state === 'Expired') return 'Expired'
+  // Active and Ending Soon both surface as Active in the Official Tenants column.
+  return 'Active'
 }
 
 /** Timeline lease status plus optional end date for tenant table cells. */
@@ -241,7 +257,7 @@ export function getLeaseStatusDetails(
         : Math.min(Math.max(elapsed, 1), termMonths)
 
     return {
-      status: formatLeaseStatusBadgeLabel(state, currentMonth, termMonths),
+      status: formatLeaseStatusBadgeLabel(state),
       state,
       currentMonth,
       termMonths,
@@ -537,24 +553,51 @@ export function getDisplayContractStatus(
 }
 
 /**
- * Lease Agreements tile/table badge: Sent → Signed (upcoming) → Active (term underway).
- * Signed leases whose start date has arrived (or already passed) show as Active.
+ * Lease Agreements tile/table badge: Sent or Signed.
+ * Signed covers upcoming, in-term (formerly Active), and completed/expired leases.
  */
 export function getLeaseAgreementBadgeLabel(
   client: Client,
   contract?: ContractData,
-  asOf?: Date
+  _asOf?: Date
 ): string {
   const status = getDisplayContractStatus(client, contract)
   if (status === 'Sent') return 'Sent'
-  if (status === 'Completed') return 'Completed'
-  if (status === 'Signed') {
-    const { state } = getLeaseStatusDetails(client, contract, asOf)
-    if (state === 'Active' || state === 'Ending Soon') return 'Active'
-    if (state === 'Expired') return 'Completed'
-    return 'Signed'
-  }
+  if (status === 'Signed' || status === 'Completed') return 'Signed'
   return status
+}
+
+/**
+ * Tooltip copy for Lease Agreements status tags (spreadsheet / tiles).
+ * Keeps the tag label short; lease term dates live in the hover message.
+ */
+export function getLeaseAgreementStatusHoverDetail(
+  label: string,
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): string | undefined {
+  switch (label) {
+    case 'Sent': {
+      if (!contract?.sentAt) return undefined
+      return `Sent ${formatMonthDay(contract.sentAt)}`
+    }
+    case 'Signed': {
+      const { startDate, endDate } = getLeaseStatusDetails(client, contract, asOf)
+      if (startDate && endDate) {
+        return `${formatMonthDay(startDate)} – ${formatMonthDay(endDate)}`
+      }
+      if (startDate) {
+        return `Starts ${formatMonthDay(startDate)}`
+      }
+      if (contract?.signedAt) {
+        return `Signed ${formatMonthDay(contract.signedAt)}`
+      }
+      return undefined
+    }
+    default:
+      return undefined
+  }
 }
 
 /** Sort rank for Lease Agreements status badges (lower = earlier in workflow). */
@@ -570,12 +613,8 @@ export function getLeaseAgreementBadgeRank(label: string): number {
       return 3
     case 'Signed':
       return 4
-    case 'Active':
-      return 5
-    case 'Completed':
-      return 6
     case 'Cancelled':
-      return 7
+      return 5
     default:
       return 99
   }
@@ -583,13 +622,9 @@ export function getLeaseAgreementBadgeRank(label: string): number {
 
 /**
  * Lease Agreements Display Settings → Lease Status cycle (after Any).
- * Order: Any → Signed → Sent → Active → Any
+ * Order: Any → Signed → Sent → Any
  */
-export const LEASE_AGREEMENT_STATUS_FILTERS = [
-  'Signed',
-  'Sent',
-  'Active',
-] as const
+export const LEASE_AGREEMENT_STATUS_FILTERS = ['Signed', 'Sent'] as const
 
 export type LeaseAgreementStatusFilter =
   (typeof LEASE_AGREEMENT_STATUS_FILTERS)[number]
@@ -616,7 +651,7 @@ export function getLeaseAgreementStatusFilterLabel(
   return filter ?? 'Any'
 }
 
-/** Advance Any → Signed → Sent → Active → Any. */
+/** Advance Any → Signed → Sent → Any. */
 export function nextLeaseAgreementStatusFilter(
   current: LeaseAgreementStatusFilter | null
 ): LeaseAgreementStatusFilter | null {

@@ -3,6 +3,7 @@ import {
   getLeaseAgreementBadgeLabel,
   getLeaseAgreementBadgeRank,
   getLeaseAgreementStatusFilterLabel,
+  getLeaseAgreementStatusHoverDetail,
   isLeaseAgreementStatusFilter,
   LEASE_AGREEMENT_STATUS_FILTERS,
   nextLeaseAgreementStatusFilter,
@@ -70,13 +71,13 @@ describe('getLeaseAgreementBadgeLabel', () => {
     ).toBe('Signed')
   })
 
-  it('labels signed in-term leases as Active once the start date has passed', () => {
+  it('labels signed in-term leases as Signed once the start date has passed', () => {
     expect(
       getLeaseAgreementBadgeLabel(makeClient(), makeContract(), demoToday)
-    ).toBe('Active')
+    ).toBe('Signed')
   })
 
-  it('labels ending-soon signed leases as Active', () => {
+  it('labels ending-soon signed leases as Signed', () => {
     expect(
       getLeaseAgreementBadgeLabel(
         makeClient(),
@@ -86,41 +87,118 @@ describe('getLeaseAgreementBadgeLabel', () => {
         }),
         demoToday
       )
-    ).toBe('Active')
+    ).toBe('Signed')
   })
 
-  it('ranks Active after Signed for spreadsheet status column order', () => {
+  it('labels completed / expired leases as Signed', () => {
+    expect(
+      getLeaseAgreementBadgeLabel(
+        makeClient({
+          projectStatus: 'Completed',
+          contractStatus: 'Completed',
+        }),
+        makeContract({
+          status: 'Completed',
+          startDate: '2025-01-01',
+          completionDate: '2025-12-31',
+        }),
+        demoToday
+      )
+    ).toBe('Signed')
+  })
+
+  it('ranks Signed after Sent for spreadsheet status column order', () => {
     expect(getLeaseAgreementBadgeRank('Sent')).toBeLessThan(
       getLeaseAgreementBadgeRank('Signed')
-    )
-    expect(getLeaseAgreementBadgeRank('Signed')).toBeLessThan(
-      getLeaseAgreementBadgeRank('Active')
     )
   })
 })
 
+describe('getLeaseAgreementStatusHoverDetail', () => {
+  it('shows lease start and end dates for Signed in-term leases', () => {
+    expect(
+      getLeaseAgreementStatusHoverDetail(
+        'Signed',
+        makeClient(),
+        makeContract({ startDate: '2026-07-01', completionDate: '2027-06-30' }),
+        demoToday
+      )
+    ).toBe('July 1 – June 30')
+  })
+
+  it('shows lease start and end dates for completed agreements labeled Signed', () => {
+    expect(
+      getLeaseAgreementStatusHoverDetail(
+        'Signed',
+        makeClient({
+          projectStatus: 'Completed',
+          contractStatus: 'Completed',
+          projectCompletedAt: '2026-07-01T12:00:00.000Z',
+        }),
+        makeContract({
+          status: 'Completed',
+          startDate: '2026-08-01',
+          completionDate: '2027-07-31',
+          signedAt: '2026-07-01',
+        }),
+        demoToday
+      )
+    ).toBe('August 1 – July 31')
+  })
+
+  it('shows Sent date', () => {
+    expect(
+      getLeaseAgreementStatusHoverDetail(
+        'Sent',
+        makeClient({
+          contractStatus: 'Sent',
+          projectStatus: 'Contract Sent',
+          isOfficialClient: false,
+        }),
+        makeContract({
+          status: 'Sent',
+          signedAt: undefined,
+          sentAt: '2026-07-01',
+        }),
+        demoToday
+      )
+    ).toBe('Sent July 1')
+  })
+
+  it('falls back to signed date when term dates are missing', () => {
+    expect(
+      getLeaseAgreementStatusHoverDetail(
+        'Signed',
+        makeClient(),
+        makeContract({
+          startDate: undefined,
+          completionDate: undefined,
+          signedAt: '2026-07-01',
+        }),
+        demoToday
+      )
+    ).toBe('Signed July 1')
+  })
+})
+
 describe('LEASE_AGREEMENT_STATUS_FILTERS', () => {
-  it('includes only Signed, Sent, and Active for the Display Settings cycle', () => {
-    expect(LEASE_AGREEMENT_STATUS_FILTERS).toEqual([
-      'Signed',
-      'Sent',
-      'Active',
-    ])
+  it('includes only Signed and Sent for the Display Settings cycle', () => {
+    expect(LEASE_AGREEMENT_STATUS_FILTERS).toEqual(['Signed', 'Sent'])
   })
 
   it('recognizes filter values used by Display Settings → Lease Status', () => {
     expect(isLeaseAgreementStatusFilter('Signed')).toBe(true)
-    expect(isLeaseAgreementStatusFilter('Active')).toBe(true)
+    expect(isLeaseAgreementStatusFilter('Sent')).toBe(true)
+    expect(isLeaseAgreementStatusFilter('Active')).toBe(false)
     expect(isLeaseAgreementStatusFilter('Not Started')).toBe(false)
     expect(isLeaseAgreementStatusFilter('Unknown')).toBe(false)
     expect(isLeaseAgreementStatusFilter(null)).toBe(false)
   })
 
-  it('cycles Any → Signed → Sent → Active → Any', () => {
+  it('cycles Any → Signed → Sent → Any', () => {
     expect(nextLeaseAgreementStatusFilter(null)).toBe('Signed')
     expect(nextLeaseAgreementStatusFilter('Signed')).toBe('Sent')
-    expect(nextLeaseAgreementStatusFilter('Sent')).toBe('Active')
-    expect(nextLeaseAgreementStatusFilter('Active')).toBe(null)
+    expect(nextLeaseAgreementStatusFilter('Sent')).toBe(null)
   })
 
   it('labels null as Any for the cycle button', () => {
@@ -149,7 +227,7 @@ describe('LEASE_AGREEMENT_STATUS_FILTERS', () => {
       }),
       demoToday
     )
-    const activeLabel = getLeaseAgreementBadgeLabel(
+    const inTermLabel = getLeaseAgreementBadgeLabel(
       makeClient(),
       makeContract(),
       demoToday
@@ -157,9 +235,9 @@ describe('LEASE_AGREEMENT_STATUS_FILTERS', () => {
 
     expect(signedLabel).toBe('Signed')
     expect(sentLabel).toBe('Sent')
-    expect(activeLabel).toBe('Active')
+    expect(inTermLabel).toBe('Signed')
     expect(isLeaseAgreementStatusFilter(signedLabel)).toBe(true)
     expect(isLeaseAgreementStatusFilter(sentLabel)).toBe(true)
-    expect(isLeaseAgreementStatusFilter(activeLabel)).toBe(true)
+    expect(isLeaseAgreementStatusFilter(inTermLabel)).toBe(true)
   })
 })

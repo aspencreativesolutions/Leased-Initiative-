@@ -4,6 +4,12 @@ import {
   ensurePropertyMonthlyRent,
   resolvePropertyMonthlyRent,
 } from './rentalRent.js'
+import {
+  ensurePropertyBedLayout,
+  isCompleteBedroomsLayout,
+  maxOccupancyFromLayout,
+  normalizeBedroomsLayout,
+} from './rentalBeds.js'
 
 export const PROPERTY_HOUSING_TYPES = [
   'Apartment',
@@ -275,6 +281,7 @@ export function createPropertyRecord({
   squareFeet,
   maxTenants,
   monthlyRent,
+  bedroomsLayout,
   createdAt,
   importedFromLeaseScan,
   addressDetails,
@@ -284,13 +291,19 @@ export function createPropertyRecord({
   const unitsCount = Number(unitCount)
   const beds = Number(bedrooms)
   const resolvedUnits = Number.isFinite(unitsCount) && unitsCount >= 1 ? Math.floor(unitsCount) : 1
+  const layout = normalizeBedroomsLayout(
+    bedroomsLayout,
+    Number.isFinite(beds) && beds >= 0 ? Math.floor(beds) : 1
+  )
+  const derivedMax = Math.max(1, maxOccupancyFromLayout(layout))
   const record = {
     id: generateId(),
     address: String(address).trim(),
     propertyType: normalizePropertyType(propertyType),
     unitCount: resolvedUnits,
-    bedrooms: Number.isFinite(beds) && beds >= 0 ? Math.floor(beds) : 0,
-    maxTenants: normalizeMaxTenants(maxTenants, resolvedUnits),
+    bedrooms: layout.length,
+    bedroomsLayout: layout,
+    maxTenants: derivedMax,
     createdAt: createdAt || new Date().toISOString(),
   }
   const baths = normalizeOptionalPositiveNumber(bathrooms)
@@ -311,14 +324,23 @@ export function createPropertyRecord({
     explicitRent != null
       ? Math.round(explicitRent)
       : resolvePropertyMonthlyRent(record)
+  // Preserve explicit maxTenants only when no layout was provided and value is valid
+  if (
+    !bedroomsLayout &&
+    Number.isFinite(Number(maxTenants)) &&
+    Number(maxTenants) >= 1
+  ) {
+    // Still prefer derived from migrated layout
+    record.maxTenants = derivedMax
+  }
   return record
 }
 
-/** Backfill propertyType / maxTenants / monthlyRent on legacy store records. */
+/** Backfill propertyType / maxTenants / monthlyRent / bedroomsLayout on legacy store records. */
 export function normalizeStoredProperty(property) {
   if (!property || typeof property !== 'object') return property
   const units = Math.max(1, Math.floor(Number(property.unitCount) || 1))
-  const next = {
+  let next = {
     ...property,
     address: String(property.address ?? '').trim(),
     propertyType: normalizePropertyType(property.propertyType),
@@ -335,7 +357,44 @@ export function normalizeStoredProperty(property) {
   const details = normalizeAddressDetails(property.addressDetails)
   if (details) next.addressDetails = details
   else delete next.addressDetails
+  next = ensurePropertyBedLayout(next)
   return ensurePropertyMonthlyRent(next)
+}
+
+export function updatePropertyRecord(existing, updates) {
+  const merged = {
+    ...existing,
+    ...updates,
+    id: existing.id,
+    createdAt: existing.createdAt,
+  }
+  if (updates.bedroomsLayout != null || updates.bedrooms != null) {
+    const layout = normalizeBedroomsLayout(
+      updates.bedroomsLayout ?? existing.bedroomsLayout,
+      updates.bedrooms ?? existing.bedrooms
+    )
+    merged.bedroomsLayout = layout
+    merged.bedrooms = layout.length
+    merged.maxTenants = Math.max(1, maxOccupancyFromLayout(layout))
+  }
+  if (updates.address != null) merged.address = String(updates.address).trim()
+  if (updates.propertyType != null) {
+    merged.propertyType = normalizePropertyType(updates.propertyType)
+  }
+  if (updates.unitCount != null) {
+    merged.unitCount = Math.max(1, Math.floor(Number(updates.unitCount) || 1))
+  }
+  if (updates.monthlyRent != null) {
+    const rent = normalizeOptionalPositiveNumber(updates.monthlyRent)
+    if (rent != null) merged.monthlyRent = Math.round(rent)
+  }
+  if (updates.addressDetails !== undefined) {
+    const details = normalizeAddressDetails(updates.addressDetails)
+    if (details) merged.addressDetails = details
+    else delete merged.addressDetails
+  }
+  if (updates.addressConfirmed === true) merged.addressConfirmed = true
+  return ensurePropertyMonthlyRent(ensurePropertyBedLayout(merged))
 }
 
 /** Apply curated seed fields onto a matching portfolio rental. */
@@ -501,14 +560,33 @@ export function validatePropertyInput(body) {
     return { error: 'Bedrooms must be a whole number 0 or greater' }
   }
 
-  const maxTenants = Number(body?.maxTenants)
-  if (
-    !Number.isFinite(maxTenants) ||
-    maxTenants < 1 ||
-    maxTenants > 500 ||
-    !Number.isInteger(maxTenants)
-  ) {
-    return { error: 'Maximum tenants allowed must be a whole number of at least 1' }
+  let bedroomsLayout
+  if (body?.bedroomsLayout != null) {
+    if (!Array.isArray(body.bedroomsLayout)) {
+      return { error: 'Bedroom configuration is invalid' }
+    }
+    bedroomsLayout = normalizeBedroomsLayout(body.bedroomsLayout, bedrooms)
+    if (!isCompleteBedroomsLayout(bedroomsLayout)) {
+      return { error: 'Configure at least one bed with a size for every bedroom' }
+    }
+  } else if (!body?.importedFromLeaseScan) {
+    // New landlord-created rentals should include layout; lease import may omit it
+    bedroomsLayout = normalizeBedroomsLayout(undefined, bedrooms)
+  }
+
+  const derivedMax = bedroomsLayout
+    ? Math.max(1, maxOccupancyFromLayout(bedroomsLayout))
+    : null
+
+  const maxTenantsRaw = Number(body?.maxTenants)
+  const maxTenants =
+    derivedMax != null
+      ? derivedMax
+      : Number.isFinite(maxTenantsRaw) && maxTenantsRaw >= 1 && Number.isInteger(maxTenantsRaw)
+        ? maxTenantsRaw
+        : null
+  if (maxTenants == null || maxTenants < 1 || maxTenants > 500) {
+    return { error: 'Maximum occupancy could not be determined from bed configuration' }
   }
 
   // Optional unit count for openings / lease import; default one unit per address
@@ -530,8 +608,9 @@ export function validatePropertyInput(body) {
     address,
     propertyType,
     unitCount: Math.floor(unitCount),
-    bedrooms: Math.floor(bedrooms),
+    bedrooms: bedroomsLayout ? bedroomsLayout.length : Math.floor(bedrooms),
     maxTenants: Math.floor(maxTenants),
+    ...(bedroomsLayout ? { bedroomsLayout } : {}),
     ...(monthlyRent != null ? { monthlyRent } : {}),
     addressConfirmed: true,
     addressDetails: normalizeAddressDetails(body?.addressDetails),

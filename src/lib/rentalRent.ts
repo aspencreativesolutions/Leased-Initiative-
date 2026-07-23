@@ -3,6 +3,10 @@ import {
   findPropertyByAddress,
   normalizePropertyAddress,
 } from '@/lib/properties'
+import {
+  ensurePropertyBedLayout,
+  tenantShareForAssignedBed,
+} from '@/lib/rentalBeds'
 import type {
   Client,
   ContractData,
@@ -201,20 +205,27 @@ export function buildRentalPricingSummary(
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined
 ): RentalPricingSummary {
-  const unitMonthlyRent = resolvePropertyMonthlyRent(property)
-  const active = activeTenantsAtProperty(property, clients, getContract)
+  const ensured = ensurePropertyBedLayout(property)
+  const unitMonthlyRent = resolvePropertyMonthlyRent(ensured)
+  const active = activeTenantsAtProperty(ensured, clients, getContract)
   const currentOccupancy = active.length
-  const customShares = active
-    .map((t) => Number(t.rentShareAmount))
-    .filter((n) => Number.isFinite(n) && n > 0)
-  // When every occupant has a custom share, show average; else equal split default
+
   let tenantShare: number | null = null
   if (currentOccupancy > 0) {
-    if (customShares.length === active.length) {
+    const shares = active.map((tenant) => {
+      const onSameBed = active.filter(
+        (t) => t.bedId && tenant.bedId && t.bedId === tenant.bedId
+      )
+      return tenantShareForAssignedBed(
+        ensured,
+        tenant,
+        onSameBed.length > 0 ? onSameBed : [tenant]
+      )
+    })
+    const valid = shares.filter((n): n is number => n != null && Number.isFinite(n))
+    if (valid.length > 0) {
       tenantShare =
-        Math.round(
-          (customShares.reduce((sum, n) => sum + n, 0) / customShares.length) * 100
-        ) / 100
+        Math.round((valid.reduce((sum, n) => sum + n, 0) / valid.length) * 100) / 100
     } else {
       tenantShare = tenantMonthlyShare({
         unitMonthlyRent,
@@ -226,9 +237,9 @@ export function buildRentalPricingSummary(
   return {
     unitMonthlyRent,
     currentOccupancy,
-    maxOccupancy: property.maxTenants,
+    maxOccupancy: ensured.maxTenants,
     tenantShare,
-    unitLabel: extractUnitLabel(property.address),
+    unitLabel: extractUnitLabel(ensured.address),
     isOccupied: currentOccupancy > 0,
     isShared: currentOccupancy > 1,
   }
@@ -287,7 +298,16 @@ export function resolveTenantRentResponsibility(
       ? [...active, client]
       : active
   const activeTenantCount = Math.max(1, cohort.length)
-  const tenantShare = tenantMonthlyShare({
+  const ensured = ensurePropertyBedLayout(property)
+  const onSameBed =
+    client.bedId != null
+      ? cohort.filter((t) => t.bedId === client.bedId)
+      : [client]
+  const tenantShare = tenantShareForAssignedBed(
+    ensured,
+    client,
+    onSameBed.length > 0 ? onSameBed : [client]
+  ) ?? tenantMonthlyShare({
     unitMonthlyRent,
     activeTenantCount,
     customShareAmount: client.rentShareAmount,

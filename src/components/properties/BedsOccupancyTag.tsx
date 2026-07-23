@@ -7,24 +7,29 @@ import { cn } from '@/lib/utils'
 export type BedsOccupancyOccupant = {
   id: string
   name: string
+  bedLabel?: string
 }
 
 type BedsOccupancyTagProps = {
   bedrooms: number
   currentTenants: number
   maxTenants: number
+  totalBeds: number
+  occupiedBeds: number
   occupants: BedsOccupancyOccupant[]
   className?: string
 }
 
 /**
- * Compact beds + occupancy tag for rental tiles.
+ * Compact people + beds occupancy tag for rental tiles.
  * Hover swaps to “See Occupants”; click reveals the current occupant list.
  */
 export function BedsOccupancyTag({
   bedrooms,
   currentTenants,
   maxTenants,
+  totalBeds,
+  occupiedBeds,
   occupants,
   className,
 }: BedsOccupancyTagProps) {
@@ -32,10 +37,12 @@ export function BedsOccupancyTag({
   const rootRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
-  const bedLabel = `${bedrooms} ${bedrooms === 1 ? 'bed' : 'beds'}`
-  const occupancyLabel = `${currentTenants} out of ${maxTenants} occupied`
-  const label = `${bedLabel}, ${occupancyLabel}`
+  const peopleLabel = `Occupancy: ${currentTenants} of ${maxTenants} people`
+  const bedsLabel = `Beds: ${occupiedBeds} of ${totalBeds} occupied`
+  const label = `${peopleLabel} · ${bedsLabel}`
   const hoverLabel = 'See Occupants'
+  const roomHint =
+    bedrooms === 1 ? '1 bedroom' : `${bedrooms} bedrooms`
 
   useEffect(() => {
     if (!open) return
@@ -87,7 +94,7 @@ export function BedsOccupancyTag({
             </>
           }
           secondary={<span className="whitespace-nowrap">{hoverLabel}</span>}
-          ariaLabel={`${label}. ${hoverLabel}`}
+          ariaLabel={`${label}. ${roomHint}. ${hoverLabel}`}
           requireRevealBeforeActivate
           layerClassName="gap-[0.35rem]"
           className="beds-occupancy-tag__trigger beds-occupancy-tag__trigger--swap"
@@ -99,32 +106,28 @@ export function BedsOccupancyTag({
       )}
 
       {open ? (
-        <div
-          id={listId}
-          className="beds-occupancy-tag__panel"
-          role="region"
-          aria-label="Current occupants"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p className="beds-occupancy-tag__panel-title">Current occupants</p>
+        <ul id={listId} className="beds-occupancy-tag__list" role="list">
           {occupants.length === 0 ? (
-            <p className="beds-occupancy-tag__empty">No current occupants</p>
+            <li className="beds-occupancy-tag__empty">No current occupants</li>
           ) : (
-            <ul className="beds-occupancy-tag__list">
-              {occupants.map((occupant) => (
-                <li key={occupant.id}>
-                  <Link
-                    to={`/studio/clients/${occupant.id}`}
-                    className="beds-occupancy-tag__link"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {occupant.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            occupants.map((occupant) => (
+              <li key={occupant.id}>
+                <Link
+                  to={`/clients/${occupant.id}`}
+                  className="beds-occupancy-tag__link"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {occupant.name}
+                  {occupant.bedLabel ? (
+                    <span className="block text-[10px] font-normal text-ink-muted">
+                      {occupant.bedLabel}
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            ))
           )}
-        </div>
+        </ul>
       ) : null}
     </div>
   )

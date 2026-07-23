@@ -11,6 +11,7 @@ import {
 } from './leasedDemoUsers.js'
 import { ensureSamplePortalUsers, purgeRemovedSampleClients } from './samplePortalUsers.js'
 import { ensureSampleClientContracts } from './sampleClientContracts.js'
+import { ensureSampleHouseholdFields } from './sampleClientDates.js'
 import { purgeImportedLeaseScanData } from './purgeImportedLeaseScan.js'
 import { ensureStoreProperties } from './properties.js'
 
@@ -76,6 +77,9 @@ export async function preparePublicDemoStore() {
 
   const portalResult = await ensureSamplePortalUsers(store)
   store = portalResult.store
+
+  const householdResult = ensureSampleHouseholdFields(store)
+  store = householdResult.store
 
   const contractResult = ensureSampleClientContracts(store)
   store = contractResult.store

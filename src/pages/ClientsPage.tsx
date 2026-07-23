@@ -6,26 +6,25 @@ import { ClientAccountsModal } from '@/components/clients/ClientAccountsModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { OfficialTenantsSortControls } from '@/components/clients/OfficialTenantsSortControls'
 import { SendInviteModal } from '@/components/clients/SendInviteModal'
+import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { TenantPipelineSections } from '@/components/clients/TenantPipelineSections'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/FormField'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
+import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { useApp } from '@/context/AppContext'
 import {
   getClientServiceTier,
   getProjectStatusDisplayLabel,
   shouldShowInOfficialTenants,
 } from '@/lib/clientUtils'
-import {
-  loadOfficialTenantLocationDisplayMode,
-  saveOfficialTenantLocationDisplayMode,
-  type OfficialTenantLocationDisplayMode,
-} from '@/lib/officialTenantLocationDisplay'
+import { useMobileTileColumns } from '@/lib/mobileTileColumns'
+import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import {
   sortOfficialTenants,
   type OfficialTenantAddressFocus,
-  type OfficialTenantSortMode,
 } from '@/lib/officialTenantSort'
 import { SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ServiceTier } from '@/types'
@@ -44,17 +43,17 @@ export function ClientsPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [accountsOpen, setAccountsOpen] = useState(false)
+  const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<ProjectStatus | ''>('')
   const [contractFilter, setContractFilter] = useState<ContractStatus | ''>('')
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | ''>('')
   const [tierFilter, setTierFilter] = useState<ServiceTier | ''>('')
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'upcoming' | 'overdue'>('all')
-  const [sortMode, setSortMode] = useState<OfficialTenantSortMode>('officialDate')
   const [addressFocus, setAddressFocus] = useState<OfficialTenantAddressFocus>({ kind: 'all' })
-  const [locationDisplayMode, setLocationDisplayMode] = useState<OfficialTenantLocationDisplayMode>(
-    loadOfficialTenantLocationDisplayMode
-  )
+  const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
+    useMobileTileColumns()
+  const isMobile = useIsMobileViewport()
 
   useEffect(() => {
     if (!location.hash) return
@@ -80,6 +79,7 @@ export function ClientsPage() {
         c.name.toLowerCase().includes(q) ||
         c.businessName.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
+        (c.phone ?? '').toLowerCase().includes(q) ||
         c.projectName.toLowerCase().includes(q)
 
       const matchesProject = !projectFilter || c.projectStatus === projectFilter
@@ -118,10 +118,8 @@ export function ClientsPage() {
       matched,
       getContractForClient,
       regions,
-      sortMode === 'officialDate'
-        ? { mode: 'officialDate' }
-        : { mode: 'address', focus: addressFocus },
-      { properties, locationDisplayMode }
+      { mode: 'address', focus: addressFocus },
+      { properties, locationDisplayMode: 'address' }
     )
   }, [
     clients,
@@ -133,10 +131,8 @@ export function ClientsPage() {
     deadlineFilter,
     getContractForClient,
     regions,
-    sortMode,
     addressFocus,
     properties,
-    locationDisplayMode,
   ])
 
   const actualTenants = useMemo(
@@ -149,11 +145,9 @@ export function ClientsPage() {
     <div className="w-full min-w-0">
       <div className="mb-5 border-b-[length:var(--border-width)] border-ink pb-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
             <h1 className="heading-display text-2xl sm:text-3xl">Tenants</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              Review Official Tenants, Waiting to Connect, and Pending Tenants in one place.
-            </p>
+            <SectionHelpIcon label="Review Official Tenants, Waiting to Connect, and Pending Tenants in one place." />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -176,14 +170,18 @@ export function ClientsPage() {
 
       <section data-onboarding="tenants-directory" className="pb-8">
         <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Users className="h-4 w-4 text-ink-muted" />
               <h2 className="heading-display text-lg">Official Tenants</h2>
+              <SectionHelpIcon label="Search and filter tenants with signed leases that are active or starting soon." />
             </div>
-            <p className="text-sm text-ink-muted">
-              Search and filter tenants with signed leases that are active or starting soon.
-            </p>
+            {isMobile && filtered.length > 0 ? (
+              <MobileTileColumnsControl
+                value={mobileTileColumns}
+                onChange={setMobileTileColumns}
+              />
+            ) : null}
           </div>
 
           <Card className="w-full shrink-0 p-3 lg:w-auto" padding="none">
@@ -193,9 +191,7 @@ export function ClientsPage() {
                 getContractForClient={getContractForClient}
                 regions={regions}
                 properties={properties}
-                sortMode={sortMode}
                 addressFocus={addressFocus}
-                onSortModeChange={setSortMode}
                 onAddressFocusChange={setAddressFocus}
               />
               <div className="flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2.5 xl:flex-nowrap">
@@ -286,11 +282,9 @@ export function ClientsPage() {
         ) : (
           <ClientTable
             clients={filtered}
-            locationDisplayMode={locationDisplayMode}
-            onLocationDisplayModeChange={(mode) => {
-              saveOfficialTenantLocationDisplayMode(mode)
-              setLocationDisplayMode(mode)
-            }}
+            mobileTileColumns={mobileTileColumns}
+            onMobileTileColumnsChange={setMobileTileColumns}
+            onOpenTenantDetails={setDetailsTenantId}
           />
         )}
       </section>
@@ -314,6 +308,12 @@ export function ClientsPage() {
         open={accountsOpen}
         onClose={() => setAccountsOpen(false)}
         onChanged={refresh}
+      />
+      <TenantDetailsModal
+        tenantId={detailsTenantId}
+        open={Boolean(detailsTenantId)}
+        onClose={() => setDetailsTenantId(null)}
+        onSelectTenant={setDetailsTenantId}
       />
     </div>
   )

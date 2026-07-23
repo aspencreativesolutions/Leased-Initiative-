@@ -163,7 +163,7 @@ export const DEMO_LEASE_SCENARIOS = {
     },
   },
 
-  // Active 12-month term (Jan 1 → Dec 31); rent current through July (fully paid)
+  // Active 12-month term (Jan 1 → Dec 31); rent current through July — never late
   // Lease Agreements badge: Active — listed under Official Tenants + Payments
   'lisa@parkphoto.com': {
     leaseStartMonth: 'january',
@@ -179,8 +179,126 @@ export const DEMO_LEASE_SCENARIOS = {
       '2026-03-01': { kind: 'paid_early', paidAt: '2026-02-24' },
       '2026-04-01': { kind: 'paid', paidAt: '2026-04-01' },
       '2026-05-01': { kind: 'paid', paidAt: '2026-05-01' },
-      '2026-06-01': { kind: 'paid_late', paidAt: '2026-06-14' },
+      '2026-06-01': { kind: 'paid', paidAt: '2026-06-01' },
       '2026-07-01': { kind: 'paid', paidAt: '2026-07-01' },
+    },
+  },
+
+  // Shared Canton Rd apartment — upcoming Aug 2026 start; deposit paid ($725 share)
+  // Lease Agreements badge: Signed (not Active until Aug 1)
+  'ava.torres@example.com': {
+    leaseStartMonth: 'august',
+    leaseMonths: 12,
+    monthlyRent: 725,
+    paymentProvider: 'stripe',
+    paymentStatus: 'Deposit Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'Contract Signed',
+    leaseNotStarted: true,
+    months: {
+      '2026-08-01': { kind: 'paid_early', paidAt: getDemoAsOfYmd() },
+    },
+  },
+
+  // Shared Canton Rd apartment — upcoming Aug 2026 start with Ava; deposit paid
+  'noah.patel@example.com': {
+    leaseStartMonth: 'august',
+    leaseMonths: 12,
+    monthlyRent: 725,
+    paymentProvider: 'paypal',
+    paymentStatus: 'Deposit Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'Contract Signed',
+    leaseNotStarted: true,
+    months: {
+      '2026-08-01': { kind: 'paid_early', paidAt: getDemoAsOfYmd() },
+    },
+  },
+
+  // Three housemates at Donnell — equal $950 share of $2,850
+  'priya.shah@example.com': {
+    leaseStartMonth: 'january',
+    leaseMonths: 12,
+    monthlyRent: 950,
+    paymentProvider: 'stripe',
+    paymentStatus: 'Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'In Progress',
+    months: {
+      '2026-01-01': { kind: 'paid', paidAt: '2026-01-01' },
+      '2026-02-01': { kind: 'paid', paidAt: '2026-02-01' },
+      '2026-03-01': { kind: 'paid', paidAt: '2026-03-01' },
+      '2026-04-01': { kind: 'paid', paidAt: '2026-04-01' },
+      '2026-05-01': { kind: 'paid', paidAt: '2026-05-01' },
+      '2026-06-01': { kind: 'paid', paidAt: '2026-06-01' },
+      '2026-07-01': { kind: 'paid', paidAt: '2026-07-01' },
+    },
+  },
+
+  'ethan.brooks@example.com': {
+    leaseStartMonth: 'january',
+    leaseMonths: 12,
+    monthlyRent: 950,
+    paymentProvider: 'square',
+    paymentStatus: 'Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'In Progress',
+    months: {
+      '2026-01-01': { kind: 'paid', paidAt: '2026-01-01' },
+      '2026-02-01': { kind: 'paid', paidAt: '2026-02-01' },
+      '2026-03-01': { kind: 'paid_early', paidAt: '2026-02-25' },
+      '2026-04-01': { kind: 'paid', paidAt: '2026-04-01' },
+      '2026-05-01': { kind: 'paid', paidAt: '2026-05-01' },
+      '2026-06-01': { kind: 'paid', paidAt: '2026-06-01' },
+      '2026-07-01': { kind: 'paid', paidAt: '2026-07-01' },
+    },
+  },
+
+  'maya.lopez@example.com': {
+    leaseStartMonth: 'january',
+    leaseMonths: 12,
+    monthlyRent: 950,
+    paymentProvider: 'paypal',
+    paymentStatus: 'Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'In Progress',
+    months: {
+      '2026-01-01': { kind: 'paid', paidAt: '2026-01-01' },
+      '2026-02-01': { kind: 'paid', paidAt: '2026-02-01' },
+      '2026-03-01': { kind: 'paid', paidAt: '2026-03-01' },
+      '2026-04-01': { kind: 'paid', paidAt: '2026-04-01' },
+      '2026-05-01': { kind: 'paid', paidAt: '2026-05-01' },
+      '2026-06-01': { kind: 'paid', paidAt: '2026-06-01' },
+      '2026-07-01': { kind: 'paid', paidAt: '2026-07-01' },
+    },
+  },
+
+  // Scioto Unit A — separate upcoming Aug 2026 leases, same address (room rentals)
+  'chris.nguyen@example.com': {
+    leaseStartMonth: 'august',
+    leaseMonths: 12,
+    monthlyRent: 875,
+    paymentProvider: 'stripe',
+    paymentStatus: 'Deposit Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'Contract Signed',
+    leaseNotStarted: true,
+    months: {
+      '2026-08-01': { kind: 'paid_early', paidAt: getDemoAsOfYmd() },
+    },
+  },
+
+  'sam.rivera@example.com': {
+    leaseStartMonth: 'august',
+    leaseMonths: 12,
+    monthlyRent: 875,
+    paymentProvider: 'square',
+    paymentStatus: 'Deposit Paid',
+    contractStatus: 'Signed',
+    projectStatus: 'Contract Signed',
+    leaseNotStarted: true,
+    months: {
+      '2026-08-01': { kind: 'paid_early', paidAt: getDemoAsOfYmd() },
     },
   },
 }

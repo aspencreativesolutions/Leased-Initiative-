@@ -1,72 +1,82 @@
+import {
+  hideSpreadsheetColumn,
+  hiddenSpreadsheetColumns,
+  moveSpreadsheetColumn,
+  normalizeVisibleSpreadsheetColumns,
+  redistributeColumnWidths,
+  restoreSpreadsheetColumn,
+  saveVisibleSpreadsheetColumns,
+} from '@/lib/spreadsheetColumnVisibility'
+
 export const TENANT_TABLE_COLUMN_ORDER_KEY = 'tenant-dashboard-column-order'
 
 export type TenantTableColumnId =
   | 'tenant'
-  | 'email'
+  | 'contact'
   | 'address'
-  | 'leaseStatus'
   | 'paymentStatus'
   | 'actions'
 
 export const DEFAULT_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
   'tenant',
-  'email',
+  'contact',
   'address',
-  'leaseStatus',
   'paymentStatus',
   'actions',
 ]
 
-/** Data columns that can be rearranged; Actions stays pinned on the right. */
+/** Data columns that can be rearranged or hidden; Actions stays pinned on the right. */
 export const REORDERABLE_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
   'tenant',
-  'email',
+  'contact',
   'address',
-  'leaseStatus',
   'paymentStatus',
 ]
 
-const COLUMN_SET = new Set<string>(DEFAULT_TENANT_TABLE_COLUMNS)
-
 export const TENANT_TABLE_COLUMN_WIDTHS: Record<TenantTableColumnId, string> = {
-  tenant: '14%',
-  email: '16%',
-  address: '22%',
-  leaseStatus: '14%',
+  // Name + lease status badge underneath.
+  tenant: '18%',
+  contact: '18%',
+  // Widest data column — full property address wraps, never ellipsizes.
+  address: '36%',
   // Wide enough for expanded hover copy (e.g. "22 days late · Due July 1")
-  paymentStatus: '26%',
+  paymentStatus: '20%',
   actions: '8%',
 }
 
+export const TENANT_TABLE_ACTIONS_RESERVED_PERCENT = 8
+
 export const TENANT_TABLE_COLUMN_LABELS: Record<TenantTableColumnId, string> = {
-  tenant: 'Name',
-  email: 'Email',
+  tenant: 'Tenant',
+  contact: 'Contact',
   address: 'Address',
-  leaseStatus: 'Lease Status',
   paymentStatus: 'Payment Status',
   actions: 'Actions',
 }
 
+const REORDERABLE_WIDTH_DEFS = REORDERABLE_TENANT_TABLE_COLUMNS.map((id) => ({
+  id,
+  width: TENANT_TABLE_COLUMN_WIDTHS[id],
+}))
+
+/**
+ * Normalize a persisted layout: keep known reorderable ids (unique) in saved
+ * relative order. Missing ids stay hidden. Always pin Actions last.
+ * Legacy `leaseStatus` column ids are dropped (badge now lives under the name).
+ * Legacy `email` column ids map to `contact`.
+ */
 export function normalizeTenantTableColumns(
   order: unknown
 ): TenantTableColumnId[] {
-  if (!Array.isArray(order)) return [...DEFAULT_TENANT_TABLE_COLUMNS]
-
-  const seen = new Set<TenantTableColumnId>()
-  const reorderable: TenantTableColumnId[] = []
-
-  for (const id of order) {
-    if (typeof id !== 'string' || !COLUMN_SET.has(id)) continue
-    const columnId = id as TenantTableColumnId
-    if (columnId === 'actions' || seen.has(columnId)) continue
-    seen.add(columnId)
-    reorderable.push(columnId)
-  }
-
-  for (const id of REORDERABLE_TENANT_TABLE_COLUMNS) {
-    if (!seen.has(id)) reorderable.push(id)
-  }
-
+  const remapped = Array.isArray(order)
+    ? order.map((id) => (id === 'email' ? 'contact' : id))
+    : order
+  const reorderable = normalizeVisibleSpreadsheetColumns(
+    Array.isArray(remapped)
+      ? remapped.filter((id) => id !== 'actions' && id !== 'leaseStatus')
+      : remapped,
+    REORDERABLE_TENANT_TABLE_COLUMNS
+  )
   return [...reorderable, 'actions']
 }
 
@@ -81,30 +91,90 @@ export function loadTenantTableColumnOrder(): TenantTableColumnId[] {
 }
 
 export function saveTenantTableColumnOrder(order: TenantTableColumnId[]): void {
-  localStorage.setItem(
+  const reorderable = normalizeVisibleSpreadsheetColumns(
+    order.filter((id) => id !== 'actions'),
+    REORDERABLE_TENANT_TABLE_COLUMNS
+  )
+  saveVisibleSpreadsheetColumns(
     TENANT_TABLE_COLUMN_ORDER_KEY,
-    JSON.stringify(normalizeTenantTableColumns(order))
+    reorderable,
+    REORDERABLE_TENANT_TABLE_COLUMNS
   )
 }
 
-/** Clears any saved layout and returns the default column order. */
+/** Clears any saved layout and returns the default column order (all visible). */
 export function resetTenantTableColumnOrder(): TenantTableColumnId[] {
   localStorage.removeItem(TENANT_TABLE_COLUMN_ORDER_KEY)
   return [...DEFAULT_TENANT_TABLE_COLUMNS]
 }
 
 export function moveTenantTableColumn(
-  order: TenantTableColumnId[],
+  order: readonly TenantTableColumnId[],
   fromId: TenantTableColumnId,
   toId: TenantTableColumnId
 ): TenantTableColumnId[] {
-  if (fromId === toId || fromId === 'actions' || toId === 'actions') {
+  if (fromId === 'actions' || toId === 'actions') {
     return normalizeTenantTableColumns(order)
   }
 
-  const next = order.filter((id) => id !== 'actions' && id !== fromId)
-  const toIndex = next.indexOf(toId)
-  if (toIndex === -1) return normalizeTenantTableColumns(order)
-  next.splice(toIndex, 0, fromId)
-  return normalizeTenantTableColumns(next)
+  const reorderable = order.filter((id) => id !== 'actions')
+  return normalizeTenantTableColumns(
+    moveSpreadsheetColumn(reorderable, fromId, toId)
+  )
+}
+
+export function hideTenantTableColumn(
+  order: TenantTableColumnId[],
+  columnId: TenantTableColumnId
+): TenantTableColumnId[] {
+  if (columnId === 'actions') return normalizeTenantTableColumns(order)
+  const reorderable = order.filter((id) => id !== 'actions')
+  if (reorderable.length <= 1) return normalizeTenantTableColumns(order)
+  return normalizeTenantTableColumns(hideSpreadsheetColumn(reorderable, columnId))
+}
+
+export function restoreTenantTableColumn(
+  order: TenantTableColumnId[],
+  columnId: TenantTableColumnId
+): TenantTableColumnId[] {
+  if (columnId === 'actions') return normalizeTenantTableColumns(order)
+  const reorderable = order.filter((id) => id !== 'actions')
+  return normalizeTenantTableColumns(
+    restoreSpreadsheetColumn(
+      reorderable,
+      columnId,
+      REORDERABLE_TENANT_TABLE_COLUMNS
+    )
+  )
+}
+
+/** Hidden data columns in default order (for the Edit Columns banner). */
+export function hiddenTenantTableColumns(
+  order: TenantTableColumnId[]
+): TenantTableColumnId[] {
+  return hiddenSpreadsheetColumns(
+    order.filter((id) => id !== 'actions'),
+    REORDERABLE_TENANT_TABLE_COLUMNS
+  )
+}
+
+/** Percentage widths for the currently visible columns (actions reserved). */
+export function tenantTableColumnWidths(
+  order: TenantTableColumnId[]
+): Record<TenantTableColumnId, string> {
+  const visibleReorderable = order.filter(
+    (id): id is Exclude<TenantTableColumnId, 'actions'> => id !== 'actions'
+  )
+  const widths = redistributeColumnWidths(
+    REORDERABLE_WIDTH_DEFS,
+    visibleReorderable,
+    TENANT_TABLE_ACTIONS_RESERVED_PERCENT
+  )
+  return {
+    ...Object.fromEntries(
+      DEFAULT_TENANT_TABLE_COLUMNS.map((id) => [id, TENANT_TABLE_COLUMN_WIDTHS[id]])
+    ),
+    ...widths,
+    actions: TENANT_TABLE_COLUMN_WIDTHS.actions,
+  } as Record<TenantTableColumnId, string>
 }

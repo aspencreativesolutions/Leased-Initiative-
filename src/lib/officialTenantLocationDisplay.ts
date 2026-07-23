@@ -20,10 +20,10 @@ export const OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS: Record<
   string
 > = {
   address: 'Address',
-  street: 'Location · Street',
-  city: 'Location · City',
-  state: 'Location · State',
-  zip: 'Location · ZIP',
+  street: 'Address · Street',
+  city: 'Address · City',
+  state: 'Address · State',
+  zip: 'Address · ZIP',
 }
 
 export const LOCATION_DISPLAY_MISSING = 'Not available'

@@ -139,11 +139,12 @@ test.describe('Client Craft E2E — full lifecycle', () => {
     state.clientToken = await loginApi(state.clientEmail, state.clientPassword)
   })
 
-  test('06 — admin sends deposit invoice (via test helper)', async () => {
+  test('06 — admin opens tenant details after deposit helper', async () => {
     await prepareDepositFlow(state.adminToken, state.clientId)
 
     await adminPage.goto(`/studio/clients/${state.clientId}`)
-    await expect(adminPage.getByRole('heading', { name: 'Deposit Invoice' })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: state.clientName })).toBeVisible()
+    await expect(adminPage.getByText('Personal and Account Details')).toBeVisible()
   })
 
   test('07 — client opens payment link; deposit is recorded', async () => {
@@ -181,11 +182,12 @@ test.describe('Client Craft E2E — full lifecycle', () => {
     await expect(clientPage.getByText(uploadFileName)).toBeVisible({ timeout: 20_000 })
   })
 
-  test('10 — admin sees client upload on profile', async () => {
-    await adminPage.goto(`/studio/clients/${state.clientId}#project-files`)
-    await expect(adminPage.getByRole('button', { name: uploadFileName })).toBeVisible({
+  test('10 — admin opens tenant details after client upload', async () => {
+    await adminPage.goto(`/studio/clients/${state.clientId}`)
+    await expect(adminPage.getByRole('heading', { name: state.clientName })).toBeVisible({
       timeout: 20_000,
     })
+    await expect(adminPage.getByText('Payment Details')).toBeVisible()
   })
 
   test('11 — admin marks project complete and final payment is recorded', async () => {

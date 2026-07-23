@@ -12,6 +12,11 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
+import {
+  buildRentalBedOccupancy,
+  ensurePropertyBedLayout,
+  type RentalBedOccupancy,
+} from '@/lib/rentalBeds'
 import type {
   Client,
   ContractData,
@@ -102,16 +107,17 @@ export function officialTenantsAtProperty(
 }
 
 /**
- * Remaining tenant capacity (not open units): max tenants minus active occupancy.
- * Prefer vacantUnitCount / openUnitsForRental for dashboard "Open Units".
+ * Remaining tenant capacity (people): max occupancy minus active occupants.
+ * Prefer availableBedsForRental for vacancy / “full” (bed-based).
  */
 export function remainingTenantCapacity(
   property: Property,
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined
 ): number {
-  const current = activeTenantsAtProperty(property, clients, getContract).length
-  return Math.max(0, property.maxTenants - current)
+  const ensured = ensurePropertyBedLayout(property)
+  const current = activeTenantsAtProperty(ensured, clients, getContract).length
+  return Math.max(0, ensured.maxTenants - current)
 }
 
 /**
@@ -123,8 +129,39 @@ export function availableUnitsForApplicant(
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined
 ): number {
-  const current = officialTenantsAtProperty(property, clients, getContract).length
-  return Math.max(0, property.maxTenants - current)
+  const ensured = ensurePropertyBedLayout(property)
+  const current = officialTenantsAtProperty(ensured, clients, getContract).length
+  return Math.max(0, ensured.maxTenants - current)
+}
+
+/** Bed + people occupancy snapshot for a rental. */
+export function rentalBedOccupancyForProperty(
+  property: Property,
+  clients: Client[],
+  getContract: (clientId: string) => ContractData | undefined
+): RentalBedOccupancy {
+  const ensured = ensurePropertyBedLayout(property)
+  const active = activeTenantsAtProperty(ensured, clients, getContract)
+  return buildRentalBedOccupancy(ensured, active)
+}
+
+/**
+ * Available physical beds (beds with zero assigned tenants).
+ * Drives Rentals vacancy / “full” — a bed with ≥1 person is taken.
+ */
+export function availableBedsForRental(
+  property: Property,
+  clients: Client[],
+  getContract: (clientId: string) => ContractData | undefined
+): number {
+  return rentalBedOccupancyForProperty(property, clients, getContract).availableBeds
+}
+
+export function totalBedsForRental(property: Property): number {
+  return ensurePropertyBedLayout(property).bedroomsLayout?.reduce(
+    (sum, room) => sum + room.beds.length,
+    0
+  ) ?? 0
 }
 
 /** Resolve a preferred/desired address against the landlord Rentals list. */
@@ -220,22 +257,22 @@ export function vacantUnitCount(
   return Math.max(0, property.unitCount - occupiedUnitCount(property, clients, getContract))
 }
 
-/** Alias used by the Rentals dashboard Open Units column. */
+/** Alias used by the Rentals dashboard — available physical beds. */
 export function openUnitsForRental(
   property: Property,
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined
 ): number {
-  return vacantUnitCount(property, clients, getContract)
+  return availableBedsForRental(property, clients, getContract)
 }
 
 /**
- * Occupied share of leasable units (0 = all open, 1 = fully occupied).
+ * Occupied share of rentable beds (0 = all open, 1 = fully occupied).
  * Drives Rentals tile color: dark red → green as occupancy rises.
  */
-export function rentalOccupancyRatio(openUnits: number, unitCount: number): number {
-  const total = Math.max(1, Math.floor(unitCount) || 1)
-  const open = Math.max(0, Math.min(Math.floor(openUnits) || 0, total))
+export function rentalOccupancyRatio(availableBeds: number, totalBeds: number): number {
+  const total = Math.max(1, Math.floor(totalBeds) || 1)
+  const open = Math.max(0, Math.min(Math.floor(availableBeds) || 0, total))
   return (total - open) / total
 }
 
@@ -243,10 +280,10 @@ export function rentalOccupancyRatio(openUnits: number, unitCount: number): numb
 export type RentalOccupancyTone = 'vacant' | 'low' | 'mid' | 'high' | 'full'
 
 export function rentalOccupancyTone(
-  openUnits: number,
-  unitCount: number
+  availableBeds: number,
+  totalBeds: number
 ): RentalOccupancyTone {
-  const ratio = rentalOccupancyRatio(openUnits, unitCount)
+  const ratio = rentalOccupancyRatio(availableBeds, totalBeds)
   if (ratio >= 1) return 'full'
   if (ratio >= 0.75) return 'high'
   if (ratio >= 0.5) return 'mid'
@@ -255,15 +292,15 @@ export function rentalOccupancyTone(
 }
 
 export function rentalOccupancyStatusLabel(
-  openUnits: number,
-  unitCount: number
+  availableBeds: number,
+  totalBeds: number
 ): string {
-  const tone = rentalOccupancyTone(openUnits, unitCount)
+  const tone = rentalOccupancyTone(availableBeds, totalBeds)
   if (tone === 'full') return 'Fully occupied'
-  const total = Math.max(1, Math.floor(unitCount) || 1)
-  const open = Math.max(0, Math.min(Math.floor(openUnits) || 0, total))
-  const unitLabel = open === 1 ? 'open unit' : 'open units'
-  return `${open} of ${total} ${unitLabel}`
+  const total = Math.max(1, Math.floor(totalBeds) || 1)
+  const open = Math.max(0, Math.min(Math.floor(availableBeds) || 0, total))
+  const bedLabel = open === 1 ? 'open bed' : 'open beds'
+  return `${open} of ${total} ${bedLabel}`
 }
 
 export interface CompanyPortfolioStats {
@@ -336,7 +373,7 @@ export function buildUpcomingOpenings(
   const openings: PropertyOpening[] = []
 
   for (const property of properties) {
-    const vacant = vacantUnitCount(property, clients, getContract)
+    const vacant = availableBedsForRental(property, clients, getContract)
     const tenants = tenantsAtProperty(property, clients, getContract)
     const state = getAddressState(property.address)
 
@@ -354,8 +391,8 @@ export function buildUpcomingOpenings(
         tenantNames: [],
         label:
           vacant === 1
-            ? '1 vacant unit'
-            : `${vacant} vacant units`,
+            ? '1 open bed'
+            : `${vacant} open beds`,
       })
     }
 

@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react'
+import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
   title: ReactNode
   subtitle?: ReactNode
+  /** When set, shows a ? icon next to the title instead of a persistent subtitle. */
+  help?: string
   tag?: ReactNode
   action?: ReactNode
   /**
@@ -20,6 +23,7 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   subtitle,
+  help,
   tag,
   action,
   below,
@@ -27,6 +31,7 @@ export function PageHeader({
   prominent,
 }: PageHeaderProps) {
   const subtitleOffset = prominent ? 'mt-2' : 'mt-0.5'
+  const showSubtitle = Boolean(subtitle) && !help
 
   return (
     <div
@@ -42,19 +47,22 @@ export function PageHeader({
         )}
       >
         <div className="min-w-0 flex-1">
-          <h1
-            className={cn(
-              'heading-display',
-              prominent
-                ? 'text-3xl sm:text-4xl lg:text-5xl'
-                : compact
-                  ? 'text-xl sm:text-3xl'
-                  : 'text-2xl sm:text-3xl'
-            )}
-          >
-            {title}
-          </h1>
-          {subtitle && (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h1
+              className={cn(
+                'heading-display min-w-0',
+                prominent
+                  ? 'text-3xl sm:text-4xl lg:text-5xl'
+                  : compact
+                    ? 'text-xl sm:text-3xl'
+                    : 'text-2xl sm:text-3xl'
+              )}
+            >
+              {title}
+            </h1>
+            {help ? <SectionHelpIcon label={help} /> : null}
+          </div>
+          {showSubtitle && (
             <div
               className={cn(
                 'text-ink-muted',

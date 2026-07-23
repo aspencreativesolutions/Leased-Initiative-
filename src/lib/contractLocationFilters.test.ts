@@ -5,11 +5,43 @@ import {
   formatGroupCriteriaLines,
   formatGroupCriteriaSummary,
   formatRegionRadiusSummary,
+  getAddressCity,
+  getAddressState,
   isValidRegionRadius,
   pointMatchesRegionRadius,
   regionHasCriteria,
+  uniqueSortedInsensitive,
 } from '@/lib/contractLocationFilters'
 import type { ContractRegion } from '@/types'
+
+describe('getAddressState', () => {
+  it('parses state from city, ST ZIP addresses', () => {
+    expect(getAddressState('123 Main St, Steubenville, OH 43952')).toBe('OH')
+    expect(getAddressState('456 Oak Ave, Pittsburgh, PA')).toBe('PA')
+  })
+})
+
+describe('getAddressCity', () => {
+  it('parses town from city, ST ZIP addresses', () => {
+    expect(getAddressCity('123 Main St, Steubenville, OH 43952')).toBe(
+      'Steubenville'
+    )
+    expect(getAddressCity('456 Oak Ave, Pittsburgh, PA')).toBe('Pittsburgh')
+  })
+
+  it('returns null when city cannot be parsed', () => {
+    expect(getAddressCity('')).toBe(null)
+    expect(getAddressCity('123 Main St')).toBe(null)
+  })
+})
+
+describe('uniqueSortedInsensitive', () => {
+  it('dedupes by case and sorts alphabetically', () => {
+    expect(
+      uniqueSortedInsensitive(['Pittsburgh', 'steubenville', 'Steubenville', 'Weirton'])
+    ).toEqual(['Pittsburgh', 'steubenville', 'Weirton'])
+  })
+})
 
 describe('distanceMiles', () => {
   it('returns ~0 for the same point', () => {

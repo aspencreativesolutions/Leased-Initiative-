@@ -9,6 +9,13 @@ export const SAMPLE_CLIENT_EMAILS = new Set([
   'emily@rodriguezwellness.com',
   'marcus@webblegal.com',
   'lisa@parkphoto.com',
+  'ava.torres@example.com',
+  'noah.patel@example.com',
+  'priya.shah@example.com',
+  'ethan.brooks@example.com',
+  'maya.lopez@example.com',
+  'chris.nguyen@example.com',
+  'sam.rivera@example.com',
 ])
 
 /** Former sample tenants purged from existing stores on boot. */
@@ -49,6 +56,113 @@ export const SAMPLE_LEASE_AMOUNTS = {
     monthlyRent: 2150,
     leaseMonths: 12,
   },
+  'ava.torres@example.com': {
+    monthlyRent: 725,
+    leaseMonths: 12,
+  },
+  'noah.patel@example.com': {
+    monthlyRent: 725,
+    leaseMonths: 12,
+  },
+  'priya.shah@example.com': {
+    monthlyRent: 950,
+    leaseMonths: 12,
+  },
+  'ethan.brooks@example.com': {
+    monthlyRent: 950,
+    leaseMonths: 12,
+  },
+  'maya.lopez@example.com': {
+    monthlyRent: 950,
+    leaseMonths: 12,
+  },
+  'chris.nguyen@example.com': {
+    monthlyRent: 875,
+    leaseMonths: 12,
+  },
+  'sam.rivera@example.com': {
+    monthlyRent: 875,
+    leaseMonths: 12,
+  },
+}
+
+/** Household fields backfilled onto existing sample clients in older stores. */
+export const SAMPLE_HOUSEHOLD_FIELDS = {
+  'james@chenarch.com': {
+    occupancyArrangement: 'shared_home',
+    leaseGroupId: 'lease-juanita-523',
+    unitOrRoomLabel: 'Main floor',
+  },
+  'jordan.kim@example.com': {
+    occupancyArrangement: 'shared_home',
+    leaseGroupId: 'lease-juanita-523',
+    unitOrRoomLabel: 'Upper floor',
+  },
+  'emily@rodriguezwellness.com': {
+    occupancyArrangement: 'entire_home',
+  },
+  'marcus@webblegal.com': {
+    occupancyArrangement: 'entire_home',
+  },
+  'lisa@parkphoto.com': {
+    occupancyArrangement: 'entire_home',
+  },
+  'ava.torres@example.com': {
+    occupancyArrangement: 'shared_apartment',
+    leaseGroupId: 'lease-canton-11',
+    unitOrRoomLabel: 'Unit 11 · Bedroom A',
+  },
+  'noah.patel@example.com': {
+    occupancyArrangement: 'shared_apartment',
+    leaseGroupId: 'lease-canton-11',
+    unitOrRoomLabel: 'Unit 11 · Bedroom B',
+  },
+  'priya.shah@example.com': {
+    occupancyArrangement: 'shared_home',
+    leaseGroupId: 'lease-donnell-211',
+    unitOrRoomLabel: 'Room 1',
+  },
+  'ethan.brooks@example.com': {
+    occupancyArrangement: 'shared_home',
+    leaseGroupId: 'lease-donnell-211',
+    unitOrRoomLabel: 'Room 2',
+  },
+  'maya.lopez@example.com': {
+    occupancyArrangement: 'shared_home',
+    leaseGroupId: 'lease-donnell-211',
+    unitOrRoomLabel: 'Room 3',
+  },
+  'chris.nguyen@example.com': {
+    occupancyArrangement: 'room_rental',
+    leaseGroupId: 'lease-scioto-chris',
+    unitOrRoomLabel: 'Room A',
+  },
+  'sam.rivera@example.com': {
+    occupancyArrangement: 'room_rental',
+    leaseGroupId: 'lease-scioto-sam',
+    unitOrRoomLabel: 'Room B',
+  },
+}
+
+/**
+ * Backfill occupancy / lease-group fields on sample clients for Tenant Details.
+ */
+export function ensureSampleHouseholdFields(store) {
+  let changed = false
+  const clients = (store.clients ?? []).map((client) => {
+    const email = client.email?.trim().toLowerCase()
+    const fields = email ? SAMPLE_HOUSEHOLD_FIELDS[email] : null
+    if (!fields) return client
+    let next = client
+    for (const [key, value] of Object.entries(fields)) {
+      if (next[key] !== value) {
+        next = { ...next, [key]: value }
+        changed = true
+      }
+    }
+    return next
+  })
+  return { store: changed ? { ...store, clients } : store, changed }
 }
 
 function asOfDate() {

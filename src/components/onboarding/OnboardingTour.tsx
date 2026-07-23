@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Compass, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { ChevronLeft, ChevronRight, Compass } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { isAdminModeEnabled } from '@/lib/adminMode'
 import {
@@ -28,6 +35,12 @@ interface SpotlightRect {
   height: number
 }
 
+interface TooltipStyle {
+  top: number
+  left: number
+  transform?: string
+}
+
 interface OnboardingTourProps {
   role: 'admin' | 'client'
   context?: OnboardingContext
@@ -39,6 +52,13 @@ interface OnboardingTourProps {
 const DEFAULT_ONBOARDING_CONTEXT: OnboardingContext = {}
 
 const ADMIN_TOUR_STEP_KEY = 'leased-admin-tour-step-id'
+const TOOLTIP_WIDTH = 320
+const TOOLTIP_FALLBACK_HEIGHT = 220
+const VIEWPORT_PAD = 16
+const SPOTLIGHT_GAP = 12
+
+const NAV_ARROW_CLASS =
+  'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border-[length:var(--border-width)] border-brand bg-brand text-white transition-colors hover:bg-brand-light hover:border-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-35'
 
 function getSpotlightRect(selector: string): SpotlightRect | null {
   const el = document.querySelector(selector)
@@ -53,50 +73,75 @@ function getSpotlightRect(selector: string): SpotlightRect | null {
   }
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** Place the description box near the spotlight without covering it when possible. */
 function getTooltipPosition(
   rect: SpotlightRect | null,
-  placement: OnboardingStep['placement']
-) {
-  const tooltipWidth = 320
+  preferred: OnboardingStep['placement'],
+  tooltipSize: { width: number; height: number }
+): TooltipStyle {
+  const width = tooltipSize.width || TOOLTIP_WIDTH
+  const height = tooltipSize.height || TOOLTIP_FALLBACK_HEIGHT
+  const maxLeft = Math.max(VIEWPORT_PAD, window.innerWidth - width - VIEWPORT_PAD)
+  const maxTop = Math.max(VIEWPORT_PAD, window.innerHeight - height - VIEWPORT_PAD)
+
   if (!rect) {
     return {
-      top: 88,
-      left: Math.max(16, (window.innerWidth - tooltipWidth) / 2),
+      top: Math.max(VIEWPORT_PAD, 88),
+      left: clamp((window.innerWidth - width) / 2, VIEWPORT_PAD, maxLeft),
     }
   }
 
-  const margin = 12
   const centerX = rect.left + rect.width / 2
+  const spaceBelow = window.innerHeight - (rect.top + rect.height) - VIEWPORT_PAD
+  const spaceAbove = rect.top - VIEWPORT_PAD
+  const spaceRight = window.innerWidth - (rect.left + rect.width) - VIEWPORT_PAD
+  const spaceLeft = rect.left - VIEWPORT_PAD
+
+  const candidates: OnboardingStep['placement'][] = [
+    preferred ?? 'bottom',
+    'bottom',
+    'top',
+    'right',
+    'left',
+  ]
+  const order = candidates.filter(
+    (placement, index) => candidates.indexOf(placement) === index
+  )
+
+  const fits = (placement: NonNullable<OnboardingStep['placement']>) => {
+    if (placement === 'bottom') return spaceBelow >= height + SPOTLIGHT_GAP
+    if (placement === 'top') return spaceAbove >= height + SPOTLIGHT_GAP
+    if (placement === 'right') return spaceRight >= width + SPOTLIGHT_GAP
+    return spaceLeft >= width + SPOTLIGHT_GAP
+  }
+
+  const placement = order.find((p) => p && fits(p)) ?? (spaceBelow >= spaceAbove ? 'bottom' : 'top')
 
   if (placement === 'top') {
     return {
-      top: Math.max(16, rect.top - margin),
-      left: Math.min(
-        window.innerWidth - tooltipWidth - 16,
-        Math.max(16, centerX - tooltipWidth / 2)
-      ),
-      transform: 'translateY(-100%)',
+      top: clamp(rect.top - SPOTLIGHT_GAP - height, VIEWPORT_PAD, maxTop),
+      left: clamp(centerX - width / 2, VIEWPORT_PAD, maxLeft),
     }
   }
   if (placement === 'left') {
     return {
-      top: rect.top,
-      left: Math.max(16, rect.left - margin),
-      transform: 'translateX(-100%)',
+      top: clamp(rect.top, VIEWPORT_PAD, maxTop),
+      left: clamp(rect.left - SPOTLIGHT_GAP - width, VIEWPORT_PAD, maxLeft),
     }
   }
   if (placement === 'right') {
     return {
-      top: rect.top,
-      left: Math.min(window.innerWidth - tooltipWidth - 16, rect.left + rect.width + margin),
+      top: clamp(rect.top, VIEWPORT_PAD, maxTop),
+      left: clamp(rect.left + rect.width + SPOTLIGHT_GAP, VIEWPORT_PAD, maxLeft),
     }
   }
   return {
-    top: rect.top + rect.height + margin,
-    left: Math.min(
-      window.innerWidth - tooltipWidth - 16,
-      Math.max(16, centerX - tooltipWidth / 2)
-    ),
+    top: clamp(rect.top + rect.height + SPOTLIGHT_GAP, VIEWPORT_PAD, maxTop),
+    left: clamp(centerX - width / 2, VIEWPORT_PAD, maxLeft),
   }
 }
 
@@ -137,6 +182,12 @@ export function OnboardingTour({
   const [stepIndex, setStepIndex] = useState(0)
   const [tourSteps, setTourSteps] = useState<OnboardingStep[]>([])
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null)
+  const [tooltipSize, setTooltipSize] = useState({
+    width: TOOLTIP_WIDTH,
+    height: TOOLTIP_FALLBACK_HEIGHT,
+  })
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const advancingRef = useRef(false)
   const onForceStartHandledRef = useRef(onForceStartHandled)
   onForceStartHandledRef.current = onForceStartHandled
 
@@ -149,6 +200,8 @@ export function OnboardingTour({
 
   const currentStep = tourSteps[stepIndex] ?? null
   const currentSection = currentStep?.section
+  const isFirstStep = stepIndex <= 0
+  const isLastStep = stepIndex >= tourSteps.length - 1
 
   const beginTour = useCallback(
     (steps: OnboardingStep[], preferredStepId?: string | null) => {
@@ -163,6 +216,9 @@ export function OnboardingTour({
       setStepIndex(index)
       setActive(true)
       rememberStepId(steps[index]?.id ?? null)
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
     },
     [role]
   )
@@ -172,6 +228,9 @@ export function OnboardingTour({
       setStepIndex(index)
       const step = tourSteps[index]
       if (step) rememberStepId(step.id)
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
     },
     [tourSteps]
   )
@@ -254,28 +313,31 @@ export function OnboardingTour({
     const onResize = () => refreshSpotlight()
     window.addEventListener('resize', onResize)
     window.addEventListener('scroll', onResize, true)
-    const retry = setTimeout(refreshSpotlight, 400)
-    const skipMissing = setTimeout(() => {
-      const rect = getSpotlightRect(currentStep.target)
-      if (!rect && stepIndex < tourSteps.length - 1) {
-        goToStepIndex(stepIndex + 1)
-      }
-    }, 600)
+    const retryTimers = [200, 400, 800, 1200].map((ms) =>
+      setTimeout(refreshSpotlight, ms)
+    )
     return () => {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('scroll', onResize, true)
-      clearTimeout(retry)
-      clearTimeout(skipMissing)
+      retryTimers.forEach(clearTimeout)
     }
-  }, [
-    active,
-    currentStep,
-    refreshSpotlight,
-    location.pathname,
-    stepIndex,
-    tourSteps.length,
-    goToStepIndex,
-  ])
+  }, [active, currentStep, refreshSpotlight, location.pathname, location.search])
+
+  useLayoutEffect(() => {
+    if (!active || !tooltipRef.current) return
+    const measure = () => {
+      const node = tooltipRef.current
+      if (!node) return
+      const { width, height } = node.getBoundingClientRect()
+      setTooltipSize((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(tooltipRef.current)
+    return () => observer.disconnect()
+  }, [active, currentStep, stepIndex])
 
   const completeStep = useCallback(
     async (stepId: string) => {
@@ -286,26 +348,46 @@ export function OnboardingTour({
     [role, refreshUser]
   )
 
-  const handleNext = useCallback(async () => {
-    if (!currentStep) return
-    await completeStep(currentStep.id)
-    if (stepIndex < tourSteps.length - 1) {
-      goToStepIndex(stepIndex + 1)
-    } else {
-      setActive(false)
-      setTourSteps([])
-      rememberStepId(null)
-    }
-  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex])
-
-  const handleDismiss = useCallback(async () => {
-    const next = await updateOnboardingProgress(role, { dismiss: true })
-    setProgress(next)
+  const endTour = useCallback(() => {
     setActive(false)
     setTourSteps([])
+    setSpotlight(null)
     rememberStepId(null)
-    await refreshUser()
-  }, [role, refreshUser])
+    advancingRef.current = false
+  }, [])
+
+  const handleNext = useCallback(async () => {
+    if (!currentStep || advancingRef.current) return
+    advancingRef.current = true
+    try {
+      await completeStep(currentStep.id)
+      if (stepIndex < tourSteps.length - 1) {
+        goToStepIndex(stepIndex + 1)
+      } else {
+        endTour()
+      }
+    } finally {
+      advancingRef.current = false
+    }
+  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex, endTour])
+
+  const handleBack = useCallback(() => {
+    if (stepIndex <= 0 || advancingRef.current) return
+    goToStepIndex(stepIndex - 1)
+  }, [stepIndex, goToStepIndex])
+
+  const handleDismiss = useCallback(async () => {
+    if (advancingRef.current) return
+    advancingRef.current = true
+    try {
+      const next = await updateOnboardingProgress(role, { dismiss: true })
+      setProgress(next)
+      endTour()
+      await refreshUser()
+    } finally {
+      advancingRef.current = false
+    }
+  }, [role, refreshUser, endTour])
 
   const handleJumpToSection = useCallback(
     (sectionId: AdminTourSectionId) => {
@@ -315,12 +397,39 @@ export function OnboardingTour({
     [tourSteps, goToStepIndex]
   )
 
+  useEffect(() => {
+    if (!active) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.isComposing) return
+      // Capture Enter so highlighted dashboard controls never activate underneath.
+      event.preventDefault()
+      event.stopPropagation()
+      if (event.repeat) return
+      void handleNext()
+    }
+
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [active, handleNext])
+
   if (!active || !currentStep) return null
 
-  const tooltipStyle = getTooltipPosition(spotlight, currentStep.placement ?? 'bottom')
+  const tooltipStyle = getTooltipPosition(
+    spotlight,
+    currentStep.placement ?? 'bottom',
+    tooltipSize
+  )
   const stepNumber = stepIndex + 1
   const totalSteps = tourSteps.length
   const showSectionNav = role === 'admin'
+  const tooltipPositionStyle: CSSProperties = {
+    top: tooltipStyle.top,
+    left: tooltipStyle.left,
+    width: TOOLTIP_WIDTH,
+  }
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Onboarding tour">
@@ -395,44 +504,48 @@ export function OnboardingTour({
       ) : null}
 
       <div
-        className="absolute w-80 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift"
-        style={{
-          top: tooltipStyle.top,
-          left: tooltipStyle.left,
-          transform: tooltipStyle.transform,
-        }}
+        ref={tooltipRef}
+        className="absolute z-[102] w-80 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift"
+        style={tooltipPositionStyle}
       >
-        <div className="mb-2 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Compass className="h-4 w-4 shrink-0 text-brand" />
-            <p className="text-[10px] font-bold uppercase tracking-caps text-brand">
-              Step {stepNumber} of {totalSteps}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleDismiss}
-            className="rounded-sm p-1 text-ink-muted transition-colors hover:bg-surface hover:text-ink"
-            aria-label="Skip tour"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <div className="mb-2 flex items-center gap-2">
+          <Compass className="h-4 w-4 shrink-0 text-brand" />
+          <p className="text-[10px] font-bold uppercase tracking-caps text-brand">
+            {isLastStep ? 'Final step' : `Step ${stepNumber} of ${totalSteps}`}
+          </p>
         </div>
 
         <h3 className="font-display text-lg font-semibold text-ink">{currentStep.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-ink-muted">{currentStep.description}</p>
 
-        <div className="mt-4 flex items-center justify-between gap-2">
+        <div className="mt-4 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={handleDismiss}
-            className="text-xs font-semibold text-ink-muted hover:text-ink"
+            onClick={() => void handleDismiss()}
+            className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
           >
-            Skip tour
+            Exit Tour
           </button>
-          <Button size="sm" onClick={handleNext}>
-            {stepIndex < tourSteps.length - 1 ? 'Next' : 'Done'}
-          </Button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBack}
+              disabled={isFirstStep}
+              className={NAV_ARROW_CLASS}
+              aria-label="Previous tour step"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleNext()}
+              className={NAV_ARROW_CLASS}
+              aria-label={isLastStep ? 'Finish tour' : 'Next tour step'}
+            >
+              <ChevronRight className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+            </button>
+          </div>
         </div>
       </div>
     </div>

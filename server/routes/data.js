@@ -58,6 +58,7 @@ import {
 import {
   createPropertyRecord,
   ensureStoreProperties,
+  updatePropertyRecord,
   validatePropertyInput,
 } from '../lib/properties.js'
 import { buildFinalInvoice } from '../lib/invoice.js'
@@ -68,6 +69,7 @@ import {
   removeClientFromStore,
 } from '../lib/clientCleanup.js'
 import {
+  ensureSampleHouseholdFields,
   ensureSampleLeaseAmounts,
   refreshAllSampleClientDates,
 } from '../lib/sampleClientDates.js'
@@ -105,7 +107,13 @@ router.get('/', async (_req, res) => {
     store = portalRepair.store
     writeStore(store)
   }
-  let repairedAny = contractRepair.changed || portalRepair.changed
+  const householdRepair = ensureSampleHouseholdFields(store)
+  if (householdRepair.changed) {
+    store = householdRepair.store
+    writeStore(store)
+  }
+  let repairedAny =
+    contractRepair.changed || portalRepair.changed || householdRepair.changed
   let clients = store.clients.map((client) => {
     const contract = store.contracts.find((c) => c.clientId === client.id)
     let next = ensureOfficialWhenProjectActive(client)
@@ -1112,6 +1120,36 @@ router.post('/properties', (req, res) => {
   } catch (err) {
     console.error('properties create', err)
     res.status(500).json({ error: 'Could not add property' })
+  }
+})
+
+/** Update a single portfolio rental */
+router.patch('/properties/:propertyId', (req, res) => {
+  try {
+    const { propertyId } = req.params
+    const validated = validatePropertyInput({
+      ...req.body,
+      addressConfirmed: true,
+    })
+    if (validated.error) {
+      return res.status(400).json({ error: validated.error })
+    }
+    let updated = null
+    const next = updateStore((s) => {
+      const list = [...(s.properties ?? [])]
+      const index = list.findIndex((p) => p.id === propertyId)
+      if (index < 0) return s
+      updated = updatePropertyRecord(list[index], validated)
+      list[index] = updated
+      return { ...s, properties: list }
+    })
+    if (!updated) {
+      return res.status(404).json({ error: 'Rental not found' })
+    }
+    res.json({ property: updated, properties: next.properties })
+  } catch (err) {
+    console.error('properties update', err)
+    res.status(500).json({ error: 'Could not update rental' })
   }
 })
 

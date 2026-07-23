@@ -1,5 +1,6 @@
-import { cn } from '@/lib/utils'
 import type { HTMLAttributes, ReactNode } from 'react'
+import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
+import { cn } from '@/lib/utils'
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
@@ -21,12 +22,15 @@ export function Card({ children, className, padding = 'md', ...props }: CardProp
 export function CardHeader({
   title,
   subtitle,
+  help,
   action,
   dense = false,
   children,
 }: {
   title: string
   subtitle?: string
+  /** When set, shows a ? icon next to the title instead of a persistent subtitle. */
+  help?: string
   action?: ReactNode
   dense?: boolean
   children?: ReactNode
@@ -40,14 +44,17 @@ export function CardHeader({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className={cn('heading-display', dense ? 'text-lg sm:text-xl' : 'text-lg sm:text-xl')}>
-            {title}
-          </h2>
-          {subtitle && (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2 className={cn('heading-display', dense ? 'text-lg sm:text-xl' : 'text-lg sm:text-xl')}>
+              {title}
+            </h2>
+            {help ? <SectionHelpIcon label={help} /> : null}
+          </div>
+          {subtitle && !help ? (
             <p className={cn('text-ink-muted', dense ? 'mt-0.5 text-xs sm:text-sm' : 'mt-0.5 text-xs sm:mt-1 sm:text-sm')}>
               {subtitle}
             </p>
-          )}
+          ) : null}
         </div>
         {action}
       </div>
