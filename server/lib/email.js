@@ -147,3 +147,77 @@ export async function sendClientReminderEmail({ to, name, title, message, portal
 export async function sendClientUpdateEmail({ to, name, title, message, portalUrl }) {
   return sendClientReminderEmail({ to, name, title, message, portalUrl })
 }
+
+const ASPEN_SUPPORT_EMAIL =
+  process.env.BUG_REPORT_EMAIL?.trim() || 'sophie@aspencreativesolutions.com'
+
+/** Notify Aspen Creative Solutions of an in-app bug report (email when SMTP is configured). */
+export async function sendBugReportEmail({
+  description,
+  stepsToReproduce,
+  reporterName,
+  reporterEmail,
+  reportId,
+}) {
+  const fromAddress =
+    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased Initiative'
+  const subject = `Bug report — Leased Initiative (${reportId})`
+
+  const text = [
+    'A bug report was submitted from Leased Initiative.',
+    '',
+    `Report ID: ${reportId}`,
+    `From: ${reporterName || 'Unknown'}${reporterEmail ? ` <${reporterEmail}>` : ''}`,
+    '',
+    'Description:',
+    description,
+    '',
+    stepsToReproduce ? `Steps to reproduce:\n${stepsToReproduce}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const html = `
+    <p>A bug report was submitted from <strong>Leased Initiative</strong>.</p>
+    <p style="font-size:13px;color:#555">
+      Report ID: ${escapeHtml(reportId)}<br>
+      From: ${escapeHtml(reporterName || 'Unknown')}${
+        reporterEmail ? ` &lt;${escapeHtml(reporterEmail)}&gt;` : ''
+      }
+    </p>
+    <h3 style="margin:16px 0 8px;font-size:14px">Description</h3>
+    <p style="white-space:pre-wrap">${escapeHtml(description)}</p>
+    ${
+      stepsToReproduce
+        ? `<h3 style="margin:16px 0 8px;font-size:14px">Steps to reproduce</h3>
+           <p style="white-space:pre-wrap">${escapeHtml(stepsToReproduce)}</p>`
+        : ''
+    }
+  `
+
+  const transport = getTransport()
+  if (!transport) {
+    console.log('[dev] SMTP not configured — bug report stored only:')
+    console.log(text)
+    return { sent: false, devMode: true }
+  }
+
+  try {
+    await transport.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to: ASPEN_SUPPORT_EMAIL,
+      replyTo: reporterEmail || undefined,
+      subject,
+      text,
+      html,
+    })
+    return { sent: true }
+  } catch (err) {
+    console.error('Bug report email failed:', err.message)
+    console.log('[dev] Bug report contents:')
+    console.log(text)
+    return { sent: false, smtpError: err.message }
+  }
+}
+

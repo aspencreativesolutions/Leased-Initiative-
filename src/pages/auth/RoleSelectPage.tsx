@@ -10,6 +10,7 @@ import {
   RoleSelectGrid,
   RoleSelectTile,
 } from '@/components/auth/RoleSelectTile'
+import { TermsOfServiceModal } from '@/components/legal/TermsOfServiceModal'
 import { useAuth } from '@/context/AuthContext'
 import { BRAND_NAME } from '@/lib/brand'
 import { FIRST_TIME_RESTART_EVENT, loginPathForRole } from '@/lib/welcomeSlides'
@@ -18,6 +19,7 @@ export function RoleSelectPage() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
   const [showCarousel, setShowCarousel] = useState(() => !hasCompletedWelcomeCarousel())
+  const [termsOpen, setTermsOpen] = useState(false)
 
   useEffect(() => {
     if (loading || !user) return
@@ -43,10 +45,7 @@ export function RoleSelectPage() {
             className="mx-auto mb-5 inline-flex transition-colors hover:text-brand"
             aria-label={`Back to ${BRAND_NAME} home`}
           >
-            <BrandMark
-              className="h-16 w-[4.5rem] rounded-[var(--radius-sm)] border-ink hover:border-brand sm:h-[4.5rem] sm:w-20"
-              glyphClassName="text-2xl sm:text-3xl"
-            />
+            <BrandMark className="h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]" />
           </Link>
           <h1 className="heading-display text-3xl tracking-tight sm:text-4xl md:text-5xl">
             {BRAND_NAME}
@@ -79,6 +78,19 @@ export function RoleSelectPage() {
           Back to home
         </Link>
       </div>
+
+      <footer className="border-t border-line px-4 py-6 text-center">
+        <p className="text-sm font-semibold text-ink">{BRAND_NAME}</p>
+        <button
+          type="button"
+          onClick={() => setTermsOpen(true)}
+          className="mt-2 text-xs font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          Terms of Service
+        </button>
+      </footer>
+
+      <TermsOfServiceModal open={termsOpen} onClose={() => setTermsOpen(false)} />
     </div>
   )
 }

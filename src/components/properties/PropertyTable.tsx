@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
+import { formatUsd } from '@/lib/rentalRent'
 import { cn } from '@/lib/utils'
 import type { PropertyHousingType } from '@/types'
 
@@ -9,6 +10,9 @@ export type PropertySortColumn =
   | 'maxTenants'
   | 'currentTenants'
   | 'openUnits'
+  | 'monthlyRent'
+  | 'occupancy'
+  | 'tenantShare'
 
 export interface PropertyTableRow {
   id: string
@@ -17,7 +21,11 @@ export interface PropertyTableRow {
   bedrooms: number
   maxTenants: number
   currentTenants: number
+  unitCount: number
   openUnits: number
+  monthlyRent: number
+  tenantShare: number | null
+  unitLabel: string | null
 }
 
 interface PropertyTableProps {
@@ -26,6 +34,8 @@ interface PropertyTableProps {
   sortDirection: 'asc' | 'desc'
   onSortChange: (column: PropertySortColumn) => void
   onRowClick?: (row: PropertyTableRow) => void
+  /** Briefly emphasize a rental after navigating from Waiting to Connect. */
+  highlightedId?: string | null
 }
 
 const COLUMNS: {
@@ -35,12 +45,14 @@ const COLUMNS: {
   width: string
   hideBelow?: 'sm' | 'md' | 'lg'
 }[] = [
-  { id: 'address', label: 'Property Address', align: 'left', width: '34%' },
-  { id: 'propertyType', label: 'Rental Type', align: 'left', width: '16%' },
-  { id: 'bedrooms', label: 'Bedrooms', align: 'center', width: '12%', hideBelow: 'sm' },
-  { id: 'maxTenants', label: 'Max Tenants', align: 'center', width: '12%', hideBelow: 'md' },
-  { id: 'currentTenants', label: 'Current Tenants', align: 'center', width: '13%' },
-  { id: 'openUnits', label: 'Open Units', align: 'center', width: '13%' },
+  { id: 'address', label: 'Property Address', align: 'left', width: '26%' },
+  { id: 'propertyType', label: 'Rental Type', align: 'left', width: '12%' },
+  { id: 'monthlyRent', label: 'Monthly Rent', align: 'center', width: '12%' },
+  { id: 'occupancy', label: 'Occupancy', align: 'center', width: '11%' },
+  { id: 'tenantShare', label: 'Tenant Share', align: 'center', width: '12%', hideBelow: 'sm' },
+  { id: 'bedrooms', label: 'Bedrooms', align: 'center', width: '9%', hideBelow: 'md' },
+  { id: 'maxTenants', label: 'Max Tenants', align: 'center', width: '9%', hideBelow: 'lg' },
+  { id: 'openUnits', label: 'Open Units', align: 'center', width: '9%' },
 ]
 
 function hideClass(hideBelow?: 'sm' | 'md' | 'lg'): string {
@@ -73,14 +85,59 @@ function SortIcon({
   )
 }
 
+/** Color-coded open-unit count: 1 light yellow → 2 yellow → 3 red → 4+ dark red. */
+export function OpenUnitsIndicator({ count }: { count: number }) {
+  if (count <= 0) {
+    return (
+      <span className="tabular-nums text-ink-faint" aria-label="0 open units">
+        —
+      </span>
+    )
+  }
+
+  const tone =
+    count >= 4
+      ? 'open-units-circle--dark-red'
+      : count === 3
+        ? 'open-units-circle--red'
+        : count === 2
+          ? 'open-units-circle--yellow'
+          : 'open-units-circle--light-yellow'
+
+  const unitLabel = count === 1 ? 'open unit' : 'open units'
+
+  return (
+    <span
+      className={cn('open-units-circle', tone)}
+      aria-label={`${count} ${unitLabel}`}
+      title={`${count} ${unitLabel}`}
+    >
+      {count}
+    </span>
+  )
+}
+
 export function PropertyTable({
   rows,
   sortColumn,
   sortDirection,
   onSortChange,
   onRowClick,
+  highlightedId = null,
 }: PropertyTableProps) {
   if (rows.length === 0) return null
+
+  const cellAlign = (columnAlign: 'left' | 'center' | 'right') => {
+    if (columnAlign === 'left') return 'text-left'
+    if (columnAlign === 'right') return 'text-right'
+    return 'text-center'
+  }
+
+  const headerJustify = (columnAlign: 'left' | 'center' | 'right') => {
+    if (columnAlign === 'left') return ''
+    if (columnAlign === 'right') return 'justify-end'
+    return 'justify-center'
+  }
 
   return (
     <div className="min-w-0 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
@@ -101,9 +158,7 @@ export function PropertyTable({
                     className={cn(
                       'label-caps px-3 py-2.5 sm:px-4',
                       column.id === 'address' && 'pl-4 pr-3 sm:pl-5 sm:pr-4',
-                      column.align === 'center' && 'text-center',
-                      column.align === 'right' && 'text-right',
-                      column.align === 'left' && 'text-left',
+                      cellAlign(column.align),
                       hideClass(column.hideBelow)
                     )}
                   >
@@ -113,8 +168,7 @@ export function PropertyTable({
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] transition-colors',
                         'hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
-                        column.align === 'center' && 'justify-center',
-                        column.align === 'right' && 'justify-end',
+                        headerJustify(column.align),
                         active && 'text-ink'
                       )}
                       aria-label={`Sort by ${column.label}`}
@@ -128,9 +182,13 @@ export function PropertyTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const isHighlighted = highlightedId === row.id
+              return (
               <tr
                 key={row.id}
+                id={`rental-row-${row.id}`}
+                data-property-id={row.id}
                 tabIndex={onRowClick ? 0 : undefined}
                 role={onRowClick ? 'button' : undefined}
                 aria-label={
@@ -148,11 +206,14 @@ export function PropertyTable({
                     : undefined
                 }
                 className={cn(
+                  'scroll-mt-28',
                   onRowClick &&
                     'cursor-pointer transition-[background-color,box-shadow,transform] duration-150 ease-out',
                   onRowClick &&
+                    !isHighlighted &&
                     'hover:bg-brand/5 hover:shadow-[inset_3px_0_0_0_var(--brand)] focus-visible:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/40',
-                  !onRowClick && 'hover:bg-surface'
+                  !onRowClick && !isHighlighted && 'hover:bg-surface',
+                  isHighlighted && 'property-table-row--highlight'
                 )}
               >
                 <td className="py-2.5 pl-4 pr-3 align-top sm:pl-5 sm:pr-4 sm:py-3">
@@ -164,34 +225,71 @@ export function PropertyTable({
                   >
                     {row.address}
                   </p>
+                  {row.unitLabel ? (
+                    <p className="mt-0.5 text-xs text-ink-muted">{row.unitLabel}</p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2.5 align-middle text-ink sm:px-4 sm:py-3">
                   {row.propertyType}
                 </td>
                 <td
                   className={cn(
-                    'px-3 py-2.5 align-middle text-center tabular-nums text-ink sm:px-4 sm:py-3',
+                    'px-3 py-2.5 align-middle tabular-nums text-ink sm:px-4 sm:py-3',
+                    cellAlign('center')
+                  )}
+                >
+                  {formatUsd(row.monthlyRent)}
+                </td>
+                <td
+                  className={cn(
+                    'px-3 py-2.5 align-middle tabular-nums text-ink sm:px-4 sm:py-3',
+                    cellAlign('center')
+                  )}
+                >
+                  {row.currentTenants} of {row.maxTenants}
+                </td>
+                <td
+                  className={cn(
+                    'px-3 py-2.5 align-middle tabular-nums text-ink sm:px-4 sm:py-3',
+                    cellAlign('center'),
                     hideClass('sm')
+                  )}
+                >
+                  {row.tenantShare != null
+                    ? `${formatUsd(row.tenantShare)}/mo`
+                    : '—'}
+                </td>
+                <td
+                  className={cn(
+                    'px-3 py-2.5 align-middle tabular-nums text-ink sm:px-4 sm:py-3',
+                    cellAlign('center'),
+                    hideClass('md')
                   )}
                 >
                   {row.bedrooms}
                 </td>
                 <td
                   className={cn(
-                    'px-3 py-2.5 align-middle text-center tabular-nums text-ink sm:px-4 sm:py-3',
-                    hideClass('md')
+                    'px-3 py-2.5 align-middle tabular-nums text-ink sm:px-4 sm:py-3',
+                    cellAlign('center'),
+                    hideClass('lg')
                   )}
                 >
                   {row.maxTenants}
                 </td>
-                <td className="px-3 py-2.5 align-middle text-center tabular-nums text-ink sm:px-4 sm:py-3">
-                  {row.currentTenants}
-                </td>
-                <td className="px-3 py-2.5 align-middle text-center tabular-nums text-ink sm:px-4 sm:py-3">
-                  {row.openUnits}
+                <td
+                  className={cn(
+                    'px-3 py-2.5 align-middle sm:px-4 sm:py-3',
+                    cellAlign('center')
+                  )}
+                >
+                  <span className="inline-flex w-full items-center justify-center">
+                    <OpenUnitsIndicator count={row.openUnits} />
+                  </span>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -63,10 +63,6 @@ export const RENTAL_TYPE_OPTIONS: RentalTypeOption[] = [
     description:
       'A furnished residential property primarily intended for short-term or temporary stays.',
   },
-  {
-    value: 'Other',
-    description: 'A rental type that does not fit one of the listed categories.',
-  },
 ]
 
 /** Legacy stored labels → current rental type. */
@@ -75,6 +71,7 @@ const LEGACY_RENTAL_TYPE_MAP: Record<string, PropertyHousingType> = {
   'Multi-family home': 'Multi-Family Building',
   Condominium: 'Condominium (Condo)',
   Studio: 'Studio Apartment',
+  Other: 'Single-Family Home',
 }
 
 export function normalizeRentalType(value: unknown): PropertyHousingType {
@@ -82,7 +79,7 @@ export function normalizeRentalType(value: unknown): PropertyHousingType {
   if ((PROPERTY_HOUSING_TYPES as string[]).includes(trimmed)) {
     return trimmed as PropertyHousingType
   }
-  return LEGACY_RENTAL_TYPE_MAP[trimmed] ?? 'Other'
+  return LEGACY_RENTAL_TYPE_MAP[trimmed] ?? 'Single-Family Home'
 }
 
 /** Rental types that may contain multiple units (show Number of Units field). */

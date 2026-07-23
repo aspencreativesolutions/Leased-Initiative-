@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link2, Plus, Search, UserCog, Users } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientAccountsModal } from '@/components/clients/ClientAccountsModal'
 import { ClientTable } from '@/components/clients/ClientTable'
@@ -39,6 +40,7 @@ const compactFilterSelectClass = [
 
 export function ClientsPage() {
   const { clients, refresh, getContractForClient, settings, properties } = useApp()
+  const location = useLocation()
   const [addOpen, setAddOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [accountsOpen, setAccountsOpen] = useState(false)
@@ -53,6 +55,16 @@ export function ClientsPage() {
   const [locationDisplayMode, setLocationDisplayMode] = useState<OfficialTenantLocationDisplayMode>(
     loadOfficialTenantLocationDisplayMode
   )
+
+  useEffect(() => {
+    if (!location.hash) return
+    const targetId = location.hash.slice(1)
+    if (!targetId) return
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, clients.length])
 
   const regions = settings.contractRegions ?? []
 
@@ -180,6 +192,7 @@ export function ClientsPage() {
                 clients={actualTenants}
                 getContractForClient={getContractForClient}
                 regions={regions}
+                properties={properties}
                 sortMode={sortMode}
                 addressFocus={addressFocus}
                 onSortModeChange={setSortMode}

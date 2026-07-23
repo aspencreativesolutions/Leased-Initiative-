@@ -7,6 +7,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/FormField'
 import { ServiceTierBadge } from '@/components/scheduler/ServiceTierBadge'
+import { ProfileLegalSection } from '@/components/legal/ProfileLegalSection'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { contractSectionHref } from '@/lib/contractSections'
@@ -334,6 +335,8 @@ export function PortalProfilePage() {
             </ul>
           )}
         </section>
+
+        <ProfileLegalSection />
 
         {user && (
           <p className="text-xs text-ink-faint">

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronsUpDown, UserMinus, ArrowRight } from 'lucide-react'
-import { StatusBadge } from '@/components/ui/StatusBadge'
 import { CompactClientTimeline } from '@/components/clients/CompactClientTimeline'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
+import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { TenantNameWithLeaseIcons } from './TenantLeaseStatusIcons'
 import { getLeaseStatusDetails } from '@/lib/clientUtils'
 import {
@@ -128,7 +128,7 @@ export function ClientTableMobileCard({
           </MobileField>
 
           <MobileField label="Payment Status">
-            <StatusBadge type="payment" status={client.paymentStatus} />
+            <PaymentStatusDateTags client={client} contract={contract} className="mx-0" />
           </MobileField>
 
           <CompactClientTimeline client={client} contract={contract} />

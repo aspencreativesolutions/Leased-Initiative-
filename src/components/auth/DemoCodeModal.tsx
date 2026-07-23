@@ -60,7 +60,7 @@ export function DemoCodeModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm leading-relaxed text-ink-muted">
           {isHome
-            ? 'Enter the access code from your host to unlock the demo. Next you will choose a landlord or tenant point of view. Changes are not saved.'
+            ? 'Enter the access code from your host to unlock the demo. Next you will choose landlord or a specific tenant scenario. Changes are not saved.'
             : `Enter the access code provided by your host. We will open the ${
                 role === 'landlord' ? 'landlord' : 'tenant'
               } demo with sample data. Changes you make are not saved.`}

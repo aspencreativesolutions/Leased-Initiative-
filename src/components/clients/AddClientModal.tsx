@@ -1,41 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { FileSignature, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input, Select, Textarea } from '@/components/ui/FormField'
+import { Input, Select } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
+import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { useApp } from '@/context/AppContext'
-import { getProjectStatusDisplayLabel } from '@/lib/clientUtils'
-import { DEFAULT_SERVICE_TIER, SERVICE_TIERS } from '@/lib/serviceTiers'
-import type { ProjectStatus, ProjectType } from '@/types'
-
-const projectTypes: ProjectType[] = [
-  'Apartment',
-  'House',
-  'Condo',
-  'Townhouse',
-  'Other',
-]
-
-const projectStatuses: ProjectStatus[] = [
-  'Inquiry',
-  'In Progress',
-  'Contract Sent',
-  'Contract Signed',
-  'Completed',
-  'Follow-Up Needed',
-]
+import { paymentMethodsTextForProvider } from '@/lib/paymentProvider'
+import { findPropertyByAddress } from '@/lib/properties'
+import { buildResidentialLeaseFields } from '@/lib/residentialLeaseTemplate'
+import {
+  computeLeaseEndDate,
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  formatLeaseLengthLabel,
+  LEASE_LENGTH_OPTIONS,
+  listUpcomingSeasonalLeaseStarts,
+  resolveScheduleAsOf,
+  type LeaseLengthMonths,
+} from '@/lib/leaseSchedule'
+import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
+import { generateId } from '@/lib/storage'
+import type { BusinessSettings, Client, ContractData, ProjectType, Property } from '@/types'
 
 const EMPTY_FORM = {
   name: '',
-  businessName: '',
   email: '',
   phone: '',
-  projectType: 'Apartment' as ProjectType,
-  projectName: '',
-  projectDescription: '',
-  projectStatus: 'Inquiry' as ProjectStatus,
-  serviceTier: DEFAULT_SERVICE_TIER,
-  notes: '',
-  followUpDate: '',
+  propertyAddress: '',
+  leaseStartDate: '',
+  leaseLengthMonths: String(DEFAULT_LEASE_LENGTH_MONTHS),
 }
 
 export type AddClientInitialValues = Partial<typeof EMPTY_FORM>
@@ -48,6 +41,79 @@ interface AddClientModalProps {
   onAdded?: () => void
 }
 
+function toProjectType(property: Property | undefined): ProjectType {
+  const housing = property?.propertyType ?? ''
+  if (housing === 'Townhouse') return 'Townhouse'
+  if (housing === 'Duplex') return 'Duplex'
+  if (housing.includes('Condo')) return 'Condo'
+  if (housing.includes('Single-Family') || housing.includes('House')) return 'House'
+  return 'Apartment'
+}
+
+function buildGeneratingLease(
+  client: Client,
+  settings: BusinessSettings,
+  property: Property | null,
+  leaseStartDate: string,
+  leaseEndDate: string,
+  leaseLengthMonths: number
+): ContractData {
+  const fields = buildResidentialLeaseFields({
+    client,
+    settings,
+    property,
+    leaseOptions: {
+      clientAddress: client.projectName,
+      startDate: leaseStartDate,
+      completionDate: leaseEndDate,
+      leaseLengthMonths,
+    },
+  })
+  const now = new Date().toISOString()
+  return {
+    id: generateId(),
+    clientId: client.id,
+    clientName: client.name,
+    businessName: client.businessName,
+    email: client.email,
+    phone: client.phone || '',
+    clientAddress: client.projectName || '',
+    serviceTier: client.serviceTier ?? DEFAULT_SERVICE_TIER,
+    projectTitle: fields.projectTitle,
+    projectScope: fields.projectScope,
+    servicesIncluded: fields.servicesIncluded,
+    servicesNotIncluded: fields.servicesNotIncluded,
+    deliverables: fields.deliverables,
+    startDate: leaseStartDate,
+    completionDate: leaseEndDate,
+    totalCost: fields.totalCost,
+    depositAmount: fields.depositAmount,
+    remainingBalance: fields.remainingBalance,
+    paymentSchedule: fields.paymentSchedule,
+    paymentProvider: 'paypal',
+    allowPrepaidRent: true,
+    paymentMethods: paymentMethodsTextForProvider('paypal'),
+    latePaymentPolicy: fields.latePaymentPolicy,
+    revisionCount: fields.revisionCount,
+    extraRevisionFee: fields.extraRevisionFee,
+    revisionLimits: fields.revisionLimits,
+    clientResponsibilities: fields.clientResponsibilities,
+    communicationMethod: fields.communicationMethod,
+    responseTime: fields.responseTime,
+    meetingExpectations: fields.meetingExpectations,
+    ownershipTerms: fields.ownershipTerms,
+    portfolioRights: fields.portfolioRights,
+    terminationTerms: fields.terminationTerms,
+    designerSignature: settings.ownerName || '',
+    isPlaceholderDraft: false,
+    leaseGenerationStatus: 'generating',
+    leaseGenerationStartedAt: now,
+    leaseVersion: 1,
+    versionHistory: [],
+    createdAt: now,
+  }
+}
+
 export function AddClientModal({
   open,
   onClose,
@@ -55,40 +121,96 @@ export function AddClientModal({
   registrationUserId,
   onAdded,
 }: AddClientModalProps) {
-  const { addClient } = useApp()
-  const [form, setForm] = useState(EMPTY_FORM)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { properties, settings, addClientWithContract } = useApp()
+  const seasonalStarts = listUpcomingSeasonalLeaseStarts(resolveScheduleAsOf())
+  const defaultStart = seasonalStarts[0]?.date ?? ''
+  const [form, setForm] = useState({ ...EMPTY_FORM, leaseStartDate: defaultStart })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const propertyOptions = useMemo(
+    () =>
+      [...properties]
+        .map((p) => p.address.trim())
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [properties]
+  )
 
   useEffect(() => {
-    if (open) {
-      setForm({ ...EMPTY_FORM, ...initialValues })
-    }
+    if (!open) return
+    const starts = listUpcomingSeasonalLeaseStarts(resolveScheduleAsOf())
+    setForm({
+      ...EMPTY_FORM,
+      ...initialValues,
+      leaseStartDate: initialValues?.leaseStartDate || starts[0]?.date || '',
+    })
+    setError('')
+    setSubmitting(false)
   }, [open, initialValues])
 
   const update = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    addClient({
-      name: form.name,
-      businessName: form.businessName || form.name,
-      email: form.email,
-      phone: form.phone,
-      projectType: form.projectType,
-      projectName: form.projectName || `${form.businessName || form.name} Project`,
-      projectDescription: form.projectDescription,
-      projectStatus: form.projectStatus,
-      serviceTier: form.serviceTier,
-      contractStatus: 'Not Started',
-      paymentStatus: 'Unpaid',
-      isOfficialClient: false,
-      followUpDate: form.followUpDate || undefined,
-      profileNotes: form.notes,
-      accountUserId: registrationUserId,
-    })
-    onAdded?.()
-    onClose()
-    setForm(EMPTY_FORM)
+    const address = form.propertyAddress.trim()
+    if (!address) {
+      setError('Choose a property address.')
+      return
+    }
+    if (!form.leaseStartDate) {
+      setError('Choose a lease start date.')
+      return
+    }
+
+    const leaseLengthMonths = Number(form.leaseLengthMonths) as LeaseLengthMonths
+    const leaseEndDate = computeLeaseEndDate(form.leaseStartDate, leaseLengthMonths)
+    const property = findPropertyByAddress(properties, address) ?? null
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await addClientWithContract(
+        {
+          name: form.name.trim(),
+          businessName: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          projectType: toProjectType(property ?? undefined),
+          projectName: address,
+          projectDescription: '',
+          projectStatus: 'Inquiry',
+          contractStatus: 'Draft in Progress',
+          paymentStatus: 'Unpaid',
+          isOfficialClient: false,
+          serviceTier: DEFAULT_SERVICE_TIER,
+          leaseLengthMonths,
+          accountUserId: registrationUserId,
+        },
+        (client) =>
+          buildGeneratingLease(
+            client,
+            settings,
+            property,
+            form.leaseStartDate,
+            leaseEndDate,
+            leaseLengthMonths
+          )
+      )
+      onAdded?.()
+      onClose()
+      const studioPath = location.pathname.startsWith('/studio')
+        ? location.pathname
+        : '/studio'
+      navigate({ pathname: studioPath, hash: 'tenants-waiting-lease' })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not generate lease agreement')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const title = registrationUserId ? 'Add Tenant from Registration' : 'Add New Tenant'
@@ -97,11 +219,17 @@ export function AddClientModal({
     <Modal open={open} onClose={onClose} title={title} size="lg">
       {registrationUserId && (
         <p className="mb-4 rounded-sm border border-line bg-surface px-3 py-2 text-sm text-ink-muted">
-          Pre-filled from portal sign-up. Complete any missing details, then save to add them to
-          your roster.
+          Pre-filled from portal sign-up. Confirm the details, choose lease dates, then generate
+          their lease agreement.
         </p>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <p className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
+            {error}
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             label="Tenant Name"
@@ -110,13 +238,6 @@ export function AddClientModal({
             placeholder="Jane Smith"
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
-          />
-          <Input
-            label="Business Name"
-            name="businessName"
-            placeholder="Smith & Co."
-            value={form.businessName}
-            onChange={(e) => update('businessName', e.target.value)}
           />
           <Input
             label="Email"
@@ -134,80 +255,74 @@ export function AddClientModal({
             placeholder="(555) 123-4567"
             value={form.phone}
             onChange={(e) => update('phone', e.target.value)}
+            hint="Optional"
+          />
+          <SearchableSelect
+            label="Property Address"
+            name="propertyAddress"
+            required
+            options={propertyOptions}
+            value={form.propertyAddress}
+            onChange={(value) => update('propertyAddress', value)}
+            placeholder={
+              propertyOptions.length > 0
+                ? 'Search rentals…'
+                : 'Add a rental first under Rentals'
+            }
+            emptyMessage={
+              propertyOptions.length === 0
+                ? 'No rentals yet — add one under Rentals'
+                : 'No matching rentals'
+            }
+            disabled={propertyOptions.length === 0}
           />
         </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
-            label="Property Type"
-            name="projectType"
-            value={form.projectType}
-            onChange={(e) => update('projectType', e.target.value)}
+            label="Lease Start Date"
+            name="leaseStartDate"
+            required
+            value={form.leaseStartDate}
+            onChange={(e) => update('leaseStartDate', e.target.value)}
           >
-            {projectTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {seasonalStarts.map((option) => (
+              <option key={option.date} value={option.date}>
+                {option.label}
               </option>
             ))}
           </Select>
           <Select
-            label="Lease Status"
-            name="projectStatus"
-            value={form.projectStatus}
-            onChange={(e) => update('projectStatus', e.target.value)}
+            label="Lease Duration"
+            name="leaseLengthMonths"
+            required
+            value={form.leaseLengthMonths}
+            onChange={(e) => update('leaseLengthMonths', e.target.value)}
           >
-            {projectStatuses.map((s) => (
-              <option key={s} value={s}>
-                {getProjectStatusDisplayLabel(s)}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Service Tier"
-            name="serviceTier"
-            value={form.serviceTier}
-            onChange={(e) => update('serviceTier', e.target.value)}
-          >
-            {SERVICE_TIERS.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {LEASE_LENGTH_OPTIONS.map((months) => (
+              <option key={months} value={months}>
+                {formatLeaseLengthLabel(months)}
               </option>
             ))}
           </Select>
         </div>
-        <Input
-          label="Address"
-          name="projectName"
-          placeholder="123 Main St, Unit 4B"
-          value={form.projectName}
-          onChange={(e) => update('projectName', e.target.value)}
-        />
-        <Textarea
-          label="Notes on property"
-          name="projectDescription"
-          placeholder="Unit details, parking, amenities..."
-          value={form.projectDescription}
-          onChange={(e) => update('projectDescription', e.target.value)}
-        />
-        <Input
-          label="Follow-up Date"
-          name="followUpDate"
-          type="date"
-          value={form.followUpDate}
-          onChange={(e) => update('followUpDate', e.target.value)}
-        />
-        <Textarea
-          label="Notes"
-          name="notes"
-          placeholder="Internal notes about this client..."
-          value={form.notes}
-          onChange={(e) => update('notes', e.target.value)}
-        />
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+
+        <p className="rounded-sm border border-line bg-surface px-3 py-2.5 text-sm text-ink-muted">
+          Once this tenant is added, they will appear in the Pending Tenants section. The lease
+          will need to be signed by them.
+        </p>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="submit">
-            {registrationUserId ? 'Confirm & Add Tenant' : 'Save Tenant'}
+          <Button type="submit" disabled={submitting || propertyOptions.length === 0}>
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSignature className="h-4 w-4" />
+            )}
+            {submitting ? 'Generating…' : 'Generate Lease Agreement'}
           </Button>
         </div>
       </form>

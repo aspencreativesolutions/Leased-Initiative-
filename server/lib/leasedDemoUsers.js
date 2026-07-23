@@ -20,15 +20,26 @@ export function getDemoPassword(email) {
   return email.trim().toLowerCase()
 }
 
-/** Seed rental addresses — must stay in sync with DEFAULT_SEED_PROPERTIES / Rentals. */
+/**
+ * Seed rental addresses within ~40 miles of Steubenville, OH.
+ * Must stay in sync with DEFAULT_SEED_PROPERTIES / Rentals.
+ */
 export const DEMO_RENTAL_ADDRESSES = {
-  portland: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
-  philadelphia: '56 East Market Street #210, Philadelphia, PA 19107',
-  tampa: '3315 South Magnolia Avenue, Tampa, FL 33609',
-  highland: '7748 Highland Park Lane, Austin, TX 78745',
-  barton: '2140 Barton Springs Road, Unit 2B, Austin, TX 78704',
-  lamar: '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
+  juanita: '523 Juanita Street, Steubenville, OH 43952',
+  heights: '201 Heights Street, Weirton, WV 26062',
+  maryland: '77 Maryland Street, Wheeling, WV 26003',
+  scioto: '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  donnell: '211 Donnell Street, Weirton, WV 26062',
+  broad: '107 Broad Street, St. Clairsville, OH 43950',
+  bethany: '285 Bethany Pike, Wellsburg, WV 26070',
+  canton: '430 Canton Road, Unit 11, Wintersville, OH 43953',
+  ridgeA: '1430 Ridge Avenue, Unit A, Steubenville, OH 43952',
+  ridgeB: '1430 Ridge Avenue, Unit B, Steubenville, OH 43952',
 }
+
+/** Landlord business mailing address (Steubenville downtown). */
+export const DEMO_LANDLORD_OFFICE =
+  '401 Market Street, Suite 200, Steubenville, OH 43952'
 
 /** Retired demo emails removed on ensure / reseed. */
 const OBSOLETE_LEASED_DEMO_EMAILS = new Set(['pending@leased.test'])
@@ -56,51 +67,51 @@ export const LEASED_DEMO_USERS = [
     name: 'Emma Johnson',
     role: 'client',
     label: 'Tenant — awaiting approval',
-    description: 'Signed up for Highland Park; waiting for landlord approval',
+    description: 'Signed up for Scioto Drive townhouse; waiting for landlord approval',
     tenantState: 'pending_approval',
     preferredLeaseMonths: 12,
     preferredLandlordCompany: 'Leased Properties',
-    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.highland,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.scioto,
   },
   {
     key: 'pending-michael',
     email: 'michael.carter@example.com',
     name: 'Michael Carter',
     role: 'client',
-    label: 'Tenant — awaiting approval (Barton Springs)',
-    description: 'Signed up for Barton Springs; waiting for landlord approval',
+    label: 'Tenant — awaiting approval (Donnell Street)',
+    description: 'Signed up for Donnell Street; waiting for landlord approval',
     tenantState: 'pending_approval',
     preferredLeaseMonths: 12,
     preferredLandlordCompany: 'Leased Properties',
-    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.barton,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.donnell,
   },
   {
     key: 'pending-olivia',
     email: 'olivia.davis@example.com',
     name: 'Olivia Davis',
     role: 'client',
-    label: 'Tenant — awaiting approval (Tampa Magnolia)',
-    description: 'Signed up for Magnolia Avenue; waiting for landlord approval',
+    label: 'Tenant — awaiting approval (Ridge Avenue duplex)',
+    description: 'Signed up for Ridge Avenue Unit A duplex; waiting for landlord approval',
     tenantState: 'pending_approval',
     preferredLeaseMonths: 6,
     preferredLandlordCompany: 'Leased Properties',
-    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.tampa,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.ridgeA,
   },
   {
     key: 'awaiting',
     email: 'awaiting@leased.test',
     name: 'Taylor Awaiting',
     role: 'client',
-    label: 'Tenant — lease sent',
+    label: 'Tenant — Sent',
     description: 'Approved; lease sent, waiting to sign',
     tenantState: 'lease_sent',
     preferredLeaseMonths: 12,
-    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.barton,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.canton,
     client: {
       businessName: 'Awaiting Lease Unit',
       phone: '(555) 200-0002',
       projectType: 'Apartment',
-      projectName: DEMO_RENTAL_ADDRESSES.barton,
+      projectName: DEMO_RENTAL_ADDRESSES.canton,
       projectDescription: 'Demo tenant with a lease waiting for signature.',
       projectStatus: 'Contract Sent',
       contractStatus: 'Sent',
@@ -114,21 +125,21 @@ export const LEASED_DEMO_USERS = [
     email: 'active@leased.test',
     name: 'Casey Active',
     role: 'client',
-    label: 'Tenant — active',
-    description: 'Lease signed; active tenant (Aug 2025–Jul 2026 term)',
+    label: 'Tenant — Active',
+    description: 'Signed lease; start date passed — current tenant (Aug 2025 start; final rent Aug 2026)',
     tenantState: 'active',
     preferredLeaseMonths: 12,
-    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.lamar,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.broad,
     client: {
       businessName: 'Active Lease Unit',
       phone: '(555) 200-0003',
       projectType: 'House',
-      projectName: DEMO_RENTAL_ADDRESSES.lamar,
+      projectName: DEMO_RENTAL_ADDRESSES.broad,
       projectDescription:
-        'Demo tenant with a signed 12-month lease starting August 1, 2025 (ending soon).',
+        'Demo tenant with a signed 12-month lease starting August 1, 2025 (Active — Month 11; final rent due August 1).',
       projectStatus: 'Contract Signed',
       contractStatus: 'Signed',
-      paymentStatus: 'Deposit Paid',
+      paymentStatus: 'Paid',
       isOfficialClient: true,
       leaseLengthMonths: 12,
     },
@@ -405,13 +416,17 @@ export async function ensureLeasedDemoUsers(store) {
       ownerName: 'Alex Landlord',
       email: 'landlord@leased.test',
       phone: '(555) 100-0001',
-      address: '1200 Congress Avenue, Suite 400, Austin, TX 78701',
+      address: DEMO_LANDLORD_OFFICE,
     }
     changed = true
-  } else if (settings.address === '100 Lease Lane, Demo City, ST 00000') {
+  } else if (
+    settings.address === '100 Lease Lane, Demo City, ST 00000' ||
+    settings.address === '1200 Congress Avenue, Suite 400, Austin, TX 78701' ||
+    settings.address === '4821 Westheimer Road, Suite 210, Houston, TX 77056'
+  ) {
     settings = {
       ...settings,
-      address: '1200 Congress Avenue, Suite 400, Austin, TX 78701',
+      address: DEMO_LANDLORD_OFFICE,
     }
     changed = true
   }

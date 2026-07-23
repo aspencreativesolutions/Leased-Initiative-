@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  CircleHelp,
   Eye,
   FileSignature,
   LayoutGrid,
@@ -44,6 +45,10 @@ import type { Client, ContractData, PendingRegistration, PortalUserAccepted, Por
 const WAITING_CONNECT_VIEW_KEY = 'leased-waiting-connect-view'
 type WaitingConnectView = 'list' | 'gallery'
 
+const WAITING_TO_CONNECT_HELP = 'New sign-ups awaiting your approval'
+const PENDING_TENANTS_HELP =
+  'Tenants awaiting a signed lease — from Waiting to Connect, Add Tenant, or lease import'
+
 function readWaitingConnectView(): WaitingConnectView {
   try {
     const raw = sessionStorage.getItem(WAITING_CONNECT_VIEW_KEY)
@@ -52,6 +57,19 @@ function readWaitingConnectView(): WaitingConnectView {
     /* sessionStorage unavailable */
   }
   return 'gallery'
+}
+
+function SectionHelpIcon({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      className="quick-tooltip quick-tooltip--below quick-tooltip--align-end inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-ink/5 hover:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      data-tooltip={label}
+      aria-label={label}
+    >
+      <CircleHelp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+    </button>
+  )
 }
 
 /**
@@ -120,7 +138,70 @@ export function TenantPipelineSections({
     void refreshOverview()
   }, [refreshOverview, clientsPipelineKey, propertiesOccupancyKey])
 
-  const hasGeneratingLease = (overview?.accepted ?? []).some(
+  const pending = overview?.pending ?? []
+  // Accepted / manually added tenants who have not signed yet. Signed → Official Tenants.
+  const prospectiveApplicants = (() => {
+    const fromOverview = (overview?.accepted ?? []).filter(
+      (user) =>
+        !user.isOfficialClient &&
+        user.contractStatus !== 'Signed' &&
+        user.contractStatus !== 'Completed'
+    )
+    const linkedIds = new Set(fromOverview.map((user) => user.clientId))
+    const localPending: PortalUserAccepted[] = clients
+      .filter((client) => {
+        if (linkedIds.has(client.id)) return false
+        if (client.isOfficialClient) return false
+        if (
+          client.contractStatus === 'Signed' ||
+          client.contractStatus === 'Completed' ||
+          client.contractStatus === 'Cancelled'
+        ) {
+          return false
+        }
+        return true
+      })
+      .map((client) => {
+        const contract = getContractForClient(client.id)
+        const leaseAction =
+          contract?.leaseGenerationStatus === 'generating'
+            ? ('generating' as const)
+            : contract
+              ? ('send' as const)
+              : ('draft' as const)
+        const propertyAddress =
+          (contract?.clientAddress && String(contract.clientAddress).trim()) ||
+          client.projectName ||
+          ''
+        return {
+          userId: `manual-${client.id}`,
+          name: client.name,
+          email: client.email,
+          registeredAt: client.createdAt,
+          clientId: client.id,
+          clientName: client.name,
+          projectName: client.projectName,
+          propertyAddress: propertyAddress || undefined,
+          contractStatus: client.contractStatus,
+          hasLeaseAgreement: Boolean(contract) && leaseAction === 'send',
+          leaseAction,
+          leaseGenerationStatus: contract?.leaseGenerationStatus,
+          isOfficialClient: false,
+          timelineStageId:
+            leaseAction === 'generating' ? 'lease_generating' : 'inquiry',
+          timelineStageLabel:
+            leaseAction === 'generating' ? 'Generating Lease Agreement' : 'Inquiry',
+          acceptedAt: client.createdAt,
+          handlerName: overview?.handlerName ?? '',
+          handlerEmail: overview?.handlerEmail ?? '',
+        }
+      })
+    return [...fromOverview, ...localPending].sort(
+      (a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime()
+    )
+  })()
+
+  const hasGeneratingLease = prospectiveApplicants.some(
     (user) => user.leaseAction === 'generating'
   )
 
@@ -129,10 +210,10 @@ export function TenantPipelineSections({
     if (!hasGeneratingLease) return
     const id = window.setInterval(() => {
       void refreshOverview()
+      void refresh()
     }, 800)
     return () => window.clearInterval(id)
-  }, [hasGeneratingLease, refreshOverview])
-
+  }, [hasGeneratingLease, refreshOverview, refresh])
   const handleAccept = async (registration: PendingRegistration) => {
     setAcceptingId(registration.id)
     setError('')
@@ -159,19 +240,11 @@ export function TenantPipelineSections({
     }
   }
 
-  const pending = overview?.pending ?? []
-  // Accepted tenants who have not signed yet (draft or lease sent). Signed → Official Tenants.
-  const prospectiveApplicants = (overview?.accepted ?? []).filter(
-    (user) =>
-      !user.isOfficialClient &&
-      user.contractStatus !== 'Signed' &&
-      user.contractStatus !== 'Completed'
-  )
-
   const waitingSection = showWaitingToConnect ? (
     <section
+      id="tenants-waiting-connect"
       data-onboarding="tenants-waiting-connect"
-      className="min-w-0 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
+      className="min-w-0 scroll-mt-28 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -183,47 +256,46 @@ export function TenantPipelineSections({
             </span>
           )}
         </div>
-        <div
-          role="group"
-          aria-label="Waiting to Connect display"
-          className="inline-flex shrink-0 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper p-0.5"
-        >
-          <button
-            type="button"
-            title="List View"
-            aria-label="List View"
-            aria-pressed={waitingView === 'list'}
-            onClick={() => setWaitingConnectView('list')}
-            className={cn(
-              'inline-flex h-8 w-8 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] transition-colors',
-              waitingView === 'list'
-                ? 'bg-brand text-surface-paper'
-                : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-            )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          <div
+            role="group"
+            aria-label="Waiting to Connect display"
+            className="inline-flex rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper p-0.5"
           >
-            <LayoutList className="h-4 w-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            title="Gallery View"
-            aria-label="Gallery View"
-            aria-pressed={waitingView === 'gallery'}
-            onClick={() => setWaitingConnectView('gallery')}
-            className={cn(
-              'inline-flex h-8 w-8 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] transition-colors',
-              waitingView === 'gallery'
-                ? 'bg-brand text-surface-paper'
-                : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-            )}
-          >
-            <LayoutGrid className="h-4 w-4" aria-hidden />
-          </button>
+            <button
+              type="button"
+              title="List View"
+              aria-label="List View"
+              aria-pressed={waitingView === 'list'}
+              onClick={() => setWaitingConnectView('list')}
+              className={cn(
+                'inline-flex h-8 w-8 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] transition-colors',
+                waitingView === 'list'
+                  ? 'bg-brand text-surface-paper'
+                  : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+              )}
+            >
+              <LayoutList className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              title="Gallery View"
+              aria-label="Gallery View"
+              aria-pressed={waitingView === 'gallery'}
+              onClick={() => setWaitingConnectView('gallery')}
+              className={cn(
+                'inline-flex h-8 w-8 items-center justify-center rounded-[calc(var(--radius-sm)-2px)] transition-colors',
+                waitingView === 'gallery'
+                  ? 'bg-brand text-surface-paper'
+                  : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+          <SectionHelpIcon label={WAITING_TO_CONNECT_HELP} />
         </div>
       </div>
-      <p className="mb-3 text-sm text-ink-muted">
-        Portal sign-ups awaiting your approval. Accept to move them into Pending Tenants, where you
-        can draft or send a lease. They stay out of Official Tenants until a lease is signed.
-      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-10 text-ink-muted">
@@ -257,7 +329,7 @@ export function TenantPipelineSections({
               ))}
             </ul>
           ) : (
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-1">
+            <ul className="waiting-connect-gallery">
               {pending.map((registration) => (
                 <WaitingConnectGalleryTile
                   key={registration.id}
@@ -280,23 +352,22 @@ export function TenantPipelineSections({
 
   const pendingSection = (
     <section
+      id={pendingSectionId}
       data-onboarding={pendingSectionId}
-      className="min-w-0 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
+      className="min-w-0 scroll-mt-28 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <FileSignature className="h-4 w-4 shrink-0 text-ink-muted" />
-        <h2 className="heading-display text-lg">{pendingSectionTitle}</h2>
-        {!loading && prospectiveApplicants.length > 0 && (
-          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
-            {prospectiveApplicants.length}
-          </span>
-        )}
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <FileSignature className="h-4 w-4 shrink-0 text-ink-muted" />
+          <h2 className="heading-display text-lg">{pendingSectionTitle}</h2>
+          {!loading && prospectiveApplicants.length > 0 && (
+            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
+              {prospectiveApplicants.length}
+            </span>
+          )}
+        </div>
+        <SectionHelpIcon label={PENDING_TENANTS_HELP} />
       </div>
-      <p className="mb-3 text-sm text-ink-muted">
-        Approved tenants awaiting a signed lease. When you accept someone from Waiting to Connect,
-        their lease agreement generates automatically. Review, edit, and send it — once signed,
-        they move to Official Tenants.
-      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-10 text-ink-muted">
@@ -308,7 +379,7 @@ export function TenantPipelineSections({
             compact
             icon={FileSignature}
             title="No pending tenants"
-            description="After you accept someone from Waiting to Connect, they appear here until their lease is signed."
+            description="Accept someone from Waiting to Connect, or use Add Tenant to generate a lease — they appear here until it is signed."
           />
         </Card>
       ) : (
@@ -349,7 +420,7 @@ export function TenantPipelineSections({
       )}
 
       {showWaitingToConnect ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6 lg:items-start">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
           {waitingSection}
           {pendingSection}
         </div>
@@ -408,10 +479,11 @@ function waitingConnectApplicantMeta(props: WaitingConnectItemProps) {
     ? availableUnitsForApplicant(matchedProperty, clients, getContractForClient)
     : null
   const displayAddress = matchedProperty?.address || desiredAddress || '—'
+  const propertyId = matchedProperty?.id
   const busy =
     props.acceptingId === registration.id || props.dismissingId === registration.id
 
-  return { desiredAddress, availableUnits, displayAddress, busy }
+  return { desiredAddress, availableUnits, displayAddress, propertyId, busy }
 }
 
 function WaitingConnectActions({
@@ -422,6 +494,7 @@ function WaitingConnectActions({
   onAccept,
   onDismiss,
   compact = false,
+  stretch = false,
 }: {
   registration: PendingRegistration
   acceptingId: string | null
@@ -430,14 +503,17 @@ function WaitingConnectActions({
   onAccept: (registration: PendingRegistration) => void
   onDismiss: (registration: PendingRegistration) => void
   compact?: boolean
+  stretch?: boolean
 }) {
   return (
     <div
       className={cn(
         'grid shrink-0 grid-cols-2 gap-2',
-        compact
-          ? 'ml-auto w-full max-w-[13.5rem] sm:w-[13.5rem]'
-          : 'w-[min(13.5rem,46%)] sm:w-[13.5rem]'
+        stretch
+          ? 'w-full'
+          : compact
+            ? 'ml-auto w-full max-w-[13.5rem] sm:w-[13.5rem]'
+            : 'w-[min(13.5rem,46%)] sm:w-[13.5rem]'
       )}
     >
       <Button
@@ -473,38 +549,31 @@ function WaitingConnectActions({
 
 function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
   const { registration, acceptingId, dismissingId, onAccept, onDismiss } = props
-  const { desiredAddress, availableUnits, displayAddress, busy } =
+  const { desiredAddress, availableUnits, displayAddress, propertyId, busy } =
     waitingConnectApplicantMeta(props)
 
   return (
-    <li className="waiting-connect-tile relative rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1 pr-1">
-          <div className={clientNameMarkersClass}>
-            <p className="min-w-0 truncate font-semibold text-ink">{registration.name}</p>
-            <TenantMarkerBadge />
-            <PendingClientBadge />
-          </div>
-          <p className="truncate text-sm text-ink-muted">{registration.email}</p>
+    <li className="waiting-connect-tile relative flex h-full min-w-0 flex-col rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-4">
+      <div className="min-w-0 space-y-1">
+        <div className={clientNameMarkersClass}>
+          <p className="min-w-0 truncate font-semibold text-ink">{registration.name}</p>
+          <TenantMarkerBadge />
+          <PendingClientBadge />
         </div>
-        <WaitingConnectActions
-          registration={registration}
-          acceptingId={acceptingId}
-          dismissingId={dismissingId}
-          busy={busy}
-          onAccept={onAccept}
-          onDismiss={onDismiss}
-        />
+        <p className="truncate text-sm text-ink-muted">{registration.email}</p>
       </div>
 
-      <div className="mt-3 space-y-1">
+      <div className="mt-3 min-w-0 flex-1 space-y-1">
         <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
           Desired Address
         </p>
         <p className="text-sm font-medium text-ink">{displayAddress}</p>
         {desiredAddress ? (
           <div className="pt-1">
-            <RentalAvailabilityBadge availableUnits={availableUnits} />
+            <RentalAvailabilityBadge
+              availableUnits={availableUnits}
+              propertyId={propertyId}
+            />
           </div>
         ) : null}
         {registration.preferredLandlordCompany && (
@@ -522,13 +591,25 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
           )}
         </p>
       </div>
+
+      <div className="mt-4">
+        <WaitingConnectActions
+          registration={registration}
+          acceptingId={acceptingId}
+          dismissingId={dismissingId}
+          busy={busy}
+          onAccept={onAccept}
+          onDismiss={onDismiss}
+          stretch
+        />
+      </div>
     </li>
   )
 }
 
 function WaitingConnectListRow(props: WaitingConnectItemProps) {
   const { registration, acceptingId, dismissingId, onAccept, onDismiss } = props
-  const { desiredAddress, availableUnits, displayAddress, busy } =
+  const { desiredAddress, availableUnits, displayAddress, propertyId, busy } =
     waitingConnectApplicantMeta(props)
 
   return (
@@ -544,7 +625,10 @@ function WaitingConnectListRow(props: WaitingConnectItemProps) {
               {displayAddress}
             </p>
             {desiredAddress ? (
-              <RentalAvailabilityBadge availableUnits={availableUnits} />
+              <RentalAvailabilityBadge
+                availableUnits={availableUnits}
+                propertyId={propertyId}
+              />
             ) : null}
           </div>
         </div>
@@ -591,7 +675,9 @@ function ProspectiveApplicantRow({
     (user.contractStatus === 'Sent' ||
       user.timelineStageId === 'contract_sent' ||
       user.timelineStageLabel === 'Lease Sent' ||
+      user.timelineStageLabel === 'Lease Resent' ||
       Boolean(contract?.sentAt))
+  const leaseResent = leaseSent && Boolean(contract?.resentAt)
   const leaseReady =
     !isGenerating &&
     !leaseSent &&
@@ -600,12 +686,26 @@ function ProspectiveApplicantRow({
       leaseAction === 'send')
   const leaseStatusLabel = isGenerating
     ? 'Generating Lease Agreement'
-    : leaseSent
-      ? 'Lease Sent'
-      : leaseReady
-        ? 'Lease Ready'
-        : user.timelineStageLabel
+    : leaseResent
+      ? 'Lease Resent'
+      : leaseSent
+        ? 'Lease Sent'
+        : leaseReady
+          ? 'Lease Ready'
+          : user.timelineStageLabel
   const showLeaseActions = Boolean(client && contract && (leaseReady || leaseSent))
+  const leaseStatusDate = leaseResent
+    ? contract?.resentAt
+    : leaseSent
+      ? contract?.sentAt
+      : undefined
+  const leaseStatusDateLabel = leaseResent
+    ? leaseStatusDate
+      ? `Resent on ${formatDate(leaseStatusDate)}`
+      : null
+    : leaseStatusDate
+      ? `Sent ${formatDate(leaseStatusDate)}`
+      : null
 
   return (
     <tr>
@@ -623,7 +723,7 @@ function ProspectiveApplicantRow({
           )}
         </p>
         <p className="mt-0.5 text-xs text-ink-faint">
-          Accepted {formatDate(user.acceptedAt)}
+          Added {formatDate(user.acceptedAt)}
         </p>
       </td>
       <td className="hidden px-3 py-4 sm:table-cell sm:px-4">
@@ -645,7 +745,7 @@ function ProspectiveApplicantRow({
                   ? 'border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]'
                   : 'border-line bg-surface text-ink'
             )}
-            title={leaseSent && contract?.sentAt ? `Sent ${formatDate(contract.sentAt)}` : undefined}
+            title={leaseStatusDateLabel ?? undefined}
           >
             {leaseSent && (
               <Send className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
@@ -653,40 +753,43 @@ function ProspectiveApplicantRow({
             {leaseStatusLabel}
           </span>
         )}
-        {leaseSent && contract?.sentAt ? (
-          <p className="mt-1 text-[11px] text-ink-faint">
-            Sent {formatDate(contract.sentAt)}
-          </p>
+        {leaseStatusDateLabel ? (
+          <p className="mt-1 text-[11px] text-ink-faint">{leaseStatusDateLabel}</p>
         ) : null}
       </td>
-      <td className="px-3 py-4 sm:px-4">
+      <td className="px-3 py-4 align-middle sm:px-4">
         {showLeaseActions ? (
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <div className="flex flex-col items-end gap-1.5">
             <Button
               size="sm"
               variant="outline"
-              className="min-w-[4.75rem]"
+              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
               onClick={() => {
                 if (client && contract) onView(client, contract)
               }}
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-3.5 w-3.5 shrink-0" />
               View
             </Button>
-            <Button size="sm" variant="outline" className="min-w-[4.75rem]" onClick={onEdit}>
-              <Pencil className="h-3.5 w-3.5" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
+              onClick={onEdit}
+            >
+              <Pencil className="h-3.5 w-3.5 shrink-0" />
               Edit
             </Button>
             <Button
               size="sm"
               variant="primary"
-              className="min-w-[4.75rem]"
+              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
               disabled={!client || !contract}
               onClick={() => {
                 if (client && contract) onSend(client, contract)
               }}
             >
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-3.5 w-3.5 shrink-0" />
               {leaseSent ? 'Resend' : 'Send'}
             </Button>
           </div>

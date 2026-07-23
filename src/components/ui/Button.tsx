@@ -18,7 +18,7 @@ const variants: Record<Variant, string> = {
   ghost:
     'bg-transparent text-ink-muted border-[length:var(--border-width)] border-transparent hover:border-line hover:text-ink',
   outline:
-    'border-[length:var(--border-width)] border-ink bg-transparent text-ink hover:bg-ink hover:text-surface-paper',
+    'border-[length:var(--border-width)] border-ink/40 bg-transparent text-ink hover:border-ink hover:bg-transparent',
   danger:
     'border-[length:var(--border-width)] border-accent bg-accent-light text-accent hover:bg-accent hover:text-white',
 }

@@ -1,5 +1,9 @@
 import { generateId } from './notifications.js'
 import { getDemoAsOfIso } from './demoClock.js'
+import {
+  ensurePropertyMonthlyRent,
+  resolvePropertyMonthlyRent,
+} from './rentalRent.js'
 
 export const PROPERTY_HOUSING_TYPES = [
   'Apartment',
@@ -14,7 +18,6 @@ export const PROPERTY_HOUSING_TYPES = [
   'Loft',
   'Basement Apartment / Accessory Dwelling Unit',
   'Vacation Rental',
-  'Other',
 ]
 
 const LEGACY_PROPERTY_TYPE_MAP = {
@@ -22,89 +25,205 @@ const LEGACY_PROPERTY_TYPE_MAP = {
   'Multi-family home': 'Multi-Family Building',
   Condominium: 'Condominium (Condo)',
   Studio: 'Studio Apartment',
+  Other: 'Single-Family Home',
 }
 
-/** Default portfolio seeded when the store has no properties yet. */
+/**
+ * Curated landlord portfolio — real addresses within ~40 miles of Steubenville, OH.
+ * Types and bedroom counts match the actual properties (apartment, single-family,
+ * townhouse, duplex). Duplex units include unit letters.
+ */
 export const DEFAULT_SEED_PROPERTIES = [
   {
-    address: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
-    propertyType: 'Apartment',
-    unitCount: 1,
-    bedrooms: 2,
-    maxTenants: 2,
-    addressDetails: {
-      street: '902 West Cedar Ridge Drive, Unit 4',
-      city: 'Portland',
-      state: 'OR',
-      zip: '97205',
-    },
-  },
-  {
-    address: '56 East Market Street #210, Philadelphia, PA 19107',
-    propertyType: 'Apartment',
-    unitCount: 3,
-    bedrooms: 1,
-    maxTenants: 3,
-    addressDetails: {
-      street: '56 East Market Street #210',
-      city: 'Philadelphia',
-      state: 'PA',
-      zip: '19107',
-    },
-  },
-  {
-    address: '3315 South Magnolia Avenue, Tampa, FL 33609',
+    address: '523 Juanita Street, Steubenville, OH 43952',
     propertyType: 'Single-Family Home',
     unitCount: 1,
     bedrooms: 3,
+    bathrooms: 2,
     maxTenants: 4,
+    /** Shared by two active demo roommates — $1,200 each */
+    monthlyRent: 2400,
     addressDetails: {
-      street: '3315 South Magnolia Avenue',
-      city: 'Tampa',
-      state: 'FL',
-      zip: '33609',
+      street: '523 Juanita Street',
+      city: 'Steubenville',
+      state: 'OH',
+      zip: '43952',
     },
   },
   {
-    address: '7748 Highland Park Lane, Austin, TX 78745',
+    address: '201 Heights Street, Weirton, WV 26062',
+    propertyType: 'Single-Family Home',
+    unitCount: 1,
+    bedrooms: 3,
+    bathrooms: 2,
+    maxTenants: 4,
+    monthlyRent: 2150,
+    addressDetails: {
+      street: '201 Heights Street',
+      city: 'Weirton',
+      state: 'WV',
+      zip: '26062',
+    },
+  },
+  {
+    address: '77 Maryland Street, Wheeling, WV 26003',
+    propertyType: 'Single-Family Home',
+    unitCount: 1,
+    bedrooms: 3,
+    bathrooms: 2,
+    maxTenants: 4,
+    monthlyRent: 2200,
+    addressDetails: {
+      street: '77 Maryland Street',
+      city: 'Wheeling',
+      state: 'WV',
+      zip: '26003',
+    },
+  },
+  {
+    address: '211 Donnell Street, Weirton, WV 26062',
+    propertyType: 'Single-Family Home',
+    unitCount: 1,
+    bedrooms: 4,
+    bathrooms: 2.5,
+    maxTenants: 5,
+    monthlyRent: 2850,
+    addressDetails: {
+      street: '211 Donnell Street',
+      city: 'Weirton',
+      state: 'WV',
+      zip: '26062',
+    },
+  },
+  {
+    address: '107 Broad Street, St. Clairsville, OH 43950',
+    propertyType: 'Single-Family Home',
+    unitCount: 1,
+    bedrooms: 5,
+    bathrooms: 3,
+    maxTenants: 6,
+    monthlyRent: 3200,
+    addressDetails: {
+      street: '107 Broad Street',
+      city: 'St. Clairsville',
+      state: 'OH',
+      zip: '43950',
+    },
+  },
+  {
+    address: '285 Bethany Pike, Wellsburg, WV 26070',
+    propertyType: 'Single-Family Home',
+    unitCount: 1,
+    bedrooms: 2,
+    bathrooms: 1.5,
+    maxTenants: 3,
+    monthlyRent: 1850,
+    addressDetails: {
+      street: '285 Bethany Pike',
+      city: 'Wellsburg',
+      state: 'WV',
+      zip: '26070',
+    },
+  },
+  {
+    address: '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
     propertyType: 'Townhouse',
     unitCount: 1,
     bedrooms: 2,
+    bathrooms: 1.5,
     maxTenants: 3,
+    monthlyRent: 1750,
     addressDetails: {
-      street: '7748 Highland Park Lane',
-      city: 'Austin',
-      state: 'TX',
-      zip: '78745',
+      street: '4610 Scioto Drive, Unit A',
+      city: 'Steubenville',
+      state: 'OH',
+      zip: '43953',
     },
   },
   {
-    address: '2140 Barton Springs Road, Unit 2B, Austin, TX 78704',
-    propertyType: 'Multi-Family Building',
-    unitCount: 4,
-    bedrooms: 2,
-    maxTenants: 6,
-    addressDetails: {
-      street: '2140 Barton Springs Road, Unit 2B',
-      city: 'Austin',
-      state: 'TX',
-      zip: '78704',
-    },
-  },
-  {
-    address: '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
-    propertyType: 'Condominium (Condo)',
+    address: '430 Canton Road, Unit 11, Wintersville, OH 43953',
+    propertyType: 'Apartment',
     unitCount: 1,
-    bedrooms: 3,
-    maxTenants: 4,
+    bedrooms: 2,
+    bathrooms: 1,
+    maxTenants: 3,
+    monthlyRent: 1450,
     addressDetails: {
-      street: '8901 North Lamar Boulevard, Unit 3C',
-      city: 'Austin',
-      state: 'TX',
-      zip: '78753',
+      street: '430 Canton Road, Unit 11',
+      city: 'Wintersville',
+      state: 'OH',
+      zip: '43953',
+    },
+  },
+  {
+    address: '1430 Ridge Avenue, Unit A, Steubenville, OH 43952',
+    propertyType: 'Duplex',
+    unitCount: 1,
+    bedrooms: 1,
+    bathrooms: 1,
+    maxTenants: 2,
+    monthlyRent: 1350,
+    addressDetails: {
+      street: '1430 Ridge Avenue, Unit A',
+      city: 'Steubenville',
+      state: 'OH',
+      zip: '43952',
+    },
+  },
+  {
+    address: '1430 Ridge Avenue, Unit B, Steubenville, OH 43952',
+    propertyType: 'Duplex',
+    unitCount: 1,
+    bedrooms: 1,
+    bathrooms: 1,
+    maxTenants: 2,
+    /** Vacant duplex side — unit rent still shown on Rentals */
+    monthlyRent: 1400,
+    addressDetails: {
+      street: '1430 Ridge Avenue, Unit B',
+      city: 'Steubenville',
+      state: 'OH',
+      zip: '43952',
     },
   },
 ]
+
+/** Old seed / demo addresses → Steubenville-area replacements. */
+export const SEED_PROPERTY_ADDRESS_MIGRATIONS = {
+  '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205':
+    '523 Juanita Street, Steubenville, OH 43952',
+  '56 East Market Street #210, Philadelphia, PA 19107':
+    '201 Heights Street, Weirton, WV 26062',
+  '3315 South Magnolia Avenue, Tampa, FL 33609':
+    '77 Maryland Street, Wheeling, WV 26003',
+  '7748 Highland Park Lane, Austin, TX 78745':
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  '2140 Barton Springs Road, Unit 2B, Austin, TX 78704':
+    '211 Donnell Street, Weirton, WV 26062',
+  '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753':
+    '107 Broad Street, St. Clairsville, OH 43950',
+  '4821 Westheimer Road, Suite 210, Houston, TX 77056':
+    '401 Market Street, Suite 200, Steubenville, OH 43952',
+  '1200 Congress Avenue, Suite 400, Austin, TX 78701':
+    '401 Market Street, Suite 200, Steubenville, OH 43952',
+  '1847 North Whispering Pines Boulevard, Apartment 12B, Charlotte, NC 28202':
+    '285 Bethany Pike, Wellsburg, WV 26070',
+  '2100 Congress Avenue, Suite 100, Austin, TX 78701':
+    '211 East Main Street, St. Clairsville, OH 43950',
+  '4500 South Lamar Boulevard, Unit 8, Austin, TX 78745':
+    '70090 Main Street, St. Clairsville, OH 43950',
+  '8800 North MoPac Expressway, Floor 3, Austin, TX 78759':
+    '71365 Center Street, St. Clairsville, OH 43950',
+  // Prior Steubenville-area seeds with incorrect housing types
+  '261 East Main Street, St. Clairsville, OH 43950':
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  '150 Orchard Street, Wintersville, OH 43953':
+    '430 Canton Road, Unit 11, Wintersville, OH 43953',
+  '903 Logan Avenue, Mingo Junction, OH 43938':
+    '1430 Ridge Avenue, Unit A, Steubenville, OH 43952',
+  '4610A Scioto Drive, Steubenville, OH 43953':
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+}
 
 function normalizeAddress(address) {
   return String(address ?? '')
@@ -116,7 +235,7 @@ function normalizeAddress(address) {
 function normalizePropertyType(value) {
   const trimmed = String(value ?? '').trim()
   if (PROPERTY_HOUSING_TYPES.includes(trimmed)) return trimmed
-  return LEGACY_PROPERTY_TYPE_MAP[trimmed] ?? 'Other'
+  return LEGACY_PROPERTY_TYPE_MAP[trimmed] ?? 'Single-Family Home'
 }
 
 function normalizeMaxTenants(value, unitCount) {
@@ -141,12 +260,21 @@ function normalizeAddressDetails(raw) {
   return Object.keys(details).length > 0 ? details : undefined
 }
 
+function normalizeOptionalPositiveNumber(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  return n
+}
+
 export function createPropertyRecord({
   address,
   propertyType,
   unitCount,
   bedrooms,
+  bathrooms,
+  squareFeet,
   maxTenants,
+  monthlyRent,
   createdAt,
   importedFromLeaseScan,
   addressDetails,
@@ -165,6 +293,10 @@ export function createPropertyRecord({
     maxTenants: normalizeMaxTenants(maxTenants, resolvedUnits),
     createdAt: createdAt || new Date().toISOString(),
   }
+  const baths = normalizeOptionalPositiveNumber(bathrooms)
+  if (baths != null) record.bathrooms = baths
+  const sqft = normalizeOptionalPositiveNumber(squareFeet)
+  if (sqft != null) record.squareFeet = Math.floor(sqft)
   if (importedFromLeaseScan === true) {
     record.importedFromLeaseScan = true
   }
@@ -174,10 +306,15 @@ export function createPropertyRecord({
   if (Array.isArray(units) && units.length > 0) {
     record.units = units
   }
+  const explicitRent = normalizeOptionalPositiveNumber(monthlyRent)
+  record.monthlyRent =
+    explicitRent != null
+      ? Math.round(explicitRent)
+      : resolvePropertyMonthlyRent(record)
   return record
 }
 
-/** Backfill propertyType / maxTenants on legacy store records. */
+/** Backfill propertyType / maxTenants / monthlyRent on legacy store records. */
 export function normalizeStoredProperty(property) {
   if (!property || typeof property !== 'object') return property
   const units = Math.max(1, Math.floor(Number(property.unitCount) || 1))
@@ -189,9 +326,37 @@ export function normalizeStoredProperty(property) {
     bedrooms: Math.max(0, Math.floor(Number(property.bedrooms) || 0)),
     maxTenants: normalizeMaxTenants(property.maxTenants, units),
   }
+  const baths = normalizeOptionalPositiveNumber(property.bathrooms)
+  if (baths != null) next.bathrooms = baths
+  else delete next.bathrooms
+  const sqft = normalizeOptionalPositiveNumber(property.squareFeet)
+  if (sqft != null) next.squareFeet = Math.floor(sqft)
+  else delete next.squareFeet
   const details = normalizeAddressDetails(property.addressDetails)
   if (details) next.addressDetails = details
   else delete next.addressDetails
+  return ensurePropertyMonthlyRent(next)
+}
+
+/** Apply curated seed fields onto a matching portfolio rental. */
+function applySeedFields(property, seedEntry) {
+  if (!seedEntry) return property
+  const seedDetails = normalizeAddressDetails(seedEntry.addressDetails)
+  const next = {
+    ...property,
+    propertyType: normalizePropertyType(seedEntry.propertyType),
+    unitCount: Math.max(1, Math.floor(Number(seedEntry.unitCount) || 1)),
+    bedrooms: Math.max(0, Math.floor(Number(seedEntry.bedrooms) || 0)),
+    maxTenants: normalizeMaxTenants(seedEntry.maxTenants, seedEntry.unitCount),
+  }
+  const baths = normalizeOptionalPositiveNumber(seedEntry.bathrooms)
+  if (baths != null) next.bathrooms = baths
+  const sqft = normalizeOptionalPositiveNumber(seedEntry.squareFeet)
+  if (sqft != null) next.squareFeet = Math.floor(sqft)
+  const seedRent = normalizeOptionalPositiveNumber(seedEntry.monthlyRent)
+  if (seedRent != null) next.monthlyRent = Math.round(seedRent)
+  if (seedDetails) next.addressDetails = seedDetails
+  if (property.addressConfirmed !== true) next.addressConfirmed = true
   return next
 }
 
@@ -218,21 +383,59 @@ export function ensureStoreProperties(store) {
   const now = getDemoAsOfIso()
   let changed = false
   let properties = existing.map((property) => {
-    const next = normalizeStoredProperty(property)
+    const migratedAddress =
+      SEED_PROPERTY_ADDRESS_MIGRATIONS[String(property.address ?? '').trim()]
+    const base = migratedAddress ? { ...property, address: migratedAddress } : property
+    if (migratedAddress) changed = true
+
+    const seedEntry = DEFAULT_SEED_PROPERTIES.find(
+      (entry) => normalizeAddress(entry.address) === normalizeAddress(base.address)
+    )
+    const withSeed = seedEntry ? applySeedFields(base, seedEntry) : base
     if (
-      next.propertyType !== property.propertyType ||
-      next.maxTenants !== property.maxTenants ||
-      next.unitCount !== property.unitCount ||
-      next.bedrooms !== property.bedrooms
+      withSeed.propertyType !== base.propertyType ||
+      withSeed.maxTenants !== base.maxTenants ||
+      withSeed.unitCount !== base.unitCount ||
+      withSeed.bedrooms !== base.bedrooms ||
+      withSeed.monthlyRent !== base.monthlyRent ||
+      withSeed.bathrooms !== base.bathrooms ||
+      withSeed.addressDetails !== base.addressDetails ||
+      withSeed.addressConfirmed !== base.addressConfirmed
+    ) {
+      changed = true
+    }
+
+    const next = normalizeStoredProperty(withSeed)
+    if (
+      next.propertyType !== withSeed.propertyType ||
+      next.maxTenants !== withSeed.maxTenants ||
+      next.unitCount !== withSeed.unitCount ||
+      next.bedrooms !== withSeed.bedrooms ||
+      next.monthlyRent !== withSeed.monthlyRent
     ) {
       changed = true
     }
     return next
   })
 
+  // Collapse duplicates created when an old seed address migrates onto an
+  // address that already exists in the portfolio.
+  const seenAddresses = new Set()
+  const deduped = []
+  for (const property of properties) {
+    const key = normalizeAddress(property.address)
+    if (seenAddresses.has(key)) {
+      changed = true
+      continue
+    }
+    seenAddresses.add(key)
+    deduped.push(property)
+  }
+  properties = deduped
+
   if (properties.length === 0) {
     properties = DEFAULT_SEED_PROPERTIES.map((entry) =>
-      createPropertyRecord({ ...entry, createdAt: now })
+      createPropertyRecord({ ...entry, createdAt: now, addressConfirmed: true })
     )
     changed = true
   } else {
@@ -245,7 +448,7 @@ export function ensureStoreProperties(store) {
       if (index == null) {
         properties = [
           ...properties,
-          createPropertyRecord({ ...entry, createdAt: now }),
+          createPropertyRecord({ ...entry, createdAt: now, addressConfirmed: true }),
         ]
         byAddress.set(key, properties.length - 1)
         changed = true
@@ -253,9 +456,18 @@ export function ensureStoreProperties(store) {
       }
 
       const current = properties[index]
-      const seedDetails = normalizeAddressDetails(entry.addressDetails)
-      if (!current.addressDetails && seedDetails) {
-        properties[index] = { ...current, addressDetails: seedDetails }
+      const synced = applySeedFields(current, entry)
+      const normalizedSynced = normalizeStoredProperty(synced)
+      if (
+        normalizedSynced.propertyType !== current.propertyType ||
+        normalizedSynced.maxTenants !== current.maxTenants ||
+        normalizedSynced.unitCount !== current.unitCount ||
+        normalizedSynced.bedrooms !== current.bedrooms ||
+        normalizedSynced.monthlyRent !== current.monthlyRent ||
+        JSON.stringify(normalizedSynced.addressDetails) !==
+          JSON.stringify(current.addressDetails)
+      ) {
+        properties[index] = normalizedSynced
         changed = true
       }
     }
@@ -308,12 +520,19 @@ export function validatePropertyInput(body) {
     return { error: 'Number of units must be between 1 and 500' }
   }
 
+  const monthlyRentRaw = Number(body?.monthlyRent)
+  const monthlyRent =
+    Number.isFinite(monthlyRentRaw) && monthlyRentRaw > 0
+      ? Math.round(monthlyRentRaw)
+      : undefined
+
   return {
     address,
     propertyType,
     unitCount: Math.floor(unitCount),
     bedrooms: Math.floor(bedrooms),
     maxTenants: Math.floor(maxTenants),
+    ...(monthlyRent != null ? { monthlyRent } : {}),
     addressConfirmed: true,
     addressDetails: normalizeAddressDetails(body?.addressDetails),
     ...(importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),

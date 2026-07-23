@@ -29,11 +29,12 @@ export const REORDERABLE_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
 const COLUMN_SET = new Set<string>(DEFAULT_TENANT_TABLE_COLUMNS)
 
 export const TENANT_TABLE_COLUMN_WIDTHS: Record<TenantTableColumnId, string> = {
-  tenant: '18%',
-  email: '20%',
-  address: '26%',
-  leaseStatus: '16%',
-  paymentStatus: '12%',
+  tenant: '14%',
+  email: '16%',
+  address: '22%',
+  leaseStatus: '14%',
+  // Wide enough for expanded hover copy (e.g. "22 days late · Due July 1")
+  paymentStatus: '26%',
   actions: '8%',
 }
 
@@ -84,6 +85,12 @@ export function saveTenantTableColumnOrder(order: TenantTableColumnId[]): void {
     TENANT_TABLE_COLUMN_ORDER_KEY,
     JSON.stringify(normalizeTenantTableColumns(order))
   )
+}
+
+/** Clears any saved layout and returns the default column order. */
+export function resetTenantTableColumnOrder(): TenantTableColumnId[] {
+  localStorage.removeItem(TENANT_TABLE_COLUMN_ORDER_KEY)
+  return [...DEFAULT_TENANT_TABLE_COLUMNS]
 }
 
 export function moveTenantTableColumn(

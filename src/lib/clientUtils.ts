@@ -6,7 +6,7 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { migrateServiceTier } from '@/lib/serviceTiers'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatShortMonthDate } from '@/lib/utils'
 import type {
   Client,
   ContractData,
@@ -20,21 +20,46 @@ import type {
 /** Days before lease end when status becomes Ending Soon. */
 export const LEASE_ENDING_SOON_DAYS = 30
 
+/** Lease Agreements tiles: highlight days remaining within ~3 months of end. */
+export const LEASE_TILE_ENDING_ALERT_DAYS = 90
+
 export type LeaseTimelineState = 'Upcoming' | 'Active' | 'Ending Soon' | 'Expired'
+
+export interface LeaseTermProgress {
+  startDate?: string
+  endDate?: string
+  /** Current month of occupancy (1…termMonths), when known */
+  currentMonth?: number
+  /** Total lease length in months, when known */
+  termMonths?: number
+  /** 0–100 when start and end are known; null otherwise */
+  percentComplete: number | null
+  daysElapsed: number | null
+  daysRemaining: number | null
+  totalDays: number | null
+  /** True when the lease is underway and ends within LEASE_TILE_ENDING_ALERT_DAYS */
+  showEndingAlert: boolean
+  state?: LeaseTimelineState
+}
 
 const PROPERTY_TYPES: readonly ProjectType[] = [
   'Apartment',
   'House',
   'Condo',
   'Townhouse',
-  'Other',
+  'Duplex',
 ]
 
 export function migratePropertyType(value?: string): ProjectType {
-  if (value && (PROPERTY_TYPES as readonly string[]).includes(value)) {
-    return value as ProjectType
+  if (!value?.trim()) return 'House'
+  const trimmed = value.trim()
+  if ((PROPERTY_TYPES as readonly string[]).includes(trimmed)) {
+    return trimmed as ProjectType
   }
-  return 'Other'
+  // Legacy / housing-type labels used on older mock records
+  if (trimmed === 'Other' || trimmed === 'Single-Family Home') return 'House'
+  if (trimmed === 'Condominium (Condo)') return 'Condo'
+  return 'House'
 }
 
 function isUsableContractDate(value?: string): value is string {
@@ -59,7 +84,7 @@ export function getTenantAddress(client: Client, contract?: ContractData): strin
 }
 
 export interface LeaseStatusDetails {
-  /** Compact badge label, e.g. "Active · Month 6 of 12" */
+  /** Compact badge label, e.g. "Month 6 of 12" */
   status: string
   /** Timeline state used for badge styling */
   state?: LeaseTimelineState
@@ -70,6 +95,33 @@ export interface LeaseStatusDetails {
   /** Optional end date (YYYY-MM-DD) shown beneath the status */
   endDate?: string
   startDate?: string
+  /** Whole days until lease end (Ending Soon); 0 = ends today */
+  daysRemaining?: number
+  /** Whole days until lease start (Upcoming); 0 = starts today */
+  daysUntilStart?: number
+}
+
+/** Hover copy for lease status badges — start date when in term, else timing detail. */
+export function getLeaseStatusHoverDetail(details: LeaseStatusDetails): string | undefined {
+  if (
+    details.startDate &&
+    details.currentMonth != null &&
+    details.termMonths != null &&
+    (details.state === 'Active' || details.state === 'Ending Soon')
+  ) {
+    return `Started ${formatShortMonthDate(details.startDate)}`
+  }
+  if (details.state === 'Ending Soon' && details.daysRemaining != null) {
+    const days = details.daysRemaining
+    if (days <= 0) return 'Ends today'
+    return `${days} day${days === 1 ? '' : 's'} left`
+  }
+  if (details.state === 'Upcoming' && details.daysUntilStart != null) {
+    const days = details.daysUntilStart
+    if (days <= 0) return 'Starts today'
+    return `Starts in ${days} day${days === 1 ? '' : 's'}`
+  }
+  return undefined
 }
 
 function parseLocalYmd(value: string): Date {
@@ -158,7 +210,7 @@ function formatLeaseStatusBadgeLabel(
     currentMonth != null &&
     termMonths != null
   ) {
-    return `${state} · Month ${currentMonth} of ${termMonths}`
+    return `Month ${currentMonth} of ${termMonths}`
   }
   if (state === 'Upcoming' && termMonths != null) {
     return `Upcoming · ${termMonths}-Month Lease`
@@ -195,6 +247,14 @@ export function getLeaseStatusDetails(
       termMonths,
       endDate: end,
       startDate: start,
+      daysRemaining:
+        state === 'Ending Soon' && end
+          ? Math.max(0, daysUntilYmd(effectiveAsOf, end))
+          : undefined,
+      daysUntilStart:
+        state === 'Upcoming'
+          ? Math.max(0, daysUntilYmd(effectiveAsOf, start))
+          : undefined,
     }
   }
 
@@ -225,6 +285,86 @@ export function getLeaseStatusDetails(
 /** Single-line lease status (timeline text only). */
 export function getLeaseStatusLabel(client: Client, contract?: ContractData): string {
   return getLeaseStatusDetails(client, contract).status
+}
+
+/**
+ * Term progress for Lease Agreements tiles: percent through the lease,
+ * days elapsed / remaining, and a three-month ending alert.
+ */
+export function getLeaseTermProgress(
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): LeaseTermProgress {
+  const details = getLeaseStatusDetails(client, contract, asOf)
+  const startDate = details.startDate
+  const endDate = details.endDate
+  const state = details.state
+  const effectiveAsOf = resolveScheduleAsOf(asOf)
+
+  if (!startDate || !endDate) {
+    return {
+      startDate,
+      endDate,
+      currentMonth: details.currentMonth,
+      termMonths: details.termMonths,
+      percentComplete: null,
+      daysElapsed: null,
+      daysRemaining: null,
+      totalDays: null,
+      showEndingAlert: false,
+      state,
+    }
+  }
+
+  const asOfDay = toCalendarDay(effectiveAsOf)
+  const asOfYmd = [
+    asOfDay.getFullYear(),
+    String(asOfDay.getMonth() + 1).padStart(2, '0'),
+    String(asOfDay.getDate()).padStart(2, '0'),
+  ].join('-')
+
+  const totalDays = Math.max(1, daysUntilYmd(parseLocalYmd(startDate), endDate))
+  const daysFromStart = daysUntilYmd(parseLocalYmd(startDate), asOfYmd)
+  const daysRemainingRaw = daysUntilYmd(effectiveAsOf, endDate)
+
+  let percentComplete: number
+  let daysElapsed: number
+  let daysRemaining: number
+
+  if (state === 'Upcoming' || daysFromStart < 0) {
+    percentComplete = 0
+    daysElapsed = 0
+    daysRemaining = Math.max(0, daysRemainingRaw)
+  } else if (state === 'Expired' || daysRemainingRaw < 0) {
+    percentComplete = 100
+    daysElapsed = totalDays
+    daysRemaining = 0
+  } else {
+    daysElapsed = Math.min(totalDays, Math.max(0, daysFromStart))
+    daysRemaining = Math.max(0, daysRemainingRaw)
+    percentComplete = Math.min(
+      100,
+      Math.max(0, Math.round((daysElapsed / totalDays) * 100))
+    )
+  }
+
+  const showEndingAlert =
+    (state === 'Active' || state === 'Ending Soon') &&
+    daysRemaining <= LEASE_TILE_ENDING_ALERT_DAYS
+
+  return {
+    startDate,
+    endDate,
+    currentMonth: details.currentMonth,
+    termMonths: details.termMonths,
+    percentComplete,
+    daysElapsed,
+    daysRemaining,
+    totalDays,
+    showEndingAlert,
+    state,
+  }
 }
 
 /** True when as-of falls within the signed lease term (Active or Ending Soon). */
@@ -394,6 +534,96 @@ export function getDisplayContractStatus(
   }
 
   return client.contractStatus
+}
+
+/**
+ * Lease Agreements tile/table badge: Sent → Signed (upcoming) → Active (term underway).
+ * Signed leases whose start date has arrived (or already passed) show as Active.
+ */
+export function getLeaseAgreementBadgeLabel(
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): string {
+  const status = getDisplayContractStatus(client, contract)
+  if (status === 'Sent') return 'Sent'
+  if (status === 'Completed') return 'Completed'
+  if (status === 'Signed') {
+    const { state } = getLeaseStatusDetails(client, contract, asOf)
+    if (state === 'Active' || state === 'Ending Soon') return 'Active'
+    if (state === 'Expired') return 'Completed'
+    return 'Signed'
+  }
+  return status
+}
+
+/** Sort rank for Lease Agreements status badges (lower = earlier in workflow). */
+export function getLeaseAgreementBadgeRank(label: string): number {
+  switch (label) {
+    case 'Not Started':
+      return 0
+    case 'Draft in Progress':
+      return 1
+    case 'Generated':
+      return 2
+    case 'Sent':
+      return 3
+    case 'Signed':
+      return 4
+    case 'Active':
+      return 5
+    case 'Completed':
+      return 6
+    case 'Cancelled':
+      return 7
+    default:
+      return 99
+  }
+}
+
+/**
+ * Lease Agreements Display Settings → Lease Status cycle (after Any).
+ * Order: Any → Signed → Sent → Active → Any
+ */
+export const LEASE_AGREEMENT_STATUS_FILTERS = [
+  'Signed',
+  'Sent',
+  'Active',
+] as const
+
+export type LeaseAgreementStatusFilter =
+  (typeof LEASE_AGREEMENT_STATUS_FILTERS)[number]
+
+/** Full cycle including Any (null) for the Display Settings status button. */
+export const LEASE_AGREEMENT_STATUS_CYCLE = [
+  null,
+  ...LEASE_AGREEMENT_STATUS_FILTERS,
+] as const satisfies ReadonlyArray<LeaseAgreementStatusFilter | null>
+
+export function isLeaseAgreementStatusFilter(
+  value: string | null | undefined
+): value is LeaseAgreementStatusFilter {
+  return (
+    value != null &&
+    (LEASE_AGREEMENT_STATUS_FILTERS as readonly string[]).includes(value)
+  )
+}
+
+/** Button label for the Lease Status cycle control (`null` → Any). */
+export function getLeaseAgreementStatusFilterLabel(
+  filter: LeaseAgreementStatusFilter | null
+): string {
+  return filter ?? 'Any'
+}
+
+/** Advance Any → Signed → Sent → Active → Any. */
+export function nextLeaseAgreementStatusFilter(
+  current: LeaseAgreementStatusFilter | null
+): LeaseAgreementStatusFilter | null {
+  const cycle = LEASE_AGREEMENT_STATUS_CYCLE
+  const idx = cycle.findIndex((s) => s === current)
+  const nextIdx = idx < 0 ? 0 : (idx + 1) % cycle.length
+  return cycle[nextIdx] ?? null
 }
 
 export function getContractActionLabel(status: ContractStatus): string {

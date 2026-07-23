@@ -25,7 +25,7 @@ import {
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
 import { createProperty as createPropertyRequest } from '@/lib/propertiesApi'
-import { migrateSampleAddress } from '@/data/seed'
+import { defaultSettings, migrateSampleAddress } from '@/data/seed'
 import { migrateServiceTier } from '@/lib/serviceTiers'
 import {
   generateId,
@@ -54,9 +54,10 @@ function normalizeContracts(contracts: ContractData[]): ContractData[] {
 }
 
 function normalizeSettings(settings: BusinessSettings): BusinessSettings {
-  const migratedAddress = migrateSampleAddress(settings.address)
-  if (!migratedAddress || migratedAddress === settings.address) return settings
-  return { ...settings, address: migratedAddress }
+  const merged = { ...defaultSettings, ...settings }
+  const migratedAddress = migrateSampleAddress(merged.address)
+  if (!migratedAddress || migratedAddress === merged.address) return merged
+  return { ...merged, address: migratedAddress }
 }
 
 interface AppContextValue {
@@ -66,6 +67,10 @@ interface AppContextValue {
   settings: BusinessSettings
   syncing: boolean
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>) => Client
+  addClientWithContract: (
+    client: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>,
+    buildContract: (client: Client) => ContractData
+  ) => Promise<Client>
   addProperty: (input: {
     address: string
     propertyType: Property['propertyType']
@@ -275,6 +280,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const next = [...clients, client]
       persist(next, contracts)
+      return client
+    },
+    [clients, contracts, persist]
+  )
+
+  const addClientWithContract = useCallback(
+    async (
+      data: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>,
+      buildContract: (client: Client) => ContractData
+    ) => {
+      const client: Client = {
+        ...data,
+        isOfficialClient: data.isOfficialClient ?? false,
+        isSampleClient: false,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+        notes: [],
+        deadlines: data.followUpDate
+          ? [
+              {
+                id: generateId(),
+                type: 'follow-up',
+                date: data.followUpDate,
+                label: 'Follow-up',
+              },
+            ]
+          : [],
+      }
+      const contract = buildContract(client)
+      await persist([...clients, client], [...contracts, contract])
       return client
     },
     [clients, contracts, persist]
@@ -527,6 +562,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       settings,
       syncing,
       addClient,
+      addClientWithContract,
       addProperty,
       updateClient,
       getClient,
@@ -547,6 +583,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       settings,
       syncing,
       addClient,
+      addClientWithContract,
       addProperty,
       updateClient,
       getClient,

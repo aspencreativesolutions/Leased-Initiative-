@@ -21,10 +21,9 @@ export function CreativeStudiosBrand({
     <div className={cn('flex items-center gap-2.5 sm:gap-3', className)}>
       <BrandMark
         className={cn(
-          'h-9 w-10 border-nav-fg/80 group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-11',
+          'h-9 w-9 text-nav-fg group-hover:opacity-90 sm:h-10 sm:w-10',
           markClassName
         )}
-        glyphClassName="text-base sm:text-lg"
       />
       <div className="flex min-w-0 flex-col leading-none">
         <span

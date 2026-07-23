@@ -5,6 +5,7 @@ import { applyDemoLeaseAmounts } from './demoLeaseFixtures.js'
 
 export const SAMPLE_CLIENT_EMAILS = new Set([
   'james@chenarch.com',
+  'jordan.kim@example.com',
   'emily@rodriguezwellness.com',
   'marcus@webblegal.com',
   'lisa@parkphoto.com',
@@ -26,22 +27,26 @@ const SAMPLE_FOLLOW_UPS = {
   'lisa@parkphoto.com': { followUpOffsetDays: 4 },
 }
 
-/** Concrete lease amounts so overdue $ totals show in Payments / Overdue Rent */
+/** Concrete lease amounts so overdue $ totals show in Payments (tenant shares) */
 export const SAMPLE_LEASE_AMOUNTS = {
   'james@chenarch.com': {
-    monthlyRent: 2100,
+    monthlyRent: 1200,
+    leaseMonths: 12,
+  },
+  'jordan.kim@example.com': {
+    monthlyRent: 1200,
     leaseMonths: 12,
   },
   'lisa@parkphoto.com': {
     monthlyRent: 1850,
-    leaseMonths: 6,
+    leaseMonths: 12,
   },
   'marcus@webblegal.com': {
     monthlyRent: 2200,
     leaseMonths: 12,
   },
   'emily@rodriguezwellness.com': {
-    monthlyRent: 1650,
+    monthlyRent: 2150,
     leaseMonths: 12,
   },
 }

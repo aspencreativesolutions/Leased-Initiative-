@@ -16,6 +16,8 @@ interface SendTenantMessageSectionProps {
   phone?: string
   landlordName: string
   onSent: (message: string) => void
+  /** Open the composer immediately (e.g. deep-link from Official Tenants). */
+  defaultOpen?: boolean
 }
 
 export function SendTenantMessageSection({
@@ -24,6 +26,7 @@ export function SendTenantMessageSection({
   phone,
   landlordName,
   onSent,
+  defaultOpen = false,
 }: SendTenantMessageSectionProps) {
   const baseId = useId()
   const firstName = getFirstName(tenantName)
@@ -33,7 +36,7 @@ export function SendTenantMessageSection({
     landlordName,
   }
 
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [message, setMessage] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)

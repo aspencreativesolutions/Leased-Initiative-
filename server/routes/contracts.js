@@ -56,6 +56,7 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
   }
 
   const now = new Date().toISOString()
+  const wasAlreadySent = Boolean(contract.sentAt)
   let updatedContract = null
 
   updateStore((s) => {
@@ -64,6 +65,7 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
       updatedContract = {
         ...c,
         sentAt: now,
+        ...(wasAlreadySent ? { resentAt: now } : { resentAt: undefined }),
         viewedAt: undefined,
         signedAt: undefined,
         confirmedByClient: false,

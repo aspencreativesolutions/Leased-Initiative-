@@ -4,9 +4,9 @@ import crypto from 'crypto'
 export const SAMPLE_AGENCY_NAME = 'JMC Development'
 
 export const SAMPLE_AGENCY_PROPERTIES = [
-  '2100 Congress Avenue, Suite 100, Austin, TX 78701',
-  '4500 South Lamar Boulevard, Unit 8, Austin, TX 78745',
-  '8800 North MoPac Expressway, Floor 3, Austin, TX 78759',
+  '211 East Main Street, St. Clairsville, OH 43950',
+  '70090 Main Street, St. Clairsville, OH 43950',
+  '71365 Center Street, St. Clairsville, OH 43950',
 ]
 
 const INVITE_EXPIRY_DAYS = 30

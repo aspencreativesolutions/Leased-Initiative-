@@ -4,33 +4,22 @@ import { ArrowLeftRight, Loader2, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { DemoPovSwitcherShell } from '@/components/auth/DemoPovSwitcherShell'
-import { CORE_MOCK_USERS, getMockPassword } from '@/lib/adminMode'
+import { findDemoTenantPov } from '@/lib/demoTenantPov'
 import {
   exitPublicDemo,
   getPublicDemoRole,
   markDemoPovIntroPlayed,
-  markPublicDemoSession,
-  oppositeDemoRole,
 } from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
-function demoMockForRole(role: WelcomeRole) {
-  return role === 'landlord'
-    ? CORE_MOCK_USERS.find((m) => m.key === 'landlord')
-    : CORE_MOCK_USERS.find((m) => m.key === 'active')
-}
-
-function switchPovLabel(currentRole: WelcomeRole): string {
-  return currentRole === 'tenant' ? 'Switch to Landlord' : 'Switch to Tenant'
-}
-
 /**
- * Bottom-right demo control: switch landlord ↔ tenant or exit the demo session.
+ * Bottom-right demo control: open the POV picker (landlord or tenant scenarios)
+ * or exit the demo session.
  */
 export function PublicDemoPovFab() {
-  const { user, login, logout, isPublicDemo } = useAuth()
+  const { user, logout, isPublicDemo } = useAuth()
   const navigate = useNavigate()
-  const [busyAction, setBusyAction] = useState<'switch' | 'exit' | null>(null)
+  const [busyAction, setBusyAction] = useState<'exit' | null>(null)
   const [error, setError] = useState('')
   const [collapseSignal, setCollapseSignal] = useState(0)
 
@@ -39,30 +28,20 @@ export function PublicDemoPovFab() {
 
   const currentRole: WelcomeRole =
     getPublicDemoRole() ?? (user?.role === 'admin' ? 'landlord' : 'tenant')
-  const nextRole = oppositeDemoRole(currentRole)
-  const switchLabel = switchPovLabel(currentRole)
+  const tenantPov = currentRole === 'tenant' ? findDemoTenantPov(user?.email) : null
 
-  const handleToggle = useCallback(async () => {
+  const switchLabel =
+    currentRole === 'landlord' ? 'Switch to Tenant' : 'Switch POV'
+  const switchPath =
+    currentRole === 'landlord' ? '/demo/pov?pick=tenant' : '/demo/pov'
+
+  const handleOpenPicker = useCallback(() => {
     if (busy) return
     setError('')
-    setBusyAction('switch')
-    try {
-      const mock = demoMockForRole(nextRole)
-      if (!mock) throw new Error('Demo account unavailable')
-
-      markPublicDemoSession(nextRole)
-      markDemoPovIntroPlayed()
-      const nextUser = await login(mock.email, getMockPassword(mock.email), {
-        publicDemo: true,
-      })
-      setCollapseSignal((n) => n + 1)
-      navigate(nextUser.role === 'admin' ? '/studio' : '/portal', { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not switch point of view')
-    } finally {
-      setBusyAction(null)
-    }
-  }, [busy, login, navigate, nextRole])
+    markDemoPovIntroPlayed()
+    setCollapseSignal((n) => n + 1)
+    navigate(switchPath)
+  }, [busy, navigate, switchPath])
 
   const handleExit = useCallback(async () => {
     if (busy) return
@@ -82,11 +61,19 @@ export function PublicDemoPovFab() {
 
   if (!show) return null
 
+  const viewingLabel = tenantPov
+    ? `${tenantPov.name} · ${tenantPov.scenario}`
+    : currentRole
+
   return (
     <DemoPovSwitcherShell
+      title="Demo point of view"
       subtitle={
         <>
-          Now viewing as {currentRole}. Switch to {nextRole} or exit demo.
+          Now viewing as {viewingLabel}.{' '}
+          {currentRole === 'landlord'
+            ? 'Switch to Tenant to pick a mock scenario, or exit demo.'
+            : 'Switch POV to choose another tenant or return to the landlord, or exit demo.'}
         </>
       }
       collapseSignal={collapseSignal}
@@ -97,16 +84,10 @@ export function PublicDemoPovFab() {
             size="sm"
             className="w-full"
             disabled={busy}
-            onClick={() => {
-              void handleToggle()
-            }}
+            onClick={handleOpenPicker}
             aria-label={switchLabel}
           >
-            {busyAction === 'switch' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
-            )}
+            <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
             {switchLabel}
           </Button>
           <Button

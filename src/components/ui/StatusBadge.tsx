@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, File, Send, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
 import { statusBadgeTableClass } from '@/components/ui/statusBadgeStyles'
 import type { ContractStatus, PaymentStatus, ProjectStatus } from '@/types'
 
@@ -56,6 +57,8 @@ interface StatusBadgeProps {
   completed?: boolean
   /** Fixed width for aligned columns in tables */
   tabular?: boolean
+  /** On hover, swap the badge label for this detail (e.g. signed/sent date) */
+  hoverDetail?: string
 }
 
 export function StatusBadge({
@@ -66,6 +69,7 @@ export function StatusBadge({
   highlighted,
   completed,
   tabular,
+  hoverDetail,
 }: StatusBadgeProps) {
   const displayLabel =
     label ??
@@ -78,15 +82,16 @@ export function StatusBadge({
   const showOverdueIcon = type === 'payment' && status === 'Overdue'
   const showUnpaidIcon = type === 'payment' && status === 'Unpaid'
   const showDepositHalfIndicator = type === 'payment' && status === 'Deposit Paid'
-  const showContractSignedIcon = type === 'contract' && status === 'Signed'
+  const showContractSignedIcon =
+    type === 'contract' &&
+    status === 'Signed' &&
+    (label == null || label === 'Signed')
   const showContractSentIcon =
-    (type === 'contract' && status === 'Sent') ||
-    (type === 'project' && status === 'Contract Sent')
+    ((type === 'contract' && status === 'Sent') ||
+      (type === 'project' && status === 'Contract Sent')) &&
+    (label == null || label === 'Sent')
   const showProjectFileSharingIcon =
     type === 'project' && status === 'In Progress' && !label
-  const badgeTitle = showDepositHalfIndicator
-    ? `${displayLabel} — halfway through payment (½ paid)`
-    : String(displayLabel)
   const styles =
     type === 'project'
       ? projectStyles[status as ProjectStatus]
@@ -94,50 +99,75 @@ export function StatusBadge({
         ? contractStyles[status as ContractStatus]
         : paymentStyles[status as PaymentStatus]
 
-  return (
+  const primary = (
     <span
       className={cn(
-        'status-badge rounded-[var(--radius-sm)] border-[length:var(--border-width)] text-[10px] font-bold',
-        tabular ? 'py-0 leading-none' : 'px-2 py-0.5',
-        tabular ? statusBadgeTableClass(type) : 'inline-flex items-center',
-        completed && !highlighted ? 'status-solid' : styles,
-        highlighted &&
-          'shadow-[0_0_0_2px_var(--accent-light),var(--status-highlight-glow)] ring-2 ring-accent ring-offset-1 ring-offset-transparent',
-        className
+        'inline-flex items-center gap-0.5',
+        tabular && 'min-w-0 max-w-full justify-center truncate'
       )}
     >
-      <span
-        className={cn(
-          'inline-flex items-center gap-0.5',
-          tabular && 'min-w-0 max-w-full justify-center truncate'
-        )}
-        title={badgeTitle}
-      >
-        {showOverdueIcon && (
-          <AlertTriangle className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-        )}
-        {showProjectFileSharingIcon && (
-          <File className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-        )}
-        <span className={tabular ? 'truncate' : undefined}>{displayLabel}</span>
-        {showUnpaidIcon && (
-          <X className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
-        )}
-        {showDepositHalfIndicator && (
-          <span
-            className="shrink-0 text-[11px] font-extrabold leading-none tabular-nums"
-            aria-hidden
-          >
-            ½
-          </span>
-        )}
-        {showContractSignedIcon && (
-          <Check className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
-        )}
-        {showContractSentIcon && (
-          <Send className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
-        )}
-      </span>
+      {showOverdueIcon && (
+        <AlertTriangle className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+      )}
+      {showProjectFileSharingIcon && (
+        <File className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+      )}
+      <span className={tabular ? 'truncate' : undefined}>{displayLabel}</span>
+      {showUnpaidIcon && (
+        <X className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
+      )}
+      {showDepositHalfIndicator && (
+        <span
+          className="shrink-0 text-[11px] font-extrabold leading-none tabular-nums"
+          aria-hidden
+        >
+          ½
+        </span>
+      )}
+      {showContractSignedIcon && (
+        <Check className="h-3 w-3 shrink-0" strokeWidth={2.75} aria-hidden />
+      )}
+      {showContractSentIcon && (
+        <Send className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+      )}
     </span>
+  )
+
+  const shellClass = cn(
+    'status-badge rounded-[var(--radius-sm)] border-[length:var(--border-width)] text-[10px] font-bold',
+    tabular ? 'py-0 leading-none' : 'px-2 py-0.5',
+    tabular ? statusBadgeTableClass(type) : 'inline-flex items-center',
+    hoverDetail && 'min-w-[5.5rem] justify-center cursor-default',
+    completed && !highlighted ? 'status-solid' : styles,
+    highlighted &&
+      'shadow-[0_0_0_2px_var(--accent-light),var(--status-highlight-glow)] ring-2 ring-accent ring-offset-1 ring-offset-transparent',
+    className
+  )
+
+  if (!hoverDetail) {
+    return (
+      <span
+        className={shellClass}
+        title={
+          showDepositHalfIndicator
+            ? `${displayLabel} — halfway through payment (½ paid)`
+            : String(displayLabel)
+        }
+      >
+        {primary}
+      </span>
+    )
+  }
+
+  return (
+    <InPlaceHoverText
+      primary={primary}
+      secondary={<span className="truncate tabular-nums">{hoverDetail}</span>}
+      ariaLabel={`${displayLabel}. ${hoverDetail}`}
+      className={cn(
+        shellClass,
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
+      )}
+    />
   )
 }

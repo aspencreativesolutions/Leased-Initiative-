@@ -6,6 +6,11 @@ interface PageHeaderProps {
   subtitle?: ReactNode
   tag?: ReactNode
   action?: ReactNode
+  /**
+   * Content below the title/subtitle row and still above the header rule
+   * (e.g. a right-aligned controls card).
+   */
+  below?: ReactNode
   /** Tighter spacing on small screens (e.g. dashboard hero) */
   compact?: boolean
   /** Larger page title for primary portal surfaces */
@@ -17,9 +22,12 @@ export function PageHeader({
   subtitle,
   tag,
   action,
+  below,
   compact,
   prominent,
 }: PageHeaderProps) {
+  const subtitleOffset = prominent ? 'mt-2' : 'mt-0.5'
+
   return (
     <div
       className={cn(
@@ -50,7 +58,9 @@ export function PageHeader({
             <div
               className={cn(
                 'text-ink-muted',
-                prominent ? 'mt-2 space-y-0.5 text-base sm:text-lg' : 'mt-0.5 text-sm'
+                subtitleOffset,
+                prominent && 'space-y-0.5 text-base sm:text-lg',
+                !prominent && 'text-sm'
               )}
             >
               {typeof subtitle === 'string' ? <p>{subtitle}</p> : subtitle}
@@ -69,6 +79,7 @@ export function PageHeader({
           </div>
         )}
       </div>
+      {below ? <div className={subtitleOffset}>{below}</div> : null}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
 } from '@/types'
 import { normalizeClient } from '@/lib/clientUtils'
 import { migrateServiceTier } from '@/lib/serviceTiers'
+import { ensurePropertyMonthlyRent } from '@/lib/rentalRent'
 import { normalizeRentalType } from '@/lib/rentalTypes'
 import { seedClients, seedProperties, defaultSettings, migrateSampleAddress } from '@/data/seed'
 import { REMOVED_SAMPLE_CLIENT_EMAILS, REMOVED_SAMPLE_CLIENT_NAMES } from '@/data/sampleClients'
@@ -18,14 +19,19 @@ const PROPERTIES_KEY = 'client-craft-properties'
 /** Normalize a property record from storage or API (backfills new fields). */
 export function normalizeProperty(p: Property): Property {
   const unitCount = Math.max(1, Number(p.unitCount) || 1)
-  return {
+  const baths = Number(p.bathrooms)
+  const sqft = Number(p.squareFeet)
+  const base: Property = {
     ...p,
     address: migrateSampleAddress(p.address) ?? p.address,
     propertyType: normalizeRentalType(p.propertyType),
     unitCount,
     bedrooms: Math.max(0, Number(p.bedrooms) || 0),
     maxTenants: Math.max(1, Number(p.maxTenants) || unitCount),
+    ...(Number.isFinite(baths) && baths > 0 ? { bathrooms: baths } : {}),
+    ...(Number.isFinite(sqft) && sqft > 0 ? { squareFeet: Math.floor(sqft) } : {}),
   }
+  return ensurePropertyMonthlyRent(base)
 }
 
 export function loadClients(): Client[] {

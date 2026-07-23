@@ -1,10 +1,31 @@
-import type { PaymentProvider } from '@/types'
+import type { Client, ClientInvoice, ContractData, PaymentProvider } from '@/types'
 
 const PROVIDERS: PaymentProvider[] = ['paypal', 'stripe', 'square']
 
 export function resolvePaymentProvider(provider?: PaymentProvider): PaymentProvider {
   if (provider && PROVIDERS.includes(provider)) return provider
   return 'paypal'
+}
+
+function providerFromPaidInvoice(invoice?: ClientInvoice): PaymentProvider | undefined {
+  if (!invoice?.paidAt) return undefined
+  return invoice.paymentProvider
+}
+
+/**
+ * Prefer the processor recorded on the most recent paid invoice; fall back to
+ * the lease contract’s configured checkout provider.
+ */
+export function resolveLastTransactionPaymentProvider(
+  client?: Pick<Client, 'rentInvoice' | 'finalInvoice' | 'invoice'>,
+  contract?: Pick<ContractData, 'paymentProvider'>
+): PaymentProvider {
+  return resolvePaymentProvider(
+    providerFromPaidInvoice(client?.rentInvoice) ??
+      providerFromPaidInvoice(client?.finalInvoice) ??
+      providerFromPaidInvoice(client?.invoice) ??
+      contract?.paymentProvider
+  )
 }
 
 export function paymentProviderLabel(provider?: PaymentProvider): string {

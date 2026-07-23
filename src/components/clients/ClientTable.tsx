@@ -1,11 +1,12 @@
-import { useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronsUpDown, UserMinus, ArrowRight } from 'lucide-react'
-import { StatusBadge } from '@/components/ui/StatusBadge'
+import { ChevronsUpDown, UserMinus, ArrowRight, RotateCcw, Check } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
+import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { RemoveClientModal } from './RemoveClientModal'
 import { TenantNameWithLeaseIcons } from './TenantLeaseStatusIcons'
+import { Button } from '@/components/ui/Button'
 import { useApp } from '@/context/AppContext'
 import {
   getLeaseStatusDetails,
@@ -22,6 +23,7 @@ import {
 import {
   loadTenantTableColumnOrder,
   moveTenantTableColumn,
+  resetTenantTableColumnOrder,
   saveTenantTableColumnOrder,
   TENANT_TABLE_COLUMN_LABELS,
   TENANT_TABLE_COLUMN_WIDTHS,
@@ -35,12 +37,40 @@ import type { Client, ContractData, Property } from '@/types'
 interface ClientTableProps {
   clients: Client[]
   highlightFilter?: DashboardFilter | null
-  /** When true, column headers can be dragged to rearrange the layout. */
+  /** When true, column headers select and drag whole columns to rearrange the layout. */
   arrangeColumns?: boolean
+  /** Exit rearrange mode — shown next to Reset in the arrange banner. */
+  onArrangeDone?: () => void
   columnOrder?: TenantTableColumnId[]
   onColumnOrderChange?: (order: TenantTableColumnId[]) => void
   locationDisplayMode?: OfficialTenantLocationDisplayMode
   onLocationDisplayModeChange?: (mode: OfficialTenantLocationDisplayMode) => void
+}
+
+function columnOutlineClass(
+  columnId: TenantTableColumnId,
+  selectedId: TenantTableColumnId | null,
+  draggingId: TenantTableColumnId | null,
+  edge: 'header' | 'body' | 'footer'
+): string {
+  const selected = selectedId === columnId
+  const dragging = draggingId === columnId
+  if (!selected && !dragging) return ''
+
+  const side =
+    'shadow-[inset_1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent),inset_-1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent)]'
+  const header =
+    'shadow-[inset_1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent),inset_-1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent),inset_0_1.5px_0_0_color-mix(in_srgb,var(--brand)_60%,transparent)]'
+  const footer =
+    'shadow-[inset_1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent),inset_-1.5px_0_0_0_color-mix(in_srgb,var(--brand)_60%,transparent),inset_0_-1.5px_0_0_color-mix(in_srgb,var(--brand)_60%,transparent)]'
+
+  return cn(
+    selected && 'bg-brand/[0.07]',
+    selected && edge === 'header' && header,
+    selected && edge === 'body' && side,
+    selected && edge === 'footer' && footer,
+    dragging && 'opacity-55'
+  )
 }
 
 function headerVisibilityClass(columnId: TenantTableColumnId): string {
@@ -104,12 +134,16 @@ function LocationDisplayHeaderButton({
 function renderHeaderLabel(
   columnId: TenantTableColumnId,
   locationDisplayMode: OfficialTenantLocationDisplayMode,
-  onCycleLocationDisplay: () => void
+  onCycleLocationDisplay: () => void,
+  arrangeColumns: boolean
 ): ReactNode {
   if (columnId === 'actions') {
     return <span className="sr-only">{TENANT_TABLE_COLUMN_LABELS.actions}</span>
   }
   if (columnId === 'address') {
+    if (arrangeColumns) {
+      return OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS[locationDisplayMode]
+    }
     return (
       <LocationDisplayHeaderButton
         mode={locationDisplayMode}
@@ -126,7 +160,8 @@ function renderCell(
   contract: ContractData | undefined,
   properties: Property[],
   locationDisplayMode: OfficialTenantLocationDisplayMode,
-  onRemove: () => void
+  onRemove: () => void,
+  arrangeClassName = ''
 ): ReactNode {
   const property = getTenantAssignedProperty(client, contract, properties)
   const locationValue = getOfficialTenantLocationDisplayValue(property, locationDisplayMode)
@@ -135,7 +170,13 @@ function renderCell(
   switch (columnId) {
     case 'tenant':
       return (
-        <td key={columnId} className="px-3 py-2.5 align-top sm:px-4">
+        <td
+          key={columnId}
+          className={cn(
+            'px-3 py-2.5 align-top transition-[background-color,box-shadow,opacity] sm:px-4',
+            arrangeClassName
+          )}
+        >
           <div className="min-w-0">
             <TenantNameWithLeaseIcons client={client} contract={contract}>
               <Link
@@ -158,7 +199,10 @@ function renderCell(
       return (
         <td
           key={columnId}
-          className="hidden px-3 py-2.5 align-middle whitespace-normal break-words text-ink-muted md:table-cell sm:px-4"
+          className={cn(
+            'hidden px-3 py-2.5 align-middle whitespace-normal break-words text-ink-muted transition-[background-color,box-shadow,opacity] md:table-cell sm:px-4',
+            arrangeClassName
+          )}
         >
           <div className="flex min-w-0 items-center">
             <span title={client.email}>{client.email}</span>
@@ -167,7 +211,13 @@ function renderCell(
       )
     case 'address':
       return (
-        <td key={columnId} className="py-2.5 pl-4 pr-3 align-middle sm:pl-5 sm:pr-4">
+        <td
+          key={columnId}
+          className={cn(
+            'py-2.5 pl-4 pr-3 align-middle transition-[background-color,box-shadow,opacity] sm:pl-5 sm:pr-4',
+            arrangeClassName
+          )}
+        >
           <div className="flex min-w-0 items-center">
             <Link
               to={`/studio/clients/${client.id}`}
@@ -183,7 +233,13 @@ function renderCell(
       )
     case 'leaseStatus':
       return (
-        <td key={columnId} className="px-3 py-2.5 text-center align-middle sm:px-4">
+        <td
+          key={columnId}
+          className={cn(
+            'px-3 py-2.5 text-center align-middle transition-[background-color,box-shadow,opacity] sm:px-4',
+            arrangeClassName
+          )}
+        >
           <div className="mx-auto flex max-w-[14rem] flex-col items-center gap-0.5">
             <LeaseStatusBadge details={leaseStatus} />
             {leaseStatus.endDate ? (
@@ -196,15 +252,25 @@ function renderCell(
       )
     case 'paymentStatus':
       return (
-        <td key={columnId} className="px-3 py-2.5 text-center align-middle sm:px-4">
-          <div className="flex items-center justify-center">
-            <StatusBadge type="payment" status={client.paymentStatus} tabular />
-          </div>
+        <td
+          key={columnId}
+          className={cn(
+            'overflow-visible px-3 py-2.5 text-center align-middle transition-[background-color,box-shadow,opacity] sm:px-4',
+            arrangeClassName
+          )}
+        >
+          <PaymentStatusDateTags client={client} contract={contract} />
         </td>
       )
     case 'actions':
       return (
-        <td key={columnId} className="px-3 py-2.5 align-top sm:px-4">
+        <td
+          key={columnId}
+          className={cn(
+            'px-3 py-2.5 align-top transition-[background-color,box-shadow,opacity] sm:px-4',
+            arrangeClassName
+          )}
+        >
           <div className="flex flex-col items-end gap-0.5">
             <button
               type="button"
@@ -229,10 +295,26 @@ function renderCell(
   }
 }
 
+function findReorderTarget(
+  table: HTMLTableElement,
+  order: TenantTableColumnId[],
+  clientX: number
+): TenantTableColumnId | null {
+  const headers = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'))
+  for (let index = 0; index < headers.length; index += 1) {
+    const columnId = order[index]
+    if (!columnId || columnId === 'actions') continue
+    const rect = headers[index].getBoundingClientRect()
+    if (clientX >= rect.left && clientX <= rect.right) return columnId
+  }
+  return null
+}
+
 export function ClientTable({
   clients,
   highlightFilter = null,
   arrangeColumns = false,
+  onArrangeDone,
   columnOrder: controlledOrder,
   onColumnOrderChange,
   locationDisplayMode: controlledLocationMode,
@@ -244,17 +326,30 @@ export function ClientTable({
   const [uncontrolledLocationMode, setUncontrolledLocationMode] = useState(
     loadOfficialTenantLocationDisplayMode
   )
-  const [dragOverId, setDragOverId] = useState<TenantTableColumnId | null>(null)
+  const [selectedColumnId, setSelectedColumnId] = useState<TenantTableColumnId | null>(null)
   const [draggingId, setDraggingId] = useState<TenantTableColumnId | null>(null)
+  const [pointerTracking, setPointerTracking] = useState(false)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const columnOrderRef = useRef<TenantTableColumnId[]>([])
+  const dragSessionRef = useRef<{
+    columnId: TenantTableColumnId
+    startX: number
+    startY: number
+    moved: boolean
+    wasSelected: boolean
+  } | null>(null)
 
   const columnOrder = controlledOrder ?? uncontrolledOrder
   const locationDisplayMode = controlledLocationMode ?? uncontrolledLocationMode
+  columnOrderRef.current = columnOrder
 
   const setColumnOrder = (next: TenantTableColumnId[]) => {
     saveTenantTableColumnOrder(next)
     if (onColumnOrderChange) onColumnOrderChange(next)
     else setUncontrolledOrder(next)
   }
+  const setColumnOrderRef = useRef(setColumnOrder)
+  setColumnOrderRef.current = setColumnOrder
 
   const cycleLocationDisplay = () => {
     const next = cycleOfficialTenantLocationDisplayMode(locationDisplayMode)
@@ -263,36 +358,83 @@ export function ClientTable({
     else setUncontrolledLocationMode(next)
   }
 
+  useEffect(() => {
+    if (!arrangeColumns) {
+      setSelectedColumnId(null)
+      setDraggingId(null)
+      setPointerTracking(false)
+      dragSessionRef.current = null
+    }
+  }, [arrangeColumns])
+
+  useEffect(() => {
+    if (!pointerTracking) return
+
+    const onPointerMove = (event: PointerEvent) => {
+      const session = dragSessionRef.current
+      const table = tableRef.current
+      if (!session || !table) return
+
+      if (!session.moved) {
+        const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
+        if (distance < 4) return
+        session.moved = true
+        setDraggingId(session.columnId)
+      }
+
+      const targetId = findReorderTarget(table, columnOrderRef.current, event.clientX)
+      if (!targetId || targetId === session.columnId) return
+      const next = moveTenantTableColumn(columnOrderRef.current, session.columnId, targetId)
+      if (next.join() !== columnOrderRef.current.join()) setColumnOrderRef.current(next)
+    }
+
+    const endDrag = () => {
+      const session = dragSessionRef.current
+      dragSessionRef.current = null
+      setPointerTracking(false)
+      setDraggingId(null)
+      if (session && !session.moved && session.wasSelected) {
+        setSelectedColumnId(null)
+      }
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', endDrag)
+    window.addEventListener('pointercancel', endDrag)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', endDrag)
+    }
+  }, [pointerTracking])
+
   if (clients.length === 0) {
     return null
   }
 
-  const handleDragStart = (columnId: TenantTableColumnId) => (event: DragEvent) => {
-    if (!arrangeColumns || columnId === 'actions') return
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', columnId)
-    setDraggingId(columnId)
-  }
+  const handleHeaderPointerDown =
+    (columnId: TenantTableColumnId) => (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      if (!arrangeColumns || columnId === 'actions' || event.button !== 0) return
+      event.preventDefault()
+      dragSessionRef.current = {
+        columnId,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        wasSelected: selectedColumnId === columnId,
+      }
+      setSelectedColumnId(columnId)
+      setPointerTracking(true)
+    }
 
-  const handleDragOver = (columnId: TenantTableColumnId) => (event: DragEvent) => {
-    if (!arrangeColumns || columnId === 'actions' || !draggingId) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    if (dragOverId !== columnId) setDragOverId(columnId)
-  }
-
-  const handleDrop = (columnId: TenantTableColumnId) => (event: DragEvent) => {
-    if (!arrangeColumns || columnId === 'actions') return
-    event.preventDefault()
-    const fromId = (event.dataTransfer.getData('text/plain') || draggingId) as TenantTableColumnId
-    if (fromId) setColumnOrder(moveTenantTableColumn(columnOrder, fromId, columnId))
-    setDragOverId(null)
+  const handleResetLayout = () => {
+    const defaults = resetTenantTableColumnOrder()
+    if (onColumnOrderChange) onColumnOrderChange(defaults)
+    else setUncontrolledOrder(defaults)
+    setSelectedColumnId(null)
     setDraggingId(null)
-  }
-
-  const handleDragEnd = () => {
-    setDragOverId(null)
-    setDraggingId(null)
+    setPointerTracking(false)
+    dragSessionRef.current = null
   }
 
   return (
@@ -321,12 +463,45 @@ export function ClientTable({
 
       <div className="hidden min-w-0 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper md:block">
         {arrangeColumns && (
-          <p className="border-b border-line bg-surface px-3 py-1.5 text-[11px] text-ink-muted sm:px-4">
-            Drag any column header to rearrange the dashboard layout. Actions stay on the right.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-3 py-1.5 sm:px-4">
+            <p className="min-w-0 flex-1 text-[11px] text-ink-muted">
+              Select a column by clicking its header to drag it as a group; actions will follow
+              your drag. You can reset the layout at any time.
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetLayout}
+                title="Restore the default column layout."
+                aria-label="Restore the default column layout."
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                Reset
+              </Button>
+              {onArrangeDone ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={onArrangeDone}
+                  title="Done rearranging columns"
+                  aria-label="Done rearranging columns"
+                  className="shadow-sm"
+                >
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                  Done
+                </Button>
+              ) : null}
+            </div>
+          </div>
         )}
         <div className="table-fit-shell">
-          <table className="w-full min-w-0 table-fixed text-left text-sm">
+          <table
+            ref={tableRef}
+            className="w-full min-w-0 table-fixed text-left text-sm"
+          >
             <colgroup>
               {columnOrder.map((columnId) => (
                 <col key={columnId} style={{ width: TENANT_TABLE_COLUMN_WIDTHS[columnId] }} />
@@ -335,43 +510,52 @@ export function ClientTable({
             <thead>
               <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
                 {columnOrder.map((columnId) => {
-                  const canDrag = arrangeColumns && columnId !== 'actions'
+                  const canArrange = arrangeColumns && columnId !== 'actions'
                   return (
                     <th
                       key={columnId}
-                      draggable={canDrag}
-                      onDragStart={handleDragStart(columnId)}
-                      onDragOver={handleDragOver(columnId)}
-                      onDrop={handleDrop(columnId)}
-                      onDragEnd={handleDragEnd}
-                      onDragLeave={() => {
-                        if (dragOverId === columnId) setDragOverId(null)
-                      }}
+                      onPointerDown={handleHeaderPointerDown(columnId)}
                       className={cn(
-                        'label-caps px-3 py-2.5 sm:px-4',
+                        'label-caps px-3 py-2.5 transition-[background-color,box-shadow,opacity] sm:px-4',
                         columnId === 'address' && 'pl-4 pr-3 sm:pl-5 sm:pr-4',
                         headerAlignClass(columnId),
                         headerVisibilityClass(columnId),
-                        canDrag && 'cursor-grab select-none active:cursor-grabbing',
-                        draggingId === columnId && 'opacity-50',
-                        dragOverId === columnId &&
-                          draggingId !== columnId &&
-                          'bg-brand/15 ring-1 ring-inset ring-brand/40'
+                        canArrange && 'cursor-grab select-none touch-none active:cursor-grabbing',
+                        columnOutlineClass(
+                          columnId,
+                          selectedColumnId,
+                          draggingId,
+                          'header'
+                        )
                       )}
+                      aria-selected={
+                        arrangeColumns && selectedColumnId === columnId ? true : undefined
+                      }
                       aria-grabbed={draggingId === columnId || undefined}
                     >
-                      {renderHeaderLabel(columnId, locationDisplayMode, cycleLocationDisplay)}
+                      {renderHeaderLabel(
+                        columnId,
+                        locationDisplayMode,
+                        cycleLocationDisplay,
+                        arrangeColumns
+                      )}
                     </th>
                   )
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
-              {clients.map((client) => {
+            <tbody
+              className={cn(
+                'divide-y divide-line',
+                arrangeColumns && '[&_a]:pointer-events-none [&_button]:pointer-events-none'
+              )}
+            >
+              {clients.map((client, rowIndex) => {
                 const contract = getContractForClient(client.id)
                 const highlighted =
                   highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
                 const dimmed = highlightFilter !== null && !highlighted
+                const edge = rowIndex === clients.length - 1 ? 'footer' : 'body'
 
                 return (
                   <tr
@@ -391,7 +575,13 @@ export function ClientTable({
                         contract,
                         properties,
                         locationDisplayMode,
-                        () => setRemoveTarget(client)
+                        () => setRemoveTarget(client),
+                        columnOutlineClass(
+                          columnId,
+                          selectedColumnId,
+                          draggingId,
+                          edge
+                        )
                       )
                     )}
                   </tr>

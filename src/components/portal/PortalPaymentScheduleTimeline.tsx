@@ -80,9 +80,17 @@ export function PortalPaymentScheduleTimeline({
         </div>
         {schedule.nextDueDate && schedule.daysUntilNextDue != null && (
           <p className="text-xs font-semibold text-ink">
-            Next: {formatDate(schedule.nextDueDate)} ·{' '}
-            {formatDaysRemainingLabel(schedule.daysUntilNextDue)}
+            {schedule.daysUntilNextDue < 0
+              ? `Payment overdue by ${Math.abs(schedule.daysUntilNextDue)} day${
+                  Math.abs(schedule.daysUntilNextDue) === 1 ? '' : 's'
+                } · Was due ${formatDate(schedule.nextDueDate)}`
+              : `Next payment due: ${formatDate(schedule.nextDueDate)} · ${formatDaysRemainingLabel(
+                  schedule.daysUntilNextDue
+                )}`}
           </p>
+        )}
+        {!schedule.nextDueDate && schedule.payments.length > 0 && (
+          <p className="text-xs font-semibold text-ink">All payments complete</p>
         )}
       </div>
 

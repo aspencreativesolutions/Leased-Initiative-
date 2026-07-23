@@ -499,7 +499,7 @@ export function LeaseUploadSection() {
     }
     await addProperty({
       address: trimmed,
-      propertyType: 'Other',
+      propertyType: 'Single-Family Home',
       unitCount: 1,
       bedrooms: 1,
       maxTenants: 1,

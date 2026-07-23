@@ -165,7 +165,14 @@ export function ClientProfilePage() {
         )}
         {leaseSchedule.nextDueDate && (
           <div>
-            <dt className="text-stone-500">Next rent due</dt>
+            <dt className="text-stone-500">
+              {leaseSchedule.daysUntilNextDue != null && leaseSchedule.daysUntilNextDue < 0
+                ? 'Was due'
+                : leaseSchedule.finalDueDate &&
+                    leaseSchedule.nextDueDate === leaseSchedule.finalDueDate
+                  ? 'Final payment due'
+                  : 'Next payment due'}
+            </dt>
             <dd className="font-medium text-stone-800">
               {formatDate(leaseSchedule.nextDueDate)}
               {leaseSchedule.daysUntilNextDue != null && (
@@ -176,7 +183,14 @@ export function ClientProfilePage() {
             </dd>
           </div>
         )}
-        {leaseSchedule.finalDueDate && (
+        {!leaseSchedule.nextDueDate && leaseSchedule.payments.length > 0 && (
+          <div>
+            <dt className="text-stone-500">Payment status</dt>
+            <dd className="font-medium text-stone-800">All payments complete</dd>
+          </div>
+        )}
+        {leaseSchedule.finalDueDate &&
+          leaseSchedule.nextDueDate === leaseSchedule.finalDueDate && (
           <div>
             <dt className="text-stone-500">Final rent due</dt>
             <dd className="font-medium text-stone-800">
@@ -541,7 +555,7 @@ function EditClientModal({
           <Input label="Social Links" value={form.socialLinks} onChange={(e) => setForm({ ...form, socialLinks: e.target.value })} />
         </div>
         <Select label="Property Type" value={form.projectType} onChange={(e) => setForm({ ...form, projectType: e.target.value as ProjectType })}>
-          {(['Apartment', 'House', 'Condo', 'Townhouse', 'Other'] as ProjectType[]).map((t) => (
+          {(['Apartment', 'House', 'Condo', 'Townhouse', 'Duplex'] as ProjectType[]).map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </Select>

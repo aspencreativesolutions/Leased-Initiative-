@@ -31,7 +31,10 @@ export function resolveClientTimelineStage(client, contract) {
   if (active) {
     // Active contract_signed means the lease was sent and signature is still outstanding.
     if (active.id === 'contract_signed') {
-      return { id: 'contract_sent', label: 'Lease Sent' }
+      return {
+        id: 'contract_sent',
+        label: contract?.resentAt ? 'Lease Resent' : 'Lease Sent',
+      }
     }
     return { id: active.id, label: active.label }
   }
@@ -99,28 +102,34 @@ export function buildPortalUsersOverview(store) {
         (client.contractStatus === 'Sent' ||
           Boolean(contract?.sentAt) ||
           stage.id === 'contract_sent' ||
-          stage.label === 'Lease Sent')
-      // Keep status + actions aligned: Lease Sent only when a lease exists and was sent (not a draft).
+          stage.label === 'Lease Sent' ||
+          stage.label === 'Lease Resent')
+      // Keep status + actions aligned: Lease Sent/Resent only when a lease exists and was sent (not a draft).
       const canShowLeaseSent =
         leaseSent &&
         leaseAction !== 'draft' &&
         leaseAction !== 'generating' &&
         Boolean(contract)
+      const leaseSentLabel = contract?.resentAt ? 'Lease Resent' : 'Lease Sent'
       const alignedStage = canShowLeaseSent
-        ? { id: 'contract_sent', label: 'Lease Sent' }
+        ? { id: 'contract_sent', label: leaseSentLabel }
         : leaseAction === 'generating'
           ? { id: 'lease_generating', label: 'Generating Lease Agreement' }
           : stage.label === 'Lease Ready'
             ? stage
-            : stage.label === 'Lease Sent' || stage.label === 'Awaiting Signature'
+            : stage.label === 'Lease Sent' ||
+                stage.label === 'Lease Resent' ||
+                stage.label === 'Awaiting Signature'
               ? {
                   id: leaseAction === 'draft' ? 'inquiry' : stage.id,
                   label:
                     leaseAction === 'draft'
                       ? 'Draft'
                       : stage.label === 'Awaiting Signature'
-                        ? 'Lease Sent'
-                        : stage.label,
+                        ? leaseSentLabel
+                        : stage.label === 'Lease Sent' && contract?.resentAt
+                          ? 'Lease Resent'
+                          : stage.label,
                 }
               : stage
       const alignedAction = canShowLeaseSent
@@ -152,15 +161,63 @@ export function buildPortalUsersOverview(store) {
         handlerEmail,
       }
     })
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime())
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime())
+
+  const linkedClientIds = new Set(accepted.map((a) => a.clientId))
+  const manualPending = (store.clients ?? [])
+    .filter((client) => {
+      if (!client || linkedClientIds.has(client.id)) return false
+      if (client.isOfficialClient) return false
+      if (client.contractStatus === 'Signed' || client.contractStatus === 'Completed') {
+        return false
+      }
+      if (client.contractStatus === 'Cancelled') return false
+      return true
+    })
+    .map((client) => {
+      const contract = store.contracts.find((c) => c.clientId === client.id)
+      const stage = resolveClientTimelineStage(client, contract)
+      const propertyAddress =
+        (contract?.clientAddress && String(contract.clientAddress).trim()) ||
+        (client.projectName && String(client.projectName).trim()) ||
+        ''
+      const leaseAction = resolveLeaseAgreementAction(client, contract)
+      return {
+        userId: `manual-${client.id}`,
+        name: client.name,
+        email: client.email,
+        registeredAt: client.createdAt,
+        clientId: client.id,
+        clientName: client.name,
+        projectName: client.projectName,
+        propertyAddress: propertyAddress || undefined,
+        contractStatus: client.contractStatus,
+        hasLeaseAgreement:
+          Boolean(contract) &&
+          leaseAction !== 'draft' &&
+          leaseAction !== 'generating',
+        leaseAction,
+        leaseGenerationStatus: contract?.leaseGenerationStatus,
+        isOfficialClient: false,
+        timelineStageId: stage.id,
+        timelineStageLabel: stage.label,
+        acceptedAt: client.createdAt,
+        handlerName,
+        handlerEmail,
+      }
+    })
+
+  const allAccepted = [...accepted, ...manualPending].sort(
+    (a, b) => new Date(b.acceptedAt).getTime() - new Date(a.acceptedAt).getTime()
+  )
 
   return {
     handlerName,
     handlerEmail,
     pending,
-    accepted,
+    accepted: allAccepted,
     pendingCount: pending.length,
-    acceptedCount: accepted.length,
+    acceptedCount: allAccepted.length,
   }
 }

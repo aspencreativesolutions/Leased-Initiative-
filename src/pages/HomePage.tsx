@@ -8,14 +8,21 @@ import {
   type SetStateAction,
 } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Building2, KeyRound, Loader2 } from 'lucide-react'
+import { Building2, KeyRound, Loader2, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
+import { TermsOfServiceModal } from '@/components/legal/TermsOfServiceModal'
+import { HomeStyleChooserModal } from '@/components/settings/HomeStyleChooserModal'
 import { HomeStyleExploreSection } from '@/components/settings/HomeStyleExploreSection'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { BrandMark } from '@/components/brand/BrandMark'
 import { BRAND_NAME } from '@/lib/brand'
-import { gatherHomePageContent, type HomeFeatureHighlight } from '@/lib/homePageContent'
+import {
+  gatherHomePageContent,
+  HOME_TILE_ICON_SRC,
+  type HomeFeatureHighlight,
+} from '@/lib/homePageContent'
 import {
   loginPathForRole,
   registerPathForRole,
@@ -145,6 +152,9 @@ export function HomePage() {
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null)
+  const [logoPreviewOpen, setLogoPreviewOpen] = useState(false)
+  const [styleChooserOpen, setStyleChooserOpen] = useState(false)
+  const [termsOpen, setTermsOpen] = useState(false)
   /** Collapsed on every home-page mount; open state only lasts while staying here. */
   const [quickAccessPhase, setQuickAccessPhase] = useState<QuickAccessPhase>('closed')
   const [keyIdleAnimation, setKeyIdleAnimation] = useState(true)
@@ -422,6 +432,43 @@ export function HomePage() {
               )}
             </div>
 
+            <div className="flex flex-col gap-2 border-t border-line pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  closeQuickAccess()
+                  setStyleChooserOpen(true)
+                }}
+                className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
+              >
+                <Palette className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                <span className="text-sm font-semibold text-ink">Style Chooser</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeQuickAccess()
+                  setTermsOpen(true)
+                }}
+                className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                title="View Terms of Service"
+              >
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden"
+                  aria-hidden
+                >
+                  <img
+                    src={HOME_TILE_ICON_SRC.draftFinalizeLeases}
+                    alt=""
+                    className="h-5 w-5 object-contain"
+                    draggable={false}
+                    decoding="async"
+                  />
+                </span>
+                <span className="text-sm font-semibold text-ink">Terms of Service</span>
+              </button>
+            </div>
+
             <form
               onSubmit={(e) => {
                 void handleDemoSubmit(e)
@@ -471,58 +518,88 @@ export function HomePage() {
       </div>
 
       {/* Centered brand + feature grid + styles */}
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pb-14 pt-20 text-center sm:px-6 sm:pb-16 sm:pt-24 lg:px-8 lg:pt-20">
-        <header className="home-page__hero flex w-full max-w-4xl flex-col items-center">
-          <div className="home-page__brand mb-5 flex flex-col items-center gap-3 sm:mb-6">
-            <BrandMark
-              className="home-page__brand-mark h-14 w-16 shadow-[0_12px_40px_-24px_rgb(0_0_0_/_0.35)] sm:h-16 sm:w-[4.5rem]"
-              glyphClassName="home-page__brand-mark-glyph text-2xl sm:text-3xl"
-            />
-            <p className="home-page__brand-title text-4xl sm:text-5xl lg:text-6xl">
-              {content.brand}
+      <div className="relative z-10 flex min-h-screen flex-col items-center px-4 pb-10 text-center sm:px-6 sm:pb-12 lg:px-8">
+        {/* First viewport: logo, title, subtitle, and all nine tiles */}
+        <div className="home-page__above-fold flex w-full flex-col items-center justify-center pt-8 sm:pt-10">
+          <header className="home-page__hero flex w-full max-w-3xl flex-col items-center">
+            <div className="home-page__brand mb-2.5 flex flex-col items-center gap-1.5 sm:mb-3 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setLogoPreviewOpen(true)}
+                className="home-page__brand-mark-trigger cursor-zoom-in rounded-none border-0 bg-transparent p-0 text-ink transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+                aria-label="View enlarged brand mark"
+              >
+                <BrandMark className="home-page__brand-mark h-10 w-10 shadow-[0_10px_32px_-20px_rgb(0_0_0_/_0.35)] sm:h-11 sm:w-11" />
+              </button>
+              <p className="home-page__brand-title text-[1.75rem] leading-tight sm:text-4xl lg:text-[2.75rem]">
+                {content.brand}
+              </p>
+            </div>
+
+            <h1 className="home-page__tagline max-w-lg text-lg leading-snug sm:text-xl lg:text-2xl">
+              {content.tagline}
+            </h1>
+            <p className="home-page__purpose mt-1.5 max-w-md text-sm leading-snug text-ink-muted sm:mt-2 sm:text-[0.9375rem]">
+              {content.purpose}
             </p>
-          </div>
+          </header>
 
-          <h1 className="home-page__tagline max-w-xl text-2xl leading-snug sm:text-3xl">
-            {content.tagline}
-          </h1>
-          <p className="mt-3 max-w-lg text-base leading-relaxed text-ink-muted sm:text-lg">
-            {content.purpose}
-          </p>
-        </header>
-
-        <section
-          className="home-page__tiles mt-6 w-full max-w-[53.5rem] sm:mt-7"
-          aria-labelledby="home-features-heading"
-          onMouseLeave={() => setExpandedTileId(null)}
-        >
-          <h2
-            id="home-features-heading"
-            className="home-page__tagline mb-5 text-lg sm:mb-6 sm:text-xl"
+          <section
+            className="home-page__tiles mt-4 w-full max-w-[46rem] sm:mt-5 lg:max-w-[48rem]"
+            aria-labelledby="home-features-heading"
+            onMouseLeave={() => setExpandedTileId(null)}
           >
-            Hover or tap a tile to learn more.
-          </h2>
-          <FeaturesGrid
-            features={content.features}
-            expandedTileId={expandedTileId}
-            setExpandedTileId={setExpandedTileId}
-          />
-        </section>
+            <h2
+              id="home-features-heading"
+              className="home-page__tagline mb-3 text-sm sm:mb-3.5 sm:text-base"
+            >
+              Hover or tap a tile to learn more.
+            </h2>
+            <FeaturesGrid
+              features={content.features}
+              expandedTileId={expandedTileId}
+              setExpandedTileId={setExpandedTileId}
+            />
+          </section>
+        </div>
 
         <HomeStyleExploreSection />
 
-        <footer className="mt-12 flex flex-col items-center gap-3 text-center text-xs text-ink-faint sm:mt-14">
-          <Link
-            to="/welcome"
-            className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
-          >
-            Take a guided product tour
-          </Link>
-          <p>
-            {BRAND_NAME} · Landlord &amp; tenant management
-          </p>
+        <footer className="home-page__footer mt-10 flex w-full max-w-4xl flex-col items-center gap-3 border-t border-line/80 pt-6 text-center sm:mt-12">
+          <p className="text-sm font-semibold tracking-tight text-ink">{BRAND_NAME}</p>
+          <p className="text-xs text-ink-faint">Landlord &amp; tenant management</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
+            <Link
+              to="/terms"
+              className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              to="/welcome"
+              className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+            >
+              Guided product tour
+            </Link>
+          </div>
         </footer>
       </div>
+
+      <Modal
+        open={logoPreviewOpen}
+        onClose={() => setLogoPreviewOpen(false)}
+        title="Brand mark"
+        size="lg"
+      >
+        <div className="flex flex-col items-center gap-4 py-4 sm:py-6">
+          <BrandMark className="home-page__brand-mark h-[min(70vw,22rem)] w-[min(70vw,22rem)] text-ink" />
+          <p className="max-w-sm text-center text-sm text-ink-muted">
+            Enlarged for inspection. Close with the × button, Escape, or by clicking outside.
+          </p>
+        </div>
+      </Modal>
+      <HomeStyleChooserModal open={styleChooserOpen} onClose={() => setStyleChooserOpen(false)} />
+      <TermsOfServiceModal open={termsOpen} onClose={() => setTermsOpen(false)} />
     </div>
   )
 }

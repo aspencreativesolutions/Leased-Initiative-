@@ -12,7 +12,18 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
-import type { Client, ContractData, Property } from '@/types'
+import type {
+  Client,
+  ContractData,
+  PendingRegistration,
+  Property,
+} from '@/types'
+
+/** Applicant / pending-tenant interest tied to a rental address. */
+export type RentalInterestCounts = {
+  applicantCount: number
+  pendingTenantCount: number
+}
 
 /** Days ahead to surface lease-end openings (includes near-term renewals). */
 export const OPENING_HORIZON_DAYS = 180
@@ -105,7 +116,7 @@ export function remainingTenantCapacity(
 
 /**
  * Available applicant slots from maxTenants minus Official Tenants at the rental.
- * Matches Waiting to Connect “Requesting 1 of N Available Units”.
+ * Matches Waiting to Connect “Requesting 1 of N available units” badges.
  */
 export function availableUnitsForApplicant(
   property: Property,
@@ -123,6 +134,48 @@ export function findPropertyByAddress(
 ): Property | undefined {
   if (!address?.trim()) return undefined
   return properties.find((property) => addressesMatch(property.address, address))
+}
+
+/**
+ * Per-rental counts of Waiting-to-Connect applicants and Pending Tenants
+ * (accepted, lease not yet signed) matched by property address.
+ */
+export function rentalInterestByPropertyId(
+  properties: Property[],
+  registrations: PendingRegistration[],
+  clients: Client[],
+  getContract: (clientId: string) => ContractData | undefined
+): Map<string, RentalInterestCounts> {
+  const counts = new Map<string, RentalInterestCounts>()
+  for (const property of properties) {
+    counts.set(property.id, { applicantCount: 0, pendingTenantCount: 0 })
+  }
+
+  const bump = (propertyId: string, key: keyof RentalInterestCounts) => {
+    const current = counts.get(propertyId)
+    if (!current) return
+    current[key] += 1
+  }
+
+  for (const registration of registrations) {
+    const property = findPropertyByAddress(
+      properties,
+      registration.preferredPropertyAddress
+    )
+    if (property) bump(property.id, 'applicantCount')
+  }
+
+  for (const client of clients) {
+    if (client.isOfficialClient) continue
+    if (client.contractStatus === 'Signed' || client.contractStatus === 'Completed') {
+      continue
+    }
+    const address = getTenantAddress(client, getContract(client.id))
+    const property = findPropertyByAddress(properties, address)
+    if (property) bump(property.id, 'pendingTenantCount')
+  }
+
+  return counts
 }
 
 /** @deprecated Use remainingTenantCapacity — open units are unitCount-based. */
@@ -174,6 +227,43 @@ export function openUnitsForRental(
   getContract: (clientId: string) => ContractData | undefined
 ): number {
   return vacantUnitCount(property, clients, getContract)
+}
+
+/**
+ * Occupied share of leasable units (0 = all open, 1 = fully occupied).
+ * Drives Rentals tile color: dark red → green as occupancy rises.
+ */
+export function rentalOccupancyRatio(openUnits: number, unitCount: number): number {
+  const total = Math.max(1, Math.floor(unitCount) || 1)
+  const open = Math.max(0, Math.min(Math.floor(openUnits) || 0, total))
+  return (total - open) / total
+}
+
+/** Visual occupancy bands for rental tiles (red vacancy → green full). */
+export type RentalOccupancyTone = 'vacant' | 'low' | 'mid' | 'high' | 'full'
+
+export function rentalOccupancyTone(
+  openUnits: number,
+  unitCount: number
+): RentalOccupancyTone {
+  const ratio = rentalOccupancyRatio(openUnits, unitCount)
+  if (ratio >= 1) return 'full'
+  if (ratio >= 0.75) return 'high'
+  if (ratio >= 0.5) return 'mid'
+  if (ratio >= 0.25) return 'low'
+  return 'vacant'
+}
+
+export function rentalOccupancyStatusLabel(
+  openUnits: number,
+  unitCount: number
+): string {
+  const tone = rentalOccupancyTone(openUnits, unitCount)
+  if (tone === 'full') return 'Fully occupied'
+  const total = Math.max(1, Math.floor(unitCount) || 1)
+  const open = Math.max(0, Math.min(Math.floor(openUnits) || 0, total))
+  const unitLabel = open === 1 ? 'open unit' : 'open units'
+  return `${open} of ${total} ${unitLabel}`
 }
 
 export interface CompanyPortfolioStats {

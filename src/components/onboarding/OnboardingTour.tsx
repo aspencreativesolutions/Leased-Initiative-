@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Compass, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -10,11 +10,15 @@ import {
 } from '@/lib/onboardingApi'
 import {
   ADMIN_ONBOARDING_STEPS,
+  ADMIN_TOUR_SECTIONS,
   CLIENT_ONBOARDING_STEPS,
   filterOnboardingSteps,
+  type AdminTourSectionId,
   type OnboardingContext,
   type OnboardingStep,
 } from '@/lib/onboardingSteps'
+import { NAV_TOOLBAR_ICON_BUTTON_CLASS } from '@/lib/navToolbar'
+import { cn } from '@/lib/utils'
 import type { OnboardingProgress } from '@/types'
 
 interface SpotlightRect {
@@ -32,6 +36,10 @@ interface OnboardingTourProps {
   onForceStartHandled?: () => void
 }
 
+const DEFAULT_ONBOARDING_CONTEXT: OnboardingContext = {}
+
+const ADMIN_TOUR_STEP_KEY = 'leased-admin-tour-step-id'
+
 function getSpotlightRect(selector: string): SpotlightRect | null {
   const el = document.querySelector(selector)
   if (!el) return null
@@ -46,11 +54,18 @@ function getSpotlightRect(selector: string): SpotlightRect | null {
 }
 
 function getTooltipPosition(
-  rect: SpotlightRect,
+  rect: SpotlightRect | null,
   placement: OnboardingStep['placement']
 ) {
-  const margin = 12
   const tooltipWidth = 320
+  if (!rect) {
+    return {
+      top: 88,
+      left: Math.max(16, (window.innerWidth - tooltipWidth) / 2),
+    }
+  }
+
+  const margin = 12
   const centerX = rect.left + rect.width / 2
 
   if (placement === 'top') {
@@ -85,9 +100,31 @@ function getTooltipPosition(
   }
 }
 
+function readRememberedStepId(): string | null {
+  try {
+    return sessionStorage.getItem(ADMIN_TOUR_STEP_KEY)
+  } catch {
+    return null
+  }
+}
+
+function rememberStepId(stepId: string | null) {
+  try {
+    if (stepId) sessionStorage.setItem(ADMIN_TOUR_STEP_KEY, stepId)
+    else sessionStorage.removeItem(ADMIN_TOUR_STEP_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Steps eligible for the tour path (when-guards only — completed steps stay so users can skip around). */
+function tourPathSteps(steps: OnboardingStep[], context: OnboardingContext) {
+  return steps.filter((step) => !step.when || step.when(context))
+}
+
 export function OnboardingTour({
   role,
-  context = {},
+  context = DEFAULT_ONBOARDING_CONTEXT,
   forceStart,
   onForceStartHandled,
 }: OnboardingTourProps) {
@@ -98,7 +135,10 @@ export function OnboardingTour({
   const [progress, setProgress] = useState<OnboardingProgress | null>(null)
   const [active, setActive] = useState(false)
   const [stepIndex, setStepIndex] = useState(0)
+  const [tourSteps, setTourSteps] = useState<OnboardingStep[]>([])
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null)
+  const onForceStartHandledRef = useRef(onForceStartHandled)
+  onForceStartHandledRef.current = onForceStartHandled
 
   const allSteps = role === 'admin' ? ADMIN_ONBOARDING_STEPS : CLIENT_ONBOARDING_STEPS
 
@@ -107,7 +147,34 @@ export function OnboardingTour({
     return filterOnboardingSteps(allSteps, context, progress.completedSteps ?? [])
   }, [allSteps, context, progress])
 
-  const currentStep = pendingSteps[stepIndex] ?? null
+  const currentStep = tourSteps[stepIndex] ?? null
+  const currentSection = currentStep?.section
+
+  const beginTour = useCallback(
+    (steps: OnboardingStep[], preferredStepId?: string | null) => {
+      if (steps.length === 0) return
+      const remembered = preferredStepId ?? (role === 'admin' ? readRememberedStepId() : null)
+      let index = 0
+      if (remembered) {
+        const found = steps.findIndex((s) => s.id === remembered)
+        if (found >= 0) index = found
+      }
+      setTourSteps(steps)
+      setStepIndex(index)
+      setActive(true)
+      rememberStepId(steps[index]?.id ?? null)
+    },
+    [role]
+  )
+
+  const goToStepIndex = useCallback(
+    (index: number) => {
+      setStepIndex(index)
+      const step = tourSteps[index]
+      if (step) rememberStepId(step.id)
+    },
+    [tourSteps]
+  )
 
   const refreshSpotlight = useCallback(() => {
     if (!currentStep) {
@@ -123,37 +190,63 @@ export function OnboardingTour({
   }, [currentStep])
 
   useEffect(() => {
-    if (adminMode) {
-      setActive(false)
-      setProgress(null)
-      return
-    }
     if (!user) return
     fetchOnboardingProgress(role)
       .then(setProgress)
       .catch(() => setProgress({ completedSteps: [] }))
-  }, [user, role, adminMode])
+  }, [user, role])
 
+  /** Manual restart from Tour button — re-sync progress after server reset */
   useEffect(() => {
-    if (adminMode) return
+    if (!forceStart) return
+    let cancelled = false
+    ;(async () => {
+      let next: OnboardingProgress = { completedSteps: [] }
+      try {
+        next = await fetchOnboardingProgress(role)
+      } catch {
+        next = { completedSteps: [] }
+      }
+      if (cancelled) return
+      setProgress(next)
+      const steps = tourPathSteps(allSteps, context)
+      beginTour(steps, readRememberedStepId())
+      onForceStartHandledRef.current?.()
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [forceStart, role, allSteps, context, beginTour])
+
+  /** Auto-start for first-time users who have not dismissed (skip in admin/dev tooling mode) */
+  useEffect(() => {
+    if (adminMode || forceStart || active) return
     if (!progress || progress.dismissedAt) return
     if (pendingSteps.length === 0) return
-    if (forceStart) {
-      setActive(true)
-      setStepIndex(0)
-      onForceStartHandled?.()
-      return
-    }
-    const timer = setTimeout(() => setActive(true), 800)
+    const steps = tourPathSteps(allSteps, context)
+    const timer = setTimeout(() => beginTour(steps, pendingSteps[0]?.id), 800)
     return () => clearTimeout(timer)
-  }, [progress, pendingSteps.length, forceStart, onForceStartHandled, adminMode])
+  }, [
+    progress,
+    pendingSteps,
+    forceStart,
+    adminMode,
+    active,
+    beginTour,
+    allSteps,
+    context,
+  ])
 
   useEffect(() => {
     if (!active || !currentStep?.route) return
-    if (location.pathname !== currentStep.route) {
+    const [routePath, routeQuery] = currentStep.route.split('?')
+    const routeSearch = routeQuery != null ? `?${routeQuery}` : null
+    const pathMismatch = location.pathname !== routePath
+    const searchMismatch = routeSearch != null && location.search !== routeSearch
+    if (pathMismatch || searchMismatch) {
       navigate(currentStep.route)
     }
-  }, [active, currentStep, location.pathname, navigate])
+  }, [active, currentStep, location.pathname, location.search, navigate])
 
   useLayoutEffect(() => {
     if (!active || !currentStep) return
@@ -164,8 +257,8 @@ export function OnboardingTour({
     const retry = setTimeout(refreshSpotlight, 400)
     const skipMissing = setTimeout(() => {
       const rect = getSpotlightRect(currentStep.target)
-      if (!rect && stepIndex < pendingSteps.length - 1) {
-        setStepIndex((i) => i + 1)
+      if (!rect && stepIndex < tourSteps.length - 1) {
+        goToStepIndex(stepIndex + 1)
       }
     }, 600)
     return () => {
@@ -174,7 +267,15 @@ export function OnboardingTour({
       clearTimeout(retry)
       clearTimeout(skipMissing)
     }
-  }, [active, currentStep, refreshSpotlight, location.pathname, stepIndex, pendingSteps.length])
+  }, [
+    active,
+    currentStep,
+    refreshSpotlight,
+    location.pathname,
+    stepIndex,
+    tourSteps.length,
+    goToStepIndex,
+  ])
 
   const completeStep = useCallback(
     async (stepId: string) => {
@@ -188,25 +289,38 @@ export function OnboardingTour({
   const handleNext = useCallback(async () => {
     if (!currentStep) return
     await completeStep(currentStep.id)
-    if (stepIndex < pendingSteps.length - 1) {
-      setStepIndex((i) => i + 1)
+    if (stepIndex < tourSteps.length - 1) {
+      goToStepIndex(stepIndex + 1)
     } else {
       setActive(false)
+      setTourSteps([])
+      rememberStepId(null)
     }
-  }, [completeStep, currentStep, pendingSteps.length, stepIndex])
+  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex])
 
   const handleDismiss = useCallback(async () => {
     const next = await updateOnboardingProgress(role, { dismiss: true })
     setProgress(next)
     setActive(false)
+    setTourSteps([])
+    rememberStepId(null)
     await refreshUser()
   }, [role, refreshUser])
 
-  if (adminMode || !active || !currentStep || !spotlight) return null
+  const handleJumpToSection = useCallback(
+    (sectionId: AdminTourSectionId) => {
+      const idx = tourSteps.findIndex((s) => s.section === sectionId)
+      if (idx >= 0) goToStepIndex(idx)
+    },
+    [tourSteps, goToStepIndex]
+  )
+
+  if (!active || !currentStep) return null
 
   const tooltipStyle = getTooltipPosition(spotlight, currentStep.placement ?? 'bottom')
   const stepNumber = stepIndex + 1
-  const totalSteps = pendingSteps.length
+  const totalSteps = tourSteps.length
+  const showSectionNav = role === 'admin'
 
   return (
     <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Onboarding tour">
@@ -214,14 +328,16 @@ export function OnboardingTour({
         <defs>
           <mask id="onboarding-spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            <rect
-              x={spotlight.left}
-              y={spotlight.top}
-              width={spotlight.width}
-              height={spotlight.height}
-              rx="6"
-              fill="black"
-            />
+            {spotlight ? (
+              <rect
+                x={spotlight.left}
+                y={spotlight.top}
+                width={spotlight.width}
+                height={spotlight.height}
+                rx="6"
+                fill="black"
+              />
+            ) : null}
           </mask>
         </defs>
         <rect
@@ -234,15 +350,49 @@ export function OnboardingTour({
         />
       </svg>
 
-      <div
-        className="pointer-events-none absolute rounded-[var(--radius-md)] border-[length:var(--border-width)] border-brand shadow-[0_0_0_4px_rgba(30,77,107,0.25)]"
-        style={{
-          top: spotlight.top,
-          left: spotlight.left,
-          width: spotlight.width,
-          height: spotlight.height,
-        }}
-      />
+      {showSectionNav ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[101] flex justify-center px-3 pt-3 sm:pt-4">
+          <nav
+            className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-1.5 shadow-lift"
+            aria-label="Tour sections"
+          >
+            {ADMIN_TOUR_SECTIONS.map(({ id, label }) => {
+              const available = tourSteps.some((s) => s.section === id)
+              const isCurrent = currentSection === id
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  disabled={!available}
+                  onClick={() => handleJumpToSection(id)}
+                  className={cn(
+                    'rounded-[calc(var(--radius-sm)-2px)] px-2 py-1.5 text-[10px] font-semibold transition-colors sm:px-2.5 sm:text-[11px]',
+                    isCurrent
+                      ? 'bg-brand text-white'
+                      : available
+                        ? 'text-ink-muted hover:bg-surface hover:text-ink'
+                        : 'cursor-not-allowed text-ink-faint'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
+      ) : null}
+
+      {spotlight ? (
+        <div
+          className="pointer-events-none absolute rounded-[var(--radius-md)] border-[length:var(--border-width)] border-brand shadow-[0_0_0_4px_rgba(30,77,107,0.25)]"
+          style={{
+            top: spotlight.top,
+            left: spotlight.left,
+            width: spotlight.width,
+            height: spotlight.height,
+          }}
+        />
+      ) : null}
 
       <div
         className="absolute w-80 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift"
@@ -281,7 +431,7 @@ export function OnboardingTour({
             Skip tour
           </button>
           <Button size="sm" onClick={handleNext}>
-            {stepIndex < totalSteps - 1 ? 'Next' : 'Done'}
+            {stepIndex < tourSteps.length - 1 ? 'Next' : 'Done'}
           </Button>
         </div>
       </div>
@@ -289,18 +439,19 @@ export function OnboardingTour({
   )
 }
 
-/** Small button to restart the onboarding tour */
+/** Icon button matching Settings — restarts the guided tour */
 export function OnboardingRestartButton({
   role,
   onStart,
+  className,
 }: {
   role: 'admin' | 'client'
   onStart: () => void
+  className?: string
 }) {
-  if (isAdminModeEnabled()) return null
-
   const handleClick = async () => {
     await updateOnboardingProgress(role, { reset: true })
+    rememberStepId(null)
     onStart()
   }
 
@@ -308,11 +459,11 @@ export function OnboardingRestartButton({
     <button
       type="button"
       onClick={handleClick}
-      className="flex items-center gap-1.5 text-[11px] font-semibold text-nav-fg-muted transition-colors hover:text-nav-fg"
-      title="Restart guided tour"
+      className={cn(NAV_TOOLBAR_ICON_BUTTON_CLASS, className)}
+      data-tooltip="Take the tour"
+      aria-label="Take the tour"
     >
       <Compass className="h-3.5 w-3.5" />
-      <span className="hidden sm:inline">Tour</span>
     </button>
   )
 }

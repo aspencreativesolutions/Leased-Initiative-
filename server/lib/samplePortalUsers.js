@@ -14,6 +14,7 @@ export function getSamplePortalPassword(email) {
 
 const SAMPLE_PORTAL_THEMES = {
   'james@chenarch.com': 'slate',
+  'jordan.kim@example.com': 'slate',
   'emily@rodriguezwellness.com': 'slate',
   'marcus@webblegal.com': 'slate',
   'lisa@parkphoto.com': 'slate',
@@ -21,27 +22,49 @@ const SAMPLE_PORTAL_THEMES = {
 
 /** Canonical property addresses for each mock portal tenant */
 const SAMPLE_TENANT_ADDRESSES = {
-  'james@chenarch.com': '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
-  'emily@rodriguezwellness.com': '56 East Market Street #210, Philadelphia, PA 19107',
-  'marcus@webblegal.com': '3315 South Magnolia Avenue, Tampa, FL 33609',
-  // Shares Unit 4 with James Chen (roommates)
-  'lisa@parkphoto.com': '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+  'james@chenarch.com': '523 Juanita Street, Steubenville, OH 43952',
+  'jordan.kim@example.com': '523 Juanita Street, Steubenville, OH 43952',
+  'emily@rodriguezwellness.com': '201 Heights Street, Weirton, WV 26062',
+  'marcus@webblegal.com': '77 Maryland Street, Wheeling, WV 26003',
+  'lisa@parkphoto.com': '285 Bethany Pike, Wellsburg, WV 26070',
 }
 
 /** Old agency-style titles / outdated addresses → realistic mock addresses */
 const SAMPLE_ADDRESS_MIGRATIONS = {
   '123 Creative Lane, Your City, ST 00000':
-    '4821 Westheimer Road, Suite 210, Houston, TX 77056',
+    '401 Market Street, Suite 200, Steubenville, OH 43952',
   '412 Oak Street, Suite 2, Brooklyn, NY 11201':
-    '1847 North Whispering Pines Boulevard, Apartment 12B, Charlotte, NC 28202',
+    '285 Bethany Pike, Wellsburg, WV 26070',
   '88 Harbor Ave, Unit 4B, Queens, NY 11101': SAMPLE_TENANT_ADDRESSES['james@chenarch.com'],
   '15 Pine Court #301, Hoboken, NJ 07030':
     SAMPLE_TENANT_ADDRESSES['emily@rodriguezwellness.com'],
   '220 Maple Row, Miami, FL 33101': SAMPLE_TENANT_ADDRESSES['marcus@webblegal.com'],
   '9 River Road, Apt 12, San Francisco, CA 94107':
-    '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205':
+    SAMPLE_TENANT_ADDRESSES['james@chenarch.com'],
+  '56 East Market Street #210, Philadelphia, PA 19107':
+    SAMPLE_TENANT_ADDRESSES['emily@rodriguezwellness.com'],
+  '3315 South Magnolia Avenue, Tampa, FL 33609':
+    SAMPLE_TENANT_ADDRESSES['marcus@webblegal.com'],
   '7748 Highland Park Lane, Austin, TX 78745':
-    '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  '2140 Barton Springs Road, Unit 2B, Austin, TX 78704':
+    '211 Donnell Street, Weirton, WV 26062',
+  '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753':
+    '107 Broad Street, St. Clairsville, OH 43950',
+  '4821 Westheimer Road, Suite 210, Houston, TX 77056':
+    '401 Market Street, Suite 200, Steubenville, OH 43952',
+  '1200 Congress Avenue, Suite 400, Austin, TX 78701':
+    '401 Market Street, Suite 200, Steubenville, OH 43952',
+  '1847 North Whispering Pines Boulevard, Apartment 12B, Charlotte, NC 28202':
+    SAMPLE_TENANT_ADDRESSES['lisa@parkphoto.com'],
+  '261 East Main Street, St. Clairsville, OH 43950':
+    '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
+  '150 Orchard Street, Wintersville, OH 43953':
+    '430 Canton Road, Unit 11, Wintersville, OH 43953',
+  '903 Logan Avenue, Mingo Junction, OH 43938':
+    '1430 Ridge Avenue, Unit A, Steubenville, OH 43952',
   'Portfolio Website': SAMPLE_TENANT_ADDRESSES['james@chenarch.com'],
   'Brand Identity Package': SAMPLE_TENANT_ADDRESSES['emily@rodriguezwellness.com'],
   'Local SEO Optimization': SAMPLE_TENANT_ADDRESSES['marcus@webblegal.com'],
@@ -78,9 +101,10 @@ function buildMissingSampleClients(now) {
       businessName: 'Chen Architecture',
       email: 'james@chenarch.com',
       phone: '(555) 876-5432',
-      projectType: 'Apartment',
-      projectName: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
-      projectDescription: 'January 1 lease — July rent currently past due.',
+      projectType: 'House',
+      projectName: '523 Juanita Street, Steubenville, OH 43952',
+      projectDescription:
+        'January 1 lease — shares $2,400 home with roommate; July rent past due.',
       projectStatus: 'In Progress',
       contractStatus: 'Signed',
       paymentStatus: 'Overdue',
@@ -105,12 +129,36 @@ function buildMissingSampleClients(now) {
     },
     {
       id: generateId(),
+      name: 'Jordan Kim',
+      businessName: 'Kim Studio',
+      email: 'jordan.kim@example.com',
+      phone: '(740) 555-0198',
+      projectType: 'House',
+      projectName: '523 Juanita Street, Steubenville, OH 43952',
+      projectDescription:
+        'Roommate at Juanita — $1,200 share; $800 paid toward July (partial).',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
+      paymentStatus: 'Unpaid',
+      serviceTier: 'Studio',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: now,
+      currentPeriodAmountPaid: 800,
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
+      createdAt: now,
+    },
+    {
+      id: generateId(),
       name: 'Emily Rodriguez',
       businessName: 'Rodriguez Wellness',
       email: 'emily@rodriguezwellness.com',
       phone: '(555) 111-2222',
       projectType: 'House',
-      projectName: '56 East Market Street #210, Philadelphia, PA 19107',
+      projectName: '201 Heights Street, Weirton, WV 26062',
       projectDescription:
         'Accepted tenant — lease sent for August 1 start; awaiting signature.',
       projectStatus: 'Contract Sent',
@@ -139,6 +187,52 @@ function buildMissingSampleClients(now) {
       ],
       isSampleClient: true,
       demoLeaseStartDate: '2026-08-01',
+      createdAt: now,
+    },
+    {
+      id: generateId(),
+      name: 'Marcus Webb',
+      businessName: 'Webb Legal Group',
+      email: 'marcus@webblegal.com',
+      phone: '(555) 333-4444',
+      projectType: 'House',
+      projectName: '77 Maryland Street, Wheeling, WV 26003',
+      projectDescription:
+        'Signed 12-month lease begins August 1 — first month paid early.',
+      projectStatus: 'Contract Signed',
+      contractStatus: 'Signed',
+      paymentStatus: 'Deposit Paid',
+      serviceTier: 'Studio',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: now,
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
+      createdAt: now,
+    },
+    {
+      id: generateId(),
+      name: 'Lisa Park',
+      businessName: 'Park Photography',
+      email: 'lisa@parkphoto.com',
+      phone: '(555) 555-6666',
+      projectType: 'House',
+      projectName: '285 Bethany Pike, Wellsburg, WV 26070',
+      projectDescription: 'January 1 lease — Active; rent paid through July.',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
+      paymentStatus: 'Paid',
+      serviceTier: 'Launch',
+      leaseLengthMonths: 12,
+      isOfficialClient: true,
+      officialClientSince: now,
+      followUpDate: daysFromNow(4),
+      notes: [],
+      deadlines: [],
+      isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
       createdAt: now,
     },
   ]

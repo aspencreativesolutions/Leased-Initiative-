@@ -46,10 +46,16 @@ export function SendContractModal({
       }>(`/api/contracts/${contract.id}/send`, {
         method: 'POST',
       })
+      const sentAt =
+        result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString()
+      const wasAlreadySent = Boolean(contract.sentAt)
       const sentContract: ContractData = {
         ...contract,
         ...(result.contract ?? {}),
-        sentAt: result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString(),
+        sentAt,
+        resentAt: wasAlreadySent
+          ? (result.contract?.resentAt ?? sentAt)
+          : undefined,
         viewedAt: undefined,
         confirmedByClient: false,
         clientSignature: undefined,
@@ -87,10 +93,16 @@ export function SendContractModal({
       }>(`/api/contracts/${contract.id}/send`, {
         method: 'POST',
       })
+      const sentAt =
+        result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString()
+      const wasAlreadySent = Boolean(contract.sentAt)
       const sentContract: ContractData = {
         ...contract,
         ...(result.contract ?? {}),
-        sentAt: result.sentAt ?? result.contract?.sentAt ?? new Date().toISOString(),
+        sentAt,
+        resentAt: wasAlreadySent
+          ? (result.contract?.resentAt ?? sentAt)
+          : undefined,
       }
       await saveContract(sentContract)
       updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })

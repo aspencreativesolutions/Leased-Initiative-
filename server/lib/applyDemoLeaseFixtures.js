@@ -1,6 +1,7 @@
 /**
  * Apply canonical Demo Mode lease dates + payment histories to the store.
- * Idempotent for already-fixture clients (does not reset live demo payments).
+ * Idempotent for already-fixture clients (does not reset live demo payments),
+ * but always re-syncs contract/official status so drifted stores are repaired.
  */
 import { generateId } from './notifications.js'
 import {
@@ -10,6 +11,31 @@ import {
   scenarioLeaseDates,
 } from './demoLeaseFixtures.js'
 import { createDraftContract } from './contractDraft.js'
+
+function withSignedFlags(contract, client, leaseStartDate) {
+  const now = contract.createdAt || new Date().toISOString()
+  if (client.contractStatus === 'Signed' || client.contractStatus === 'Completed') {
+    return {
+      ...contract,
+      sentAt: contract.sentAt ?? now,
+      signedAt: contract.signedAt ?? now,
+      confirmedByClient: true,
+      clientSignature: contract.clientSignature || client.name,
+      clientSignDate: contract.clientSignDate || leaseStartDate,
+      isPlaceholderDraft: false,
+    }
+  }
+  if (client.contractStatus === 'Sent') {
+    return {
+      ...contract,
+      sentAt: contract.sentAt ?? now,
+      signedAt: undefined,
+      confirmedByClient: false,
+      isPlaceholderDraft: false,
+    }
+  }
+  return contract
+}
 
 export function applyDemoLeaseFixturesToStore(store) {
   let clients = [...(store.clients ?? [])]
@@ -23,55 +49,61 @@ export function applyDemoLeaseFixturesToStore(store) {
 
     const { leaseStartDate, leaseEndDate } = scenarioLeaseDates(scenario)
     const alreadyFixture =
-      client.demoLeaseFixture === true && client.demoLeaseStartDate === leaseStartDate
+      client.demoLeaseFixture === true &&
+      client.demoLeaseStartDate === leaseStartDate &&
+      client.leaseLengthMonths === scenario.leaseMonths
 
     let appliedClient = client
+    const synced = applyDemoScenarioToClient(client, scenario, generateId)
+
     if (!alreadyFixture) {
-      const nextClient = applyDemoScenarioToClient(client, scenario, generateId)
-      clients[i] = nextClient
-      appliedClient = nextClient
+      clients[i] = synced
+      appliedClient = synced
       changed = true
-    } else {
-      // Keep official flag / term length aligned even when payment history is already applied
-      const synced = applyDemoScenarioToClient(client, scenario, generateId)
-      if (
-        synced.isOfficialClient !== client.isOfficialClient ||
-        synced.leaseLengthMonths !== client.leaseLengthMonths ||
-        synced.officialClientSince !== client.officialClientSince
-      ) {
-        clients[i] = {
-          ...client,
-          isOfficialClient: synced.isOfficialClient,
-          officialClientSince: synced.officialClientSince,
-          leaseLengthMonths: synced.leaseLengthMonths,
-        }
-        appliedClient = clients[i]
-        changed = true
+    } else if (
+      synced.isOfficialClient !== client.isOfficialClient ||
+      synced.officialClientSince !== client.officialClientSince ||
+      synced.contractStatus !== client.contractStatus ||
+      synced.projectStatus !== client.projectStatus ||
+      synced.paymentStatus !== client.paymentStatus ||
+      synced.currentPeriodAmountPaid !== client.currentPeriodAmountPaid
+    ) {
+      // Repair drifted status without wiping live payment deadline edits
+      clients[i] = {
+        ...client,
+        isOfficialClient: synced.isOfficialClient,
+        officialClientSince: synced.officialClientSince,
+        contractStatus: synced.contractStatus,
+        projectStatus: synced.projectStatus,
+        paymentStatus: synced.paymentStatus,
+        leaseLengthMonths: synced.leaseLengthMonths,
+        ...(synced.currentPeriodAmountPaid != null
+          ? { currentPeriodAmountPaid: synced.currentPeriodAmountPaid }
+          : {}),
       }
+      appliedClient = clients[i]
+      changed = true
     }
 
     const existing = contracts.find((c) => c.clientId === appliedClient.id)
 
     if (existing) {
-      let nextContract = applyDemoScenarioToContract(existing, appliedClient, scenario)
-      if (
-        (appliedClient.contractStatus === 'Sent' ||
-          appliedClient.contractStatus === 'Signed') &&
-        !nextContract.sentAt
-      ) {
-        nextContract = {
-          ...nextContract,
-          sentAt: nextContract.createdAt || new Date().toISOString(),
-          isPlaceholderDraft: false,
-        }
-      }
+      let nextContract = withSignedFlags(
+        applyDemoScenarioToContract(existing, appliedClient, scenario),
+        appliedClient,
+        leaseStartDate
+      )
       if (
         nextContract.startDate !== existing.startDate ||
         nextContract.completionDate !== existing.completionDate ||
         nextContract.totalCost !== existing.totalCost ||
         nextContract.depositAmount !== existing.depositAmount ||
         nextContract.remainingBalance !== existing.remainingBalance ||
+        nextContract.paymentProvider !== existing.paymentProvider ||
+        nextContract.paymentMethods !== existing.paymentMethods ||
         nextContract.sentAt !== existing.sentAt ||
+        nextContract.signedAt !== existing.signedAt ||
+        nextContract.confirmedByClient !== existing.confirmedByClient ||
         nextContract.isPlaceholderDraft !== existing.isPlaceholderDraft
       ) {
         contracts = contracts.map((c) => (c.id === nextContract.id ? nextContract : c))
@@ -89,26 +121,18 @@ export function applyDemoLeaseFixturesToStore(store) {
         completionDate: leaseEndDate,
         paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
       })
-      contract = applyDemoScenarioToContract(
-        {
-          ...contract,
-          clientAddress: appliedClient.projectName,
-          isPlaceholderDraft: false,
-          sentAt:
-            appliedClient.contractStatus === 'Sent' ||
-            appliedClient.contractStatus === 'Signed'
-              ? contract.createdAt
-              : undefined,
-          signedAt:
-            appliedClient.contractStatus === 'Signed' ? contract.createdAt : undefined,
-          confirmedByClient: appliedClient.contractStatus === 'Signed',
-          clientSignature:
-            appliedClient.contractStatus === 'Signed' ? appliedClient.name : undefined,
-          clientSignDate:
-            appliedClient.contractStatus === 'Signed' ? leaseStartDate : undefined,
-        },
+      contract = withSignedFlags(
+        applyDemoScenarioToContract(
+          {
+            ...contract,
+            clientAddress: appliedClient.projectName,
+            isPlaceholderDraft: false,
+          },
+          appliedClient,
+          scenario
+        ),
         appliedClient,
-        scenario
+        leaseStartDate
       )
       contracts = [...contracts, contract]
       changed = true

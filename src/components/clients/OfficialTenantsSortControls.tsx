@@ -8,7 +8,7 @@ import {
   type OfficialTenantSortMode,
 } from '@/lib/officialTenantSort'
 import { cn } from '@/lib/utils'
-import type { Client, ContractData, ContractRegion } from '@/types'
+import type { Client, ContractData, ContractRegion, Property } from '@/types'
 
 const sortSelectClass = [
   'shrink-0 w-full sm:w-[11.5rem]',
@@ -28,6 +28,7 @@ interface OfficialTenantsSortControlsProps {
   clients: Client[]
   getContractForClient: (clientId: string) => ContractData | undefined
   regions: ContractRegion[]
+  properties?: Property[]
   sortMode: OfficialTenantSortMode
   addressFocus: OfficialTenantAddressFocus
   onSortModeChange: (mode: OfficialTenantSortMode) => void
@@ -39,6 +40,7 @@ export function OfficialTenantsSortControls({
   clients,
   getContractForClient,
   regions,
+  properties = [],
   sortMode,
   addressFocus,
   onSortModeChange,
@@ -46,8 +48,8 @@ export function OfficialTenantsSortControls({
   className,
 }: OfficialTenantsSortControlsProps) {
   const addressOptions = useMemo(
-    () => buildOfficialTenantAddressOptions(clients, getContractForClient, regions),
-    [clients, getContractForClient, regions]
+    () => buildOfficialTenantAddressOptions(clients, getContractForClient, regions, properties),
+    [clients, getContractForClient, regions, properties]
   )
 
   const addressValue = encodeAddressFocus(addressFocus)
@@ -111,7 +113,7 @@ export function OfficialTenantsSortControls({
               </optgroup>
             )}
             {addressOptions.regions.length > 0 && (
-              <optgroup label="Region">
+              <optgroup label="Group">
                 {addressOptions.regions.map((region) => (
                   <option
                     key={`region:${region.id}`}

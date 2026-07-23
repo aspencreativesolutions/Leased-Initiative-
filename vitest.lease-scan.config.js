@@ -12,6 +12,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/lib/leaseScan.test.ts'],
+    include: ['src/lib/*.test.ts'],
   },
 })

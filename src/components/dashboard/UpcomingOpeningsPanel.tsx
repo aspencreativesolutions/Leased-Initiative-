@@ -15,6 +15,8 @@ import { logResignMessage } from '@/lib/propertiesApi'
 import { openSmsCompose } from '@/lib/tenantMessageTemplates'
 import type { Client } from '@/types'
 
+type OpeningAction = 'resign' | 'invite'
+
 function buildResignDraft(vars: {
   tenantName: string
   address: string
@@ -31,7 +33,10 @@ function buildResignDraft(vars: {
 
 export function UpcomingOpeningsPanel() {
   const { properties, clients, getContractForClient, settings, getClient, refresh } = useApp()
-  const [selected, setSelected] = useState<PropertyOpening | null>(null)
+  const [active, setActive] = useState<{
+    opening: PropertyOpening
+    action: OpeningAction
+  } | null>(null)
 
   const openings = useMemo(
     () => buildUpcomingOpenings(properties, clients, getContractForClient),
@@ -47,7 +52,7 @@ export function UpcomingOpeningsPanel() {
         <CardHeader
           dense
           title="Upcoming Openings"
-          subtitle="Available now, opening soon, approaching lease end, or ready for a renewal decision — select a row to re-sign or invite"
+          subtitle="Available now, opening soon, approaching lease end, or ready for a renewal decision — send a re-sign message or generate an invite code from any row"
         />
 
         {openings.length === 0 ? (
@@ -68,67 +73,66 @@ export function UpcomingOpeningsPanel() {
                   <th className="label-caps hidden px-3 py-2.5 lg:table-cell sm:px-4">
                     Tenants
                   </th>
-                  <th className="label-caps px-3 py-2.5 sm:px-4">
-                    <span className="sr-only">Select</span>
+                  <th className="label-caps w-[11.5rem] px-3 py-2.5 sm:w-[13rem] sm:px-4">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {openings.map((opening) => {
-                  const isSelected = selected?.id === opening.id
-                  return (
-                    <tr
-                      key={opening.id}
-                      className={cn(
-                        'cursor-pointer transition-colors',
-                        isSelected ? 'bg-brand/10' : 'hover:bg-surface'
-                      )}
-                      onClick={() => setSelected(opening)}
-                    >
-                      <td className="px-3 py-2.5 align-top sm:px-4">
-                        <p className="break-words font-medium text-ink">{opening.address}</p>
-                        <p className="mt-0.5 text-xs text-ink-muted md:hidden">
-                          {opening.label}
-                        </p>
-                      </td>
-                      <td className="hidden px-3 py-2.5 align-top md:table-cell sm:px-4">
-                        <span
-                          className={cn(
-                            'inline-flex rounded-sm border px-2 py-0.5 text-xs font-semibold',
-                            opening.kind === 'vacant'
-                              ? 'border-brand/30 bg-brand/10 text-brand'
-                              : 'border-accent/40 bg-accent-light text-accent'
-                          )}
-                        >
-                          {opening.label}
-                        </span>
-                        {opening.endDate && (
-                          <p className="mt-1 text-xs text-ink-muted">
-                            End {formatDate(opening.endDate)}
-                          </p>
+                {openings.map((opening) => (
+                  <tr key={opening.id} className="transition-colors hover:bg-surface">
+                    <td className="px-3 py-2.5 align-top sm:px-4">
+                      <p className="break-words font-medium text-ink">{opening.address}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted md:hidden">
+                        {opening.label}
+                      </p>
+                    </td>
+                    <td className="hidden px-3 py-2.5 align-top md:table-cell sm:px-4">
+                      <span
+                        className={cn(
+                          'inline-flex rounded-sm border px-2 py-0.5 text-xs font-semibold',
+                          opening.kind === 'vacant'
+                            ? 'border-brand/30 bg-brand/10 text-brand'
+                            : 'border-accent/40 bg-accent-light text-accent'
                         )}
-                      </td>
-                      <td className="hidden px-3 py-2.5 align-top lg:table-cell sm:px-4">
-                        {opening.tenantNames.length > 0
-                          ? opening.tenantNames.join(', ')
-                          : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 align-top sm:px-4">
+                      >
+                        {opening.label}
+                      </span>
+                      {opening.endDate && (
+                        <p className="mt-1 text-xs text-ink-muted">
+                          End {formatDate(opening.endDate)}
+                        </p>
+                      )}
+                    </td>
+                    <td className="hidden px-3 py-2.5 align-top lg:table-cell sm:px-4">
+                      {opening.tenantNames.length > 0
+                        ? opening.tenantNames.join(', ')
+                        : '—'}
+                    </td>
+                    <td className="w-[11.5rem] px-3 py-2.5 align-top sm:w-[13rem] sm:px-4">
+                      <div className="flex min-w-0 flex-col items-stretch gap-1.5">
                         <Button
                           type="button"
                           size="sm"
-                          variant={isSelected ? 'primary' : 'outline'}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelected(opening)
-                          }}
+                          variant="outline"
+                          className="h-auto w-full justify-center whitespace-normal px-2 py-1.5 text-center leading-tight"
+                          onClick={() => setActive({ opening, action: 'resign' })}
                         >
-                          Select
+                          Send Re-sign Message
                         </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          className="h-auto w-full justify-center whitespace-normal px-2 py-1.5 text-center leading-tight"
+                          onClick={() => setActive({ opening, action: 'invite' })}
+                        >
+                          Generate Invite Code
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -136,8 +140,9 @@ export function UpcomingOpeningsPanel() {
       </Card>
 
       <OpeningActionsModal
-        opening={selected}
-        onClose={() => setSelected(null)}
+        opening={active?.opening ?? null}
+        action={active?.action ?? null}
+        onClose={() => setActive(null)}
         landlordName={settings.businessName || settings.ownerName || 'your landlord'}
         getClient={getClient}
         onLogged={refresh}
@@ -148,12 +153,14 @@ export function UpcomingOpeningsPanel() {
 
 function OpeningActionsModal({
   opening,
+  action,
   onClose,
   landlordName,
   getClient,
   onLogged,
 }: {
   opening: PropertyOpening | null
+  action: OpeningAction | null
   onClose: () => void
   landlordName: string
   getClient: (id: string) => Client | undefined
@@ -168,7 +175,7 @@ function OpeningActionsModal({
   const [resignDone, setResignDone] = useState(false)
 
   useEffect(() => {
-    if (!opening) {
+    if (!opening || !action) {
       setInviteUrl('')
       setCopied(false)
       setError('')
@@ -189,11 +196,13 @@ function OpeningActionsModal({
     setCopied(false)
     setError('')
     setResignDone(false)
-  }, [opening, landlordName, getClient])
+  }, [opening, action, landlordName, getClient])
 
-  if (!opening) return null
+  if (!opening || !action) return null
 
   const canResign = opening.kind === 'lease_ending' && opening.tenantIds.length > 0
+  const title =
+    action === 'resign' ? 'Send re-sign message' : 'Generate invite code'
 
   const handleGenerateInvite = async () => {
     setInviteBusy(true)
@@ -247,14 +256,25 @@ function OpeningActionsModal({
   }
 
   return (
-    <Modal open={Boolean(opening)} onClose={onClose} title="Opening actions" size="lg">
+    <Modal open={Boolean(opening && action)} onClose={onClose} title={title} size="lg">
       <div className="space-y-5">
         <div>
           <p className="break-words font-medium text-ink">{opening.address}</p>
           <p className="mt-1 text-sm text-ink-muted">{opening.label}</p>
+          {opening.endDate && (
+            <p className="mt-1 text-sm text-ink-muted">
+              Lease end date: {formatDate(opening.endDate)}
+            </p>
+          )}
           {opening.tenantNames.length > 0 && (
             <p className="mt-1 text-sm text-ink-muted">
               Current tenants: {opening.tenantNames.join(', ')}
+            </p>
+          )}
+          {action === 'invite' && opening.kind === 'vacant' && (
+            <p className="mt-1 text-sm text-ink-muted">
+              Available unit
+              {opening.vacantUnits === 1 ? '' : 's'}: {opening.vacantUnits}
             </p>
           )}
         </div>
@@ -265,7 +285,7 @@ function OpeningActionsModal({
           </p>
         )}
 
-        {canResign && (
+        {action === 'resign' && (
           <div className="space-y-3 rounded-[var(--radius-sm)] border border-line p-4">
             <div className="flex items-start gap-2">
               <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
@@ -277,61 +297,72 @@ function OpeningActionsModal({
                 </p>
               </div>
             </div>
-            <Textarea
-              label="Message"
-              rows={4}
-              value={resignMessage}
-              onChange={(e) => {
-                setResignMessage(e.target.value)
-                setResignDone(false)
-              }}
-            />
-            <Button type="button" onClick={handleResign} disabled={resignBusy || resignDone}>
-              {resignBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MessageSquare className="h-4 w-4" />
-              )}
-              {resignDone ? 'Message logged' : resignBusy ? 'Sending…' : 'Send re-sign message'}
-            </Button>
+            {canResign ? (
+              <>
+                <Textarea
+                  label="Message"
+                  rows={4}
+                  value={resignMessage}
+                  onChange={(e) => {
+                    setResignMessage(e.target.value)
+                    setResignDone(false)
+                  }}
+                />
+                <Button type="button" onClick={handleResign} disabled={resignBusy || resignDone}>
+                  {resignBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4" />
+                  )}
+                  {resignDone ? 'Message logged' : resignBusy ? 'Sending…' : 'Send re-sign message'}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-ink-muted">
+                Re-sign messaging is available when this opening has current tenants on an ending
+                lease.
+              </p>
+            )}
           </div>
         )}
 
-        <div className="space-y-3 rounded-[var(--radius-sm)] border border-line p-4">
-          <div className="flex items-start gap-2">
-            <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
-            <div>
-              <p className="text-sm font-semibold text-ink">Generate invite for new tenant</p>
-              <p className="mt-0.5 text-xs text-ink-muted">
-                Creates a signup link pre-linked to this property address.
-              </p>
+        {action === 'invite' && (
+          <div className="space-y-3 rounded-[var(--radius-sm)] border border-line p-4">
+            <div className="flex items-start gap-2">
+              <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+              <div>
+                <p className="text-sm font-semibold text-ink">Generate invite for new tenant</p>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Creates a signup link pre-linked to this property address.
+                </p>
+              </div>
             </div>
-          </div>
 
-          {!inviteUrl ? (
-            <Button type="button" onClick={handleGenerateInvite} disabled={inviteBusy}>
-              {inviteBusy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Link2 className="h-4 w-4" />
-              )}
-              {inviteBusy ? 'Generating…' : 'Generate invite code'}
-            </Button>
-          ) : (
-            <div className="flex gap-2">
-              <input
-                readOnly
-                value={inviteUrl}
-                className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2.5 text-sm text-ink"
-                onFocus={(e) => e.target.select()}
-              />
-              <Button type="button" variant="outline" onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? 'Copied' : 'Copy'}
+            {!inviteUrl ? (
+              <Button type="button" onClick={handleGenerateInvite} disabled={inviteBusy}>
+                {inviteBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+                {inviteBusy ? 'Generating…' : 'Generate invite code'}
               </Button>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={inviteUrl}
+                  className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2.5 text-sm text-ink"
+                  onFocus={(e) => e.target.select()}
+                />
+                <Button type="button" variant="outline" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   )

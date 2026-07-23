@@ -59,6 +59,8 @@ type TenantLocationRow = {
   address: string
   state: string | null
   areaCode: string | null
+  lat: number | null
+  lng: number | null
   locationSortKey: string
 }
 
@@ -78,6 +80,8 @@ function buildLocationRows(
       address,
       state: getAddressState(usableAddress),
       areaCode: getPhoneAreaCode(client.phone ?? contract?.phone),
+      lat: property?.addressDetails?.lat ?? null,
+      lng: property?.addressDetails?.lng ?? null,
       locationSortKey: getOfficialTenantLocationSortKey(property, locationDisplayMode),
     }
   })
@@ -86,22 +90,28 @@ function buildLocationRows(
 export function buildOfficialTenantAddressOptions(
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined,
-  regions: ContractRegion[]
+  regions: ContractRegion[],
+  properties: Property[] = []
 ): {
   states: string[]
   regions: { id: string; name: string }[]
   properties: string[]
 } {
-  const rows = buildLocationRows(clients, getContract)
+  const rows = buildLocationRows(clients, getContract, properties)
   const states = uniqueSorted(rows.map((row) => row.state))
-  const properties = uniqueSorted(
+  const propertyAddresses = uniqueSorted(
     rows.map((row) => (row.address !== '—' ? row.address : null))
   )
   const matchingRegions = regions
     .filter((region) =>
       rows.some((row) =>
         contractMatchesLocationFilter(
-          { areaCode: row.areaCode, state: row.state },
+          {
+            areaCode: row.areaCode,
+            state: row.state,
+            lat: row.lat,
+            lng: row.lng,
+          },
           { kind: 'region', value: region.id },
           regions
         )
@@ -110,7 +120,7 @@ export function buildOfficialTenantAddressOptions(
     .map((region) => ({ id: region.id, name: region.name }))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
-  return { states, regions: matchingRegions, properties }
+  return { states, regions: matchingRegions, properties: propertyAddresses }
 }
 
 export interface SortOfficialTenantsOptions {
@@ -150,7 +160,12 @@ export function sortOfficialTenants(
         rank = row.state === focus.value ? 0 : 1
       } else if (focus.kind === 'region') {
         const match = contractMatchesLocationFilter(
-          { areaCode: row.areaCode, state: row.state },
+          {
+            areaCode: row.areaCode,
+            state: row.state,
+            lat: row.lat,
+            lng: row.lng,
+          },
           { kind: 'region', value: focus.value },
           regions
         )

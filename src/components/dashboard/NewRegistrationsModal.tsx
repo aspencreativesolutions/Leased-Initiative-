@@ -191,7 +191,10 @@ export function NewRegistrationsModal({
                   {displayAddress ? (
                     <>
                       <p className="text-sm text-ink">Desired Address: {displayAddress}</p>
-                      <RentalAvailabilityBadge availableUnits={availableUnits} />
+                      <RentalAvailabilityBadge
+                        availableUnits={availableUnits}
+                        propertyId={matchedProperty?.id}
+                      />
                     </>
                   ) : null}
                   <p className="text-xs text-ink-faint">

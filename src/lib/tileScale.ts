@@ -115,8 +115,7 @@ export function paymentTileScaleStyle(factor: number): CSSProperties {
   }
 }
 
-/** Auto-fill grid of equal squares — matches lease agreements. */
+/** Auto-fill grid of equal squares — same layout as lease agreements. */
 export function paymentTileGridClassName(scale: number): string {
-  void scale
-  return 'lease-tile-grid payment-tile-grid grid gap-[var(--tile-gap)]'
+  return leaseTileGridClassName(scale)
 }

@@ -387,7 +387,7 @@ router.get('/dashboard', (req, res) => {
     : null
   const rentPayment =
     client && primaryContract
-      ? buildPortalRentPayment(client, primaryContract)
+      ? buildPortalRentPayment(client, primaryContract, undefined, activeStore)
       : null
   const address = client ? resolveTenantAddress(client, primaryContract) : ''
 
@@ -455,7 +455,7 @@ router.post('/rent-invoice', async (req, res) => {
       return res.status(400).json({ error: 'All rent for this lease is already paid.' })
     }
 
-    const monthlyRent = estimateMonthlyRent(client, contract)
+    const monthlyRent = estimateMonthlyRent(client, contract, store)
     if (!monthlyRent) {
       return res.status(400).json({
         error: 'Monthly rent amount is not set on your lease yet. Contact your landlord.',

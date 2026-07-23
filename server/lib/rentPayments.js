@@ -5,13 +5,65 @@ import {
 } from './leaseSchedule.js'
 import { generateId, pushAdminNotification } from './notifications.js'
 import { resolveServerScheduleAsOf } from './scheduleAsOf.js'
+import {
+  resolvePropertyMonthlyRent,
+  tenantMonthlyShare,
+} from './rentalRent.js'
 
 function isUnpaidRentStatus(status) {
   return status === 'overdue' || status === 'due' || status === 'upcoming'
 }
 
-/** Monthly rent from lease totals, or deposit as a one-month proxy. */
-export function estimateMonthlyRent(client, contract) {
+function normalizeAddress(address) {
+  return String(address ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function getTenantAddress(client, contract) {
+  const fromContract = contract?.clientAddress?.trim()
+  if (fromContract) return fromContract
+  return String(client?.projectName ?? '').trim()
+}
+
+function findPropertyByAddress(properties, address) {
+  const key = normalizeAddress(address)
+  if (!key) return undefined
+  return (properties ?? []).find((p) => normalizeAddress(p.address) === key)
+}
+
+/**
+ * Tenant monthly responsibility from Property.monthlyRent (shared with Rentals),
+ * equal-split across official tenants at the same address, unless custom share.
+ */
+export function estimateMonthlyRent(client, contract, store) {
+  const custom = Number(client?.rentShareAmount)
+  if (Number.isFinite(custom) && custom > 0) {
+    return Math.round(custom * 100) / 100
+  }
+
+  const properties = store?.properties
+  const clients = store?.clients
+  if (properties?.length) {
+    const address = getTenantAddress(client, contract)
+    const property = findPropertyByAddress(properties, address)
+    if (property) {
+      const unitRent = resolvePropertyMonthlyRent(property)
+      const peers = (clients ?? []).filter((peer) => {
+        if (!peer?.isOfficialClient) return false
+        const peerContract = (store.contracts ?? []).find((c) => c.clientId === peer.id)
+        return normalizeAddress(getTenantAddress(peer, peerContract)) === normalizeAddress(address)
+      })
+      const share = tenantMonthlyShare({
+        unitMonthlyRent: unitRent,
+        activeTenantCount: Math.max(1, peers.length),
+        customShareAmount: client?.rentShareAmount,
+      })
+      if (share != null) return share
+    }
+  }
+
   if (!contract) return null
   const total = parseMoney(contract.totalCost)
   const months =
@@ -38,13 +90,13 @@ export function listUnpaidRentMonths(client, contract, asOf) {
   return (schedule.payments ?? []).filter((p) => isUnpaidRentStatus(p.status))
 }
 
-export function buildPortalRentPayment(client, contract, asOf) {
+export function buildPortalRentPayment(client, contract, asOf, store) {
   asOf = resolveServerScheduleAsOf(asOf)
   if (!client || !contract) return null
 
   const schedule = getLeaseRentSchedule(client, contract, asOf)
   const unpaid = listUnpaidRentMonths(client, contract, asOf)
-  const monthlyRent = estimateMonthlyRent(client, contract)
+  const monthlyRent = estimateMonthlyRent(client, contract, store)
   const allowPrepaid = isPrepaidRentAllowed(contract)
   const maxMonths = unpaid.length
   const canPay = Boolean(monthlyRent && maxMonths > 0)

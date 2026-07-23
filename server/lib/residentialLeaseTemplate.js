@@ -4,6 +4,12 @@
  * Jurisdiction-dependent language is framed as configurable defaults, not universal law.
  */
 
+import {
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  parseLeaseLengthMonths,
+  resolveDefaultLeaseDates,
+} from './leaseSchedule.js'
+
 export const PLACEHOLDER_MARKER = '[To be customized]'
 
 /** Blank editable field — never invent rent or deposit amounts. */
@@ -62,6 +68,11 @@ export function buildResidentialLeaseFields({
     leaseOptions.leaseLengthMonths ||
     null
 
+  const resolvedDates = resolveDefaultLeaseDates(
+    settings,
+    parseLeaseLengthMonths(leaseMonths, DEFAULT_LEASE_LENGTH_MONTHS)
+  )
+
   const unitHint = property?.unitCount > 1
     ? blankField('Specify unit number if applicable')
     : propertyAddress.match(/\b(unit|apt|apartment|#)\b/i)
@@ -74,13 +85,15 @@ export function buildResidentialLeaseFields({
   const maxTenants =
     property?.maxTenants != null ? String(property.maxTenants) : ''
 
+  const effectiveLeaseMonths = leaseMonths || resolvedDates.leaseLengthMonths
+
   const premisesLines = [
     propertyAddress && `Property address: ${propertyAddress}`,
     unitHint || null,
     rentalType && `Rental type: ${rentalType}`,
     bedrooms && `Bedrooms: ${bedrooms}`,
     maxTenants && `Maximum tenants: ${maxTenants}`,
-    leaseMonths && `Lease duration: ${leaseMonths}-month term`,
+    effectiveLeaseMonths && `Lease duration: ${effectiveLeaseMonths}-month term`,
   ].filter(Boolean)
 
   const landlordBlock = [
@@ -93,8 +106,8 @@ export function buildResidentialLeaseFields({
     .filter(Boolean)
     .join('\n')
 
-  const startDate = leaseOptions.startDate || ''
-  const completionDate = leaseOptions.completionDate || ''
+  const startDate = leaseOptions.startDate || resolvedDates.leaseStartDate
+  const completionDate = leaseOptions.completionDate || resolvedDates.leaseEndDate
 
   return {
     projectTitle: propertyAddress || `${client?.name || 'Tenant'} Residential Lease`,

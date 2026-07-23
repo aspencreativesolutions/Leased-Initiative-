@@ -34,15 +34,15 @@ import {
   stepsRequireProjectContract,
 } from '../lib/ensureClientContract.js'
 import { ensureClientContractRecord, ensureSampleClientContracts } from '../lib/sampleClientContracts.js'
+import { ensureSamplePortalUsers } from '../lib/samplePortalUsers.js'
 import { permanentlyDeleteClientContract } from '../lib/deleteContract.js'
 import {
   buildMonthlyRentDeadlines,
-  computeLeaseEndDate,
-  computeLeaseStartDate,
   DEFAULT_LEASE_LENGTH_MONTHS,
   formatLeaseLengthLabel,
   listMonthlyRentDueDates,
   parseLeaseLengthMonths,
+  resolveDefaultLeaseDates,
 } from '../lib/leaseSchedule.js'
 import { resolveServerScheduleAsOf } from '../lib/scheduleAsOf.js'
 import {
@@ -75,6 +75,7 @@ import { applyDemoLeaseFixturesToStore } from '../lib/applyDemoLeaseFixtures.js'
 import { reconcileClientContractStatus } from '../lib/contractReview.js'
 import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
 import { sendOverdueRentSms } from '../lib/sms.js'
+import { sendBugReportEmail } from '../lib/email.js'
 
 const router = Router()
 
@@ -91,14 +92,20 @@ const CLIENT_PRESERVE_FIELDS = [
 
 router.use(authMiddleware, requireRole('admin'))
 
-router.get('/', (_req, res) => {
+router.get('/', async (_req, res) => {
   let store = readStore()
   const contractRepair = ensureSampleClientContracts(store)
   if (contractRepair.changed) {
     store = contractRepair.store
     writeStore(store)
   }
-  let repairedAny = contractRepair.changed
+  // Restore any missing mock tenants (e.g. Lisa) and keep portal logins linked
+  const portalRepair = await ensureSamplePortalUsers(store)
+  if (portalRepair.changed) {
+    store = portalRepair.store
+    writeStore(store)
+  }
+  let repairedAny = contractRepair.changed || portalRepair.changed
   let clients = store.clients.map((client) => {
     const contract = store.contracts.find((c) => c.clientId === client.id)
     let next = ensureOfficialWhenProjectActive(client)
@@ -897,12 +904,15 @@ router.post('/accept-registration/:userId', (req, res) => {
   }
 
   const now = new Date().toISOString()
-  const leaseLengthMonths = parseLeaseLengthMonths(
+  const preferredLeaseMonths = parseLeaseLengthMonths(
     user.preferredLeaseMonths,
     DEFAULT_LEASE_LENGTH_MONTHS
   )
-  const leaseStartDate = computeLeaseStartDate(resolveServerScheduleAsOf())
-  const leaseEndDate = computeLeaseEndDate(leaseStartDate, leaseLengthMonths)
+  const {
+    leaseStartDate,
+    leaseEndDate,
+    leaseLengthMonths,
+  } = resolveDefaultLeaseDates(store.settings, preferredLeaseMonths, resolveServerScheduleAsOf())
   const rentDueDates = listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
   const rentDeadlines = buildMonthlyRentDeadlines(rentDueDates, generateId)
   const propertyAddress = String(user.preferredPropertyAddress ?? '').trim()
@@ -1252,6 +1262,59 @@ router.delete('/client-accounts/:userId', (req, res) => {
 
   updateStore(() => next)
   res.json({ ok: true, deletedClientId })
+})
+
+/** In-app bug reports for Aspen Creative Solutions */
+router.post('/bug-reports', async (req, res) => {
+  const description = String(req.body?.description ?? '').trim()
+  const stepsToReproduce = String(req.body?.stepsToReproduce ?? '').trim()
+
+  if (!description) {
+    return res.status(400).json({ error: 'Please describe the bug or unexpected behavior.' })
+  }
+  if (description.length > 8000) {
+    return res.status(400).json({ error: 'Description is too long.' })
+  }
+  if (stepsToReproduce.length > 8000) {
+    return res.status(400).json({ error: 'Steps to reproduce is too long.' })
+  }
+
+  const store = readStore()
+  const user = store.users.find((u) => u.id === req.user.id)
+  const reportId = generateId()
+  const report = {
+    id: reportId,
+    description,
+    stepsToReproduce: stepsToReproduce || undefined,
+    userId: req.user.id,
+    reporterName: user?.name || req.user.name || '',
+    reporterEmail: user?.email || req.user.email || '',
+    createdAt: new Date().toISOString(),
+  }
+
+  updateStore((draft) => {
+    const bugReports = Array.isArray(draft.bugReports) ? [...draft.bugReports] : []
+    bugReports.push(report)
+    return { ...draft, bugReports }
+  })
+
+  try {
+    await sendBugReportEmail({
+      description: report.description,
+      stepsToReproduce: report.stepsToReproduce,
+      reporterName: report.reporterName,
+      reporterEmail: report.reporterEmail,
+      reportId: report.id,
+    })
+  } catch (err) {
+    console.error('bug report notify', err)
+  }
+
+  res.json({
+    ok: true,
+    message:
+      'Thank you! Your bug report has been submitted. Aspen Creative Solutions will review your report and respond as needed, typically within 1–2 business days.',
+  })
 })
 
 /** Remove client from roster; portal account is kept and unlinked */

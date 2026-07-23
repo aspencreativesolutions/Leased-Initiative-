@@ -84,7 +84,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your landlord workspace',
     description:
-      'Manage tenants from sign-up through an active lease — registrations, lease agreements, and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
+      'Manage tenants from sign-up through an active lease — registrations, lease agreements with Sent / Signed / Active status and term progress (Tile or Spreadsheet View in Display Settings; cycle Lease Status through Any, Signed, Sent, or Active, plus state, area code, or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
   },
   {
     id: 'landlord-properties',
@@ -92,7 +92,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Building2,
     title: 'Rentals and lease import',
     description:
-      'Open Rentals to add addresses with rental type, bedrooms, max tenants, and units — they feed tenant signup, invitations, and Upcoming Openings on the same page. In Company Profile, review your company name and import existing leases: queue files, Scan Files, confirm records, then send invite links by email or text.',
+      'Open Rentals to add addresses with rental type, bedrooms, max tenants, units, and monthly rent — they feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, occupancy, and per-tenant share when roommates share a unit; color-code occupancy (dark red when more units are open, green when full). Use Display Settings for Tile or Spreadsheet View (Monthly Rent, Occupancy, Tenant Share columns), tile size, and Filter By — choose Duplex, Apartment, Single-Family Home, Townhouse, or other types in your portfolio (All Rentals clears the filter), plus state and group filters (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
   },
   {
     id: 'landlord-users',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants pick your agency and a rental when they register — or join via your Send Invite link. New sign-ups appear under Waiting to Connect on the Dashboard. Accept them into Pending Tenants, draft and send a lease (Lease Status shows Lease Sent), then once they sign they move to Official Tenants.',
+      'Tenants pick your agency and a rental when they register — or join via your Send Invite link. New sign-ups appear under Waiting to Connect on the Dashboard. Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants.',
   },
   {
     id: 'landlord-openings',
@@ -108,7 +108,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: CalendarDays,
     title: 'Upcoming openings',
     description:
-      'On Rentals → Upcoming Openings, select a vacant unit or ending lease to send a re-sign message to current tenants or generate an invite code for a new tenant at that address.',
+      'On Rentals → Upcoming Openings, each row offers Send Re-sign Message for current tenants or Generate Invite Code for a new tenant at that address.',
   },
   {
     id: 'landlord-overdue',
@@ -116,7 +116,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: AlertTriangle,
     title: 'Overdue rent messaging',
     description:
-      'See past-due tenants under Payments → Overdue Rent. Send a custom text or pick a template — replies stay on your phone.',
+      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings → Overdue Rent to focus past-due tiles. Send a custom text or pick a template — replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
   },
   {
     id: 'landlord-tenant-alerts',
@@ -134,7 +134,7 @@ const TOUR_SLIDE: WelcomeSlide = {
   icon: Compass,
   title: 'Revisit the tour anytime',
   description:
-    'Once you are signed in, press the Tour button in the navigation bar to walk through every page and button again.',
+    'Once you are signed in, use the Tour button in the top toolbar to walk through the dashboard, rentals, lease agreements, payments, and tenant alerts again. Jump to any section from the bar at the top of the tour. Use Bug Report beside Settings to flag unexpected behavior to Aspen Creative Solutions.',
 }
 
 const DEMO_SLIDE: WelcomeSlide = {
@@ -143,7 +143,7 @@ const DEMO_SLIDE: WelcomeSlide = {
   icon: PlayCircle,
   title: 'Try the full product demo',
   description:
-    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — or open the invite link they sent. Confirm Start Demo, choose landlord or tenant, then explore that dashboard. Switch roles anytime from the demo controls at the bottom right — nothing you change is saved.',
+    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — or open the invite link they sent. Confirm Start Demo, then choose landlord or a specific tenant scenario. Switch POV anytime from the bottom-right controls to try another mock user or return to the landlord — nothing you change is saved.',
 }
 
 const READY_SLIDE: WelcomeSlide = {

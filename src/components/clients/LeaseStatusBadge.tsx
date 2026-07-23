@@ -1,5 +1,10 @@
 import { cn } from '@/lib/utils'
-import type { LeaseStatusDetails, LeaseTimelineState } from '@/lib/clientUtils'
+import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
+import {
+  getLeaseStatusHoverDetail,
+  type LeaseStatusDetails,
+  type LeaseTimelineState,
+} from '@/lib/clientUtils'
 
 const stateStyles: Record<LeaseTimelineState, string> = {
   Active:
@@ -19,6 +24,11 @@ interface LeaseStatusBadgeProps {
 export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) {
   const state = details.state
   const label = details.status
+  const hoverDetail = getLeaseStatusHoverDetail(details)
+  const isProgressTag =
+    (state === 'Active' || state === 'Ending Soon') &&
+    details.currentMonth != null &&
+    details.termMonths != null
 
   if (!state) {
     return (
@@ -27,23 +37,48 @@ export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) 
           'inline-block max-w-full text-xs font-medium leading-snug text-ink',
           className
         )}
-        title={label}
       >
         {label}
       </span>
     )
   }
 
+  const shellClass = cn(
+    'lease-status-badge inline-flex max-w-full items-center justify-center rounded-[var(--radius-sm)] border px-1.5 py-0.5 text-center text-[10px] font-bold leading-none tracking-tight',
+    isProgressTag && 'lease-status-badge--progress',
+    hoverDetail && 'lease-status-badge--hoverable cursor-default',
+    stateStyles[state],
+    className
+  )
+
+  if (!hoverDetail) {
+    return (
+      <span className={shellClass}>
+        <span className={cn(isProgressTag ? 'whitespace-nowrap' : 'truncate')}>{label}</span>
+      </span>
+    )
+  }
+
   return (
-    <span
+    <InPlaceHoverText
+      primary={
+        <span className={cn(isProgressTag ? 'whitespace-nowrap' : 'truncate')}>{label}</span>
+      }
+      secondary={
+        <span
+          className={cn(
+            'truncate tabular-nums',
+            isProgressTag ? 'text-[9px]' : undefined
+          )}
+        >
+          {hoverDetail}
+        </span>
+      }
+      ariaLabel={`${label}. ${hoverDetail}`}
       className={cn(
-        'lease-status-badge inline-flex max-w-full items-center rounded-[var(--radius-sm)] border px-1.5 py-0.5 text-[10px] font-bold leading-none tracking-tight',
-        stateStyles[state],
-        className
+        shellClass,
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
       )}
-      title={label}
-    >
-      <span className="truncate">{label}</span>
-    </span>
+    />
   )
 }

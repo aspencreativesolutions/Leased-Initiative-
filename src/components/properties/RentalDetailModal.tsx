@@ -14,6 +14,11 @@ import {
   remainingTenantCapacity,
   resolveLeaseEndYmd,
 } from '@/lib/properties'
+import {
+  buildRentalPricingSummary,
+  formatUsd,
+  resolvePropertyMonthlyRent,
+} from '@/lib/rentalRent'
 import { getRentalTypeDescription } from '@/lib/rentalTypes'
 import { formatDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
@@ -25,22 +30,17 @@ interface RentalDetailModalProps {
   onClose: () => void
 }
 
-function formatRent(amount: number | null): string {
-  if (amount == null) return '—'
-  return `$${amount.toLocaleString()}`
-}
-
 function DetailStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="label-caps text-ink-faint">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
+      <p className="mt-0.5 text-sm font-semibold text-ink">{value}</p>
     </div>
   )
 }
 
 export function RentalDetailModal({ property, open, onClose }: RentalDetailModalProps) {
-  const { clients, getContractForClient } = useApp()
+  const { clients, properties, getContractForClient } = useApp()
 
   if (!property) return null
 
@@ -48,17 +48,19 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
   const openUnits = openUnitsForRental(property, clients, getContractForClient)
   const remainingCapacity = remainingTenantCapacity(property, clients, getContractForClient)
   const typeDescription = getRentalTypeDescription(property.propertyType)
+  const pricing = buildRentalPricingSummary(property, clients, getContractForClient)
+  const unitRent = resolvePropertyMonthlyRent(property)
 
   return (
-    <Modal open={open} onClose={onClose} title="Rental details" size="xl">
-      <div className="space-y-6">
+    <Modal open={open} onClose={onClose} title="Rental details" size="xl" fitContent>
+      <div className="space-y-4">
         <div>
           <p className="label-caps text-ink-faint">Property Address</p>
-          <p className="mt-1 font-display text-xl font-semibold leading-snug text-ink">
+          <p className="mt-0.5 font-display text-lg font-semibold leading-snug text-ink sm:text-xl">
             {property.address}
           </p>
           {property.addressDetails ? (
-            <p className="mt-1 text-xs text-ink-muted">
+            <p className="mt-0.5 text-xs text-ink-muted">
               {[
                 property.addressDetails.street,
                 property.addressDetails.city,
@@ -74,14 +76,27 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
           ) : null}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
           <div className="sm:col-span-2 lg:col-span-3">
             <p className="label-caps text-ink-faint">Rental Type</p>
-            <p className="mt-1 text-sm font-semibold text-ink">{property.propertyType}</p>
+            <p className="mt-0.5 text-sm font-semibold text-ink">{property.propertyType}</p>
             {typeDescription ? (
               <p className="mt-0.5 text-xs text-ink-muted">{typeDescription}</p>
             ) : null}
           </div>
+          <DetailStat label="Monthly Rent" value={formatUsd(unitRent)} />
+          <DetailStat
+            label="Occupancy"
+            value={`${pricing.currentOccupancy} of ${pricing.maxOccupancy}`}
+          />
+          <DetailStat
+            label="Per-Tenant Share"
+            value={
+              pricing.tenantShare != null
+                ? `${formatUsd(pricing.tenantShare)}/month`
+                : '—'
+            }
+          />
           <DetailStat label="Bedrooms" value={property.bedrooms} />
           <DetailStat label="Maximum Tenants" value={property.maxTenants} />
           <DetailStat label="Number of Units" value={property.unitCount} />
@@ -91,7 +106,7 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
         </div>
 
         <div>
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-line pb-2">
+          <div className="mb-2 flex flex-wrap items-end justify-between gap-2 border-b border-line pb-1.5">
             <div>
               <p className="label-caps">Current tenants</p>
               <p className="mt-0.5 text-xs text-ink-muted">
@@ -103,7 +118,7 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
           {currentTenants.length === 0 ? (
             <p className="text-sm text-ink-muted">No current tenants assigned to this rental.</p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {currentTenants.map((tenant) => {
                 const contract = getContractForClient(tenant.id)
                 const leaseStatus = getLeaseStatusDetails(tenant, contract)
@@ -113,15 +128,21 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                 const end =
                   leaseStatus.endDate || resolveLeaseEndYmd(tenant, contract)
                 const durationMonths = leaseStatus.termMonths ?? tenant.leaseLengthMonths
-                const rent = estimateMonthlyRent(tenant, contract)
+                const rent = estimateMonthlyRent(
+                  tenant,
+                  contract,
+                  properties,
+                  clients,
+                  getContractForClient
+                )
                 const address = getTenantAddress(tenant, contract)
 
                 return (
                   <li
                     key={tenant.id}
-                    className="rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-3 sm:px-4"
+                    className="rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2 sm:px-3.5"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                       <div className="min-w-0">
                         <Link
                           to={`/studio/clients/${tenant.id}`}
@@ -138,7 +159,7 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                       <LeaseStatusBadge details={leaseStatus} />
                     </div>
 
-                    <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                    <dl className="mt-2 grid gap-x-3 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
                       <div>
                         <dt className="text-ink-faint">Lease start</dt>
                         <dd className="mt-0.5 font-medium text-ink">
@@ -160,8 +181,12 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-ink-faint">Monthly rent</dt>
-                        <dd className="mt-0.5 font-medium text-ink">{formatRent(rent)}</dd>
+                        <dt className="text-ink-faint">Monthly rent share</dt>
+                        <dd className="mt-0.5 font-medium text-ink">{formatUsd(rent)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-ink-faint">Unit rent</dt>
+                        <dd className="mt-0.5 font-medium text-ink">{formatUsd(unitRent)}</dd>
                       </div>
                       <div>
                         <dt className="text-ink-faint">Lease status</dt>

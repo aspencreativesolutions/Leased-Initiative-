@@ -95,7 +95,7 @@ export const HOME_ACTION_TILES: HomeFeatureHighlight[] = [
     id: 'schedule-payments',
     title: 'Schedule Payments',
     description:
-      'Set rent schedules and track upcoming due dates across your properties from Payments.',
+      'Track due dates, overdue rent, paid early, and payment methods in one Payments view.',
     iconSrc: HOME_TILE_ICON_SRC.schedulePayments,
     surfaces: ['/studio/payments'],
   },
@@ -103,9 +103,9 @@ export const HOME_ACTION_TILES: HomeFeatureHighlight[] = [
     id: 'rent-reminder-notifications',
     title: 'Smart Tenant Messaging',
     description:
-      'Send one-time messages or schedule automatic rent and update reminders.',
+      'Filter Overdue Rent on Payments, then send one-time messages — replies stay on your phone.',
     iconSrc: HOME_TILE_ICON_SRC.rentReminderNotifications,
-    surfaces: ['/studio/payments/overdue'],
+    surfaces: ['/studio/payments'],
   },
   {
     id: 'report-household-issues',
@@ -154,7 +154,7 @@ export function gatherHomePageContent(): HomePageContent {
     audienceLine: HOME_AUDIENCE_LINE,
     features: HOME_ACTION_TILES,
     demoBlurb:
-      'Open Quick Access (key icon, top right) and enter a host access code, or use a company demo link your host sent. Confirm Start Demo when prompted, choose a landlord or tenant point of view, then explore that dashboard. Switch roles anytime from the demo controls at the bottom right. Changes are not saved.',
+      'Open Quick Access (key icon, top right) and enter a host access code, or use a company demo link your host sent. Confirm Start Demo when prompted, then choose landlord or a specific tenant scenario (address, lease dates, payment status, and more). Switch POV anytime from the bottom-right controls to try another mock user or return to the landlord. Changes are not saved.',
     flows: [
       {
         id: 'landlord',

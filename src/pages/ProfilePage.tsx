@@ -3,6 +3,7 @@ import { KeyRound, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CompanyDetailsPanel } from '@/components/profile/CompanyDetailsPanel'
 import { LeaseUploadSection } from '@/components/profile/LeaseUploadSection'
+import { ProfileLegalSection } from '@/components/legal/ProfileLegalSection'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
@@ -85,7 +86,7 @@ export function ProfilePage() {
     <div className="w-full min-w-0">
       <PageHeader
         title="Company Profile"
-        subtitle="Company details, portfolio overview, account settings, and lease import. Manage rentals from the Rentals page."
+        subtitle="Company details, rental-type and renter breakdowns, account settings, and lease import. Manage rentals from the Rentals page."
       />
 
       <div className="w-full min-w-0 space-y-6">
@@ -200,6 +201,8 @@ export function ProfilePage() {
             </form>
           </div>
         </Card>
+
+        <ProfileLegalSection />
       </div>
     </div>
   )

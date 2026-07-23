@@ -28,7 +28,7 @@ export type ProjectType =
   | 'House'
   | 'Condo'
   | 'Townhouse'
-  | 'Other'
+  | 'Duplex'
 
 export type NoteCategory = 'General' | 'Payment' | 'Contract' | 'Project' | 'Follow-Up'
 
@@ -222,6 +222,16 @@ export interface Client {
   serviceTier?: ServiceTier
   /** Agreed / preferred lease length in months */
   leaseLengthMonths?: number
+  /**
+   * Optional custom monthly rent responsibility for this tenant.
+   * When set, overrides equal split of the unit’s monthly rent.
+   */
+  rentShareAmount?: number
+  /**
+   * Amount already paid toward the current rent period (partial payments).
+   * Used with unit rent / tenant share to compute remaining balance.
+   */
+  currentPeriodAmountPaid?: number
   /** Created via Company Profile “Import existing leases” */
   importedFromLeaseScan?: boolean
   /** Source document names from the import session */
@@ -291,6 +301,8 @@ export interface ContractData {
   pdfGenerated?: boolean
   /** Sent to client portal */
   sentAt?: string
+  /** Set when a previously sent lease is sent again */
+  resentAt?: string
   viewedAt?: string
   signedAt?: string
   confirmedByClient?: boolean
@@ -590,7 +602,22 @@ export interface AutomationSettings {
   followUpReminders: boolean
 }
 
-/** Custom region for filtering contracts by area code and/or state */
+/** Map circle used to filter rentals / leases by distance from a center point. */
+export interface ContractRegionRadius {
+  /** Center latitude (WGS84) */
+  lat: number
+  /** Center longitude (WGS84) */
+  lng: number
+  /** Radius in miles */
+  miles: number
+  /** Optional label for the center (e.g. place name or address) */
+  label?: string
+}
+
+/**
+ * Reusable rental group for filtering by any combination of area codes, states,
+ * and/or map radius. Persisted on `BusinessSettings.contractRegions`.
+ */
 export interface ContractRegion {
   id: string
   name: string
@@ -598,6 +625,8 @@ export interface ContractRegion {
   areaCodes: string[]
   /** US state abbreviations (e.g. "NY", "NJ") */
   states: string[]
+  /** Optional map radius — matches rentals with coordinates inside the circle */
+  radius?: ContractRegionRadius
 }
 
 /** Housing / rental category for a landlord portfolio rental. */
@@ -614,7 +643,6 @@ export type PropertyHousingType =
   | 'Loft'
   | 'Basement Apartment / Accessory Dwelling Unit'
   | 'Vacation Rental'
-  | 'Other'
 
 export const PROPERTY_HOUSING_TYPES: PropertyHousingType[] = [
   'Apartment',
@@ -629,7 +657,6 @@ export const PROPERTY_HOUSING_TYPES: PropertyHousingType[] = [
   'Loft',
   'Basement Apartment / Accessory Dwelling Unit',
   'Vacation Rental',
-  'Other',
 ]
 
 /** Structured address fields from Google Places (or equivalent). */
@@ -653,6 +680,8 @@ export interface PropertyUnit {
   label?: string
   /** When set, matches a tenant address or unit designation */
   addressSuffix?: string
+  /** Monthly rent for this specific rentable unit (source of truth when set) */
+  monthlyRent?: number
 }
 
 /** Landlord-owned rental (building or single address). */
@@ -668,6 +697,16 @@ export interface Property {
   bedrooms: number
   /** Maximum number of tenants allowed at this rental */
   maxTenants: number
+  /**
+   * Stable monthly rent for this rentable property/unit.
+   * For duplex/apartment sides stored as separate properties, this is that unit’s rent.
+   * Shared source of truth for Rentals and Payments (do not regenerate on reload).
+   */
+  monthlyRent?: number
+  /** Optional bathroom count used when generating realistic rent */
+  bathrooms?: number
+  /** Optional interior size (sq ft) used when generating realistic rent */
+  squareFeet?: number
   createdAt: string
   /** Added automatically while confirming an imported lease */
   importedFromLeaseScan?: boolean
@@ -689,9 +728,18 @@ export interface BusinessSettings {
   defaultPaymentTerms: string
   defaultRevisionLimit: string
   defaultContractFooter: string
+  /**
+   * When true, newly generated leases use defaultLeaseStartDate / defaultLeaseEndDate
+   * instead of the seasonal January 1 / August 1 calendar defaults.
+   */
+  customDefaultLeaseDates?: boolean
+  /** YYYY-MM-DD — applied only when customDefaultLeaseDates is enabled */
+  defaultLeaseStartDate?: string
+  /** YYYY-MM-DD — applied only when customDefaultLeaseDates is enabled */
+  defaultLeaseEndDate?: string
   profileReminders?: ProfileReminder[]
   automation?: AutomationSettings
-  /** Regional areas used to filter the Leases tab */
+  /** Named rental groups used to filter leases and rentals by location */
   contractRegions?: ContractRegion[]
 }
 

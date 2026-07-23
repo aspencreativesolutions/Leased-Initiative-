@@ -12,6 +12,7 @@ import { PortalLayout } from '@/components/layout/PortalLayout'
 import { AdminModeFab } from '@/components/admin/AdminModeFab'
 import { PublicDemoPovFab } from '@/components/auth/PublicDemoPovFab'
 import { HomePage } from '@/pages/HomePage'
+import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
 import { DemoPovPage } from '@/pages/demo/DemoPovPage'
 import { CompanyDemoLinkPage } from '@/pages/demo/CompanyDemoLinkPage'
 import { RoleSelectPage } from '@/pages/auth/RoleSelectPage'
@@ -36,7 +37,6 @@ import { ClientProfilePage } from '@/pages/ClientProfilePage'
 import { ContractPage } from '@/pages/ContractPage'
 import { ContractsPage } from '@/pages/ContractsPage'
 import { PaymentsPage } from '@/pages/PaymentsPage'
-import { OverdueRentPage } from '@/pages/OverdueRentPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { PaymentSuccessPage } from '@/pages/PaymentSuccessPage'
@@ -55,6 +55,7 @@ export default function App() {
                 <PublicDemoPovFab />
                 <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
               <Route path="/demo/pov" element={<DemoPovPage />} />
               <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
               <Route path="/welcome" element={<RoleSelectPage />} />
@@ -92,7 +93,10 @@ export default function App() {
                   <Route path="/studio/clients/:id/payment/success" element={<PaymentSuccessPage />} />
                   <Route path="/studio/contracts" element={<ContractsPage />} />
                   <Route path="/studio/payments" element={<PaymentsPage />} />
-                  <Route path="/studio/payments/overdue" element={<OverdueRentPage />} />
+                  <Route
+                    path="/studio/payments/overdue"
+                    element={<Navigate to="/studio/payments?status=overdue" replace />}
+                  />
                   <Route path="/studio/calendar" element={<Navigate to="/studio/properties" replace />} />
                   <Route path="/studio/scheduler" element={<Navigate to="/studio/properties" replace />} />
                   <Route path="/studio/settings" element={<SettingsPage />} />

@@ -25,6 +25,9 @@ const DEFAULT_STORE = {
     defaultPaymentTerms: '50% deposit due upon signing; remaining balance due upon project completion.',
     defaultRevisionLimit: '2 rounds',
     defaultContractFooter: 'Thank you for your business.',
+    customDefaultLeaseDates: false,
+    defaultLeaseStartDate: '',
+    defaultLeaseEndDate: '',
   },
   projectFiles: [],
   adminNotifications: [],
@@ -32,6 +35,7 @@ const DEFAULT_STORE = {
   adminAuditLog: [],
   tenantInvites: [],
   companyDemoLinks: [],
+  bugReports: [],
 }
 
 function ensureDataDir() {

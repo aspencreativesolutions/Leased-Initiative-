@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" fill="#111111"/>
-  <!-- Roofline connecting tops of L and I -->
-  <path d="M9 9 L16 3.5 L23 9" stroke="#faf8f5" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
-  <!-- Minimal L -->
-  <path d="M9 9v15h9" stroke="#faf8f5" stroke-width="2.4" stroke-linecap="square" stroke-linejoin="miter"/>
-  <!-- Sleek vertical I -->
-  <path d="M23 9v15" stroke="#faf8f5" stroke-width="2.2" stroke-linecap="square"/>
+  <!-- Open house: floor → left wall → roof → right wall (gap at bottom-right) -->
+  <path
+    d="M19.29 29.78 H7.5 V8.66 L16.02 2.5 L24.5 8.66 V29.78"
+    stroke="#0C1830"
+    stroke-width="2.43"
+    stroke-linecap="butt"
+    stroke-linejoin="miter"
+  />
 </svg>

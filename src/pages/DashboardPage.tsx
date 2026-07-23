@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Columns3, Plus, Users } from 'lucide-react'
+import { Columns3, Plus, Users } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
 import { OfficialTenantsSortControls } from '@/components/clients/OfficialTenantsSortControls'
@@ -25,10 +26,10 @@ import {
   loadTenantTableColumnOrder,
   type TenantTableColumnId,
 } from '@/lib/tenantTableColumns'
-import { cn } from '@/lib/utils'
 
 export function DashboardPage() {
   const { clients, refresh, getContractForClient, settings, properties } = useApp()
+  const location = useLocation()
   const { error: registrationsError } = usePendingRegistrations()
   const { count: notificationCount } = useAdminNotifications()
   const [addOpen, setAddOpen] = useState(false)
@@ -78,6 +79,16 @@ export function DashboardPage() {
     prevNotificationCount.current = notificationCount
   }, [notificationCount, refresh])
 
+  useEffect(() => {
+    if (!location.hash) return
+    const targetId = location.hash.slice(1)
+    if (!targetId) return
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, clients.length])
+
   return (
     <div className="w-full min-w-0" data-onboarding="admin-dashboard">
       {registrationsError && (
@@ -103,38 +114,26 @@ export function DashboardPage() {
                     clients={officialClients}
                     getContractForClient={getContractForClient}
                     regions={regions}
+                    properties={properties}
                     sortMode={sortMode}
                     addressFocus={addressFocus}
                     onSortModeChange={setSortMode}
                     onAddressFocusChange={setAddressFocus}
                   />
-                  <Button
-                    type="button"
-                    variant={arrangeColumns ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setArrangeColumns((open) => !open)}
-                    aria-pressed={arrangeColumns}
-                    title={
-                      arrangeColumns
-                        ? 'Done arranging columns'
-                        : 'Edit column arrangement'
-                    }
-                    aria-label={
-                      arrangeColumns
-                        ? 'Done arranging columns'
-                        : 'Edit column arrangement'
-                    }
-                    className={cn(arrangeColumns && 'shadow-sm')}
-                  >
-                    {arrangeColumns ? (
-                      <Check className="h-3.5 w-3.5" aria-hidden />
-                    ) : (
+                  {!arrangeColumns ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setArrangeColumns(true)}
+                      aria-pressed={false}
+                      title="Rearrange Columns"
+                      aria-label="Rearrange Columns"
+                    >
                       <Columns3 className="h-3.5 w-3.5" aria-hidden />
-                    )}
-                    <span className="hidden sm:inline">
-                      {arrangeColumns ? 'Done' : 'Edit Column Arrangement'}
-                    </span>
-                  </Button>
+                      <span className="hidden sm:inline">Rearrange Columns</span>
+                    </Button>
+                  ) : null}
                 </div>
               ) : undefined
             }
@@ -155,6 +154,7 @@ export function DashboardPage() {
             <ClientTable
               clients={tableClients}
               arrangeColumns={arrangeColumns}
+              onArrangeDone={() => setArrangeColumns(false)}
               columnOrder={columnOrder}
               onColumnOrderChange={setColumnOrder}
               locationDisplayMode={locationDisplayMode}

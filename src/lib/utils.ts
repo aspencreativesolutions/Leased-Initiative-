@@ -17,6 +17,38 @@ export function formatDate(dateStr?: string): string {
   return `${month}/${day}/${year}`
 }
 
+/** Long calendar date — e.g. "January 15, 2026" */
+export function formatLongDate(dateStr?: string): string {
+  const d = parseDate(dateStr)
+  if (!d) return '—'
+  return d.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Month + day only — e.g. "August 1" (Official Tenants payment hover) */
+export function formatMonthDay(dateStr?: string): string {
+  const d = parseDate(dateStr)
+  if (!d) return '—'
+  return d.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+/** Compact calendar date — e.g. "Jan 15, 2026" (fits status-box hover swaps) */
+export function formatShortMonthDate(dateStr?: string): string {
+  const d = parseDate(dateStr)
+  if (!d) return '—'
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 /** Date + time — used on project timeline actions */
 export function formatDateTime(dateStr?: string): string {
   const d = parseDate(dateStr)

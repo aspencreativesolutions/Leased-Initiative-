@@ -25,7 +25,7 @@ export function DashboardNavActions({
 }: DashboardNavActionsProps) {
   const isNav = variant === 'nav'
   const navOutlineClass = isNav
-    ? '!border-nav-fg/35 !text-nav-fg hover:!border-nav-fg hover:!bg-nav-fg/10 hover:!text-nav-fg'
+    ? '!border-nav-fg/35 !text-nav-fg hover:!border-nav-fg hover:!bg-transparent hover:!text-nav-fg'
     : undefined
 
   return (
@@ -46,11 +46,12 @@ export function DashboardNavActions({
           data-onboarding="dashboard-registrations"
           className={cn(
             iconBtnBase,
+            'quick-tooltip quick-tooltip--below',
             isNav && 'tenant-action-registers--attention',
             navOutlineClass
           )}
           onClick={onOpenRegistrations}
-          title="View New Registers"
+          data-tooltip="View New Registers"
           aria-label={`View New Registers, ${registrationCount} waiting`}
         >
           <UserPlus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
@@ -64,8 +65,8 @@ export function DashboardNavActions({
         variant="outline"
         size="sm"
         data-onboarding="dashboard-send-invite"
-        className={cn(iconBtnBase, 'w-8', navOutlineClass)}
-        title="Send Invite Link"
+        className={cn(iconBtnBase, 'w-8', 'quick-tooltip quick-tooltip--below', navOutlineClass)}
+        data-tooltip="Send Invite Link"
         aria-label="Send Invite Link"
         onClick={onOpenSendInvite}
       >
@@ -76,8 +77,8 @@ export function DashboardNavActions({
         variant="primary"
         size="sm"
         data-onboarding="dashboard-add-client"
-        className={cn(iconBtnBase, 'w-8')}
-        title="Add Tenant"
+        className={cn(iconBtnBase, 'w-8', 'quick-tooltip quick-tooltip--below')}
+        data-tooltip="Add Tenant"
         aria-label="Add Tenant"
         onClick={onOpenAddClient}
       >

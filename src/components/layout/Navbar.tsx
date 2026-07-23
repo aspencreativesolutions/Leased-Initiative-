@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { LayoutDashboard, FileText, Settings, DollarSign, LogOut, UserCircle, Bell, Building2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { LayoutDashboard, FileText, Settings, DollarSign, LogOut, UserCircle, Bell, Building2, Bug } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useApp } from '@/context/AppContext'
@@ -9,12 +9,75 @@ import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
 import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
+import { BugReportModal } from '@/components/support/BugReportModal'
 import { Button } from '@/components/ui/Button'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { useTenantAlerts } from '@/hooks/useTenantAlerts'
+import {
+  NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS,
+  NAV_TOOLBAR_ICON_BUTTON_CLASS,
+} from '@/lib/navToolbar'
+import { buildUpcomingOpenings } from '@/lib/properties'
 import { exitPublicDemo } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
+
+function formatNavToday(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function toLocalDateValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** Local calendar day label that refreshes at midnight and when the tab becomes visible. */
+function useLocalTodayLabel() {
+  const [today, setToday] = useState(() => new Date())
+
+  useEffect(() => {
+    let timeoutId = 0
+
+    const sync = () => {
+      setToday((prev) => {
+        const next = new Date()
+        return toLocalDateValue(prev) === toLocalDateValue(next) ? prev : next
+      })
+    }
+
+    const scheduleMidnightRefresh = () => {
+      const now = new Date()
+      const nextMidnight = new Date(now)
+      nextMidnight.setHours(24, 0, 0, 0)
+      timeoutId = window.setTimeout(() => {
+        sync()
+        scheduleMidnightRefresh()
+      }, Math.max(1_000, nextMidnight.getTime() - now.getTime() + 50))
+    }
+
+    sync()
+    scheduleMidnightRefresh()
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') sync()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
+
+  return { label: formatNavToday(today), dateValue: toLocalDateValue(today) }
+}
 
 const links = [
   { to: '/studio', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
@@ -32,17 +95,30 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
   )
 
+const navTodayClass =
+  'pointer-events-none flex w-full cursor-default items-center justify-center whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-[10px] font-semibold tracking-wide text-nav-fg-muted/80 md:w-auto md:shrink-0 md:justify-start md:px-3 md:py-3 md:text-[11px]'
+
 export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout, isPublicDemo } = useAuth()
-  const { refresh } = useApp()
+  const { refresh, properties, clients, getContractForClient } = useApp()
   const navigate = useNavigate()
   const { unreadCount: unreadAlertCount } = useTenantAlerts()
   const { count: registrationCount, registrations, refresh: refreshRegistrations } =
     usePendingRegistrations()
   const { markRead, refresh: refreshNotifications } = useAdminNotifications()
+  const { label: todayLabel, dateValue: todayDateValue } = useLocalTodayLabel()
   const [addOpen, setAddOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [registrationsOpen, setRegistrationsOpen] = useState(false)
+  const [bugReportOpen, setBugReportOpen] = useState(false)
+
+  const hasAvailableRentals = useMemo(
+    () =>
+      buildUpcomingOpenings(properties, clients, getContractForClient).some(
+        (opening) => opening.kind === 'vacant'
+      ),
+    [properties, clients, getContractForClient]
+  )
 
   const handleRegistrationAdded = useCallback(() => {
     refreshRegistrations()
@@ -59,41 +135,46 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
           </NavLink>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <NavLink
-              to="/studio/settings"
-              data-onboarding="admin-settings"
-              className={({ isActive }) =>
-                cn(
-                  'inline-flex items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 transition-colors',
-                  isActive
-                    ? 'border-nav-active text-nav-fg'
-                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
-                )
-              }
-              title="Settings"
-              aria-label="Settings"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </NavLink>
-            <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
             {user && (
               <NavLink
                 to="/studio/profile"
                 data-onboarding="admin-profile"
                 className={({ isActive }) =>
                   cn(
-                    'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
-                    isActive
-                      ? 'border-nav-active text-nav-fg'
-                      : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
+                    NAV_TOOLBAR_ICON_BUTTON_CLASS,
+                    isActive && NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS
                   )
                 }
-                title="Company profile"
+                data-tooltip="Company Profile"
+                aria-label="Company Profile"
               >
                 <UserCircle className="h-3.5 w-3.5" />
-                {user.name}
               </NavLink>
             )}
+            <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
+            <NavLink
+              to="/studio/settings"
+              data-onboarding="admin-settings"
+              className={({ isActive }) =>
+                cn(
+                  NAV_TOOLBAR_ICON_BUTTON_CLASS,
+                  isActive && NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS
+                )
+              }
+              data-tooltip="Settings"
+              aria-label="Settings"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </NavLink>
+            <button
+              type="button"
+              onClick={() => setBugReportOpen(true)}
+              className={NAV_TOOLBAR_ICON_BUTTON_CLASS}
+              data-tooltip="Bug Report"
+              aria-label="Bug Report"
+            >
+              <Bug className="h-3.5 w-3.5" />
+            </button>
             <Button
               variant="ghost"
               size="sm"
@@ -108,8 +189,9 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
                 }
                 logout()
               }}
-              className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
-              title="Sign out"
+              className="quick-tooltip quick-tooltip--below !border-nav-fg/30 !bg-transparent !text-nav-fg-muted hover:!border-nav-fg hover:!bg-transparent hover:!text-nav-fg"
+              data-tooltip="Sign out"
+              aria-label="Sign out"
             >
               <LogOut className="h-3.5 w-3.5" />
             </Button>
@@ -121,28 +203,44 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
         className="sticky top-0 z-50 flex w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex-row md:items-stretch md:justify-between md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
-        <div className="grid w-full grid-cols-5 items-stretch md:flex md:min-w-0 md:flex-1 md:justify-evenly [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
-          {links.map(({ to, label, icon: Icon, onboarding }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/studio'}
-              data-onboarding={onboarding}
-              className={({ isActive }) =>
-                cn(navLinkClass({ isActive }), 'md:flex-1 md:justify-center')
-              }
-              title={label}
-              aria-label={label}
-            >
-              <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
-              <span className="nav-link-label hidden md:inline">{label}</span>
-              {to === '/studio/alerts' && unreadAlertCount > 0 ? (
-                <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-accent px-1 py-0.5 text-[9px] font-bold leading-none text-white">
-                  {unreadAlertCount}
-                </span>
-              ) : null}
-            </NavLink>
-          ))}
+        <div className="flex w-full min-w-0 flex-col md:flex-1 md:flex-row md:items-stretch">
+          <time
+            dateTime={todayDateValue}
+            className={cn(navTodayClass, 'border-b border-nav-border/40 md:border-b-2 md:border-transparent')}
+            aria-label={`Today, ${todayLabel}`}
+          >
+            {todayLabel}
+          </time>
+          <div className="grid w-full grid-cols-5 items-stretch md:flex md:min-w-0 md:flex-1 md:justify-evenly [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
+            {links.map(({ to, label, icon: Icon, onboarding }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/studio'}
+                data-onboarding={onboarding}
+                className={({ isActive }) =>
+                  cn(navLinkClass({ isActive }), 'relative md:flex-1 md:justify-center')
+                }
+                title={label}
+                aria-label={
+                  to === '/studio/properties' && hasAvailableRentals
+                    ? `${label}, available rentals`
+                    : label
+                }
+              >
+                <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
+                <span className="nav-link-label hidden md:inline">{label}</span>
+                {to === '/studio/properties' && hasAvailableRentals ? (
+                  <span className="nav-available-rentals-dot" aria-hidden />
+                ) : null}
+                {to === '/studio/alerts' && unreadAlertCount > 0 ? (
+                  <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-accent px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+                    {unreadAlertCount}
+                  </span>
+                ) : null}
+              </NavLink>
+            ))}
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-end border-t border-nav-border/60 px-4 py-1.5 md:border-t-0 md:border-l md:border-nav-border/60 md:py-0 md:pl-4 lg:pl-5">
@@ -166,6 +264,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
         onListRefresh={refreshRegistrations}
         onMarkNotificationsRead={() => markRead({ type: 'registration' })}
       />
+      <BugReportModal open={bugReportOpen} onClose={() => setBugReportOpen(false)} />
     </>
   )
 }

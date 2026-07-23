@@ -4,6 +4,12 @@
  * Jurisdiction-dependent language is framed as configurable defaults, not universal law.
  */
 
+import {
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  parseLeaseLengthMonths,
+  resolveDefaultLeaseDates,
+} from '@/lib/leaseSchedule'
+
 export const PLACEHOLDER_MARKER = '[To be customized]'
 
 /** Blank editable field — never invent rent or deposit amounts. */
@@ -55,6 +61,9 @@ type LeaseSettings = {
   phone?: string
   address?: string
   defaultPaymentTerms?: string
+  customDefaultLeaseDates?: boolean
+  defaultLeaseStartDate?: string
+  defaultLeaseEndDate?: string
 }
 
 type LeaseProperty = {
@@ -97,6 +106,11 @@ export function buildResidentialLeaseFields({
   const leaseMonths =
     client?.leaseLengthMonths || leaseOptions.leaseLengthMonths || null
 
+  const resolvedDates = resolveDefaultLeaseDates(
+    settings,
+    parseLeaseLengthMonths(leaseMonths, DEFAULT_LEASE_LENGTH_MONTHS)
+  )
+
   const unitHint =
     property && property.unitCount != null && property.unitCount > 1
       ? blankField('Specify unit number if applicable')
@@ -106,13 +120,15 @@ export function buildResidentialLeaseFields({
   const bedrooms = property?.bedrooms != null ? String(property.bedrooms) : ''
   const maxTenants = property?.maxTenants != null ? String(property.maxTenants) : ''
 
+  const effectiveLeaseMonths = leaseMonths || resolvedDates.leaseLengthMonths
+
   const premisesLines = [
     propertyAddress && `Property address: ${propertyAddress}`,
     unitHint || null,
     rentalType && `Rental type: ${rentalType}`,
     bedrooms && `Bedrooms: ${bedrooms}`,
     maxTenants && `Maximum tenants: ${maxTenants}`,
-    leaseMonths && `Lease duration: ${leaseMonths}-month term`,
+    effectiveLeaseMonths && `Lease duration: ${effectiveLeaseMonths}-month term`,
   ].filter(Boolean)
 
   const landlordBlock = [
@@ -125,8 +141,8 @@ export function buildResidentialLeaseFields({
     .filter(Boolean)
     .join('\n')
 
-  const startDate = leaseOptions.startDate || ''
-  const completionDate = leaseOptions.completionDate || ''
+  const startDate = leaseOptions.startDate || resolvedDates.leaseStartDate
+  const completionDate = leaseOptions.completionDate || resolvedDates.leaseEndDate
 
   return {
     projectTitle: propertyAddress || `${client?.name || 'Tenant'} Residential Lease`,

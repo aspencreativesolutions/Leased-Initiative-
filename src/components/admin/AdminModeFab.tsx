@@ -457,6 +457,7 @@ function AdminModeFabInner() {
 
             <Section
               title="Core mock users"
+              tone="dark"
               open={expanded.core !== false}
               onToggle={() => toggleSection('core')}
             >
@@ -465,6 +466,7 @@ function AdminModeFabInner() {
                   <MockUserBlock
                     key={mock.key}
                     mock={mock}
+                    tone="dark"
                     expanded={expanded[`user:${mock.key}`] === true}
                     onToggle={() => toggleSection(`user:${mock.key}`)}
                     busy={busy}
@@ -478,6 +480,7 @@ function AdminModeFabInner() {
 
             <Section
               title="Edge-case tenants"
+              tone="dark"
               open={expanded.edge === true}
               onToggle={() => toggleSection('edge')}
             >
@@ -486,6 +489,7 @@ function AdminModeFabInner() {
                   <MockUserBlock
                     key={mock.key}
                     mock={mock}
+                    tone="dark"
                     expanded={expanded[`user:${mock.key}`] === true}
                     onToggle={() => toggleSection(`user:${mock.key}`)}
                     busy={busy}
@@ -620,27 +624,47 @@ function Section({
   open,
   onToggle,
   children,
+  tone = 'light',
 }: {
   title: string
   open: boolean
   onToggle: () => void
   children: React.ReactNode
+  tone?: 'light' | 'dark'
 }) {
+  const dark = tone === 'dark'
   return (
-    <div className="paper-box-inset overflow-hidden">
+    <div
+      className={cn(
+        'overflow-hidden',
+        dark ? 'rounded-[var(--radius-sm)] border border-ink bg-ink' : 'paper-box-inset'
+      )}
+    >
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2.5 py-2.5 text-left text-[11px] font-semibold text-ink"
+        className={cn(
+          'flex w-full items-center gap-1.5 px-2.5 py-2.5 text-left text-[11px] font-semibold',
+          dark ? 'text-surface' : 'text-ink'
+        )}
       >
         {open ? (
-          <ChevronDown className="h-3.5 w-3.5 text-ink-muted" />
+          <ChevronDown className={cn('h-3.5 w-3.5', dark ? 'text-surface/70' : 'text-ink-muted')} />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-ink-muted" />
+          <ChevronRight className={cn('h-3.5 w-3.5', dark ? 'text-surface/70' : 'text-ink-muted')} />
         )}
         {title}
       </button>
-      {open && <div className="border-t border-[var(--card-inset-border,var(--line))] px-2 pb-2.5 pt-2">{children}</div>}
+      {open && (
+        <div
+          className={cn(
+            'border-t px-2 pb-2.5 pt-2',
+            dark ? 'border-white/20' : 'border-[var(--card-inset-border,var(--line))]'
+          )}
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -653,6 +677,7 @@ function MockUserBlock({
   currentEmail,
   onEnter,
   onRunScenario,
+  tone = 'light',
 }: {
   mock: AdminMockUser
   expanded: boolean
@@ -661,15 +686,20 @@ function MockUserBlock({
   currentEmail?: string
   onEnter: (mock: AdminMockUser, options?: { reseed?: boolean }) => Promise<void>
   onRunScenario: (scenario: AdminScenario) => Promise<void>
+  tone?: 'light' | 'dark'
 }) {
   const scenarios = scenariosForMockUser(mock)
   const isCurrent = currentEmail?.toLowerCase() === mock.email.toLowerCase()
+  const dark = tone === 'dark'
 
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-2.5 py-2',
-        isCurrent && 'border-accent'
+        'rounded-[var(--radius-sm)] border px-2.5 py-2',
+        dark
+          ? 'border-white/25 bg-white/10'
+          : 'border-[var(--card-inset-border,var(--line))] bg-surface',
+        isCurrent && (dark ? 'border-accent ring-1 ring-accent/50' : 'border-accent')
       )}
     >
       <button
@@ -678,33 +708,62 @@ function MockUserBlock({
         className="flex w-full items-start gap-1.5 text-left"
       >
         {expanded ? (
-          <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+          <ChevronDown
+            className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', dark ? 'text-surface/70' : 'text-ink-muted')}
+          />
         ) : (
-          <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" />
+          <ChevronRight
+            className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', dark ? 'text-surface/70' : 'text-ink-muted')}
+          />
         )}
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
-            <UserRound className="h-3 w-3 shrink-0 text-ink-muted" />
+          <span
+            className={cn(
+              'flex items-center gap-1.5 text-[11px] font-semibold',
+              dark ? 'text-surface' : 'text-ink'
+            )}
+          >
+            <UserRound
+              className={cn('h-3 w-3 shrink-0', dark ? 'text-surface/80' : 'text-ink-muted')}
+            />
             {mock.label}
             {isCurrent && (
-              <span className="rounded-sm bg-accent/15 px-1 py-0.5 text-[9px] font-semibold text-accent">
+              <span
+                className={cn(
+                  'rounded-sm px-1 py-0.5 text-[9px] font-semibold',
+                  dark ? 'bg-accent text-surface' : 'bg-accent/15 text-accent'
+                )}
+              >
                 Now
               </span>
             )}
           </span>
-          <span className="mt-0.5 block text-[10px] leading-snug text-ink-muted">
+          <span
+            className={cn(
+              'mt-0.5 block text-[10px] leading-snug',
+              dark ? 'text-surface/80' : 'text-ink-muted'
+            )}
+          >
             {mock.description}
           </span>
         </span>
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-1.5 border-t border-[var(--card-inset-border,var(--line))] pt-2">
+        <div
+          className={cn(
+            'mt-2 space-y-1.5 border-t pt-2',
+            dark ? 'border-white/20' : 'border-[var(--card-inset-border,var(--line))]'
+          )}
+        >
           <button
             type="button"
             disabled={Boolean(busy)}
             onClick={() => onEnter(mock, { reseed: mock.group === 'core' })}
-            className="flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] bg-ink px-2 py-2 text-left text-[10px] font-semibold text-surface disabled:opacity-40"
+            className={cn(
+              'flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-2 text-left text-[10px] font-semibold disabled:opacity-40',
+              dark ? 'bg-surface text-ink' : 'bg-ink text-surface'
+            )}
           >
             {busy === mock.key ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -713,7 +772,12 @@ function MockUserBlock({
             )}
             Enter this point of view
           </button>
-          <p className="px-0.5 text-[9px] font-semibold uppercase tracking-wide text-ink-faint">
+          <p
+            className={cn(
+              'px-0.5 text-[9px] font-semibold uppercase tracking-wide',
+              dark ? 'text-surface/65' : 'text-ink-faint'
+            )}
+          >
             Journey scenarios
           </p>
           <ul className="space-y-1">
@@ -722,11 +786,14 @@ function MockUserBlock({
                 key={scenario.id}
                 scenario={scenario}
                 busy={busy}
+                tone={tone}
                 onRun={onRunScenario}
               />
             ))}
           </ul>
-          <p className="truncate px-0.5 text-[9px] text-ink-faint">{mock.email}</p>
+          <p className={cn('truncate px-0.5 text-[9px]', dark ? 'text-surface/65' : 'text-ink-faint')}>
+            {mock.email}
+          </p>
         </div>
       )}
     </div>
@@ -737,27 +804,52 @@ function ScenarioRow({
   scenario,
   busy,
   onRun,
+  tone = 'light',
 }: {
   scenario: AdminScenario
   busy: string | null
   onRun: (scenario: AdminScenario) => Promise<void>
+  tone?: 'light' | 'dark'
 }) {
+  const dark = tone === 'dark'
   return (
     <li>
       <button
         type="button"
         disabled={Boolean(busy)}
         onClick={() => onRun(scenario)}
-        className="flex w-full items-start gap-1.5 rounded-[var(--radius-sm)] px-2 py-2 text-left transition hover:bg-accent-light/40 disabled:opacity-40"
+        className={cn(
+          'flex w-full items-start gap-1.5 rounded-[var(--radius-sm)] px-2 py-2 text-left transition disabled:opacity-40',
+          dark ? 'hover:bg-white/10' : 'hover:bg-accent-light/40'
+        )}
       >
         {busy === scenario.id ? (
-          <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin text-ink-muted" />
+          <Loader2
+            className={cn(
+              'mt-0.5 h-3 w-3 shrink-0 animate-spin',
+              dark ? 'text-surface/70' : 'text-ink-muted'
+            )}
+          />
         ) : (
-          <ChevronRight className="mt-0.5 h-3 w-3 shrink-0 text-ink-muted" />
+          <ChevronRight
+            className={cn('mt-0.5 h-3 w-3 shrink-0', dark ? 'text-surface/70' : 'text-ink-muted')}
+          />
         )}
         <span className="min-w-0">
-          <span className="block text-[10px] font-semibold text-ink">{scenario.label}</span>
-          <span className="block text-[9px] leading-snug text-ink-muted">
+          <span
+            className={cn(
+              'block text-[10px] font-semibold',
+              dark ? 'text-surface' : 'text-ink'
+            )}
+          >
+            {scenario.label}
+          </span>
+          <span
+            className={cn(
+              'block text-[9px] leading-snug',
+              dark ? 'text-surface/75' : 'text-ink-muted'
+            )}
+          >
             {scenario.description}
           </span>
         </span>

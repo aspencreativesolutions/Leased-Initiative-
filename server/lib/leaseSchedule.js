@@ -27,13 +27,20 @@ export function parseYmd(ymd) {
   return new Date(y, m - 1, d)
 }
 
-/** Lease start: 1st of this month if today is the 1st, otherwise 1st of next month */
+/**
+ * Next seasonal lease start on or after asOf:
+ * January 1 → December 31, or August 1 → July 31 (with a matching term length).
+ */
 export function computeLeaseStartDate(asOf = new Date()) {
   const y = asOf.getFullYear()
-  const m = asOf.getMonth()
-  if (asOf.getDate() === 1) return formatYmd(y, m, 1)
-  const next = new Date(y, m + 1, 1)
-  return formatYmd(next.getFullYear(), next.getMonth(), 1)
+  const asOfYmd = formatYmd(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
+  const janThis = formatYmd(y, 0, 1)
+  const augThis = formatYmd(y, 7, 1)
+  const janNext = formatYmd(y + 1, 0, 1)
+
+  if (asOfYmd <= janThis) return janThis
+  if (asOfYmd <= augThis) return augThis
+  return janNext
 }
 
 /** End date is the day before start + N months */
@@ -43,6 +50,61 @@ export function computeLeaseEndDate(startYmd, months) {
   const end = new Date(endExclusive)
   end.setDate(end.getDate() - 1)
   return formatYmd(end.getFullYear(), end.getMonth(), end.getDate())
+}
+
+function isPlainYmd(value) {
+  if (!value || typeof value !== 'string' || !value.trim()) return false
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10))) return false
+  const parsed = parseYmd(value.slice(0, 10))
+  return !Number.isNaN(parsed.getTime())
+}
+
+/** Inclusive month span for a lease term (Jan 1–Dec 31 → 12). */
+export function monthsBetweenLeaseDates(startYmd, endYmd) {
+  const start = parseYmd(startYmd.slice(0, 10))
+  const end = parseYmd(endYmd.slice(0, 10))
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return DEFAULT_LEASE_LENGTH_MONTHS
+  }
+  const endExclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1)
+  const months =
+    (endExclusive.getFullYear() - start.getFullYear()) * 12 +
+    (endExclusive.getMonth() - start.getMonth())
+  return Math.max(1, months)
+}
+
+/**
+ * Resolve start/end for newly generated leases.
+ * Seasonal Jan 1 / Aug 1 defaults unless the landlord enabled custom calendar dates.
+ * Existing leases are never rewritten by this helper.
+ */
+export function resolveDefaultLeaseDates(prefs, leaseLengthMonths = DEFAULT_LEASE_LENGTH_MONTHS, asOf = new Date()) {
+  const months = parseLeaseLengthMonths(leaseLengthMonths)
+
+  if (
+    prefs?.customDefaultLeaseDates &&
+    isPlainYmd(prefs.defaultLeaseStartDate) &&
+    isPlainYmd(prefs.defaultLeaseEndDate)
+  ) {
+    const leaseStartDate = prefs.defaultLeaseStartDate.slice(0, 10)
+    const leaseEndDate = prefs.defaultLeaseEndDate.slice(0, 10)
+    if (leaseEndDate >= leaseStartDate) {
+      return {
+        leaseStartDate,
+        leaseEndDate,
+        leaseLengthMonths: monthsBetweenLeaseDates(leaseStartDate, leaseEndDate),
+        usedCustomDates: true,
+      }
+    }
+  }
+
+  const leaseStartDate = computeLeaseStartDate(asOf)
+  return {
+    leaseStartDate,
+    leaseEndDate: computeLeaseEndDate(leaseStartDate, months),
+    leaseLengthMonths: months,
+    usedCustomDates: false,
+  }
 }
 
 /** Monthly rent due dates on the 1st for each month of the lease */
@@ -148,11 +210,17 @@ export function getLeaseRentSchedule(client, contract, asOf) {
   const rentDueDates = derivedDues.length > 0 ? derivedDues : incompleteDues
 
   const todayYmd = formatYmd(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
-  const sourceForNext = incompleteDues.length > 0 ? incompleteDues : rentDueDates
-  const pastDue = sourceForNext.filter((d) => d < todayYmd)
-  const upcoming = sourceForNext.filter((d) => d >= todayYmd)
+  // Only unpaid obligations drive next/overdue — never re-open completed dues.
+  const unpaidDues =
+    derivedDues.length > 0
+      ? derivedDues.filter((d) => !completedByDue.has(d))
+      : incompleteDues
+  const pastDue = unpaidDues.filter((d) => d < todayYmd)
+  const upcoming = unpaidDues.filter((d) => d >= todayYmd)
   // Oldest overdue first so landlord/tenant countdown agrees on past-due rent
   const nextDueDate = pastDue[0] ?? upcoming[0] ?? null
+  const finalDueDate =
+    rentDueDates.length > 0 ? rentDueDates[rentDueDates.length - 1] : null
 
   const payments = rentDueDates.map((dueDate, index) => {
     const monthLabel = parseYmd(dueDate).toLocaleDateString('en-US', {
@@ -193,6 +261,8 @@ export function getLeaseRentSchedule(client, contract, asOf) {
     rentDueDates,
     nextDueDate,
     daysUntilNextDue: nextDueDate != null ? getDaysUntilDate(nextDueDate, asOf) : null,
+    finalDueDate,
+    overduePaymentCount: pastDue.length,
     payments,
   }
 }
