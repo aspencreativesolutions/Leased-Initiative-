@@ -1,4 +1,4 @@
-# Leased
+# Leased Initiative
 
 Lease management for landlords and tenants. Approve tenant sign-ups, send lease contracts, and activate tenants once they sign.
 

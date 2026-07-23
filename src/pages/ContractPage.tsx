@@ -20,8 +20,8 @@ export function ContractPage() {
     return (
       <div className="py-16 text-center">
         <p className="text-stone-600">Client not found.</p>
-        <Link to="/studio/clients" className="mt-4 inline-block text-brand hover:underline">
-          Back to clients
+        <Link to="/studio" className="mt-4 inline-block text-brand hover:underline">
+          Back to Dashboard
         </Link>
       </div>
     )
@@ -48,13 +48,13 @@ export function ContractPage() {
       </Link>
 
       <PageHeader
-        title={existingContract ? 'Edit Lease' : 'Create Lease'}
-        subtitle={`Lease for ${client.businessName} — ${client.projectName}`}
+        title={existingContract ? 'Edit Lease Agreement' : 'Draft Lease Agreement'}
+        subtitle="Edit this lease agreement. All edits will redeliver the agreement to the tenant."
         action={
           hasContractWorkflow ? (
             <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" />
-              Delete lease
+              Delete lease agreement
             </Button>
           ) : undefined
         }

@@ -1,43 +1,54 @@
-import { LayoutDashboard, Users, UserPlus, FileText, Calendar, Settings, DollarSign, LogOut, ExternalLink, UserCircle } from 'lucide-react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useCallback, useState } from 'react'
+import { LayoutDashboard, FileText, Settings, DollarSign, LogOut, UserCircle, Bell, Building2 } from 'lucide-react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { useDashboardNavActionsOptional } from '@/context/DashboardNavActionsContext'
-import { useTheme } from '@/context/ThemeContext'
+import { useApp } from '@/context/AppContext'
+import { AddClientModal } from '@/components/clients/AddClientModal'
+import { SendInviteModal } from '@/components/clients/SendInviteModal'
+import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
+import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
-import { AppearanceToggle } from '@/components/settings/AppearanceToggle'
-import { AppStyleButton } from '@/components/settings/AppStyleButton'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { Button } from '@/components/ui/Button'
+import { useAdminNotifications } from '@/hooks/useAdminNotifications'
+import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
+import { useTenantAlerts } from '@/hooks/useTenantAlerts'
+import { exitPublicDemo } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 const links = [
   { to: '/studio', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
-  { to: '/studio/users', label: 'Users', icon: UserPlus, onboarding: 'admin-users' },
-  { to: '/studio/clients', label: 'Tenants', icon: Users, onboarding: 'admin-clients' },
-  { to: '/studio/contracts', label: 'Leases', icon: FileText, onboarding: 'admin-contracts' },
+  { to: '/studio/properties', label: 'Rentals', icon: Building2, onboarding: 'admin-properties' },
+  { to: '/studio/contracts', label: 'Lease Agreements', icon: FileText, onboarding: 'admin-contracts' },
   { to: '/studio/payments', label: 'Payments', icon: DollarSign, onboarding: 'admin-payments' },
-  { to: '/studio/calendar', label: 'Calendar', icon: Calendar, onboarding: 'admin-calendar' },
-  { to: '/studio/profile', label: 'Profile', icon: UserCircle },
-  { to: '/studio/settings', label: 'Settings', icon: Settings, onboarding: 'admin-settings' },
+  { to: '/studio/alerts', label: 'Tenant Alerts', icon: Bell, onboarding: 'admin-tenant-alerts' },
 ]
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 py-2.5 text-[10px] font-semibold transition-colors md:justify-start md:gap-2 md:px-4 md:py-3 md:text-[11px]',
+    'flex w-full items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 py-2.5 text-[10px] font-semibold transition-colors md:gap-2 md:px-3 md:py-3 md:text-[11px]',
     isActive
       ? 'border-nav-active text-nav-fg'
       : 'border-transparent text-nav-fg-muted hover:border-nav-fg/25 hover:text-nav-fg'
   )
 
-function isDashboardNavActive(pathname: string, isActive: boolean) {
-  return isActive || pathname.startsWith('/studio/alerts')
-}
-
 export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
-  const { user, logout } = useAuth()
-  const location = useLocation()
-  const dashboardActions = useDashboardNavActionsOptional()?.actions
-  const { appearance, setAppearance, supportsAppearance } = useTheme()
+  const { user, logout, isPublicDemo } = useAuth()
+  const { refresh } = useApp()
+  const navigate = useNavigate()
+  const { unreadCount: unreadAlertCount } = useTenantAlerts()
+  const { count: registrationCount, registrations, refresh: refreshRegistrations } =
+    usePendingRegistrations()
+  const { markRead, refresh: refreshNotifications } = useAdminNotifications()
+  const [addOpen, setAddOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [registrationsOpen, setRegistrationsOpen] = useState(false)
+
+  const handleRegistrationAdded = useCallback(() => {
+    refreshRegistrations()
+    refreshNotifications()
+    refresh()
+  }, [refreshRegistrations, refreshNotifications, refresh])
 
   return (
     <>
@@ -48,28 +59,27 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
           </NavLink>
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <Link
-              to="/login"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 px-2.5 py-1.5 text-[10px] font-semibold text-nav-fg-muted transition-colors hover:border-nav-fg hover:text-nav-fg"
-              title="Tenant portal"
+            <NavLink
+              to="/studio/settings"
+              data-onboarding="admin-settings"
+              className={({ isActive }) =>
+                cn(
+                  'inline-flex items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 transition-colors',
+                  isActive
+                    ? 'border-nav-active text-nav-fg'
+                    : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
+                )
+              }
+              title="Settings"
+              aria-label="Settings"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Portal
-            </Link>
-            {supportsAppearance && (
-              <AppearanceToggle
-                appearance={appearance}
-                onChange={setAppearance}
-                variant="nav"
-              />
-            )}
-            <AppStyleButton />
+              <Settings className="h-3.5 w-3.5" />
+            </NavLink>
             <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
             {user && (
               <NavLink
                 to="/studio/profile"
+                data-onboarding="admin-profile"
                 className={({ isActive }) =>
                   cn(
                     'hidden items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-2.5 py-1.5 text-[10px] font-semibold transition-colors lg:flex',
@@ -78,7 +88,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
                       : 'border-nav-fg/30 text-nav-fg-muted hover:border-nav-fg hover:text-nav-fg'
                   )
                 }
-                title="My profile"
+                title="Company profile"
               >
                 <UserCircle className="h-3.5 w-3.5" />
                 {user.name}
@@ -87,7 +97,17 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={logout}
+              onClick={() => {
+                if (isPublicDemo) {
+                  void (async () => {
+                    logout()
+                    await exitPublicDemo()
+                    navigate('/', { replace: true })
+                  })()
+                  return
+                }
+                logout()
+              }}
               className="!border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
               title="Sign out"
             >
@@ -98,10 +118,10 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
       </div>
 
       <nav
-        className="sticky top-0 z-50 flex w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex-row md:items-stretch md:justify-between md:px-6 lg:px-10 xl:px-12"
+        className="sticky top-0 z-50 flex w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex-row md:items-stretch md:justify-between md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
-        <div className="grid w-full grid-cols-8 items-stretch md:flex md:min-w-0 md:flex-1 md:justify-start md:overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
+        <div className="grid w-full grid-cols-5 items-stretch md:flex md:min-w-0 md:flex-1 md:justify-evenly [-ms-overflow-style:none] [scrollbar-width:none] md:[&::-webkit-scrollbar]:hidden">
           {links.map(({ to, label, icon: Icon, onboarding }) => (
             <NavLink
               key={to}
@@ -109,27 +129,43 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
               end={to === '/studio'}
               data-onboarding={onboarding}
               className={({ isActive }) =>
-                navLinkClass({
-                  isActive:
-                    to === '/studio'
-                      ? isDashboardNavActive(location.pathname, isActive)
-                      : isActive,
-                })
+                cn(navLinkClass({ isActive }), 'md:flex-1 md:justify-center')
               }
               title={label}
               aria-label={label}
             >
               <Icon className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2.25} />
               <span className="nav-link-label hidden md:inline">{label}</span>
+              {to === '/studio/alerts' && unreadAlertCount > 0 ? (
+                <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-accent px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+                  {unreadAlertCount}
+                </span>
+              ) : null}
             </NavLink>
           ))}
         </div>
-        {dashboardActions && (
-          <div className="flex items-center justify-end gap-1.5 border-t border-nav-border px-3 py-2 sm:gap-2 md:border-l md:border-t-0 md:px-4 md:py-0 md:shrink-0">
-            {dashboardActions}
-          </div>
-        )}
+
+        <div className="flex shrink-0 items-center justify-end border-t border-nav-border/60 px-4 py-1.5 md:border-t-0 md:border-l md:border-nav-border/60 md:py-0 md:pl-4 lg:pl-5">
+          <DashboardNavActions
+            variant="nav"
+            registrationCount={registrationCount}
+            onOpenRegistrations={() => setRegistrationsOpen(true)}
+            onOpenAddClient={() => setAddOpen(true)}
+            onOpenSendInvite={() => setInviteOpen(true)}
+          />
+        </div>
       </nav>
+
+      <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <SendInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <NewRegistrationsModal
+        open={registrationsOpen}
+        onClose={() => setRegistrationsOpen(false)}
+        registrations={registrations}
+        onRefresh={handleRegistrationAdded}
+        onListRefresh={refreshRegistrations}
+        onMarkNotificationsRead={() => markRead({ type: 'registration' })}
+      />
     </>
   )
 }

@@ -11,7 +11,7 @@ interface StylePickerGridProps {
 
 export function StylePickerGrid({ themeId, themes, onSelect }: StylePickerGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3">
       {themes.map((option) => {
         const selected = themeId === option.id
         return (
@@ -68,7 +68,7 @@ function ThemePreviewStrip({
 }) {
   const [a, b, c] = swatches
 
-  const layouts: Partial<Record<ThemeId, ReactNode>> = {
+  const layouts: Record<ThemeId, ReactNode> = {
     ink: (
       <div className="flex flex-1 flex-col gap-1.5 p-2" style={{ background: c }}>
         <div className="h-2.5 w-full border-2 bg-white" style={{ borderColor: a }} />
@@ -76,13 +76,6 @@ function ThemePreviewStrip({
           <div className="h-full flex-1 border-2 bg-white" style={{ borderColor: a }} />
           <div className="h-full w-1/3 border-2" style={{ borderColor: b, background: b, opacity: 0.12 }} />
         </div>
-      </div>
-    ),
-    soft: (
-      <div className="flex flex-1 flex-col gap-1.5 p-2.5" style={{ background: c }}>
-        <div className="h-2.5 w-full rounded-lg bg-white shadow-sm" />
-        <div className="h-2 w-2/3 rounded-md opacity-25" style={{ background: a }} />
-        <div className="h-5 rounded-lg opacity-30" style={{ background: b }} />
       </div>
     ),
     ocean: (
@@ -93,12 +86,6 @@ function ThemePreviewStrip({
           <div className="h-6 flex-1 rounded-md bg-white shadow-sm" />
         </div>
       </>
-    ),
-    midnight: (
-      <div className="flex flex-1 flex-col gap-1 p-2" style={{ background: c }}>
-        <div className="h-2 w-full rounded-md" style={{ background: b, opacity: 0.6 }} />
-        <div className="h-7 flex-1 rounded-lg border" style={{ borderColor: b, background: a }} />
-      </div>
     ),
     graphite: (
       <div className="flex flex-1 flex-col gap-1 p-2" style={{ background: c }}>
@@ -114,22 +101,6 @@ function ThemePreviewStrip({
         </div>
       </div>
     ),
-    citrus: (
-      <>
-        <div className="w-full h-3" style={{ background: b }} />
-        <div className="flex flex-1 gap-1 p-2" style={{ background: c }}>
-          <div className="h-full flex-1 rounded-xl border-2 border-black" />
-          <div className="w-1/3 rounded-xl" style={{ background: b, opacity: 0.3 }} />
-        </div>
-      </>
-    ),
-    neon: (
-      <div className="flex flex-1 flex-col gap-0.5 p-2" style={{ background: a }}>
-        <div className="h-1 w-2/3 rounded-sm" style={{ background: b, boxShadow: `0 0 6px ${b}` }} />
-        <div className="h-6 flex-1 rounded-sm border-2" style={{ borderColor: b, boxShadow: `0 0 8px ${b}44` }} />
-        <div className="h-1 w-1/2" style={{ background: c, boxShadow: `0 0 6px ${c}` }} />
-      </div>
-    ),
     slate: (
       <div className="flex flex-1 flex-col" style={{ background: c }}>
         <div className="h-2 border-b" style={{ borderColor: a, background: '#fff' }} />
@@ -141,14 +112,5 @@ function ThemePreviewStrip({
     ),
   }
 
-  const fallback = (
-    <>
-      <div className="w-[30%]" style={{ background: a }} />
-      <div className="flex flex-1 p-2" style={{ background: c }}>
-        <div className="h-full w-full rounded-sm border-2" style={{ borderColor: b }} />
-      </div>
-    </>
-  )
-
-  return <div className="flex h-full w-full">{layouts[themeId] ?? fallback}</div>
+  return <div className="flex h-full w-full">{layouts[themeId]}</div>
 }

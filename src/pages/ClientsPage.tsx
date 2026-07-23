@@ -1,14 +1,31 @@
 import { useMemo, useState } from 'react'
-import { Plus, Search, UserCog, Users } from 'lucide-react'
+import { Link2, Plus, Search, UserCog, Users } from 'lucide-react'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientAccountsModal } from '@/components/clients/ClientAccountsModal'
 import { ClientTable } from '@/components/clients/ClientTable'
+import { OfficialTenantsSortControls } from '@/components/clients/OfficialTenantsSortControls'
+import { SendInviteModal } from '@/components/clients/SendInviteModal'
+import { TenantPipelineSections } from '@/components/clients/TenantPipelineSections'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/FormField'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useApp } from '@/context/AppContext'
-import { getClientServiceTier, getProjectStatusDisplayLabel } from '@/lib/clientUtils'
+import {
+  getClientServiceTier,
+  getProjectStatusDisplayLabel,
+  shouldShowInOfficialTenants,
+} from '@/lib/clientUtils'
+import {
+  loadOfficialTenantLocationDisplayMode,
+  saveOfficialTenantLocationDisplayMode,
+  type OfficialTenantLocationDisplayMode,
+} from '@/lib/officialTenantLocationDisplay'
+import {
+  sortOfficialTenants,
+  type OfficialTenantAddressFocus,
+  type OfficialTenantSortMode,
+} from '@/lib/officialTenantSort'
 import { SERVICE_TIERS } from '@/lib/serviceTiers'
 import type { ContractStatus, PaymentStatus, ProjectStatus, ServiceTier } from '@/types'
 
@@ -21,8 +38,9 @@ const compactFilterSelectClass = [
 ].join(' ')
 
 export function ClientsPage() {
-  const { clients, refresh, getContractForClient } = useApp()
+  const { clients, refresh, getContractForClient, settings, properties } = useApp()
   const [addOpen, setAddOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
   const [accountsOpen, setAccountsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<ProjectStatus | ''>('')
@@ -30,13 +48,21 @@ export function ClientsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | ''>('')
   const [tierFilter, setTierFilter] = useState<ServiceTier | ''>('')
   const [deadlineFilter, setDeadlineFilter] = useState<'all' | 'upcoming' | 'overdue'>('all')
-  const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'clients' | 'pending'>('all')
+  const [sortMode, setSortMode] = useState<OfficialTenantSortMode>('officialDate')
+  const [addressFocus, setAddressFocus] = useState<OfficialTenantAddressFocus>({ kind: 'all' })
+  const [locationDisplayMode, setLocationDisplayMode] = useState<OfficialTenantLocationDisplayMode>(
+    loadOfficialTenantLocationDisplayMode
+  )
+
+  const regions = settings.contractRegions ?? []
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     const today = new Date().toISOString().split('T')[0]
 
-    return clients.filter((c) => {
+    const matched = clients.filter((c) => {
+      if (!shouldShowInOfficialTenants(c, getContractForClient(c.id))) return false
+
       const matchesSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
@@ -66,22 +92,46 @@ export function ClientsPage() {
         matchesDeadline = dates.some((d) => d < today)
       }
 
-      const matchesType =
-        clientTypeFilter === 'all' ||
-        (clientTypeFilter === 'clients' && c.isOfficialClient) ||
-        (clientTypeFilter === 'pending' && !c.isOfficialClient)
-
       return (
         matchesSearch &&
         matchesProject &&
         matchesContract &&
         matchesPayment &&
         matchesTier &&
-        matchesDeadline &&
-        matchesType
+        matchesDeadline
       )
     })
-  }, [clients, search, projectFilter, contractFilter, paymentFilter, tierFilter, deadlineFilter, clientTypeFilter, getContractForClient])
+
+    return sortOfficialTenants(
+      matched,
+      getContractForClient,
+      regions,
+      sortMode === 'officialDate'
+        ? { mode: 'officialDate' }
+        : { mode: 'address', focus: addressFocus },
+      { properties, locationDisplayMode }
+    )
+  }, [
+    clients,
+    search,
+    projectFilter,
+    contractFilter,
+    paymentFilter,
+    tierFilter,
+    deadlineFilter,
+    getContractForClient,
+    regions,
+    sortMode,
+    addressFocus,
+    properties,
+    locationDisplayMode,
+  ])
+
+  const actualTenants = useMemo(
+    () =>
+      clients.filter((c) => shouldShowInOfficialTenants(c, getContractForClient(c.id))),
+    [clients, getContractForClient],
+  )
 
   return (
     <div className="w-full min-w-0">
@@ -90,12 +140,52 @@ export function ClientsPage() {
           <div className="min-w-0">
             <h1 className="heading-display text-2xl sm:text-3xl">Tenants</h1>
             <p className="mt-0.5 text-sm text-ink-muted">
-              Active tenants and pending prospects awaiting lease signature.
+              Review Official Tenants, Waiting to Connect, and Pending Tenants in one place.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              title="Sends a link so they can register. They’ll appear under Waiting to Connect, already linked to your company."
+              onClick={() => setInviteOpen(true)}
+            >
+              <Link2 className="h-4 w-4" />
+              Send Invite
+            </Button>
+            <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Tenant
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <section data-onboarding="tenants-directory" className="pb-8">
+        <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2">
+              <Users className="h-4 w-4 text-ink-muted" />
+              <h2 className="heading-display text-lg">Official Tenants</h2>
+            </div>
+            <p className="text-sm text-ink-muted">
+              Search and filter tenants with signed leases that are active or starting soon.
             </p>
           </div>
 
           <Card className="w-full shrink-0 p-3 lg:w-auto" padding="none">
-            <div className="flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2.5 xl:flex-nowrap">
+            <div className="flex min-w-0 flex-col gap-2.5">
+              <OfficialTenantsSortControls
+                clients={actualTenants}
+                getContractForClient={getContractForClient}
+                regions={regions}
+                sortMode={sortMode}
+                addressFocus={addressFocus}
+                onSortModeChange={setSortMode}
+                onAddressFocusChange={setAddressFocus}
+              />
+              <div className="flex min-w-0 flex-wrap items-end gap-x-3 gap-y-2.5 xl:flex-nowrap">
               <div className="w-full shrink-0 sm:w-36">
                 <label className="mb-0.5 block text-[8px] font-semibold uppercase tracking-caps text-ink-faint">
                   Search
@@ -165,34 +255,34 @@ export function ClientsPage() {
                 <option value="upcoming">Upcoming</option>
                 <option value="overdue">Overdue</option>
               </Select>
-              <Select
-                label="Type"
-                value={clientTypeFilter}
-                onChange={(e) => setClientTypeFilter(e.target.value as typeof clientTypeFilter)}
-                className={compactFilterSelectClass}
-              >
-                <option value="all">All</option>
-                <option value="clients">Tenants</option>
-                <option value="pending">Pending Tenants</option>
-              </Select>
+              </div>
             </div>
           </Card>
         </div>
-      </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title={clients.length === 0 ? 'No tenants yet' : 'No matching tenants'}
-          description={
-            clients.length === 0
-              ? 'Add your first tenant to get started.'
-              : 'Try adjusting your search or filters.'
-          }
-        />
-      ) : (
-        <ClientTable clients={filtered} />
-      )}
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title={actualTenants.length === 0 ? 'No official tenants yet' : 'No matching tenants'}
+            description={
+              actualTenants.length === 0
+                ? 'Tenants appear here once their lease is signed.'
+                : 'Try adjusting your search or filters.'
+            }
+          />
+        ) : (
+          <ClientTable
+            clients={filtered}
+            locationDisplayMode={locationDisplayMode}
+            onLocationDisplayModeChange={(mode) => {
+              saveOfficialTenantLocationDisplayMode(mode)
+              setLocationDisplayMode(mode)
+            }}
+          />
+        )}
+      </section>
+
+      <TenantPipelineSections pendingSectionTitle="Pending Tenants" />
 
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="outline" onClick={() => setAccountsOpen(true)}>
@@ -206,6 +296,7 @@ export function ClientsPage() {
       </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <SendInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
       <ClientAccountsModal
         open={accountsOpen}
         onClose={() => setAccountsOpen(false)}

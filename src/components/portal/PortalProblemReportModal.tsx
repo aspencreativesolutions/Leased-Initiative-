@@ -1,16 +1,20 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Camera, CheckCircle2, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
-import { PORTAL_FILE_ACCEPT, PORTAL_FILE_TYPES_LABEL } from '@/lib/allowedFileTypes'
+import { PORTAL_PHOTO_ACCEPT, PORTAL_PHOTO_TYPES_LABEL } from '@/lib/allowedFileTypes'
 import { PROBLEM_TYPES, submitPortalProblemReport } from '@/lib/problemReports'
 import { cn, formatFileSize } from '@/lib/utils'
 
 interface PortalProblemReportModalProps {
   open: boolean
   onClose: () => void
+}
+
+function isPhotoFile(file: File) {
+  return file.type.startsWith('image/') && !file.type.includes('svg')
 }
 
 export function PortalProblemReportModal({ open, onClose }: PortalProblemReportModalProps) {
@@ -42,8 +46,21 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
 
   const handleFileChange = (next: File | null) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (!next) {
+      setFile(null)
+      setPreviewUrl(null)
+      return
+    }
+    if (!isPhotoFile(next)) {
+      setError('Attach a photo (JPG, PNG, or WEBP).')
+      setFile(null)
+      setPreviewUrl(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    setError('')
     setFile(next)
-    setPreviewUrl(next?.type.startsWith('image/') ? URL.createObjectURL(next) : null)
+    setPreviewUrl(URL.createObjectURL(next))
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -55,12 +72,8 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
       setError('Select an issue from the list.')
       return
     }
-    if (!note.trim()) {
-      setError('Please describe the issue.')
-      return
-    }
-    if (!file) {
-      setError('Upload a photo or document before submitting.')
+    if (!file || !isPhotoFile(file)) {
+      setError('Upload a photo before submitting.')
       return
     }
 
@@ -68,7 +81,7 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
     try {
       const result = await submitPortalProblemReport({
         problemType,
-        note,
+        note: note.trim(),
         file,
       })
       setSuccess(result.message || 'Your landlord has been notified.')
@@ -84,14 +97,14 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Report Issue" size="lg">
+    <Modal open={open} onClose={handleClose} title="Log Repairs or Concerns" size="lg">
       {success ? (
         <div className="space-y-4 py-2 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-brand" aria-hidden />
           <p className="text-sm font-semibold text-ink">{success}</p>
           <p className="text-sm text-ink-muted">
             Your landlord will see this under Tenant Alerts with your name, address, and the
-            file you attached.
+            photo you attached.
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-2">
             <Button
@@ -111,8 +124,8 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="text-sm text-ink-muted">
-            Select a common household issue, describe it, and attach a required photo or
-            document so your landlord can assess or dispatch maintenance.
+            Select a common household issue, attach a required photo, and optionally add a note.
+            Your landlord reviews submissions under Tenant Alerts.
           </p>
 
           <fieldset>
@@ -144,25 +157,16 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
             </ul>
           </fieldset>
 
-          <Textarea
-            label="Describe the issue"
-            name="note"
-            required
-            rows={3}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="What’s going on, where in the unit, and how urgent it feels…"
-          />
-
           <div>
             <p className="label-caps mb-1">
-              Photo or document <span className="text-accent">(required)</span>
+              Photo <span className="text-accent">(required)</span>
             </p>
-            <p className="mb-2 text-xs text-ink-faint">{PORTAL_FILE_TYPES_LABEL}</p>
+            <p className="mb-2 text-xs text-ink-faint">{PORTAL_PHOTO_TYPES_LABEL}</p>
             <input
               ref={fileInputRef}
               type="file"
-              accept={PORTAL_FILE_ACCEPT}
+              accept={PORTAL_PHOTO_ACCEPT}
+              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const next = e.target.files?.[0] ?? null
@@ -174,12 +178,12 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
                 {previewUrl ? (
                   <img
                     src={previewUrl}
-                    alt="Selected attachment preview"
+                    alt="Selected photo preview"
                     className="h-16 w-16 shrink-0 rounded-sm object-cover"
                   />
                 ) : (
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-sm border border-dashed border-line text-ink-faint">
-                    <FileUp className="h-5 w-5" aria-hidden />
+                    <Camera className="h-5 w-5" aria-hidden />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
@@ -206,11 +210,20 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
                 onClick={() => fileInputRef.current?.click()}
                 className="flex w-full items-center justify-center gap-2 rounded-sm border-2 border-dashed border-line bg-surface px-3 py-4 text-sm text-ink-muted transition-colors hover:border-brand hover:text-ink"
               >
-                <FileUp className="h-5 w-5" aria-hidden />
-                Upload photo or document
+                <Camera className="h-5 w-5" aria-hidden />
+                Add required photo
               </button>
             )}
           </div>
+
+          <Textarea
+            label="Note (optional)"
+            name="note"
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional — what’s going on, where in the unit, how urgent…"
+          />
 
           {error ? (
             <p className="flex items-start gap-2 rounded-sm border border-accent/40 bg-accent-light px-3 py-2 text-sm text-accent">
@@ -226,7 +239,7 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
             <Button
               type="submit"
               size="sm"
-              disabled={submitting || !problemType || !file || !note.trim()}
+              disabled={submitting || !problemType || !file}
             >
               {submitting ? (
                 <>

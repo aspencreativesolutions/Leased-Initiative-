@@ -1,5 +1,7 @@
 import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
-import type { Client, ContractData } from '@/types'
+import { getDemoAsOfDate } from '@/lib/demoClock'
+import { isPublicDemoSession } from '@/lib/publicDemo'
+import type { Client, ContractData, PortalRentPayment, PortalRentPaymentStatus } from '@/types'
 
 /** Common residential lease terms offered at tenant registration */
 export const LEASE_LENGTH_OPTIONS = [6, 12, 18, 24] as const
@@ -49,6 +51,15 @@ function isUsableLeaseDate(value?: string): value is string {
   if (value.includes(PLACEHOLDER_MARKER)) return false
   const parsed = value.includes('T') ? new Date(value) : parseYmd(value.slice(0, 10))
   return !Number.isNaN(parsed.getTime())
+}
+
+/** Wall clock, or Demo Mode July date when a public demo session is active. */
+export function resolveScheduleAsOf(asOf?: Date): Date {
+  if (asOf) return asOf
+  if (typeof window !== 'undefined' && isPublicDemoSession()) {
+    return getDemoAsOfDate()
+  }
+  return new Date()
 }
 
 /** Lease start: 1st of this month if today is the 1st, otherwise 1st of next month */
@@ -105,6 +116,27 @@ export function formatDaysRemainingLabel(days: number): string {
   return `${Math.abs(days)} days overdue`
 }
 
+export function resolveCompletedPaymentStatus(
+  dueYmd: string,
+  paidAtYmd?: string
+): Extract<PortalRentPaymentStatus, 'paid' | 'paid_early' | 'paid_late'> {
+  if (!paidAtYmd) return 'paid'
+  const paid = paidAtYmd.slice(0, 10)
+  const due = dueYmd.slice(0, 10)
+  if (paid < due) return 'paid_early'
+  if (paid > due) return 'paid_late'
+  return 'paid'
+}
+
+export function buildEarlyPaymentEventLabel(dueYmd: string, paidAtYmd: string): string {
+  const month = parseYmd(dueYmd).toLocaleDateString('en-US', { month: 'long' })
+  const paid = parseYmd(paidAtYmd).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  })
+  return `${month} rent paid early on ${paid}`
+}
+
 export interface LeaseRentSchedule {
   leaseLengthMonths: number | null
   leaseStartDate: string | null
@@ -114,6 +146,7 @@ export interface LeaseRentSchedule {
   daysUntilNextDue: number | null
   finalDueDate: string | null
   overduePaymentCount: number
+  payments: PortalRentPayment[]
 }
 
 function resolveLeaseLengthMonths(
@@ -147,8 +180,9 @@ function resolveLeaseLengthMonths(
 export function getLeaseRentSchedule(
   client: Client,
   contract?: ContractData,
-  asOf: Date = new Date()
+  asOf?: Date
 ): LeaseRentSchedule {
+  const effectiveAsOf = resolveScheduleAsOf(asOf)
   const leaseStartDate = isUsableLeaseDate(contract?.startDate)
     ? contract!.startDate.slice(0, 10)
     : null
@@ -162,6 +196,12 @@ export function getLeaseRentSchedule(
     .map((d) => d.date.slice(0, 10))
     .sort()
 
+  const completedByDue = new Map(
+    client.deadlines
+      .filter((d) => d.type === 'payment' && d.completed)
+      .map((d) => [d.date.slice(0, 10), d])
+  )
+
   const derivedDues =
     leaseStartDate && leaseEndDate
       ? listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
@@ -169,11 +209,16 @@ export function getLeaseRentSchedule(
 
   const rentDueDates = derivedDues.length > 0 ? derivedDues : incompleteDues
 
-  const todayYmd = formatYmd(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
+  const todayYmd = formatYmd(
+    effectiveAsOf.getFullYear(),
+    effectiveAsOf.getMonth(),
+    effectiveAsOf.getDate()
+  )
   const sourceForNext = incompleteDues.length > 0 ? incompleteDues : rentDueDates
+  const pastDue = sourceForNext.filter((d) => d < todayYmd)
   const upcoming = sourceForNext.filter((d) => d >= todayYmd)
-  const nextDueDate =
-    upcoming[0] ?? (sourceForNext.length > 0 ? sourceForNext[0] : null)
+  // Oldest overdue first so landlord/tenant countdown agrees on past-due rent
+  const nextDueDate = pastDue[0] ?? upcoming[0] ?? null
 
   const finalDueDate =
     derivedDues.length > 0
@@ -182,15 +227,48 @@ export function getLeaseRentSchedule(
         ? incompleteDues[incompleteDues.length - 1]
         : null
 
+  const payments: PortalRentPayment[] = rentDueDates.map((dueDate, index) => {
+    const monthLabel = parseYmd(dueDate).toLocaleDateString('en-US', {
+      month: 'short',
+      year: 'numeric',
+    })
+    const completed = completedByDue.get(dueDate)
+    let status: PortalRentPaymentStatus = 'upcoming'
+    let paidAt: string | undefined
+    let eventLabel: string | undefined
+
+    if (completed) {
+      paidAt = completed.paidAt?.slice(0, 10)
+      eventLabel = completed.eventLabel
+      status = resolveCompletedPaymentStatus(dueDate, paidAt)
+      if (!eventLabel && status === 'paid_early' && paidAt) {
+        eventLabel = buildEarlyPaymentEventLabel(dueDate, paidAt)
+      }
+    } else if (dueDate < todayYmd) {
+      status = 'overdue'
+    } else if (dueDate === nextDueDate && getDaysUntilDate(dueDate, effectiveAsOf) <= 0) {
+      status = 'due'
+    }
+
+    return {
+      dueDate,
+      label: index === 0 ? `Month 1 · ${monthLabel}` : `Month ${index + 1} · ${monthLabel}`,
+      status,
+      paidAt,
+      eventLabel,
+    }
+  })
+
   return {
     leaseLengthMonths,
     leaseStartDate,
     leaseEndDate,
     rentDueDates,
     nextDueDate,
-    daysUntilNextDue: nextDueDate != null ? getDaysUntilDate(nextDueDate, asOf) : null,
+    daysUntilNextDue: nextDueDate != null ? getDaysUntilDate(nextDueDate, effectiveAsOf) : null,
     finalDueDate,
     overduePaymentCount: countOverduePayments(sourceForNext, todayYmd, nextDueDate),
+    payments,
   }
 }
 

@@ -1,6 +1,14 @@
 import { parseMoney } from './parseMoney.js'
-import { getLeaseRentSchedule } from './leaseSchedule.js'
+import {
+  buildEarlyPaymentEventLabel,
+  getLeaseRentSchedule,
+} from './leaseSchedule.js'
 import { generateId, pushAdminNotification } from './notifications.js'
+import { resolveServerScheduleAsOf } from './scheduleAsOf.js'
+
+function isUnpaidRentStatus(status) {
+  return status === 'overdue' || status === 'due' || status === 'upcoming'
+}
 
 /** Monthly rent from lease totals, or deposit as a one-month proxy. */
 export function estimateMonthlyRent(client, contract) {
@@ -25,14 +33,13 @@ export function isPrepaidRentAllowed(contract) {
 }
 
 /** Unpaid rent months in schedule order (overdue first, then upcoming). */
-export function listUnpaidRentMonths(client, contract, asOf = new Date()) {
-  const schedule = getLeaseRentSchedule(client, contract, asOf)
-  return (schedule.payments ?? []).filter(
-    (p) => p.status === 'overdue' || p.status === 'due' || p.status === 'upcoming'
-  )
+export function listUnpaidRentMonths(client, contract, asOf) {
+  const schedule = getLeaseRentSchedule(client, contract, resolveServerScheduleAsOf(asOf))
+  return (schedule.payments ?? []).filter((p) => isUnpaidRentStatus(p.status))
 }
 
-export function buildPortalRentPayment(client, contract, asOf = new Date()) {
+export function buildPortalRentPayment(client, contract, asOf) {
+  asOf = resolveServerScheduleAsOf(asOf)
   if (!client || !contract) return null
 
   const schedule = getLeaseRentSchedule(client, contract, asOf)
@@ -131,6 +138,7 @@ export function applyRentPaymentToStore(store, clientId, capture) {
         : 'PayPal'
   const dueDates = new Set(client.rentInvoice.dueDates ?? [])
   const monthCount = client.rentInvoice.monthCount ?? dueDates.size ?? 1
+  const paidAtYmd = resolveServerScheduleAsOf().toISOString().slice(0, 10)
 
   const providerIds =
     capture.provider === 'stripe'
@@ -161,7 +169,18 @@ export function applyRentPaymentToStore(store, clientId, capture) {
     if (d.type !== 'payment') return d
     const ymd = d.date.slice(0, 10)
     if (!dueDates.has(ymd)) return d
-    return { ...d, completed: true }
+    const statusHint =
+      paidAtYmd < ymd ? 'paid_early' : paidAtYmd > ymd ? 'paid_late' : 'paid'
+    const eventLabel =
+      statusHint === 'paid_early'
+        ? buildEarlyPaymentEventLabel(ymd, paidAtYmd)
+        : undefined
+    return {
+      ...d,
+      completed: true,
+      paidAt: paidAtYmd,
+      ...(eventLabel ? { eventLabel, description: eventLabel } : {}),
+    }
   })
 
   let next = {

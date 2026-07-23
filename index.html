@@ -1,31 +1,31 @@
 <!doctype html>
-<html lang="en" data-theme="graphite" data-appearance="light">
+<html lang="en" data-theme="slate" data-appearance="light" data-caps-labels="1" data-caps-buttons="1">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Leased" />
-    <title>Leased</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Orbitron:wght@500;600;700&family=Outfit:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <meta name="apple-mobile-web-app-title" content="Leased Initiative" />
+    <title>Leased Initiative — Landlord &amp; Tenant Management</title>
     <script>
       (function () {
         var path = window.location.pathname;
-        var defaultTheme = 'graphite';
+        var defaultTheme = 'slate';
         var defaultAppearance = 'light';
-        var valid = ['ink', 'soft', 'ocean', 'midnight', 'graphite', 'citrus', 'neon', 'slate'];
+        var valid = ['graphite', 'ink', 'ocean', 'slate'];
         var appearanceKey = 'leased-theme-appearance';
         var appearance = localStorage.getItem(appearanceKey);
         if (appearance !== 'light' && appearance !== 'dark') appearance = defaultAppearance;
         document.documentElement.setAttribute('data-appearance', appearance);
 
-        if (path === '/studio/login' || path === '/studio/register') {
+        // Introduction page + studio auth always paint as Slate Bureau
+        if (
+          path === '/' ||
+          path === '' ||
+          path === '/studio/login' ||
+          path === '/studio/register'
+        ) {
           document.documentElement.setAttribute('data-theme', defaultTheme);
           document.documentElement.setAttribute('data-appearance', defaultAppearance);
           return;
@@ -33,7 +33,7 @@
         var isPortal =
           path.indexOf('/portal') === 0 || path === '/login' || path === '/register';
         if (path.indexOf('/studio') === 0) isPortal = false;
-        var k = isPortal ? 'leased-portal-theme-v2' : 'leased-app-theme-v2';
+        var k = isPortal ? 'leased-portal-theme-v5' : 'leased-app-theme-v5';
         var t = localStorage.getItem(k);
         if (t && valid.indexOf(t) !== -1) {
           document.documentElement.setAttribute('data-theme', t);

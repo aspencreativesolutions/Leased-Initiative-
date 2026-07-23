@@ -1,8 +1,7 @@
 import { jsPDF } from 'jspdf'
-import { migrateServiceTier } from '@/lib/serviceTiers'
 import type { BusinessSettings, ContractData } from '@/types'
 
-/** Editorial contract palette — matches the in-app form preview */
+/** Editorial lease palette — matches the in-app form preview */
 const PDF = {
   ink: [17, 17, 17] as [number, number, number],
   inkMuted: [92, 92, 92] as [number, number, number],
@@ -32,6 +31,12 @@ function setText(doc: jsPDF, rgb: [number, number, number]) {
 function drawPageBackground(doc: jsPDF) {
   setFill(doc, PDF.paper)
   doc.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, 'F')
+}
+
+function displayValue(value?: string): string {
+  if (!value?.trim()) return '—'
+  if (value.includes('[To be customized]')) return '—'
+  return value
 }
 
 function addWrappedText(
@@ -82,21 +87,20 @@ function addSection(doc: jsPDF, label: string, body: string, y: number): number 
 function addDocumentHeader(
   doc: jsPDF,
   contract: ContractData,
-  settings: BusinessSettings,
-  tier: string
+  settings: BusinessSettings
 ): number {
   drawPageBackground(doc)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
   setText(doc, PDF.ink)
-  doc.text('CONTRACT AGREEMENT', PAGE_WIDTH / 2, 28, { align: 'center' })
+  doc.text('RESIDENTIAL LEASE AGREEMENT', PAGE_WIDTH / 2, 28, { align: 'center' })
 
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(10)
   setText(doc, PDF.inkMuted)
   doc.text(
-    `Lease for ${contract.businessName} — ${contract.projectTitle}`,
+    `Lease for ${contract.clientName} — ${contract.projectTitle}`,
     PAGE_WIDTH / 2,
     38,
     { align: 'center' }
@@ -106,7 +110,7 @@ function addDocumentHeader(
   doc.setFontSize(8)
   setText(doc, PDF.inkFaint)
   doc.text(
-    `TOTAL ${contract.totalCost || '—'} · DEPOSIT ${contract.depositAmount || '—'} · ${tier.toUpperCase()}`,
+    `MONTHLY RENT ${displayValue(contract.totalCost)} · SECURITY DEPOSIT ${displayValue(contract.depositAmount)}`,
     PAGE_WIDTH / 2,
     46,
     { align: 'center' }
@@ -134,73 +138,87 @@ export function generateContractPdf(
   settings: BusinessSettings
 ): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const tier = migrateServiceTier(contract.serviceTier)
 
-  let y = addDocumentHeader(doc, contract, settings, tier)
+  let y = addDocumentHeader(doc, contract, settings)
 
-  const clientBlock = [
+  const tenantBlock = [
     contract.clientName,
-    contract.businessName,
+    displayValue(contract.businessName) !== '—'
+      ? `Mailing: ${contract.businessName}`
+      : '',
     contract.email,
     contract.phone,
-    contract.clientAddress,
   ]
     .filter(Boolean)
     .join('\n')
 
-  y = addSection(doc, 'Client information', clientBlock, y)
+  y = addSection(doc, '1. Landlord information', displayValue(contract.portfolioRights), y)
+  y = addSection(doc, '2. Tenant information', tenantBlock, y)
   y = addSection(
     doc,
-    'Project scope',
-    `Service tier: ${tier}\n\n${contract.projectScope}`,
-    y
-  )
-  y = addSection(doc, 'Services included', contract.servicesIncluded, y)
-  y = addSection(doc, 'Services not included', contract.servicesNotIncluded, y)
-  y = addSection(doc, 'Deliverables', contract.deliverables, y)
-  y = addSection(
-    doc,
-    'Timeline',
-    `Start: ${contract.startDate || '—'}\nCompletion: ${contract.completionDate || '—'}`,
-    y
-  )
-  y = addSection(
-    doc,
-    'Payment schedule',
+    '3–4. Rental property & unit',
     [
-      contract.totalCost && `Total: ${contract.totalCost}`,
-      contract.depositAmount && `Deposit: ${contract.depositAmount}`,
-      contract.remainingBalance && `Remaining: ${contract.remainingBalance}`,
-      contract.paymentSchedule,
-    ]
-      .filter(Boolean)
-      .join('\n\n'),
+      `Property address: ${displayValue(contract.clientAddress)}`,
+      displayValue(contract.projectScope),
+    ].join('\n\n'),
+    y
+  )
+  y = addSection(
+    doc,
+    '5–6. Lease term',
+    `Start: ${displayValue(contract.startDate)}\nEnd: ${displayValue(contract.completionDate)}`,
+    y
+  )
+  y = addSection(
+    doc,
+    '7–10. Rent, deposit & payment schedule',
+    [
+      `Monthly rent: ${displayValue(contract.totalCost)}`,
+      `Security deposit: ${displayValue(contract.depositAmount)}`,
+      `Move-in / first payment: ${displayValue(contract.remainingBalance)}`,
+      displayValue(contract.paymentSchedule),
+    ].join('\n\n'),
     y
   )
   y = addSection(doc, 'Payment methods', contract.paymentMethods, y)
-  y = addSection(doc, 'Late payment policy', contract.latePaymentPolicy, y)
+  y = addSection(doc, '11. Late-payment terms', contract.latePaymentPolicy, y)
   y = addSection(
     doc,
-    'Revisions',
+    '12. Occupancy limits',
     [
-      contract.revisionCount && `Included: ${contract.revisionCount}`,
-      contract.extraRevisionFee && `Extra fee: ${contract.extraRevisionFee}`,
-      contract.revisionLimits,
-    ]
-      .filter(Boolean)
-      .join('\n\n'),
+      `Maximum occupants: ${displayValue(contract.revisionCount)}`,
+      displayValue(contract.deliverables),
+    ].join('\n\n'),
     y
   )
-  y = addSection(doc, 'Client responsibilities', contract.clientResponsibilities, y)
   y = addSection(
     doc,
-    'Communication',
-    `Method: ${contract.communicationMethod}\nResponse time: ${contract.responseTime}\nMeetings: ${contract.meetingExpectations}`,
+    '13. Utilities and services',
+    [
+      `Included: ${displayValue(contract.servicesIncluded)}`,
+      `Tenant pays: ${displayValue(contract.servicesNotIncluded)}`,
+    ].join('\n\n'),
     y
   )
-  y = addSection(doc, 'Ownership terms', contract.ownershipTerms, y)
-  y = addSection(doc, 'Portfolio rights', contract.portfolioRights, y)
-  y = addSection(doc, 'Termination conditions', contract.terminationTerms, y)
+  y = addSection(doc, '14. Maintenance responsibilities', contract.clientResponsibilities, y)
+  y = addSection(doc, '15. Property-use rules', contract.ownershipTerms, y)
+  y = addSection(
+    doc,
+    '16. Pets',
+    [
+      displayValue(contract.revisionLimits),
+      `Pet deposit / fee: ${displayValue(contract.extraRevisionFee)}`,
+    ].join('\n\n'),
+    y
+  )
+  y = addSection(doc, '17. Entry and inspection', contract.meetingExpectations, y)
+  y = addSection(doc, '18. Renewal or termination', contract.terminationTerms, y)
+  y = addSection(
+    doc,
+    '19. Notices',
+    `Method: ${contract.communicationMethod || '—'}\nNotice period: ${displayValue(contract.responseTime)}`,
+    y
+  )
 
   if (settings.defaultContractFooter) {
     y = ensureSpace(doc, y)
@@ -221,7 +239,7 @@ export function generateContractPdf(
     if (contract.designerSignature) {
       y = addSection(
         doc,
-        'Designer signature & date',
+        '20. Landlord signature & date',
         [contract.designerSignature, contract.designerSignDate].filter(Boolean).join('\n'),
         y
       )
@@ -229,7 +247,7 @@ export function generateContractPdf(
     if (contract.clientSignature) {
       y = addSection(
         doc,
-        'Client signature & date',
+        '21–22. Tenant signature & date',
         [contract.clientSignature, contract.clientSignDate].filter(Boolean).join('\n'),
         y
       )
@@ -247,7 +265,7 @@ export function generateContractPdf(
     doc.setFontSize(7.5)
     setText(doc, PDF.inkFaint)
     doc.text(
-      `${settings.businessName || 'Leased'} · Page ${i} of ${pageCount}`,
+      `${settings.businessName || 'Leased Solutions'} · Page ${i} of ${pageCount}`,
       PAGE_WIDTH / 2,
       PAGE_HEIGHT - 8,
       { align: 'center' }
@@ -263,10 +281,14 @@ export function downloadContractPdf(
   filename?: string
 ): void {
   const doc = generateContractPdf(contract, settings)
-  const name =
-    filename ||
-    `Lease-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
+  const name = filename || contractPdfFilename(contract)
   doc.save(name)
+}
+
+export function contractPdfFilename(contract: ContractData): string {
+  const tenant = (contract.clientName || 'Tenant').replace(/\s+/g, '-')
+  const title = (contract.projectTitle || 'Lease').replace(/\s+/g, '-')
+  return `Lease-${tenant}-${title}.pdf`
 }
 
 export function openContractPdfInNewTab(
@@ -278,8 +300,4 @@ export function openContractPdfInNewTab(
   const url = URL.createObjectURL(blob)
   window.open(url, '_blank', 'noopener,noreferrer')
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
-}
-
-export function contractPdfFilename(contract: ContractData): string {
-  return `Lease-${contract.businessName.replace(/\s+/g, '-')}-${contract.projectTitle.replace(/\s+/g, '-')}.pdf`
 }

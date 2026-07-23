@@ -53,16 +53,8 @@ export function countMatchingDashboardFilter(
   return clients.filter((client) => matchesDashboardFilter(client, filter)).length
 }
 
-export function dashboardFilterShowsDeadlines(filter: DashboardFilter | null): boolean {
-  return filter === null || filter === 'due'
-}
-
-export function dashboardFilterShowsTimelineNotes(filter: DashboardFilter | null): boolean {
-  return filter === null
-}
-
 export const DASHBOARD_FILTER_LABELS: Record<DashboardFilter, string> = {
-  clients: 'Active tenants',
+  clients: 'Official tenants',
   pending: 'Pending tenants',
   active: 'Active projects',
   contracts: 'Pending leases',

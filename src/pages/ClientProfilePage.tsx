@@ -99,8 +99,8 @@ export function ClientProfilePage() {
     return (
       <div className="text-center py-16">
         <p className="text-stone-600">Client not found.</p>
-        <Link to="/studio/clients" className="mt-4 inline-block text-brand hover:underline">
-          Back to clients
+        <Link to="/studio" className="mt-4 inline-block text-brand hover:underline">
+          Back to Dashboard
         </Link>
       </div>
     )
@@ -195,11 +195,11 @@ export function ClientProfilePage() {
   return (
     <div className="w-full min-w-0">
       <Link
-        to="/studio/clients"
+        to="/studio"
         className="mb-2 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to clients
+        Back to Dashboard
       </Link>
 
       <div className="mb-4 grid w-full min-w-0 gap-4 sm:mb-6 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)] lg:items-start">
@@ -340,7 +340,7 @@ export function ClientProfilePage() {
                     onClick={() => openContractPdfInNewTab(contract, settings)}
                   >
                     <FileDown className="h-4 w-4 shrink-0" />
-                    Lease PDF
+                    Lease Agreement PDF
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
                   </Button>
                 )}
@@ -351,7 +351,7 @@ export function ClientProfilePage() {
                     onClick={() => setDeleteContractOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Delete lease
+                    Delete lease agreement
                   </Button>
                 )}
                 {showViewContract && contract && (
@@ -361,7 +361,7 @@ export function ClientProfilePage() {
                     onClick={() => setViewContractOpen(true)}
                   >
                     <Eye className="h-4 w-4" />
-                    View Lease
+                    View Lease Agreement
                   </Button>
                 )}
               </div>
@@ -484,7 +484,7 @@ export function ClientProfilePage() {
         onRemoved={async () => {
           setRemoveOpen(false)
           await refresh()
-          navigate('/studio/clients')
+          navigate('/studio')
         }}
       />
     </div>

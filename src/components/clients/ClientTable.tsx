@@ -1,19 +1,24 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { UserMinus, ArrowRight } from 'lucide-react'
+import { ChevronsUpDown, UserMinus, ArrowRight } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { ClientStatusIcon } from './ClientStatusIcon'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
+import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { RemoveClientModal } from './RemoveClientModal'
-import { TenantMarkerBadge } from './TenantMarkerBadge'
-import { clientNameMarkersClass } from './clientBadgeStyles'
+import { TenantNameWithLeaseIcons } from './TenantLeaseStatusIcons'
 import { useApp } from '@/context/AppContext'
 import {
-  getDisplayContractStatus,
-  getFirstName,
-  getLeaseStatusLabel,
-  getTenantAddress,
+  getLeaseStatusDetails,
 } from '@/lib/clientUtils'
+import {
+  cycleOfficialTenantLocationDisplayMode,
+  getOfficialTenantLocationDisplayValue,
+  getTenantAssignedProperty,
+  loadOfficialTenantLocationDisplayMode,
+  OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS,
+  saveOfficialTenantLocationDisplayMode,
+  type OfficialTenantLocationDisplayMode,
+} from '@/lib/officialTenantLocationDisplay'
 import {
   loadTenantTableColumnOrder,
   moveTenantTableColumn,
@@ -22,10 +27,10 @@ import {
   TENANT_TABLE_COLUMN_WIDTHS,
   type TenantTableColumnId,
 } from '@/lib/tenantTableColumns'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import { matchesDashboardFilter, type DashboardFilter } from '@/lib/dashboardFilters'
-import type { Client, ContractData } from '@/types'
+import type { Client, ContractData, Property } from '@/types'
 
 interface ClientTableProps {
   clients: Client[]
@@ -34,15 +39,14 @@ interface ClientTableProps {
   arrangeColumns?: boolean
   columnOrder?: TenantTableColumnId[]
   onColumnOrderChange?: (order: TenantTableColumnId[]) => void
+  locationDisplayMode?: OfficialTenantLocationDisplayMode
+  onLocationDisplayModeChange?: (mode: OfficialTenantLocationDisplayMode) => void
 }
 
 function headerVisibilityClass(columnId: TenantTableColumnId): string {
   switch (columnId) {
-    case 'propertyType':
     case 'email':
       return 'hidden md:table-cell'
-    case 'contractStatus':
-      return 'hidden sm:table-cell'
     default:
       return ''
   }
@@ -51,7 +55,6 @@ function headerVisibilityClass(columnId: TenantTableColumnId): string {
 function headerAlignClass(columnId: TenantTableColumnId): string {
   switch (columnId) {
     case 'leaseStatus':
-    case 'contractStatus':
     case 'paymentStatus':
       return 'text-center'
     case 'actions':
@@ -61,9 +64,58 @@ function headerAlignClass(columnId: TenantTableColumnId): string {
   }
 }
 
-function renderHeaderLabel(columnId: TenantTableColumnId): ReactNode {
+function LocationDisplayHeaderButton({
+  mode,
+  onCycle,
+}: {
+  mode: OfficialTenantLocationDisplayMode
+  onCycle: () => void
+}) {
+  const label = OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS[mode]
+  return (
+    <button
+      type="button"
+      title="Click to change location detail"
+      aria-label={`${label}. Click to change location detail`}
+      onClick={(event) => {
+        event.stopPropagation()
+        onCycle()
+      }}
+      onMouseDown={(event) => event.stopPropagation()}
+      className={cn(
+        'group inline-flex max-w-full items-center gap-1 rounded-sm px-1 py-0.5 -mx-1 -my-0.5',
+        'cursor-pointer text-left transition-colors duration-150',
+        'hover:bg-ink/[0.06]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
+      )}
+    >
+      <span key={mode} className="location-display-fade min-w-0 truncate">
+        {label}
+      </span>
+      <ChevronsUpDown
+        className="h-3 w-3 shrink-0 text-ink-faint transition-transform duration-200 group-hover:text-ink-muted group-hover:rotate-180"
+        strokeWidth={2.25}
+        aria-hidden
+      />
+    </button>
+  )
+}
+
+function renderHeaderLabel(
+  columnId: TenantTableColumnId,
+  locationDisplayMode: OfficialTenantLocationDisplayMode,
+  onCycleLocationDisplay: () => void
+): ReactNode {
   if (columnId === 'actions') {
     return <span className="sr-only">{TENANT_TABLE_COLUMN_LABELS.actions}</span>
+  }
+  if (columnId === 'address') {
+    return (
+      <LocationDisplayHeaderButton
+        mode={locationDisplayMode}
+        onCycle={onCycleLocationDisplay}
+      />
+    )
   }
   return TENANT_TABLE_COLUMN_LABELS[columnId]
 }
@@ -72,45 +124,34 @@ function renderCell(
   columnId: TenantTableColumnId,
   client: Client,
   contract: ContractData | undefined,
+  properties: Property[],
+  locationDisplayMode: OfficialTenantLocationDisplayMode,
   onRemove: () => void
 ): ReactNode {
-  const address = getTenantAddress(client, contract)
-  const leaseStatus = getLeaseStatusLabel(client, contract)
+  const property = getTenantAssignedProperty(client, contract, properties)
+  const locationValue = getOfficialTenantLocationDisplayValue(property, locationDisplayMode)
+  const leaseStatus = getLeaseStatusDetails(client, contract)
 
   switch (columnId) {
     case 'tenant':
       return (
         <td key={columnId} className="px-3 py-2.5 align-top sm:px-4">
           <div className="min-w-0">
-            <div className={clientNameMarkersClass}>
+            <TenantNameWithLeaseIcons client={client} contract={contract}>
               <Link
                 to={`/studio/clients/${client.id}`}
                 className="min-w-0 truncate font-semibold text-ink hover:text-brand hover:underline"
-                title={
-                  client.isSampleClient
-                    ? 'THIS IS A MOCK USER.'
-                    : client.name !== getFirstName(client.name)
-                      ? client.name
-                      : undefined
-                }
+                title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
               >
-                {getFirstName(client.name)}
+                {client.name}
               </Link>
-              <TenantMarkerBadge />
-              <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
-            </div>
-            <p className="truncate pl-2 text-xs text-ink-muted">{client.businessName}</p>
+            </TenantNameWithLeaseIcons>
+            <p className="truncate pl-2 text-xs text-ink-muted">
+              Official since{' '}
+              {formatDate(client.officialClientSince || client.createdAt)}
+            </p>
             <p className="truncate pl-2 text-xs text-ink-faint md:hidden">{client.email}</p>
           </div>
-        </td>
-      )
-    case 'propertyType':
-      return (
-        <td
-          key={columnId}
-          className="hidden px-3 py-2.5 align-middle md:table-cell sm:px-4"
-        >
-          <span className="text-ink-muted">{client.projectType}</span>
         </td>
       )
     case 'email':
@@ -131,9 +172,11 @@ function renderCell(
             <Link
               to={`/studio/clients/${client.id}`}
               className="line-clamp-2 min-w-0 break-words font-bold leading-snug text-ink hover:text-brand hover:underline"
-              title={`View tenant at ${address}`}
+              title={`View tenant at ${locationValue}`}
             >
-              {address}
+              <span key={locationDisplayMode} className="location-display-fade inline">
+                {locationValue}
+              </span>
             </Link>
           </div>
         </td>
@@ -141,26 +184,13 @@ function renderCell(
     case 'leaseStatus':
       return (
         <td key={columnId} className="px-3 py-2.5 text-center align-middle sm:px-4">
-          <span
-            className="inline-block max-w-full truncate text-xs font-medium text-ink"
-            title={leaseStatus}
-          >
-            {leaseStatus}
-          </span>
-        </td>
-      )
-    case 'contractStatus':
-      return (
-        <td
-          key={columnId}
-          className="hidden px-3 py-2.5 text-center align-middle sm:table-cell sm:px-4"
-        >
-          <div className="flex items-center justify-center">
-            <StatusBadge
-              type="contract"
-              status={getDisplayContractStatus(client, contract)}
-              tabular
-            />
+          <div className="mx-auto flex max-w-[14rem] flex-col items-center gap-0.5">
+            <LeaseStatusBadge details={leaseStatus} />
+            {leaseStatus.endDate ? (
+              <span className="text-[11px] leading-snug text-ink-muted">
+                Ends {formatDate(leaseStatus.endDate)}
+              </span>
+            ) : null}
           </div>
         </td>
       )
@@ -205,19 +235,32 @@ export function ClientTable({
   arrangeColumns = false,
   columnOrder: controlledOrder,
   onColumnOrderChange,
+  locationDisplayMode: controlledLocationMode,
+  onLocationDisplayModeChange,
 }: ClientTableProps) {
-  const { getContractForClient, refresh } = useApp()
+  const { getContractForClient, refresh, properties } = useApp()
   const [removeTarget, setRemoveTarget] = useState<Client | null>(null)
   const [uncontrolledOrder, setUncontrolledOrder] = useState(loadTenantTableColumnOrder)
+  const [uncontrolledLocationMode, setUncontrolledLocationMode] = useState(
+    loadOfficialTenantLocationDisplayMode
+  )
   const [dragOverId, setDragOverId] = useState<TenantTableColumnId | null>(null)
   const [draggingId, setDraggingId] = useState<TenantTableColumnId | null>(null)
 
   const columnOrder = controlledOrder ?? uncontrolledOrder
+  const locationDisplayMode = controlledLocationMode ?? uncontrolledLocationMode
 
   const setColumnOrder = (next: TenantTableColumnId[]) => {
     saveTenantTableColumnOrder(next)
     if (onColumnOrderChange) onColumnOrderChange(next)
     else setUncontrolledOrder(next)
+  }
+
+  const cycleLocationDisplay = () => {
+    const next = cycleOfficialTenantLocationDisplayMode(locationDisplayMode)
+    saveOfficialTenantLocationDisplayMode(next)
+    if (onLocationDisplayModeChange) onLocationDisplayModeChange(next)
+    else setUncontrolledLocationMode(next)
   }
 
   if (clients.length === 0) {
@@ -265,6 +308,9 @@ export function ClientTable({
               key={client.id}
               client={client}
               contract={getContractForClient(client.id)}
+              properties={properties}
+              locationDisplayMode={locationDisplayMode}
+              onCycleLocationDisplay={cycleLocationDisplay}
               highlighted={highlighted}
               dimmed={dimmed}
               onRemove={() => setRemoveTarget(client)}
@@ -314,7 +360,7 @@ export function ClientTable({
                       )}
                       aria-grabbed={draggingId === columnId || undefined}
                     >
-                      {renderHeaderLabel(columnId)}
+                      {renderHeaderLabel(columnId, locationDisplayMode, cycleLocationDisplay)}
                     </th>
                   )
                 })}
@@ -339,7 +385,14 @@ export function ClientTable({
                     )}
                   >
                     {columnOrder.map((columnId) =>
-                      renderCell(columnId, client, contract, () => setRemoveTarget(client))
+                      renderCell(
+                        columnId,
+                        client,
+                        contract,
+                        properties,
+                        locationDisplayMode,
+                        () => setRemoveTarget(client)
+                      )
                     )}
                   </tr>
                 )

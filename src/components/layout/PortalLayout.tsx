@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { FileText, GitBranch, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { usePortalTheme } from '@/context/PortalThemeContext'
+import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { AppearanceToggle } from '@/components/settings/AppearanceToggle'
 import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 import { PortalNotificationBanner } from '@/components/portal/PortalNotificationBanner'
@@ -13,10 +14,12 @@ import {
 import { Button } from '@/components/ui/Button'
 import { useClientNotifications } from '@/hooks/useClientNotifications'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
+import { exitPublicDemo } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
-  const { user, logout } = useAuth()
+  const { user, logout, isPublicDemo } = useAuth()
+  const navigate = useNavigate()
   const { appearance, setAppearance, supportsAppearance } = usePortalTheme()
 
   return (
@@ -25,18 +28,8 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
       className="sticky top-0 z-40 border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg"
     >
       <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10">
-        <NavLink to="/portal" className="group flex min-w-0 items-center gap-2.5 shrink sm:gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg">
-            L
-          </div>
-          <div className="min-w-0 leading-none">
-            <span className="block truncate font-display text-lg font-semibold tracking-tight sm:text-xl">
-              Leased
-            </span>
-            <span className="label-caps mt-0.5 hidden !text-nav-fg-muted sm:mt-1 sm:block">
-              Tenant Portal
-            </span>
-          </div>
+        <NavLink to="/portal" className="group flex min-w-0 items-center shrink">
+          <CreativeStudiosBrand subtitle="Tenant Portal" />
         </NavLink>
 
         <nav className="flex min-w-0 items-center gap-2 overflow-x-auto sm:gap-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -94,7 +87,17 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={logout}
+            onClick={() => {
+              if (isPublicDemo) {
+                void (async () => {
+                  logout()
+                  await exitPublicDemo()
+                  navigate('/', { replace: true })
+                })()
+                return
+              }
+              logout()
+            }}
             className="shrink-0 !border-nav-fg/30 !text-nav-fg-muted hover:!border-nav-fg hover:!text-nav-fg"
             title="Sign out"
           >

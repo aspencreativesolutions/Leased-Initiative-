@@ -10,11 +10,14 @@ import type { PortalRentPaymentInfo } from '@/types'
 interface PortalPayRentSectionProps {
   rentPayment: PortalRentPaymentInfo
   onInvoiceCreated?: () => void
+  /** Compact layout when nested inside the dashboard overview box */
+  embedded?: boolean
 }
 
 export function PortalPayRentSection({
   rentPayment,
   onInvoiceCreated,
+  embedded = false,
 }: PortalPayRentSectionProps) {
   const allowMulti = rentPayment.allowPrepaid && rentPayment.maxMonths > 1
   const [monthCount, setMonthCount] = useState(1)
@@ -74,15 +77,28 @@ export function PortalPayRentSection({
 
   return (
     <section
-      className="mx-auto max-w-lg px-2 py-10 text-center sm:py-14"
+      className={
+        embedded
+          ? 'mx-auto w-full max-w-xl px-1 text-center'
+          : 'mx-auto max-w-lg px-2 py-10 text-center sm:py-14'
+      }
       data-onboarding="portal-pay-rent"
       aria-labelledby="pay-rent-heading"
     >
-      <Wallet className="mx-auto h-8 w-8 text-brand" aria-hidden />
+      <Wallet
+        className={embedded ? 'mx-auto h-7 w-7 text-brand' : 'mx-auto h-8 w-8 text-brand'}
+        aria-hidden
+      />
       <h2 id="pay-rent-heading" className="sr-only">
         Pay rent
       </h2>
-      <p className="mt-4 text-xl font-semibold tracking-tight text-ink sm:text-2xl">
+      <p
+        className={
+          embedded
+            ? 'mt-3 text-lg font-semibold tracking-tight text-ink sm:text-xl'
+            : 'mt-4 text-xl font-semibold tracking-tight text-ink sm:text-2xl'
+        }
+      >
         {dueMessage}
       </p>
 

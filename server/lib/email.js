@@ -44,8 +44,8 @@ export async function verifySmtpConnection() {
 export async function sendVerificationEmail({ to, name, verifyUrl }) {
   const fromAddress =
     process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
-  const fromName = process.env.MAIL_FROM_NAME || 'Leased'
-  const subject = 'Confirm your Leased account'
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased Initiative'
+  const subject = 'Confirm your Leased Initiative account'
 
   const text = [
     `Hi ${name},`,
@@ -61,7 +61,7 @@ export async function sendVerificationEmail({ to, name, verifyUrl }) {
 
   const html = `
     <p>Hi ${escapeHtml(name)},</p>
-    <p>Thanks for signing up with <strong>Leased</strong>. Please confirm your email address to activate your account:</p>
+    <p>Thanks for signing up with <strong>Leased Initiative</strong>. Please confirm your email address to activate your account:</p>
     <p style="margin:24px 0">
       <a href="${verifyUrl}" style="display:inline-block;padding:12px 20px;background:#1e4d6b;color:#ffffff;text-decoration:none;font-weight:600;border-radius:4px">
         Confirm email address
@@ -107,8 +107,8 @@ function escapeHtml(value) {
 export async function sendClientReminderEmail({ to, name, title, message, portalUrl }) {
   const fromAddress =
     process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
-  const fromName = process.env.MAIL_FROM_NAME || 'Leased'
-  const subject = `${title} — Leased`
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased Initiative'
+  const subject = `${title} — Leased Initiative`
 
   const text = [
     `Hi ${name},`,

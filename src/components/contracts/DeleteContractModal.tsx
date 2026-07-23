@@ -99,7 +99,7 @@ export function DeleteContractModal({
 
   if (contracts.length === 0 && !workflowFallback) {
     return (
-      <Modal open={open} onClose={handleClose} title="Delete lease" size="md">
+      <Modal open={open} onClose={handleClose} title="Delete lease agreement" size="md">
         <p className="text-sm text-ink-muted">No leases exist to delete.</p>
         <div className="mt-6 flex justify-end">
           <Button variant="ghost" onClick={handleClose}>

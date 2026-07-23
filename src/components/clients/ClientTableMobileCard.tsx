@@ -1,35 +1,38 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { UserMinus, ArrowRight } from 'lucide-react'
+import { ChevronsUpDown, UserMinus, ArrowRight } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { CompactClientTimeline } from '@/components/clients/CompactClientTimeline'
-import { ClientStatusIcon } from './ClientStatusIcon'
-import { TenantMarkerBadge } from './TenantMarkerBadge'
-import { clientNameMarkersClass } from './clientBadgeStyles'
+import { LeaseStatusBadge } from './LeaseStatusBadge'
+import { TenantNameWithLeaseIcons } from './TenantLeaseStatusIcons'
+import { getLeaseStatusDetails } from '@/lib/clientUtils'
 import {
-  getDisplayContractStatus,
-  getFirstName,
-  getLeaseStatusLabel,
-  getTenantAddress,
-} from '@/lib/clientUtils'
-import { cn } from '@/lib/utils'
+  getOfficialTenantLocationDisplayValue,
+  getTenantAssignedProperty,
+  OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS,
+  type OfficialTenantLocationDisplayMode,
+} from '@/lib/officialTenantLocationDisplay'
+import { cn, formatDate } from '@/lib/utils'
 import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
-import type { Client, ContractData } from '@/types'
+import type { Client, ContractData, Property } from '@/types'
 
 interface ClientTableMobileCardProps {
   client: Client
   contract?: ContractData
+  properties: Property[]
+  locationDisplayMode: OfficialTenantLocationDisplayMode
+  onCycleLocationDisplay: () => void
   highlighted?: boolean
   dimmed?: boolean
   onRemove: () => void
 }
 
-function MobileField({ label, children }: { label: string; children: ReactNode }) {
+function MobileField({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="label-caps mb-0.5 text-[8px] leading-none tracking-[0.1em] text-ink-faint">
+      <div className="label-caps mb-0.5 min-w-0 text-[8px] leading-none tracking-[0.1em] text-ink-faint">
         {label}
-      </p>
+      </div>
       <div className="min-w-0">{children}</div>
     </div>
   )
@@ -38,12 +41,17 @@ function MobileField({ label, children }: { label: string; children: ReactNode }
 export function ClientTableMobileCard({
   client,
   contract,
+  properties,
+  locationDisplayMode,
+  onCycleLocationDisplay,
   highlighted = false,
   dimmed = false,
   onRemove,
 }: ClientTableMobileCardProps) {
-  const address = getTenantAddress(client, contract)
-  const leaseStatus = getLeaseStatusLabel(client, contract)
+  const property = getTenantAssignedProperty(client, contract, properties)
+  const locationValue = getOfficialTenantLocationDisplayValue(property, locationDisplayMode)
+  const locationLabel = OFFICIAL_TENANT_LOCATION_DISPLAY_LABELS[locationDisplayMode]
+  const leaseStatus = getLeaseStatusDetails(client, contract)
 
   return (
     <article
@@ -57,53 +65,71 @@ export function ClientTableMobileCard({
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 space-y-1.5">
           <div>
-            <div className={clientNameMarkersClass}>
+            <TenantNameWithLeaseIcons client={client} contract={contract}>
               <Link
                 to={`/studio/clients/${client.id}`}
                 className="min-w-0 truncate text-sm font-semibold text-ink hover:text-brand hover:underline"
-                title={
-                  client.isSampleClient
-                    ? 'THIS IS A MOCK USER.'
-                    : client.name !== getFirstName(client.name)
-                      ? client.name
-                      : undefined
-                }
+                title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
               >
-                {getFirstName(client.name)}
+                {client.name}
               </Link>
-              <TenantMarkerBadge />
-              <ClientStatusIcon isOfficialClient={client.isOfficialClient} />
-            </div>
-            <p className="truncate pl-2 text-[11px] leading-snug text-ink-muted">{client.businessName}</p>
+            </TenantNameWithLeaseIcons>
+            <p className="truncate pl-2 text-[11px] leading-snug text-ink-muted">
+              Official since {formatDate(client.officialClientSince || client.createdAt)}
+            </p>
             <p className="truncate pl-2 text-[11px] leading-snug text-ink-faint">{client.email}</p>
           </div>
 
-          <MobileField label="Property Type">
-            <span className="text-xs text-ink-muted">{client.projectType}</span>
-          </MobileField>
-
-          <MobileField label="Address">
+          <MobileField
+            label={
+              <button
+                type="button"
+                title="Click to change location detail"
+                aria-label={`${locationLabel}. Click to change location detail`}
+                onClick={onCycleLocationDisplay}
+                className={cn(
+                  'group inline-flex max-w-full items-center gap-1 rounded-sm px-0.5 py-0.5 -mx-0.5',
+                  'cursor-pointer text-left transition-colors duration-150',
+                  'hover:bg-ink/[0.06]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface-paper'
+                )}
+              >
+                <span key={locationDisplayMode} className="location-display-fade min-w-0 truncate">
+                  {locationLabel}
+                </span>
+                <ChevronsUpDown
+                  className="h-2.5 w-2.5 shrink-0 text-ink-faint transition-transform duration-200 group-hover:text-ink-muted group-hover:rotate-180"
+                  strokeWidth={2.25}
+                  aria-hidden
+                />
+              </button>
+            }
+          >
             <Link
               to={`/studio/clients/${client.id}`}
               className="line-clamp-2 min-w-0 break-words text-xs font-bold leading-snug text-ink hover:text-brand hover:underline"
-              title={`View tenant at ${address}`}
+              title={`View tenant at ${locationValue}`}
             >
-              {address}
+              <span key={locationDisplayMode} className="location-display-fade inline">
+                {locationValue}
+              </span>
             </Link>
           </MobileField>
 
           <MobileField label="Lease Status">
-            <span className="text-xs font-medium text-ink">{leaseStatus}</span>
+            <div className="space-y-0.5">
+              <LeaseStatusBadge details={leaseStatus} />
+              {leaseStatus.endDate ? (
+                <span className="block text-[11px] text-ink-muted">
+                  Ends {formatDate(leaseStatus.endDate)}
+                </span>
+              ) : null}
+            </div>
           </MobileField>
 
-          <div className="flex flex-wrap gap-2">
-            <MobileField label="Lease Progress">
-              <StatusBadge type="contract" status={getDisplayContractStatus(client, contract)} />
-            </MobileField>
-            <MobileField label="Payment Status">
-              <StatusBadge type="payment" status={client.paymentStatus} />
-            </MobileField>
-          </div>
+          <MobileField label="Payment Status">
+            <StatusBadge type="payment" status={client.paymentStatus} />
+          </MobileField>
 
           <CompactClientTimeline client={client} contract={contract} />
         </div>

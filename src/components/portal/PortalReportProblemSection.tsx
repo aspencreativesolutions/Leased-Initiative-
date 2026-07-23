@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
-  FileUp,
+  Camera,
   Loader2,
   Send,
   X,
@@ -10,23 +10,27 @@ import {
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/FormField'
 import { ApiError } from '@/lib/api'
-import { PORTAL_FILE_ACCEPT, PORTAL_FILE_TYPES_LABEL } from '@/lib/allowedFileTypes'
+import { PORTAL_PHOTO_ACCEPT, PORTAL_PHOTO_TYPES_LABEL } from '@/lib/allowedFileTypes'
 import { PROBLEM_TYPES, submitPortalProblemReport } from '@/lib/problemReports'
 import { cn, formatFileSize } from '@/lib/utils'
 
 interface PortalReportProblemSectionProps {
   className?: string
   onSubmitted?: () => void
+  /** When true, omit the section title (e.g. page already has a PageHeader) */
+  hideHeading?: boolean
 }
 
 function StepHeading({
   step,
   title,
   htmlFor,
+  optional,
 }: {
   step: number
   title: string
   htmlFor?: string
+  optional?: boolean
 }) {
   const heading = (
     <span className="flex items-center gap-2">
@@ -36,7 +40,12 @@ function StepHeading({
       >
         {step}
       </span>
-      <span className="text-sm font-semibold text-ink">{title}</span>
+      <span className="text-sm font-semibold text-ink">
+        {title}
+        {optional ? (
+          <span className="ml-1.5 font-normal text-ink-faint">(optional)</span>
+        ) : null}
+      </span>
     </span>
   )
 
@@ -51,9 +60,14 @@ function StepHeading({
   return <div className="mb-3">{heading}</div>
 }
 
+function isPhotoFile(file: File) {
+  return file.type.startsWith('image/') && !file.type.includes('svg')
+}
+
 export function PortalReportProblemSection({
   className,
   onSubmitted,
+  hideHeading = false,
 }: PortalReportProblemSectionProps) {
   const [problemType, setProblemType] = useState<string>('')
   const [note, setNote] = useState('')
@@ -78,9 +92,16 @@ export function PortalReportProblemSection({
       setPreviewUrl(null)
       return
     }
+    if (!isPhotoFile(next)) {
+      setError('Attach a photo (JPG, PNG, or WEBP).')
+      setFile(null)
+      setPreviewUrl(null)
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     setError('')
     setFile(next)
-    setPreviewUrl(next.type.startsWith('image/') ? URL.createObjectURL(next) : null)
+    setPreviewUrl(URL.createObjectURL(next))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,11 +113,7 @@ export function PortalReportProblemSection({
       setError('Select an issue type.')
       return
     }
-    if (!note.trim()) {
-      setError('Describe the issue so your landlord knows what happened.')
-      return
-    }
-    if (!file) {
+    if (!file || !isPhotoFile(file)) {
       setError('Upload a photo before submitting.')
       return
     }
@@ -125,21 +142,24 @@ export function PortalReportProblemSection({
       id="report-issue"
       className={cn('min-w-0 scroll-mt-24', className)}
       data-onboarding="portal-report-problem"
-      aria-labelledby="report-issue-heading"
+      aria-labelledby={hideHeading ? undefined : 'report-issue-heading'}
+      aria-label={hideHeading ? 'Log Repairs or Concerns' : undefined}
     >
-      <div className="mb-4">
-        <h2
-          id="report-issue-heading"
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink sm:text-xl"
-        >
-          <AlertTriangle className="h-5 w-5 shrink-0 text-brand" aria-hidden />
-          Report Issue
-        </h2>
-        <p className="mt-1.5 text-sm text-ink-muted">
-          Tell your landlord about a household problem so they can assess it and dispatch
-          maintenance.
-        </p>
-      </div>
+      {!hideHeading && (
+        <div className="mb-4">
+          <h2
+            id="report-issue-heading"
+            className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink sm:text-xl"
+          >
+            <AlertTriangle className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+            Log Repairs or Concerns
+          </h2>
+          <p className="mt-1.5 text-sm text-ink-muted">
+            Attach a photo of the issue so your landlord can review it under Tenant Alerts. A
+            note is optional.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Step 1 — Select Issue Type */}
@@ -170,30 +190,17 @@ export function PortalReportProblemSection({
           </div>
         </fieldset>
 
-        {/* Step 2 — Describe the Issue */}
+        {/* Step 2 — Upload Photo (required) */}
         <div className="rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-4 sm:p-5">
-          <StepHeading step={2} title="Describe the Issue" htmlFor="report-issue-note" />
-          <Textarea
-            id="report-issue-note"
-            label=""
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={4}
-            placeholder="What happened? Where in the unit? How urgent is it?"
-            required
-          />
-        </div>
-
-        {/* Step 3 — Upload Photo */}
-        <div className="rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-4 sm:p-5">
-          <StepHeading step={3} title="Upload Photo" />
+          <StepHeading step={2} title="Upload Photo" />
           <p className="mb-2 text-xs text-ink-faint">
-            Required — {PORTAL_FILE_TYPES_LABEL}
+            Required — {PORTAL_PHOTO_TYPES_LABEL}
           </p>
           <input
             ref={inputRef}
             type="file"
-            accept={PORTAL_FILE_ACCEPT}
+            accept={PORTAL_PHOTO_ACCEPT}
+            capture="environment"
             className="hidden"
             onChange={(e) => {
               const next = e.target.files?.[0] ?? null
@@ -210,7 +217,7 @@ export function PortalReportProblemSection({
                 />
               ) : (
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-sm border border-dashed border-line bg-surface-paper text-ink-faint">
-                  <FileUp className="h-6 w-6" aria-hidden />
+                  <Camera className="h-6 w-6" aria-hidden />
                 </div>
               )}
               <div className="min-w-0 flex-1">
@@ -234,10 +241,23 @@ export function PortalReportProblemSection({
               onClick={() => inputRef.current?.click()}
               className="flex w-full items-center justify-center gap-2 rounded-sm border-2 border-dashed border-line bg-surface px-3 py-6 text-sm text-ink-muted transition-colors hover:border-brand hover:text-ink"
             >
-              <FileUp className="h-5 w-5" />
-              Upload photo
+              <Camera className="h-5 w-5" />
+              Add required photo
             </button>
           )}
+        </div>
+
+        {/* Step 3 — Optional note */}
+        <div className="rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-4 sm:p-5">
+          <StepHeading step={3} title="Add a Note" htmlFor="report-issue-note" optional />
+          <Textarea
+            id="report-issue-note"
+            label=""
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            placeholder="Optional — what happened, where in the unit, how urgent…"
+          />
         </div>
 
         {error && (
@@ -255,7 +275,7 @@ export function PortalReportProblemSection({
         <Button
           type="submit"
           className="w-full sm:w-auto"
-          disabled={submitting || !problemType || !file || !note.trim()}
+          disabled={submitting || !problemType || !file}
         >
           {submitting ? (
             <Loader2 className="h-4 w-4 animate-spin" />

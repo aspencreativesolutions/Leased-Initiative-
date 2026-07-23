@@ -3,14 +3,23 @@ import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
   title: ReactNode
-  subtitle?: string
+  subtitle?: ReactNode
   tag?: ReactNode
   action?: ReactNode
   /** Tighter spacing on small screens (e.g. dashboard hero) */
   compact?: boolean
+  /** Larger page title for primary portal surfaces */
+  prominent?: boolean
 }
 
-export function PageHeader({ title, subtitle, tag, action, compact }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  tag,
+  action,
+  compact,
+  prominent,
+}: PageHeaderProps) {
   return (
     <div
       className={cn(
@@ -28,25 +37,38 @@ export function PageHeader({ title, subtitle, tag, action, compact }: PageHeader
           <h1
             className={cn(
               'heading-display',
-              compact ? 'text-xl sm:text-3xl' : 'text-2xl sm:text-3xl'
+              prominent
+                ? 'text-3xl sm:text-4xl lg:text-5xl'
+                : compact
+                  ? 'text-xl sm:text-3xl'
+                  : 'text-2xl sm:text-3xl'
             )}
           >
             {title}
           </h1>
-          {subtitle && <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>}
-        </div>
-        {tag && <div className="w-full shrink-0 sm:w-auto">{tag}</div>}
-      </div>
-      {action && (
-        <div
-          className={cn(
-            'flex shrink-0 flex-wrap',
-            compact ? 'mt-2 gap-1.5 sm:mt-3 sm:gap-2' : 'mt-3 gap-2'
+          {subtitle && (
+            <div
+              className={cn(
+                'text-ink-muted',
+                prominent ? 'mt-2 space-y-0.5 text-base sm:text-lg' : 'mt-0.5 text-sm'
+              )}
+            >
+              {typeof subtitle === 'string' ? <p>{subtitle}</p> : subtitle}
+            </div>
           )}
-        >
-          {action}
         </div>
-      )}
+        {(tag || action) && (
+          <div
+            className={cn(
+              'flex w-full shrink-0 flex-wrap items-center sm:w-auto sm:justify-end',
+              compact ? 'gap-1.5 sm:gap-2' : 'gap-2'
+            )}
+          >
+            {tag}
+            {action}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

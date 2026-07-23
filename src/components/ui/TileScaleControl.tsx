@@ -13,23 +13,26 @@ interface TileScaleControlProps {
   className?: string
   /** Accessible name for the control group */
   label?: string
+  /** `inline` shows a labeled slider; `button` uses a magnification popover; `row` is a compact single-line control */
+  variant?: 'button' | 'inline' | 'row'
 }
 
 /**
- * Magnification button that expands a slider to scale tiles up or down.
+ * Magnification control that scales tiles up or down.
  */
 export function TileScaleControl({
   value,
   onChange,
   className,
   label = 'Tile size',
+  variant = 'button',
 }: TileScaleControlProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const sliderId = useId()
 
   useEffect(() => {
-    if (!open) return
+    if (!open || variant !== 'button') return
     const onPointerDown = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false)
@@ -44,7 +47,71 @@ export function TileScaleControl({
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, variant])
+
+  const sliderInput = (
+    <input
+      type="range"
+      min={TILE_SCALE_MIN}
+      max={TILE_SCALE_MAX}
+      step={TILE_SCALE_STEP}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="tile-scale-slider w-full"
+      aria-valuemin={TILE_SCALE_MIN}
+      aria-valuemax={TILE_SCALE_MAX}
+      aria-valuenow={value}
+      aria-label={label}
+    />
+  )
+
+  const slider = (
+    <>
+      {sliderInput}
+      <div className="mt-1.5 flex justify-between text-[9px] font-medium uppercase tracking-caps text-ink-faint">
+        <span>50%</span>
+        <span>100%</span>
+        <span>150%</span>
+      </div>
+    </>
+  )
+
+  if (variant === 'row') {
+    return (
+      <div
+        ref={rootRef}
+        id={sliderId}
+        role="group"
+        aria-label={label}
+        className={cn(
+          'flex h-9 min-w-[12.5rem] flex-1 items-center gap-2.5',
+          className
+        )}
+      >
+        <p className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint whitespace-nowrap">
+          {label}
+        </p>
+        <div className="min-w-[5.5rem] flex-1">{sliderInput}</div>
+        <p className="shrink-0 text-xs font-semibold tabular-nums text-ink">{value}%</p>
+      </div>
+    )
+  }
+
+  if (variant === 'inline') {
+    return (
+      <div ref={rootRef} className={cn('min-w-[11rem] max-w-xs', className)}>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint">
+            {label}
+          </p>
+          <p className="text-xs font-semibold tabular-nums text-ink">{value}%</p>
+        </div>
+        <div id={sliderId} role="group" aria-label={label}>
+          {slider}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div ref={rootRef} className={cn('relative inline-flex', className)}>
@@ -80,23 +147,7 @@ export function TileScaleControl({
             </p>
             <p className="text-xs font-semibold tabular-nums text-ink">{value}%</p>
           </div>
-          <input
-            type="range"
-            min={TILE_SCALE_MIN}
-            max={TILE_SCALE_MAX}
-            step={TILE_SCALE_STEP}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value))}
-            className="tile-scale-slider w-full"
-            aria-valuemin={TILE_SCALE_MIN}
-            aria-valuemax={TILE_SCALE_MAX}
-            aria-valuenow={value}
-            aria-label={label}
-          />
-          <div className="mt-1.5 flex justify-between text-[9px] font-medium uppercase tracking-caps text-ink-faint">
-            <span>Compact</span>
-            <span>Large</span>
-          </div>
+          {slider}
         </div>
       )}
     </div>

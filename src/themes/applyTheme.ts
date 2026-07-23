@@ -5,7 +5,6 @@ import {
   DEFAULT_THEME_ID,
   PORTAL_THEME_STORAGE_KEY,
   THEME_STORAGE_KEY,
-  getThemeOption,
   themeSupportsAppearance,
 } from './options'
 import { ALL_THEME_IDS } from './themeIds'
@@ -51,15 +50,29 @@ export function applyAppearanceToDocument(
   }
 }
 
+export const THEME_PREFERENCE_EVENT = 'leased-theme-preference'
+
+/**
+ * Persist a theme id to both studio and portal storage keys.
+ * Used for home-page previews and Demo Mode so landlord ↔ tenant POV switches keep the same look.
+ */
+export function persistThemeIdAcrossSurfaces(themeId: ThemeId): void {
+  localStorage.setItem(THEME_STORAGE_KEY, themeId)
+  localStorage.setItem(PORTAL_THEME_STORAGE_KEY, themeId)
+  window.dispatchEvent(
+    new CustomEvent(THEME_PREFERENCE_EVENT, { detail: { themeId } })
+  )
+}
+
 export function applyThemeToDocument(
   themeId: ThemeId,
   storageKey: string = THEME_STORAGE_KEY,
-  options?: { persist?: boolean; appearance?: ThemeAppearance }
+  options?: { persist?: boolean; appearance?: ThemeAppearance; syncSurfaces?: boolean }
 ): void {
-  const theme = getThemeOption(themeId)
+  // Typography (fonts, caps, tracking) is shared — Slate Bureau baseline for every theme
   document.documentElement.setAttribute('data-theme', themeId)
-  document.documentElement.setAttribute('data-caps-labels', theme.capsLabels ? '1' : '0')
-  document.documentElement.setAttribute('data-caps-buttons', theme.capsButtons ? '1' : '0')
+  document.documentElement.setAttribute('data-caps-labels', '1')
+  document.documentElement.setAttribute('data-caps-buttons', '1')
 
   const appearance =
     options?.appearance ??
@@ -67,7 +80,11 @@ export function applyThemeToDocument(
   applyAppearanceToDocument(appearance, { persist: false })
 
   if (options?.persist === true) {
-    localStorage.setItem(storageKey, themeId)
+    if (options.syncSurfaces) {
+      persistThemeIdAcrossSurfaces(themeId)
+    } else {
+      localStorage.setItem(storageKey, themeId)
+    }
   }
 }
 
@@ -76,14 +93,26 @@ export function clearThemePreferences(): void {
   localStorage.removeItem(THEME_STORAGE_KEY)
   localStorage.removeItem(PORTAL_THEME_STORAGE_KEY)
   localStorage.removeItem(APPEARANCE_STORAGE_KEY)
+  // Drop legacy keys so removed styles / old defaults cannot resurface
+  localStorage.removeItem('leased-app-theme-v4')
+  localStorage.removeItem('leased-portal-theme-v4')
+  localStorage.removeItem('leased-app-theme-v3')
+  localStorage.removeItem('leased-portal-theme-v3')
+  localStorage.removeItem('leased-app-theme-v2')
+  localStorage.removeItem('leased-portal-theme-v2')
 }
 
-/** Studio team sign-in/register — always default theme, without overwriting saved preference */
+/** Public introduction / marketing routes (participate in the shared theme system) */
+export function isIntroPath(pathname: string): boolean {
+  return pathname === '/' || pathname === ''
+}
+
+/** Studio team sign-in/register paths */
 export function isStudioAuthPath(pathname: string): boolean {
   return pathname === '/studio/login' || pathname === '/studio/register'
 }
 
-export function applyStudioAuthTheme(): ThemeId {
+export function applyDefaultThemeToDocument(): ThemeId {
   applyThemeToDocument(DEFAULT_THEME_ID, THEME_STORAGE_KEY, {
     persist: false,
     appearance: DEFAULT_APPEARANCE,
@@ -91,11 +120,13 @@ export function applyStudioAuthTheme(): ThemeId {
   return DEFAULT_THEME_ID
 }
 
-/** Call before React mounts to avoid theme flash (admin app) */
+/** @deprecated Prefer applyDefaultThemeToDocument — same behavior with Slate Bureau default */
+export function applyStudioAuthTheme(): ThemeId {
+  return applyDefaultThemeToDocument()
+}
+
+/** Call before React mounts to avoid theme flash (admin app + introduction) */
 export function initTheme(): ThemeId {
-  if (isStudioAuthPath(window.location.pathname)) {
-    return applyStudioAuthTheme()
-  }
   const id = loadStoredThemeId()
   applyThemeToDocument(id, THEME_STORAGE_KEY, { persist: false })
   return id

@@ -1,6 +1,6 @@
 {
-  "name": "Leased",
-  "short_name": "Leased",
+  "name": "Leased Initiative",
+  "short_name": "LI",
   "description": "Lease management for landlords and tenants",
   "start_url": "/",
   "display": "standalone",

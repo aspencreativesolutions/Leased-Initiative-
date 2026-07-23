@@ -69,6 +69,10 @@ export interface Deadline {
   description?: string
   notes?: string
   completed?: boolean
+  /** YYYY-MM-DD when rent was received (payment deadlines) */
+  paidAt?: string
+  /** Human-readable timeline event, e.g. "August rent paid early on July 22" */
+  eventLabel?: string
 }
 
 /** Invoice tied to a client for PayPal or Stripe checkout */
@@ -144,6 +148,10 @@ export interface User {
   phone?: string
   /** Preferred lease term in months (tenants choose at registration) */
   preferredLeaseMonths?: number
+  /** Official landlord / agency name chosen at tenant registration */
+  preferredLandlordCompany?: string
+  /** Exact property address the tenant is registering for */
+  preferredPropertyAddress?: string
   /** Hidden from new registration queue without deleting the account */
   registrationDismissed?: boolean
   /** Client portal style — persisted across sessions */
@@ -152,6 +160,10 @@ export interface User {
   emailVerifiedAt?: string
   /** Guided tour progress for client or admin onboarding */
   onboardingProgress?: OnboardingProgress
+  /** True when signed in via the public demo access code */
+  publicDemo?: boolean
+  /** Canonical leased demo / mock account */
+  isLeasedDemoUser?: boolean
   createdAt: string
 }
 
@@ -199,12 +211,32 @@ export interface Client {
   profileNotes?: string
   /** Demo client from initial sample data */
   isSampleClient?: boolean
+  /** Journey demo tenant (leased.test accounts) */
+  isLeasedDemoClient?: boolean
+  /** Payment + lease dates come from the shared Demo Mode fixtures */
+  demoLeaseFixture?: boolean
+  demoLeaseStartDate?: string
   /** Linked client portal account */
   accountUserId?: string
   /** Service tier for this project — syncs to contract; changing it requires contract resend */
   serviceTier?: ServiceTier
   /** Agreed / preferred lease length in months */
   leaseLengthMonths?: number
+  /** Created via Company Profile “Import existing leases” */
+  importedFromLeaseScan?: boolean
+  /** Source document names from the import session */
+  importSourceFiles?: string[]
+  /** When the landlord confirmed the imported record */
+  importedAt?: string
+  /** Audit: who confirmed the import (email or display name) */
+  importConfirmedBy?: string
+  /** Invite delivery after import confirm */
+  importInvite?: {
+    method: 'email' | 'sms'
+    sentAt: string
+    status: 'pending' | 'opened' | 'accepted' | 'expired'
+    destination?: string
+  }
   /** Set when admin clicks Start Project — unlocks portal uploads */
   projectStartedAt?: string
   /** Admin-skipped timeline steps (step id → skip timestamp) */
@@ -268,6 +300,21 @@ export interface ContractData {
   contentUpdatedAt?: string
   /** Auto-generated contract still using placeholder sections */
   isPlaceholderDraft?: boolean
+  /** Residential lease template generation lifecycle */
+  leaseGenerationStatus?: 'generating' | 'ready'
+  leaseGenerationStartedAt?: string
+  leaseGenerationCompletedAt?: string
+  /** Monotonic lease version; increments when a sent lease is revised */
+  leaseVersion?: number
+  /** Prior delivered versions superseded by edits after send */
+  versionHistory?: LeaseVersionSnapshot[]
+}
+
+export interface LeaseVersionSnapshot {
+  version: number
+  supersededAt: string
+  sentAt?: string
+  contentFingerprint?: string
 }
 
 export type PortalContractClientStatus = 'Pending Review' | 'Viewed' | 'Accepted'
@@ -275,6 +322,8 @@ export type PortalContractClientStatus = 'Pending Review' | 'Viewed' | 'Accepted
 export interface PortalContractSummary {
   id: string
   projectTitle: string
+  /** Property address shown in the Leases list */
+  address?: string
   totalCost: string
   sentAt?: string
   signedAt?: string
@@ -291,6 +340,10 @@ export interface PendingRegistration {
   createdAt: string
   /** Preferred lease term chosen at registration */
   preferredLeaseMonths?: number
+  /** Landlord / agency the tenant selected at registration */
+  preferredLandlordCompany?: string
+  /** Property address the tenant entered at registration */
+  preferredPropertyAddress?: string
 }
 
 export interface PortalUserAccepted {
@@ -301,6 +354,14 @@ export interface PortalUserAccepted {
   clientId: string
   clientName: string
   projectName: string
+  /** Property address (from registration or lease) */
+  propertyAddress?: string
+  contractStatus?: ContractStatus
+  /** True when a filled-in lease agreement exists for this tenant (not a blank placeholder) */
+  hasLeaseAgreement?: boolean
+  /** Recommended landlord action for pending / prospective tenants */
+  leaseAction?: 'draft' | 'send' | 'view' | 'generating'
+  leaseGenerationStatus?: 'generating' | 'ready'
   isOfficialClient: boolean
   timelineStageId: string
   timelineStageLabel: string
@@ -405,12 +466,22 @@ export interface PortalSupportContact {
   phone: string
 }
 
-export type PortalRentPaymentStatus = 'paid' | 'due' | 'upcoming' | 'overdue'
+export type PortalRentPaymentStatus =
+  | 'paid'
+  | 'paid_early'
+  | 'paid_late'
+  | 'due'
+  | 'upcoming'
+  | 'overdue'
 
 export interface PortalRentPayment {
   dueDate: string
   label: string
   status: PortalRentPaymentStatus
+  /** YYYY-MM-DD when rent was received */
+  paidAt?: string
+  /** e.g. "August rent paid early on July 22" */
+  eventLabel?: string
 }
 
 export interface PortalLeaseSchedule {
@@ -527,6 +598,85 @@ export interface ContractRegion {
   areaCodes: string[]
   /** US state abbreviations (e.g. "NY", "NJ") */
   states: string[]
+}
+
+/** Housing / rental category for a landlord portfolio rental. */
+export type PropertyHousingType =
+  | 'Apartment'
+  | 'Condominium (Condo)'
+  | 'Single-Family Home'
+  | 'Townhouse'
+  | 'Duplex'
+  | 'Triplex'
+  | 'Fourplex'
+  | 'Multi-Family Building'
+  | 'Studio Apartment'
+  | 'Loft'
+  | 'Basement Apartment / Accessory Dwelling Unit'
+  | 'Vacation Rental'
+  | 'Other'
+
+export const PROPERTY_HOUSING_TYPES: PropertyHousingType[] = [
+  'Apartment',
+  'Condominium (Condo)',
+  'Single-Family Home',
+  'Townhouse',
+  'Duplex',
+  'Triplex',
+  'Fourplex',
+  'Multi-Family Building',
+  'Studio Apartment',
+  'Loft',
+  'Basement Apartment / Accessory Dwelling Unit',
+  'Vacation Rental',
+  'Other',
+]
+
+/** Structured address fields from Google Places (or equivalent). */
+export interface PropertyAddressDetails {
+  street?: string
+  city?: string
+  state?: string
+  zip?: string
+  country?: string
+  lat?: number
+  lng?: number
+  placeId?: string
+}
+
+/**
+ * Optional per-unit records for multi-unit rentals.
+ * Reserved for future unit-level occupancy; open units currently derive from unitCount.
+ */
+export interface PropertyUnit {
+  id: string
+  label?: string
+  /** When set, matches a tenant address or unit designation */
+  addressSuffix?: string
+}
+
+/** Landlord-owned rental (building or single address). */
+export interface Property {
+  id: string
+  /** Full street address used for matching tenants and invites */
+  address: string
+  /** Housing category (apartment, single-family, etc.) — shown as Rental Type in UI */
+  propertyType: PropertyHousingType
+  /** How many leasable units this rental has (used for open units / openings vacancy) */
+  unitCount: number
+  /** Typical bedroom count per unit */
+  bedrooms: number
+  /** Maximum number of tenants allowed at this rental */
+  maxTenants: number
+  createdAt: string
+  /** Added automatically while confirming an imported lease */
+  importedFromLeaseScan?: boolean
+  /** Parsed / Places-confirmed address components */
+  addressDetails?: PropertyAddressDetails
+  /** True when the landlord selected or confirmed a validated address */
+  addressConfirmed?: boolean
+  /** Future: individual unit records within a multi-unit rental */
+  units?: PropertyUnit[]
 }
 
 export interface BusinessSettings {

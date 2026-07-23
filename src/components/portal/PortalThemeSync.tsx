@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { usePortalTheme } from '@/context/PortalThemeContext'
+import { isPublicDemoSession } from '@/lib/publicDemo'
 import { isThemeId } from '@/themes/applyTheme'
 import type { ThemeId } from '@/themes/types'
 
@@ -16,6 +17,9 @@ export function PortalThemeSync() {
       return
     }
 
+    // Demo Mode keeps the device style across landlord ↔ tenant POV switches
+    if (isPublicDemoSession() || user.publicDemo === true) return
+
     const saved = user.portalThemeId
     const restoreKey = `${user.id}:${saved ?? ''}`
 
@@ -24,7 +28,7 @@ export function PortalThemeSync() {
 
     if (!saved || !isThemeId(saved)) return
     setTheme(saved as ThemeId, { persist: false })
-  }, [user?.id, user?.role, user?.portalThemeId, setTheme])
+  }, [user?.id, user?.role, user?.portalThemeId, user?.publicDemo, setTheme])
 
   return null
 }

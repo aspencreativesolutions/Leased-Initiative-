@@ -18,13 +18,13 @@ export type ProblemType = (typeof PROBLEM_TYPES)[number]
 
 export async function submitPortalProblemReport(input: {
   problemType: string
-  note: string
+  note?: string
   file: File
 }) {
   const token = getToken()
   const formData = new FormData()
   formData.append('problemType', input.problemType)
-  formData.append('note', input.note.trim())
+  formData.append('note', (input.note ?? '').trim())
   formData.append('file', input.file)
 
   const res = await fetch('/api/portal/problems', {

@@ -1,7 +1,14 @@
 import { Router } from 'express'
 import { readStore, updateStore, writeStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
-import { createDraftContract } from '../lib/contractDraft.js'
+import {
+  cloneLeaseForClient,
+  completeLeaseGenerationIfDue,
+  createDraftContract,
+  findPropertyForLease,
+  findReusableLeaseAtAddress,
+  resolveLeaseAgreementAction,
+} from '../lib/contractDraft.js'
 import {
   applyClientContractRevision,
   mergeContractsList,
@@ -37,10 +44,22 @@ import {
   listMonthlyRentDueDates,
   parseLeaseLengthMonths,
 } from '../lib/leaseSchedule.js'
+import { resolveServerScheduleAsOf } from '../lib/scheduleAsOf.js'
 import {
+  advanceLeaseGenerations,
   buildPortalUsersOverview,
   isPendingPortalRegistration,
 } from '../lib/portalUsers.js'
+import {
+  buildTenantInviteUrl,
+  createTenantInvite,
+  markTenantInviteDelivered,
+} from '../lib/tenantInvites.js'
+import {
+  createPropertyRecord,
+  ensureStoreProperties,
+  validatePropertyInput,
+} from '../lib/properties.js'
 import { buildFinalInvoice } from '../lib/invoice.js'
 import { attachPaymentLink } from '../lib/paymentLinks.js'
 import {
@@ -52,6 +71,7 @@ import {
   ensureSampleLeaseAmounts,
   refreshAllSampleClientDates,
 } from '../lib/sampleClientDates.js'
+import { applyDemoLeaseFixturesToStore } from '../lib/applyDemoLeaseFixtures.js'
 import { reconcileClientContractStatus } from '../lib/contractReview.js'
 import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
 import { sendOverdueRentSms } from '../lib/sms.js'
@@ -94,15 +114,26 @@ router.get('/', (_req, res) => {
   if (repairedAny) {
     store = updateStore((s) => ({ ...s, clients }))
   }
+  const fixtures = applyDemoLeaseFixturesToStore(store)
+  if (fixtures.changed) {
+    store = fixtures.store
+    writeStore(store)
+  }
   const leaseAmounts = ensureSampleLeaseAmounts(store)
   if (leaseAmounts.changed) {
     store = leaseAmounts.store
+    writeStore(store)
+  }
+  const propertySeed = ensureStoreProperties(store)
+  if (propertySeed.changed) {
+    store = propertySeed.store
     writeStore(store)
   }
   res.json({
     clients: store.clients,
     contracts: store.contracts,
     settings: store.settings,
+    properties: store.properties ?? [],
   })
 })
 
@@ -691,7 +722,7 @@ router.put('/settings', (req, res) => {
 
 /** One-time migration from browser localStorage on first admin login */
 router.post('/migrate', (req, res) => {
-  const { clients, contracts, settings } = req.body
+  const { clients, contracts, settings, properties } = req.body
   const store = readStore()
   if (store.clients.length > 0 || store.contracts.length > 0) {
     return res.status(409).json({ error: 'Server already has data' })
@@ -700,6 +731,7 @@ router.post('/migrate', (req, res) => {
     ...s,
     clients: Array.isArray(clients) ? clients : [],
     contracts: Array.isArray(contracts) ? contracts : [],
+    properties: Array.isArray(properties) ? properties : s.properties ?? [],
     settings: settings ? { ...s.settings, ...settings } : s.settings,
   }))
   res.json({ ok: true, migrated: true })
@@ -836,23 +868,32 @@ router.post('/accept-registration/:userId', (req, res) => {
       next = notifyClientByClientId(next, existingClient.id, {
         type: 'registration_accepted',
         title: 'Welcome to your portal',
-        message: `Your account is now linked. Check your dashboard for leases and project updates.`,
+        message: `Your account is now linked. Check your dashboard for lease agreements and updates.`,
         actionUrl: '/portal',
         relatedId: `registration-accepted-${userId}`,
       })
       return next
     })
+    const linkedClient = { ...existingClient, accountUserId: user.id }
     return res.json({
-      client: { ...existingClient, accountUserId: user.id },
+      client: linkedClient,
       contract: contract ?? null,
       linked: true,
+      reusedLease: false,
+      leaseAction: resolveLeaseAgreementAction(linkedClient, contract),
     })
   }
 
   if (user.clientId) {
     const client = store.clients.find((c) => c.id === user.clientId)
     const contract = store.contracts.find((c) => c.clientId === user.clientId)
-    return res.json({ client, contract: contract ?? null, linked: true })
+    return res.json({
+      client,
+      contract: contract ?? null,
+      linked: true,
+      reusedLease: false,
+      leaseAction: resolveLeaseAgreementAction(client, contract),
+    })
   }
 
   const now = new Date().toISOString()
@@ -860,10 +901,28 @@ router.post('/accept-registration/:userId', (req, res) => {
     user.preferredLeaseMonths,
     DEFAULT_LEASE_LENGTH_MONTHS
   )
-  const leaseStartDate = computeLeaseStartDate()
+  const leaseStartDate = computeLeaseStartDate(resolveServerScheduleAsOf())
   const leaseEndDate = computeLeaseEndDate(leaseStartDate, leaseLengthMonths)
   const rentDueDates = listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
   const rentDeadlines = buildMonthlyRentDeadlines(rentDueDates, generateId)
+  const propertyAddress = String(user.preferredPropertyAddress ?? '').trim()
+  const landlordCompany = String(user.preferredLandlordCompany ?? '').trim()
+  const property = findPropertyForLease(store, propertyAddress)
+  const reusableLease = findReusableLeaseAtAddress(store, propertyAddress)
+  const reusedLease = Boolean(reusableLease)
+  const registrationDetails = [
+    landlordCompany ? `Landlord company: ${landlordCompany}` : null,
+    propertyAddress ? `Property: ${propertyAddress}` : null,
+    property?.propertyType ? `Rental type: ${property.propertyType}` : null,
+    `Preferred lease: ${formatLeaseLengthLabel(leaseLengthMonths)}`,
+    `Lease ${leaseStartDate} → ${leaseEndDate}`,
+    'Monthly rent due on the 1st.',
+    reusedLease
+      ? 'Existing lease agreement found for this address — generating a copy for this tenant.'
+      : 'Generating residential lease agreement from applicant and rental details.',
+  ]
+    .filter(Boolean)
+    .join('. ')
 
   const client = {
     id: generateId(),
@@ -871,11 +930,17 @@ router.post('/accept-registration/:userId', (req, res) => {
     businessName: user.name,
     email: user.email,
     phone: '',
-    projectType: 'Apartment',
-    projectName: `${user.name} Lease`,
-    projectDescription: `Preferred lease length: ${formatLeaseLengthLabel(leaseLengthMonths)}.`,
+    projectType: property?.propertyType || 'Apartment',
+    projectName: propertyAddress || `${user.name} Lease`,
+    projectDescription: [
+      landlordCompany ? `Registering under ${landlordCompany}.` : null,
+      `Preferred lease length: ${formatLeaseLengthLabel(leaseLengthMonths)}.`,
+      propertyAddress ? `Desired rental: ${propertyAddress}.` : null,
+    ]
+      .filter(Boolean)
+      .join(' '),
     projectStatus: 'Inquiry',
-    contractStatus: 'Not Started',
+    contractStatus: 'Draft in Progress',
     paymentStatus: 'Unpaid',
     isOfficialClient: false,
     serviceTier: DEFAULT_SERVICE_TIER,
@@ -884,7 +949,7 @@ router.post('/accept-registration/:userId', (req, res) => {
     notes: [
       {
         id: generateId(),
-        text: `Accepted from portal registration on ${new Date(now).toLocaleDateString()}. Preferred lease: ${formatLeaseLengthLabel(leaseLengthMonths)}. Lease ${leaseStartDate} → ${leaseEndDate}. Monthly rent due on the 1st.`,
+        text: `Accepted from portal registration on ${new Date(now).toLocaleDateString()}. ${registrationDetails}`,
         category: 'General',
         createdAt: now,
       },
@@ -893,11 +958,17 @@ router.post('/accept-registration/:userId', (req, res) => {
     createdAt: now,
   }
 
-  const contract = createDraftContract(client, store.settings, {
+  const leaseOptions = {
     startDate: leaseStartDate,
     completionDate: leaseEndDate,
+    clientAddress: propertyAddress,
     paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
-  })
+    leaseLengthMonths,
+    property,
+  }
+  const contract = reusedLease
+    ? cloneLeaseForClient(reusableLease, client, leaseOptions)
+    : createDraftContract(client, store.settings, leaseOptions)
 
   updateStore((s) => {
     let next = {
@@ -912,14 +983,22 @@ router.post('/accept-registration/:userId', (req, res) => {
     next = notifyClientByClientId(next, client.id, {
       type: 'registration_accepted',
       title: 'Welcome to your portal',
-      message: `Your registration has been accepted. Your landlord is preparing your lease — it will appear here when ready.`,
+      message: reusedLease
+        ? `Your registration has been accepted. Your landlord has a lease agreement for this property and will send it to you shortly.`
+        : `Your registration has been accepted. Your landlord is preparing your lease agreement — it will appear here when ready.`,
       actionUrl: '/portal',
       relatedId: `registration-accepted-${userId}`,
     })
     return next
   })
 
-  res.status(201).json({ client, contract, linked: true })
+  res.status(201).json({
+    client,
+    contract,
+    linked: true,
+    reusedLease,
+    leaseAction: resolveLeaseAgreementAction(client, contract),
+  })
 })
 
 /** Portal sign-ups not yet added as clients */
@@ -933,9 +1012,164 @@ router.get('/registrations', (_req, res) => {
       email: u.email,
       createdAt: u.createdAt,
       preferredLeaseMonths: u.preferredLeaseMonths,
+      preferredLandlordCompany: u.preferredLandlordCompany,
+      preferredPropertyAddress: u.preferredPropertyAddress,
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ registrations, count: registrations.length })
+})
+
+/** Create a tenant invite link (pre-links signup to this landlord, optionally a property). */
+router.post('/tenant-invites', (req, res) => {
+  try {
+    const store = readStore()
+    const propertyAddress =
+      typeof req.body?.propertyAddress === 'string' ? req.body.propertyAddress.trim() : ''
+    const clientId = typeof req.body?.clientId === 'string' ? req.body.clientId.trim() : ''
+    const source = req.body?.source === 'lease-import' ? 'lease-import' : 'manual'
+    const invite = createTenantInvite(store, {
+      ...(propertyAddress ? { propertyAddress } : {}),
+      ...(clientId ? { clientId } : {}),
+      source,
+    })
+    updateStore((s) => ({
+      ...s,
+      tenantInvites: [...(s.tenantInvites ?? []), invite],
+    }))
+    res.status(201).json({
+      invite: {
+        id: invite.id,
+        landlordCompany: invite.landlordCompany,
+        propertyAddress: invite.propertyAddress ?? null,
+        expiresAt: invite.expiresAt,
+        source: invite.source,
+        status: invite.status ?? 'pending',
+      },
+      inviteUrl: buildTenantInviteUrl(invite.token),
+    })
+  } catch (err) {
+    console.error('tenant-invites', err)
+    res.status(500).json({ error: 'Could not create invite link' })
+  }
+})
+
+/** Record that an invite link was delivered by email or SMS */
+router.post('/tenant-invites/:id/delivered', (req, res) => {
+  try {
+    const inviteId = req.params.id
+    const method = req.body?.method === 'sms' ? 'sms' : 'email'
+    const destination =
+      typeof req.body?.destination === 'string' ? req.body.destination.trim() : ''
+    const store = readStore()
+    const existing = (store.tenantInvites ?? []).find((entry) => entry.id === inviteId)
+    if (!existing) {
+      return res.status(404).json({ error: 'Invite not found' })
+    }
+    const next = updateStore((s) =>
+      markTenantInviteDelivered(s, inviteId, { method, destination })
+    )
+    const invite = (next.tenantInvites ?? []).find((entry) => entry.id === inviteId)
+    res.json({
+      ok: true,
+      invite: {
+        id: invite.id,
+        deliveryMethod: invite.deliveryMethod,
+        deliveryDestination: invite.deliveryDestination,
+        deliveredAt: invite.deliveredAt,
+        status: invite.status ?? 'pending',
+        expiresAt: invite.expiresAt,
+      },
+    })
+  } catch (err) {
+    console.error('tenant-invites delivered', err)
+    res.status(500).json({ error: 'Could not record invite delivery' })
+  }
+})
+
+/** Add a property to the landlord portfolio */
+router.post('/properties', (req, res) => {
+  try {
+    const validated = validatePropertyInput(req.body)
+    if (validated.error) {
+      return res.status(400).json({ error: validated.error })
+    }
+    const property = createPropertyRecord(validated)
+    const next = updateStore((s) => ({
+      ...s,
+      properties: [...(s.properties ?? []), property],
+    }))
+    res.status(201).json({ property, properties: next.properties })
+  } catch (err) {
+    console.error('properties create', err)
+    res.status(500).json({ error: 'Could not add property' })
+  }
+})
+
+/** Replace the full properties list (admin sync) */
+router.put('/properties', (req, res) => {
+  const { properties } = req.body
+  if (!Array.isArray(properties)) {
+    return res.status(400).json({ error: 'properties array required' })
+  }
+  const next = updateStore((s) => ({ ...s, properties }))
+  res.json({ ok: true, properties: next.properties })
+})
+
+/** Notify tenants about lease re-sign / renewal */
+router.post('/clients/:clientId/resign-message', (req, res) => {
+  try {
+    const { clientId } = req.params
+    const message =
+      typeof req.body?.message === 'string' ? req.body.message.trim() : ''
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    if (!client) return res.status(404).json({ error: 'Client not found' })
+
+    const now = new Date().toISOString()
+    const noteText = message
+      ? `Re-sign message drafted: ${message}`
+      : 'Re-sign / renewal outreach logged from Upcoming Openings.'
+
+    let next = updateStore((s) => {
+      let updated = {
+        ...s,
+        clients: s.clients.map((c) =>
+          c.id === clientId
+            ? {
+                ...c,
+                notes: [
+                  ...(c.notes ?? []),
+                  {
+                    id: generateId(),
+                    text: noteText,
+                    category: 'Contract',
+                    createdAt: now,
+                  },
+                ],
+              }
+            : c
+        ),
+      }
+      updated = notifyClientByClientId(updated, clientId, {
+        type: 'follow_up',
+        title: 'Lease renewal',
+        message:
+          message ||
+          `${store.settings?.businessName || 'Your landlord'} wants to discuss renewing your lease.`,
+        relatedId: `resign-${clientId}`,
+        actionUrl: '/portal/contracts',
+      })
+      return updated
+    })
+
+    res.json({
+      ok: true,
+      client: next.clients.find((c) => c.id === clientId),
+    })
+  } catch (err) {
+    console.error('resign-message', err)
+    res.status(500).json({ error: 'Could not log re-sign message' })
+  }
 })
 
 /** Dismiss a portal registration from the new sign-ups queue */
@@ -971,7 +1205,12 @@ router.get('/portal-users', (req, res) => {
       ensureClientFileSharing(client.id)
     }
   }
-  const freshStore = readStore()
+  let freshStore = readStore()
+  const advanced = advanceLeaseGenerations(freshStore)
+  if (advanced.changed) {
+    updateStore(() => advanced.store)
+    freshStore = advanced.store
+  }
   res.json(buildPortalUsersOverview(freshStore))
 })
 

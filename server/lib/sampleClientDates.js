@@ -1,37 +1,29 @@
+import { isDemoSandboxActive } from './demoSandbox.js'
+import { getDemoAsOfDate, getDemoAsOfYmd } from './demoClock.js'
+import { resolveDemoScenario } from './demoLeaseFixtures.js'
+import { applyDemoLeaseAmounts } from './demoLeaseFixtures.js'
+
 export const SAMPLE_CLIENT_EMAILS = new Set([
-  'sarah@bloombotanicals.com',
   'james@chenarch.com',
   'emily@rodriguezwellness.com',
   'marcus@webblegal.com',
   'lisa@parkphoto.com',
 ])
 
-/** Days-from-today offsets for each sample client — keeps demo schedules realistic */
-const SAMPLE_SCHEDULES = {
-  'sarah@bloombotanicals.com': {
-    followUpDate: 5,
-    deadlines: [7, 30],
-  },
-  'james@chenarch.com': {
-    followUpDate: null,
-    // follow-up, overdue payment, contract follow-up
-    deadlines: [2, -14, 6],
-    paymentStatus: 'Overdue',
-  },
-  'emily@rodriguezwellness.com': {
-    followUpDate: 9,
-    deadlines: [9],
-  },
-  'lisa@parkphoto.com': {
-    followUpDate: 4,
-    // two overdue rent payments for multi-overdue UI testing
-    deadlines: [-45, -14],
-    paymentStatus: 'Overdue',
-    ensurePaymentDeadlines: [
-      { offset: -45, label: 'Rent due — prior month' },
-      { offset: -14, label: 'Rent due' },
-    ],
-  },
+/** Former sample tenants purged from existing stores on boot. */
+export const REMOVED_SAMPLE_CLIENT_EMAILS = new Set([
+  'sarah@bloombotanicals.com',
+  'sarahmiller@nextgarden.com',
+])
+
+/** Display names purged alongside retired mock / demo tenants. */
+export const REMOVED_SAMPLE_CLIENT_NAMES = new Set(['sarah miller'])
+
+/** Non-payment follow-up offsets relative to Demo Mode “today” (July 22). */
+const SAMPLE_FOLLOW_UPS = {
+  'james@chenarch.com': { followUpOffsetDays: 2 },
+  'emily@rodriguezwellness.com': { followUpOffsetDays: 9 },
+  'lisa@parkphoto.com': { followUpOffsetDays: 4 },
 }
 
 /** Concrete lease amounts so overdue $ totals show in Payments / Overdue Rent */
@@ -44,14 +36,22 @@ export const SAMPLE_LEASE_AMOUNTS = {
     monthlyRent: 1850,
     leaseMonths: 6,
   },
-  'sarah@bloombotanicals.com': {
-    monthlyRent: 2400,
+  'marcus@webblegal.com': {
+    monthlyRent: 2200,
+    leaseMonths: 12,
+  },
+  'emily@rodriguezwellness.com': {
+    monthlyRent: 1650,
     leaseMonths: 12,
   },
 }
 
-function daysFromNow(days) {
-  const d = new Date()
+function asOfDate() {
+  return isDemoSandboxActive() ? getDemoAsOfDate() : new Date()
+}
+
+function daysFromAsOf(days) {
+  const d = asOfDate()
   d.setDate(d.getDate() + days)
   return d.toISOString().split('T')[0]
 }
@@ -65,79 +65,62 @@ function formatMoney(amount) {
   return `$${Number(amount).toLocaleString('en-US')}`
 }
 
-function ensureLisaPaymentDeadlines(client, ensurePaymentDeadlines) {
-  if (!ensurePaymentDeadlines?.length) return { client, changed: false }
-
-  const paymentDeadlines = (client.deadlines ?? []).filter((d) => d.type === 'payment')
-  if (paymentDeadlines.length >= ensurePaymentDeadlines.length) {
-    return { client, changed: false }
-  }
-
-  const nonPayment = (client.deadlines ?? []).filter((d) => d.type !== 'payment')
-  const nextPayments = ensurePaymentDeadlines.map((spec, index) => {
-    const existing = paymentDeadlines[index]
-    if (existing) {
-      return {
-        ...existing,
-        date: daysFromNow(spec.offset),
-        label: spec.label || existing.label,
-        completed: false,
-      }
-    }
-    return {
-      id: `sample-pay-${client.id}-${index}`,
-      type: 'payment',
-      date: daysFromNow(spec.offset),
-      label: spec.label || 'Rent due',
-      description: 'Monthly rent is past due.',
-      completed: false,
-    }
-  })
-
-  return {
-    client: { ...client, deadlines: [...nonPayment, ...nextPayments] },
-    changed: true,
-  }
-}
-
+/**
+ * Demo fixture clients keep absolute Jan 1 / Aug 1 lease payment dates.
+ * Only refresh non-payment follow-ups relative to the demo (or wall) clock.
+ */
 export function refreshSampleClientDates(client) {
   if (!isSampleClient(client)) return { client, changed: false }
 
   const email = client.email.trim().toLowerCase()
-  const schedule = SAMPLE_SCHEDULES[email]
+  const scenario = resolveDemoScenario(email)
   let changed = false
   let next = { ...client }
 
-  const ensured = ensureLisaPaymentDeadlines(next, schedule?.ensurePaymentDeadlines)
-  if (ensured.changed) {
-    next = ensured.client
-    changed = true
+  // Canonical demo payment histories must not be re-anchored to wall-clock offsets
+  if (scenario || client.demoLeaseFixture) {
+    const follow = SAMPLE_FOLLOW_UPS[email]
+    if (follow && next.followUpDate) {
+      const refreshed = daysFromAsOf(follow.followUpOffsetDays)
+      if (next.followUpDate !== refreshed) {
+        next = { ...next, followUpDate: refreshed }
+        changed = true
+      }
+    }
+
+    if (scenario?.paymentStatus && next.paymentStatus !== scenario.paymentStatus) {
+      next = { ...next, paymentStatus: scenario.paymentStatus }
+      changed = true
+    }
+
+    // Keep non-payment deadline dates relative for follow-ups / meetings only
+    if (next.deadlines?.length) {
+      next = {
+        ...next,
+        deadlines: next.deadlines.map((deadline) => {
+          if (deadline.type === 'payment' || deadline.completed) return deadline
+          if (deadline.type === 'follow-up' && follow) {
+            const refreshed = daysFromAsOf(follow.followUpOffsetDays)
+            if (deadline.date === refreshed) return deadline
+            changed = true
+            return { ...deadline, date: refreshed }
+          }
+          return deadline
+        }),
+      }
+    }
+
+    return { client: next, changed }
   }
 
-  const followUpOffset = schedule?.followUpDate ?? 5
+  // Legacy relative refresh for any sample without a demo scenario
+  const followUpOffset = SAMPLE_FOLLOW_UPS[email]?.followUpOffsetDays ?? 5
   if (next.followUpDate) {
-    const refreshed = daysFromNow(followUpOffset)
+    const refreshed = daysFromAsOf(followUpOffset)
     if (next.followUpDate !== refreshed) {
       next.followUpDate = refreshed
       changed = true
     }
-  }
-
-  if (next.deadlines?.length) {
-    const offsets = schedule?.deadlines ?? next.deadlines.map((_, i) => 3 + i * 7)
-    next.deadlines = next.deadlines.map((deadline, index) => {
-      if (deadline.completed) return deadline
-      const offset = offsets[index] ?? 7 + index * 7
-      const refreshed = daysFromNow(offset)
-      if (deadline.date === refreshed) return deadline
-      changed = true
-      return { ...deadline, date: refreshed, completed: false }
-    })
-  }
-
-  if (schedule?.paymentStatus && next.paymentStatus !== schedule.paymentStatus) {
-    next.paymentStatus = schedule.paymentStatus
-    changed = true
   }
 
   return { client: next, changed }
@@ -161,6 +144,22 @@ export function ensureSampleLeaseAmounts(store) {
   const contracts = store.contracts.map((contract) => {
     const client = store.clients.find((c) => c.id === contract.clientId)
     const email = client?.email?.trim().toLowerCase()
+    const scenario = email ? resolveDemoScenario(email) : null
+    if (scenario && client) {
+      const next = applyDemoLeaseAmounts(contract, scenario)
+      if (
+        next.totalCost === contract.totalCost &&
+        next.depositAmount === contract.depositAmount &&
+        next.remainingBalance === contract.remainingBalance &&
+        next.startDate === contract.startDate &&
+        next.completionDate === contract.completionDate
+      ) {
+        return contract
+      }
+      changed = true
+      return next
+    }
+
     const amounts = email ? SAMPLE_LEASE_AMOUNTS[email] : null
     if (!amounts) return contract
 
@@ -169,7 +168,7 @@ export function ensureSampleLeaseAmounts(store) {
     const incompletePayments = (client.deadlines ?? []).filter(
       (d) => d.type === 'payment' && !d.completed
     )
-    const today = daysFromNow(0)
+    const today = isDemoSandboxActive() ? getDemoAsOfYmd() : daysFromAsOf(0)
     const overdueCount = incompletePayments.filter((d) => d.date.slice(0, 10) < today).length
     const remaining =
       overdueCount > 0

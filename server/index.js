@@ -1,5 +1,5 @@
 /**
- * Leased API server — auth, data sync, PayPal, Stripe, and tenant portal.
+ * Leased Initiative API server — auth, data sync, PayPal, Stripe, and tenant portal.
  * Run: node server/index.js  (or npm run dev:server)
  */
 import express from 'express'
@@ -14,6 +14,7 @@ import portalRoutes from './routes/portal.js'
 import filesRoutes from './routes/files.js'
 import invoiceRoutes from './routes/invoices.js'
 import e2eRoutes from './routes/e2e.js'
+import demoRoutes from './routes/demo.js'
 import {
   createPayPalOrder,
   capturePayPalOrder,
@@ -35,8 +36,9 @@ import {
   getSquareEnvironment,
 } from './lib/square.js'
 import { readStore, updateStore, writeStore } from './db.js'
-import { ensureSamplePortalUsers } from './lib/samplePortalUsers.js'
+import { ensureSamplePortalUsers, purgeRemovedSampleClients } from './lib/samplePortalUsers.js'
 import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
+import { applyDemoLeaseFixturesToStore } from './lib/applyDemoLeaseFixtures.js'
 import devRoutes, { isAdminModeApiEnabled } from './routes/dev.js'
 import {
   ensureLeasedDemoUsers,
@@ -139,6 +141,7 @@ app.get('/api/smtp/health', async (_req, res) => {
 })
 
 app.use('/api/auth', authRoutes)
+app.use('/api/demo', demoRoutes)
 app.use('/api/data', dataRoutes)
 app.use('/api/contracts', contractRoutes)
 app.use('/api/portal', portalRoutes)
@@ -305,6 +308,11 @@ async function bootstrapSamplePortalUsers() {
       store = demoResult.store
     }
 
+    const purgeResult = purgeRemovedSampleClients(store)
+    if (purgeResult.changed) {
+      store = purgeResult.store
+    }
+
     const portalResult = await ensureSamplePortalUsers(store)
     if (portalResult.changed) {
       store = portalResult.store
@@ -315,14 +323,25 @@ async function bootstrapSamplePortalUsers() {
       store = contractResult.store
     }
 
-    if (demoResult.changed || portalResult.changed || contractResult.changed) {
+    const fixtures = applyDemoLeaseFixturesToStore(store)
+    if (fixtures.changed) {
+      store = fixtures.store
+    }
+
+    if (
+      demoResult.changed ||
+      purgeResult.changed ||
+      portalResult.changed ||
+      contractResult.changed ||
+      fixtures.changed
+    ) {
       writeStore(store)
     }
 
     console.log(formatLeasedDemoLogins())
 
     if (demoResult.createdUsers > 0) {
-      console.log(`Leased demo users: ${demoResult.createdUsers} account(s) created`)
+      console.log(`Leased Initiative demo users: ${demoResult.createdUsers} account(s) created`)
     }
     if (portalResult.createdUsers > 0 || portalResult.restoredClients > 0) {
       console.log(
@@ -346,7 +365,7 @@ app.listen(PORT, async () => {
     await bootstrapSamplePortalUsers()
   }
   startAutomationScheduler()
-  console.log(`Leased API → http://localhost:${PORT}`)
+  console.log(`Leased Initiative API → http://localhost:${PORT}`)
   console.log(
     `PayPal mode: ${MODE}`,
     isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'

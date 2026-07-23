@@ -2,6 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { migrateStoreTiers } from './lib/serviceTier.js'
+import {
+  getSandboxStore,
+  isDemoSandboxActive,
+  setSandboxStore,
+} from './lib/demoSandbox.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA_DIR = path.join(__dirname, 'data')
@@ -10,6 +15,7 @@ const DEFAULT_STORE = {
   users: [],
   clients: [],
   contracts: [],
+  properties: [],
   settings: {
     businessName: 'Your Studio',
     ownerName: 'Your Name',
@@ -24,6 +30,8 @@ const DEFAULT_STORE = {
   adminNotifications: [],
   clientNotifications: [],
   adminAuditLog: [],
+  tenantInvites: [],
+  companyDemoLinks: [],
 }
 
 function ensureDataDir() {
@@ -36,28 +44,46 @@ function getDbFile() {
   return process.env.CLIENT_CRAFT_DB_FILE || path.join(DATA_DIR, 'store.json')
 }
 
-export function readStore() {
+/** Always reads the on-disk store (ignores public-demo sandbox). */
+export function readStoreFromDisk() {
   ensureDataDir()
   const dbFile = getDbFile()
   if (!fs.existsSync(dbFile)) {
-    writeStore(DEFAULT_STORE)
+    writeStoreToDisk(DEFAULT_STORE)
     return structuredClone(DEFAULT_STORE)
   }
   const raw = fs.readFileSync(dbFile, 'utf8')
   const parsed = { ...DEFAULT_STORE, ...JSON.parse(raw) }
   const { clients, contracts, changed } = migrateStoreTiers(parsed)
   if (changed) {
-    writeStore({ ...parsed, clients, contracts })
+    writeStoreToDisk({ ...parsed, clients, contracts })
   }
   return { ...parsed, clients, contracts }
 }
 
-export function writeStore(store) {
+/** Always writes to disk (ignores public-demo sandbox). */
+export function writeStoreToDisk(store) {
   ensureDataDir()
   const dbFile = getDbFile()
   const tmp = `${dbFile}.tmp`
   fs.writeFileSync(tmp, JSON.stringify(store, null, 2))
   fs.renameSync(tmp, dbFile)
+}
+
+export function readStore() {
+  if (isDemoSandboxActive()) {
+    const sandbox = getSandboxStore()
+    if (sandbox) return sandbox
+  }
+  return readStoreFromDisk()
+}
+
+export function writeStore(store) {
+  if (isDemoSandboxActive()) {
+    setSandboxStore(store)
+    return
+  }
+  writeStoreToDisk(store)
 }
 
 export function updateStore(updater) {

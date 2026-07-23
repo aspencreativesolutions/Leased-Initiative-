@@ -1,11 +1,32 @@
-import type { BusinessSettings, Client, ContractData } from '@/types'
+import {
+  type BusinessSettings,
+  type Client,
+  type ContractData,
+  type Property,
+} from '@/types'
 import { normalizeClient } from '@/lib/clientUtils'
 import { migrateServiceTier } from '@/lib/serviceTiers'
-import { seedClients, defaultSettings, migrateSampleAddress } from '@/data/seed'
+import { normalizeRentalType } from '@/lib/rentalTypes'
+import { seedClients, seedProperties, defaultSettings, migrateSampleAddress } from '@/data/seed'
+import { REMOVED_SAMPLE_CLIENT_EMAILS, REMOVED_SAMPLE_CLIENT_NAMES } from '@/data/sampleClients'
 
 const CLIENTS_KEY = 'client-craft-clients'
 const CONTRACTS_KEY = 'client-craft-contracts'
 const SETTINGS_KEY = 'client-craft-settings'
+const PROPERTIES_KEY = 'client-craft-properties'
+
+/** Normalize a property record from storage or API (backfills new fields). */
+export function normalizeProperty(p: Property): Property {
+  const unitCount = Math.max(1, Number(p.unitCount) || 1)
+  return {
+    ...p,
+    address: migrateSampleAddress(p.address) ?? p.address,
+    propertyType: normalizeRentalType(p.propertyType),
+    unitCount,
+    bedrooms: Math.max(0, Number(p.bedrooms) || 0),
+    maxTenants: Math.max(1, Number(p.maxTenants) || unitCount),
+  }
+}
 
 export function loadClients(): Client[] {
   const raw = localStorage.getItem(CLIENTS_KEY)
@@ -15,9 +36,18 @@ export function loadClients(): Client[] {
     return seeded
   }
   const parsed = JSON.parse(raw) as Partial<Client>[]
-  const clients = parsed.map((c) => normalizeClient(c as Client))
-  const changed = clients.some((client, index) => client.projectName !== parsed[index]?.projectName)
-  if (changed) saveClients(clients)
+  const normalized = parsed.map((c) => normalizeClient(c as Client))
+  const clients = normalized.filter((client) => {
+    const email = client.email?.trim().toLowerCase()
+    const name = client.name?.trim().toLowerCase()
+    if (email && REMOVED_SAMPLE_CLIENT_EMAILS.has(email)) return false
+    if (name && REMOVED_SAMPLE_CLIENT_NAMES.has(name)) return false
+    return true
+  })
+  const addressChanged = normalized.some(
+    (client, index) => client.projectName !== parsed[index]?.projectName
+  )
+  if (addressChanged || clients.length !== normalized.length) saveClients(clients)
   return clients
 }
 
@@ -32,11 +62,15 @@ export function loadContracts(): ContractData[] {
   let changed = false
   const contracts = parsed.map((c) => {
     const migratedAddress = migrateSampleAddress(c.clientAddress)
-    if (migratedAddress !== c.clientAddress) changed = true
+    const migratedTitle = migrateSampleAddress(c.projectTitle)
+    if (migratedAddress !== c.clientAddress || migratedTitle !== c.projectTitle) {
+      changed = true
+    }
     return {
       ...c,
       serviceTier: migrateServiceTier(c.serviceTier),
       ...(migratedAddress !== c.clientAddress ? { clientAddress: migratedAddress } : {}),
+      ...(migratedTitle !== c.projectTitle ? { projectTitle: migratedTitle } : {}),
     }
   })
   if (changed) saveContracts(contracts)
@@ -65,6 +99,32 @@ export function loadSettings(): BusinessSettings {
 
 export function saveSettings(settings: BusinessSettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+}
+
+export function loadProperties(): Property[] {
+  const raw = localStorage.getItem(PROPERTIES_KEY)
+  if (!raw) {
+    const seeded = seedProperties()
+    saveProperties(seeded)
+    return seeded
+  }
+  try {
+    const parsed = JSON.parse(raw) as Property[]
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      const seeded = seedProperties()
+      saveProperties(seeded)
+      return seeded
+    }
+    return parsed.map((p) => normalizeProperty(p))
+  } catch {
+    const seeded = seedProperties()
+    saveProperties(seeded)
+    return seeded
+  }
+}
+
+export function saveProperties(properties: Property[]): void {
+  localStorage.setItem(PROPERTIES_KEY, JSON.stringify(properties))
 }
 
 export function generateId(): string {

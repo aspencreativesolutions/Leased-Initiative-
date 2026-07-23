@@ -8,9 +8,15 @@ import type { PortalLeaseSchedule, PortalRentPaymentStatus } from '@/types'
 
 const STATUS_LABEL: Record<PortalRentPaymentStatus, string> = {
   paid: 'Paid',
+  paid_early: 'Paid Early',
+  paid_late: 'Paid Late',
   due: 'Due now',
   upcoming: 'Upcoming',
   overdue: 'Overdue',
+}
+
+function isCompletedStatus(status: PortalRentPaymentStatus): boolean {
+  return status === 'paid' || status === 'paid_early' || status === 'paid_late'
 }
 
 interface PortalPaymentScheduleTimelineProps {
@@ -48,6 +54,10 @@ export function PortalPaymentScheduleTimeline({
     schedule.leaseLengthMonths != null
       ? formatLeaseLengthLabel(schedule.leaseLengthMonths)
       : `${schedule.payments.length}-month lease`
+
+  const earlyEvents = schedule.payments.filter(
+    (p) => p.status === 'paid_early' && (p.eventLabel || p.paidAt)
+  )
 
   return (
     <section
@@ -87,7 +97,9 @@ export function PortalPaymentScheduleTimeline({
       >
         {schedule.payments.map((payment, index) => {
           const isActive = payment.status === 'due' || payment.status === 'overdue'
-          const isPaid = payment.status === 'paid'
+          const isPaid = isCompletedStatus(payment.status)
+          const isEarly = payment.status === 'paid_early'
+          const isLate = payment.status === 'paid_late'
 
           return (
             <li
@@ -97,7 +109,9 @@ export function PortalPaymentScheduleTimeline({
               <div
                 className={cn(
                   'flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-bold',
-                  isPaid && 'border-brand bg-brand text-white',
+                  isPaid && !isEarly && !isLate && 'border-brand bg-brand text-white',
+                  isEarly && 'border-brand bg-brand/15 text-brand',
+                  isLate && 'border-accent bg-accent/15 text-accent',
                   isActive &&
                     !isPaid &&
                     'border-accent bg-accent text-white shadow-[0_0_0_2px_var(--accent-light)]',
@@ -105,7 +119,12 @@ export function PortalPaymentScheduleTimeline({
                     !isActive &&
                     'border-line bg-surface-paper text-ink-faint'
                 )}
-                title={STATUS_LABEL[payment.status]}
+                title={
+                  payment.eventLabel ||
+                  (payment.paidAt
+                    ? `${STATUS_LABEL[payment.status]} · ${formatDate(payment.paidAt)}`
+                    : STATUS_LABEL[payment.status])
+                }
               >
                 {isPaid ? (
                   <Check className="h-4 w-4" strokeWidth={2.75} aria-hidden />
@@ -122,6 +141,8 @@ export function PortalPaymentScheduleTimeline({
                   payment.status === 'overdue' && 'font-bold text-accent',
                   payment.status === 'due' && 'font-bold text-accent',
                   payment.status === 'paid' && 'text-brand',
+                  payment.status === 'paid_early' && 'font-bold text-brand',
+                  payment.status === 'paid_late' && 'font-semibold text-accent',
                   payment.status === 'upcoming' && 'text-ink-faint'
                 )}
               >
@@ -131,6 +152,27 @@ export function PortalPaymentScheduleTimeline({
           )
         })}
       </ol>
+
+      {earlyEvents.length > 0 && (
+        <ul className="mt-4 space-y-1.5 text-left" aria-label="Early payment notices">
+          {earlyEvents.map((payment) => (
+            <li
+              key={`early-${payment.dueDate}`}
+              className="flex flex-wrap items-center gap-2 rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2 text-sm text-ink"
+            >
+              <span className="inline-flex items-center rounded-sm border border-brand bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-caps text-brand">
+                Paid Early
+              </span>
+              <span>
+                {payment.eventLabel ||
+                  `${formatDate(payment.dueDate)} rent paid early${
+                    payment.paidAt ? ` on ${formatDate(payment.paidAt)}` : ''
+                  }`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

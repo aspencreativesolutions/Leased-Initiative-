@@ -10,27 +10,37 @@ import {
 import type { AuthResponse, User } from '@/types'
 import { apiFetch, getToken, setToken } from '@/lib/api'
 import { registerAccount } from '@/lib/authApi'
+import { clearPublicDemoSession } from '@/lib/publicDemo'
 
 interface AuthContextValue {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<User>
+  login: (
+    email: string,
+    password: string,
+    options?: { publicDemo?: boolean }
+  ) => Promise<User>
   register: (
     name: string,
     email: string,
     password: string,
     options?: {
       accountType?: 'client' | 'admin'
+      companyName?: string
       portalThemeId?: string
       preferredLeaseMonths?: number
+      preferredLandlordCompany?: string
+      preferredPropertyAddress?: string
+      inviteToken?: string
     }
   ) => Promise<{ email: string }>
   updateProfile: (name: string) => Promise<User>
   refreshUser: () => Promise<User | null>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
-  logout: () => void
+  logout: (options?: { preservePublicDemo?: boolean }) => void
   isAdmin: boolean
   isClient: boolean
+  isPublicDemo: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -39,20 +49,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const logout = useCallback(() => {
+  const logout = useCallback((options?: { preservePublicDemo?: boolean }) => {
     setToken(null)
     setUser(null)
+    if (!options?.preservePublicDemo) {
+      clearPublicDemoSession()
+    }
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const data = await apiFetch<AuthResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    })
-    setToken(data.token)
-    setUser(data.user)
-    return data.user
-  }, [])
+  const login = useCallback(
+    async (email: string, password: string, options?: { publicDemo?: boolean }) => {
+      const publicDemo = options?.publicDemo === true
+      const data = await apiFetch<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, publicDemo }),
+      })
+      setToken(data.token)
+      setUser(data.user)
+      return data.user
+    },
+    []
+  )
 
   const register = useCallback(
     async (
@@ -61,8 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: string,
       options?: {
         accountType?: 'client' | 'admin'
+        companyName?: string
         portalThemeId?: string
         preferredLeaseMonths?: number
+        preferredLandlordCompany?: string
+        preferredPropertyAddress?: string
+        inviteToken?: string
       }
     ) => {
       const data = await registerAccount({
@@ -70,8 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         accountType: options?.accountType ?? 'client',
+        companyName: options?.companyName,
         portalThemeId: options?.portalThemeId,
         preferredLeaseMonths: options?.preferredLeaseMonths,
+        preferredLandlordCompany: options?.preferredLandlordCompany,
+        preferredPropertyAddress: options?.preferredPropertyAddress,
+        inviteToken: options?.inviteToken,
       })
       return { email: data.email }
     },
@@ -137,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       isAdmin: user?.role === 'admin',
       isClient: user?.role === 'client',
+      isPublicDemo: user?.publicDemo === true,
     }),
     [user, loading, login, register, updateProfile, refreshUser, changePassword, logout]
   )

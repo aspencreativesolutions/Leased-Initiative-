@@ -26,13 +26,14 @@ const inputClass =
 export function Input({
   label,
   hint,
+  error,
   required,
   className,
   id,
   type,
   readOnly,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & LabelProps) {
+}: InputHTMLAttributes<HTMLInputElement> & LabelProps & { error?: string }) {
   const fieldId = id || props.name
   const [showPassword, setShowPassword] = useState(false)
   const isPasswordField = type === 'password' && !readOnly
@@ -46,7 +47,13 @@ export function Input({
           id={fieldId}
           type={inputType}
           readOnly={readOnly}
-          className={cn(inputClass, isPasswordField && 'pr-10')}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${fieldId}-error` : undefined}
+          className={cn(
+            inputClass,
+            isPasswordField && 'pr-10',
+            error && 'border-accent focus:border-accent'
+          )}
           {...props}
         />
         {isPasswordField && (
@@ -60,6 +67,11 @@ export function Input({
           </button>
         )}
       </div>
+      {error ? (
+        <p id={`${fieldId}-error`} className="mt-1.5 text-xs text-accent" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -85,19 +97,32 @@ export function Textarea({
 export function Select({
   label,
   hint,
+  error,
   required,
   className,
   children,
   id,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & LabelProps & { children: ReactNode }) {
+}: SelectHTMLAttributes<HTMLSelectElement> &
+  LabelProps & { children: ReactNode; error?: string }) {
   const fieldId = id || props.name
   return (
     <div className={className}>
       {label && <FormLabel label={label} htmlFor={fieldId} hint={hint} required={required} />}
-      <select id={fieldId} className={inputClass} {...props}>
+      <select
+        id={fieldId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${fieldId}-error` : undefined}
+        className={cn(inputClass, error && 'border-accent focus:border-accent')}
+        {...props}
+      >
         {children}
       </select>
+      {error ? (
+        <p id={`${fieldId}-error`} className="mt-1.5 text-xs text-accent" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

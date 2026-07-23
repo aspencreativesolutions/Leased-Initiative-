@@ -28,13 +28,13 @@ export function PortalAssistanceModal({
             Project steps
           </h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-ink-muted">
-            <li>Review and sign your lease when it appears in Current Leases.</li>
+            <li>Review and sign your lease agreement when it appears under Lease Agreements.</li>
             <li>Open the invoice payment link to pay your deposit.</li>
             <li>
-              Once your landlord starts the project, upload files and add notes here in the
+              Once your landlord activates your lease, upload files and add notes here in the
               portal.
             </li>
-            <li>Track project status on your dashboard — your landlord updates it as work progresses.</li>
+            <li>Track lease status on your dashboard — your landlord updates it as things progress.</li>
           </ol>
         </section>
 

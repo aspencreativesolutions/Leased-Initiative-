@@ -2,14 +2,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import { useAppearance } from '@/context/AppearanceContext'
+import { isPublicDemoSession } from '@/lib/publicDemo'
 import {
+  THEME_PREFERENCE_EVENT,
   applyThemeToDocument,
+  isThemeId,
   loadStoredThemeId,
+  persistThemeIdAcrossSurfaces,
 } from '@/themes/applyTheme'
 import {
   DEFAULT_THEME_ID,
@@ -21,13 +26,23 @@ import {
 } from '@/themes/options'
 import type { ThemeAppearance, ThemeId, ThemeOption } from '@/themes/types'
 
+interface SetThemeOptions {
+  /** Also write the portal preference (home preview + Demo Mode POV parity) */
+  syncSurfaces?: boolean
+  /**
+   * When false, save the preference without changing document theme.
+   * Defaults to true so home “Choose Your Style” live-previews immediately.
+   */
+  applyDocument?: boolean
+}
+
 interface ThemeContextValue {
   themeId: ThemeId
   theme: ThemeOption
   themes: ThemeOption[]
   appearance: ThemeAppearance
   supportsAppearance: boolean
-  setTheme: (id: ThemeId) => void
+  setTheme: (id: ThemeId, options?: SetThemeOptions) => void
   setAppearance: (appearance: ThemeAppearance) => void
   /** Restore default theme and clear the saved preference (e.g. first-time restart) */
   resetToDefault: () => void
@@ -39,8 +54,36 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>(() => loadStoredThemeId())
   const { appearance, setAppearance, resetAppearance } = useAppearance()
 
-  const setTheme = useCallback((id: ThemeId) => {
-    applyThemeToDocument(id, THEME_STORAGE_KEY, { persist: true })
+  useEffect(() => {
+    const onPreference = (event: Event) => {
+      const id = (event as CustomEvent<{ themeId?: string }>).detail?.themeId
+      if (id && isThemeId(id)) setThemeId(id)
+    }
+    window.addEventListener(THEME_PREFERENCE_EVENT, onPreference)
+    return () => window.removeEventListener(THEME_PREFERENCE_EVENT, onPreference)
+  }, [])
+
+  const setTheme = useCallback((id: ThemeId, options?: SetThemeOptions) => {
+    const syncSurfaces = options?.syncSurfaces === true || isPublicDemoSession()
+    const applyDocument = options?.applyDocument !== false
+
+    if (!applyDocument) {
+      if (syncSurfaces) {
+        persistThemeIdAcrossSurfaces(id)
+      } else {
+        localStorage.setItem(THEME_STORAGE_KEY, id)
+        window.dispatchEvent(
+          new CustomEvent(THEME_PREFERENCE_EVENT, { detail: { themeId: id } })
+        )
+      }
+      setThemeId(id)
+      return
+    }
+
+    applyThemeToDocument(id, THEME_STORAGE_KEY, {
+      persist: true,
+      syncSurfaces,
+    })
     setThemeId(id)
   }, [])
 

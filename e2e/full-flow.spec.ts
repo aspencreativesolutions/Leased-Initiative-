@@ -80,10 +80,12 @@ test.describe('Client Craft E2E — full lifecycle', () => {
     await adminPage.getByRole('button', { name: 'Sign in' }).click()
     await expect(adminPage).toHaveURL('/studio')
 
-    await adminPage.getByRole('button', { name: /View New Registers|Registers/i }).click()
+    await adminPage.getByRole('button', { name: /View New Registers/i }).click()
     await expect(adminPage.getByRole('heading', { name: 'New Registrations' })).toBeVisible()
     const registrationRow = adminPage.locator('li').filter({ hasText: state.clientEmail })
-    await registrationRow.getByRole('button', { name: 'Approve Tenant and Start Lease Draft' }).click()
+    await registrationRow.getByRole('button', { name: 'Accept' }).click()
+    await expect(adminPage.getByRole('button', { name: /Draft Lease Agreement|Send Lease Agreement/ })).toBeVisible()
+    await adminPage.getByRole('button', { name: /Draft Lease Agreement|Send Lease Agreement/ }).click()
 
     await expect(adminPage).toHaveURL(/\/studio\/clients\/[^/]+\/contract/)
     const match = adminPage.url().match(/\/studio\/clients\/([^/]+)\/contract/)
@@ -106,14 +108,14 @@ test.describe('Client Craft E2E — full lifecycle', () => {
       await adminPage.getByRole('button', { name: 'Next' }).click()
     }
 
-    await expect(adminPage.getByRole('button', { name: 'Generate Lease PDF' })).toBeVisible()
+    await expect(adminPage.getByRole('button', { name: 'Generate Lease Agreement PDF' })).toBeVisible()
     const downloadPromise = adminPage.waitForEvent('download')
-    await adminPage.getByRole('button', { name: 'Generate Lease PDF' }).click()
+    await adminPage.getByRole('button', { name: 'Generate Lease Agreement PDF' }).click()
     await downloadPromise
     await expect(adminPage.getByText('PDF generated')).toBeVisible()
 
     await adminPage.getByRole('button', { name: 'Send to Tenant' }).click()
-    await expect(adminPage.getByRole('heading', { name: 'Send Lease to Tenant' })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: 'Send Lease Agreement to Tenant' })).toBeVisible()
     await adminPage.getByRole('button', { name: 'Send to tenant account' }).click()
     await expect(adminPage.getByText(/Lease sent to/i)).toBeVisible({ timeout: 20_000 })
 

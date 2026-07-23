@@ -141,7 +141,7 @@ export function PortalContractPage() {
         className="mb-4 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Current Leases
+        Back to Lease Agreements
       </Link>
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -183,7 +183,7 @@ export function PortalContractPage() {
                 {contract.signedAt
                   ? new Date(contract.signedAt).toLocaleDateString()
                   : 'today'}
-                . Your landlord has been notified and the project can move forward.
+                . Your landlord has been notified. You are now an Official Tenant for this rental.
               </p>
               <Button
                 variant="outline"
@@ -203,8 +203,8 @@ export function PortalContractPage() {
               Review the Lease.
             </h2>
             <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
-              Read the full agreement above, including payment terms, scope, and revision limits.
-              When you are ready, confirm that you have reviewed this version.
+              Read the full residential lease above, including rent, deposit, occupancy, and
+              property rules. When you are ready, confirm that you have reviewed this version.
             </p>
 
             {error && (
@@ -250,8 +250,8 @@ export function PortalContractPage() {
                   required
                 />
                 <span>
-                  I have read and agree to all terms in this lease, including payment schedule,
-                  revision limits, and termination conditions.
+                  I have read and agree to all terms in this residential lease, including rent,
+                  security deposit, occupancy, and termination conditions.
                 </span>
               </label>
               <div className="text-center">

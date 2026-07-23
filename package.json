@@ -15,6 +15,7 @@
     "desktop": "bash scripts/launch-desktop.sh",
     "desktop:stop": "bash scripts/stop-desktop.sh",
     "test": "vitest run",
+    "test:lease-scan": "vitest run --config vitest.lease-scan.config.js",
     "test:watch": "vitest",
     "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=\".playwright-browsers\" playwright test",
     "test:e2e:install": "playwright install chromium",

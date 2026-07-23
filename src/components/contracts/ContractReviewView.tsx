@@ -1,8 +1,6 @@
 import type { ContractData } from '@/types'
 import { CONTRACT_SECTION_IDS } from '@/lib/contractSections'
 import { paymentProviderLabel } from '@/lib/paymentProvider'
-import { getServiceTierInfo } from '@/lib/serviceTierInfo'
-import { migrateServiceTier } from '@/lib/serviceTiers'
 import { formatDate } from '@/lib/utils'
 import { ContractDocumentSection } from '@/components/contracts/ContractDocumentSection'
 
@@ -12,24 +10,30 @@ interface ContractReviewViewProps {
   businessName?: string
 }
 
+function displayValue(value?: string): string | undefined {
+  if (!value?.trim()) return undefined
+  if (value.includes('[To be customized]')) return undefined
+  return value
+}
+
 export function ContractReviewView({
   contract,
   designerName,
   businessName,
 }: ContractReviewViewProps) {
   const preparedBy = businessName || designerName || 'Your landlord'
-  const tier = migrateServiceTier(contract.serviceTier)
-  const tierInfo = getServiceTierInfo(tier)
 
-  const clientBlock = [
+  const tenantBlock = [
     contract.clientName,
-    contract.businessName,
+    displayValue(contract.businessName) && `Mailing: ${contract.businessName}`,
     contract.email,
     contract.phone,
-    contract.clientAddress,
   ]
     .filter(Boolean)
     .join('\n')
+
+  const monthlyRent = displayValue(contract.totalCost)
+  const deposit = displayValue(contract.depositAmount)
 
   return (
     <div className="contract-form-shell">
@@ -39,17 +43,17 @@ export function ContractReviewView({
           className="scroll-mt-24 px-8 pb-10 pt-14 text-center sm:px-14 sm:pt-16"
         >
           <h2 className="font-display text-xl font-semibold uppercase tracking-[0.22em] text-ink sm:text-2xl">
-            Lease Agreement
+            Residential Lease Agreement
           </h2>
           <p className="mx-auto mt-5 max-w-md font-serif text-sm italic leading-relaxed text-ink-muted">
-            Lease for <span className="text-ink">{contract.businessName}</span>
+            Lease for <span className="text-ink">{contract.clientName}</span>
             {' — '}
             {contract.projectTitle}
           </p>
           <p className="mt-4 text-[11px] uppercase tracking-[0.12em] text-ink-faint">
-            Total {contract.totalCost || '—'} · Deposit {contract.depositAmount || '—'} · {tier}
+            Monthly rent {monthlyRent || '—'} · Security deposit {deposit || '—'}
+            {contract.leaseVersion != null ? ` · Version ${contract.leaseVersion}` : ''}
           </p>
-          <p className="mt-2 text-sm font-medium text-ink-muted">{tierInfo.tagline}</p>
           <p className="mx-auto mt-2 max-w-lg text-xs leading-relaxed text-ink-faint">
             Prepared by {preparedBy}
             {contract.createdAt && (
@@ -62,52 +66,52 @@ export function ContractReviewView({
         </header>
 
         <div className="contract-document-body space-y-10 px-8 pb-12 sm:px-14">
-          <ContractDocumentSection label="Tenant information" value={clientBlock} />
-
           <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.projectScope}
-            label="Project scope"
-            hint={`${tier} tier`}
-            value={contract.projectScope}
+            label="1. Landlord information"
+            value={displayValue(contract.portfolioRights)}
           />
 
-          <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.servicesIncluded}
-            label="Services included"
-            value={contract.servicesIncluded}
-          />
+          <ContractDocumentSection label="2. Tenant information" value={tenantBlock} />
 
           <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.servicesNotIncluded}
-            label="Services not included"
-            value={contract.servicesNotIncluded}
-          />
-
-          <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.deliverables}
-            label="Deliverables"
-            value={contract.deliverables}
+            label="3–4. Rental property & unit"
+            value={[
+              displayValue(contract.clientAddress) &&
+                `Property address: ${contract.clientAddress}`,
+              displayValue(contract.projectScope),
+            ]
+              .filter(Boolean)
+              .join('\n\n')}
           />
 
           <div className="grid gap-10 sm:grid-cols-2">
             <ContractDocumentSection
-              label="Start date"
-              value={contract.startDate ? formatDate(contract.startDate) : undefined}
+              label="5. Lease start date"
+              value={
+                displayValue(contract.startDate)
+                  ? formatDate(contract.startDate)
+                  : undefined
+              }
             />
             <ContractDocumentSection
-              label="Completion date"
-              value={contract.completionDate ? formatDate(contract.completionDate) : undefined}
+              label="6. Lease end date"
+              value={
+                displayValue(contract.completionDate)
+                  ? formatDate(contract.completionDate)
+                  : undefined
+              }
             />
           </div>
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.paymentSchedule}
-            label="Payment schedule"
+            label="7–10. Rent, deposit & payment schedule"
             value={[
-              contract.totalCost && `Total: ${contract.totalCost}`,
-              contract.depositAmount && `Deposit: ${contract.depositAmount}`,
-              contract.remainingBalance && `Remaining: ${contract.remainingBalance}`,
-              contract.paymentSchedule,
+              monthlyRent && `Monthly rent: ${monthlyRent}`,
+              deposit && `Security deposit: ${deposit}`,
+              displayValue(contract.remainingBalance) &&
+                `Move-in / first payment: ${contract.remainingBalance}`,
+              displayValue(contract.paymentSchedule),
             ]
               .filter(Boolean)
               .join('\n\n')}
@@ -129,17 +133,30 @@ export function ContractReviewView({
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.latePayment}
-            label="Late payment policy"
+            label="11. Late-payment terms"
             value={contract.latePaymentPolicy}
           />
 
           <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.revisions}
-            label="Revisions"
+            id={CONTRACT_SECTION_IDS.deliverables}
+            label="12. Occupancy limits"
             value={[
-              contract.revisionCount && `Included: ${contract.revisionCount}`,
-              contract.extraRevisionFee && `Extra fee: ${contract.extraRevisionFee}`,
-              contract.revisionLimits,
+              displayValue(contract.revisionCount) &&
+                `Maximum occupants: ${contract.revisionCount}`,
+              displayValue(contract.deliverables),
+            ]
+              .filter(Boolean)
+              .join('\n\n')}
+          />
+
+          <ContractDocumentSection
+            id={CONTRACT_SECTION_IDS.servicesIncluded}
+            label="13. Utilities and services"
+            value={[
+              displayValue(contract.servicesIncluded) &&
+                `Included: ${contract.servicesIncluded}`,
+              displayValue(contract.servicesNotIncluded) &&
+                `Tenant pays: ${contract.servicesNotIncluded}`,
             ]
               .filter(Boolean)
               .join('\n\n')}
@@ -147,43 +164,56 @@ export function ContractReviewView({
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.clientResponsibilities}
-            label="Tenant responsibilities"
+            label="14. Maintenance responsibilities"
             value={contract.clientResponsibilities}
           />
 
           <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.communication}
-            label="Communication"
-            value={[
-              `Method: ${contract.communicationMethod || '—'}`,
-              `Response time: ${contract.responseTime || '—'}`,
-              `Meetings: ${contract.meetingExpectations || '—'}`,
-            ].join('\n')}
-          />
-
-          <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.ownership}
-            label="Ownership terms"
+            label="15. Property-use rules"
             value={contract.ownershipTerms}
           />
 
           <ContractDocumentSection
-            id={CONTRACT_SECTION_IDS.portfolioRights}
-            label="Portfolio rights"
-            value={contract.portfolioRights}
+            id={CONTRACT_SECTION_IDS.revisions}
+            label="16. Pets"
+            value={[
+              displayValue(contract.revisionLimits),
+              displayValue(contract.extraRevisionFee) &&
+                `Pet deposit / fee: ${contract.extraRevisionFee}`,
+            ]
+              .filter(Boolean)
+              .join('\n\n')}
+          />
+
+          <ContractDocumentSection
+            id={CONTRACT_SECTION_IDS.communication}
+            label="17. Entry and inspection"
+            value={contract.meetingExpectations}
           />
 
           <ContractDocumentSection
             id={CONTRACT_SECTION_IDS.termination}
-            label="Termination conditions"
+            label="18. Renewal or termination"
             value={contract.terminationTerms}
+          />
+
+          <ContractDocumentSection
+            label="19. Notices"
+            value={[
+              contract.communicationMethod && `Method: ${contract.communicationMethod}`,
+              displayValue(contract.responseTime) &&
+                `Notice period: ${contract.responseTime}`,
+            ]
+              .filter(Boolean)
+              .join('\n')}
           />
 
           {(contract.designerSignature || contract.clientSignature) && (
             <div className="mx-auto max-w-md space-y-10 border-t border-line/40 pt-10">
               {contract.designerSignature && (
                 <ContractDocumentSection
-                  label="Landlord"
+                  label="20. Landlord signature"
                   hint="Signature & date"
                   value={[
                     contract.designerSignature,
@@ -197,7 +227,7 @@ export function ContractReviewView({
               )}
               {contract.clientSignature && (
                 <ContractDocumentSection
-                  label="Tenant"
+                  label="21–22. Tenant signature"
                   hint="Signature & date"
                   value={[
                     contract.clientSignature,

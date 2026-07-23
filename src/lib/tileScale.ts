@@ -1,10 +1,17 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 
-/** Percent of “full” tile size. Default is compact (~half). */
+/** Percent of “full” tile size. Compact pages may still default near 50%. */
 export const TILE_SCALE_MIN = 50
 export const TILE_SCALE_MAX = 150
 export const TILE_SCALE_DEFAULT = 55
+/** Lease grid defaults to full size so 50% / 100% remain easy toggle points. */
+export const LEASE_TILE_SCALE_DEFAULT = 100
+/** Payments gallery defaults to full size; persisted preference still wins when set. */
+export const PAYMENT_TILE_SCALE_DEFAULT = 100
 export const TILE_SCALE_STEP = 5
+
+/** Base edge length (px) for a lease tile at 100% scale. */
+export const LEASE_TILE_BASE_PX = 65
 
 function clampScale(value: number): number {
   const stepped = Math.round(value / TILE_SCALE_STEP) * TILE_SCALE_STEP
@@ -77,4 +84,39 @@ export function tileScaleStyle(factor: number): CSSProperties {
     ['--tile-meta' as string]: `${0.62 * factor}rem`,
     ['--tile-label' as string]: `${0.55 * factor}rem`,
   }
+}
+
+/** Fixed-width lease tiles; 65px base module × 4 → 260×260 min at 100%. */
+export function leaseTileScaleStyle(factor: number): CSSProperties {
+  const edge = Math.round(LEASE_TILE_BASE_PX * 4 * factor)
+  return {
+    ['--tile-scale' as string]: String(factor),
+    ['--tile-gap' as string]: `${1 * factor}rem`,
+    ['--tile-pad' as string]: `${1.1 * factor}rem`,
+    ['--tile-title' as string]: `${0.95 * factor}rem`,
+    ['--tile-body' as string]: `${0.82 * factor}rem`,
+    ['--tile-meta' as string]: `${0.72 * factor}rem`,
+    ['--tile-label' as string]: `${0.62 * factor}rem`,
+    ['--lease-tile-size' as string]: `${edge}px`,
+  }
+}
+
+/** Auto-fill grid of equal squares; denser when scale is near 50%. */
+export function leaseTileGridClassName(scale: number): string {
+  void scale
+  return 'lease-tile-grid grid gap-[var(--tile-gap)]'
+}
+
+/** Same fixed module as lease tiles, plus a rent-amount type size. */
+export function paymentTileScaleStyle(factor: number): CSSProperties {
+  return {
+    ...leaseTileScaleStyle(factor),
+    ['--tile-amount' as string]: `${1.05 * factor}rem`,
+  }
+}
+
+/** Auto-fill grid of equal squares — matches lease agreements. */
+export function paymentTileGridClassName(scale: number): string {
+  void scale
+  return 'lease-tile-grid payment-tile-grid grid gap-[var(--tile-gap)]'
 }

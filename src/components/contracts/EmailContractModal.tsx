@@ -32,7 +32,7 @@ export function EmailContractModal({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     // Simulated email send — opens mail client in production you'd use an API
-    const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased]')}`
+    const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased Initiative]')}`
     window.open(mailto, '_blank')
     updateClient(client.id, { contractStatus: 'Sent', projectStatus: 'Contract Sent' })
     setSent(true)

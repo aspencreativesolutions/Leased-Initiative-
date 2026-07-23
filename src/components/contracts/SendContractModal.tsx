@@ -28,7 +28,7 @@ export function SendContractModal({
     `Lease Agreement for ${client.businessName}`
   )
   const [body, setBody] = useState(
-    `Hi ${client.name},\n\nYour lease is ready in your Leased portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/login\n\nBest regards`
+    `Hi ${client.name},\n\nYour lease is ready in your Leased Initiative portal. Please sign in to review and confirm it.\n\nPortal: ${window.location.origin}/login\n\nBest regards`
   )
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -77,7 +77,7 @@ export function SendContractModal({
     setSending(true)
     setError('')
     try {
-      const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased]')}`
+      const mailto = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n[Lease PDF attached — download from Leased Initiative]')}`
       window.open(mailto, '_blank')
       await saveContract(contract)
       const result = await apiFetch<{
@@ -125,7 +125,7 @@ export function SendContractModal({
         reset()
         onClose()
       }}
-      title="Send Lease to Tenant"
+      title="Send Lease Agreement to Tenant"
       size="lg"
     >
       {success ? (

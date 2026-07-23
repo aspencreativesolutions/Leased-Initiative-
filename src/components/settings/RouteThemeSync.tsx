@@ -1,10 +1,8 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  applyStudioAuthTheme,
   applyThemeToDocument,
   isPortalPath,
-  isStudioAuthPath,
   loadStoredPortalThemeId,
   loadStoredThemeId,
 } from '@/themes/applyTheme'
@@ -19,11 +17,11 @@ export function RouteThemeSync() {
       applyThemeToDocument(loadStoredPortalThemeId(), PORTAL_THEME_STORAGE_KEY, {
         persist: false,
       })
-    } else if (isStudioAuthPath(pathname)) {
-      applyStudioAuthTheme()
-    } else {
-      applyThemeToDocument(loadStoredThemeId(), THEME_STORAGE_KEY, { persist: false })
+      return
     }
+    // Introduction, studio auth, and landlord app all use the shared studio preference
+    // (defaults to Slate Bureau when nothing is saved yet).
+    applyThemeToDocument(loadStoredThemeId(), THEME_STORAGE_KEY, { persist: false })
   }, [pathname])
 
   return null

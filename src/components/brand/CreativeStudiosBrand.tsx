@@ -1,3 +1,5 @@
+import { BrandMark } from '@/components/brand/BrandMark'
+import { BRAND_NAME } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
 type CreativeStudiosBrandProps = {
@@ -5,6 +7,7 @@ type CreativeStudiosBrandProps = {
   markClassName?: string
   nameClassName?: string
   subtitleClassName?: string
+  subtitle?: string
 }
 
 export function CreativeStudiosBrand({
@@ -12,26 +15,25 @@ export function CreativeStudiosBrand({
   markClassName,
   nameClassName,
   subtitleClassName,
+  subtitle = 'Landlord Portal',
 }: CreativeStudiosBrandProps) {
   return (
     <div className={cn('flex items-center gap-2.5 sm:gap-3', className)}>
-      <div
+      <BrandMark
         className={cn(
-          'flex h-9 w-9 shrink-0 items-center justify-center border-[length:var(--border-width)] border-nav-fg/80 bg-transparent font-display text-base font-bold tracking-tight transition-colors group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-10 sm:text-lg',
+          'h-9 w-10 border-nav-fg/80 group-hover:border-nav-active group-hover:text-nav-active sm:h-10 sm:w-11',
           markClassName
         )}
-        aria-hidden
-      >
-        L
-      </div>
-      <div className="flex flex-col leading-none">
+        glyphClassName="text-base sm:text-lg"
+      />
+      <div className="flex min-w-0 flex-col leading-none">
         <span
           className={cn(
-            'whitespace-nowrap font-display text-lg font-semibold tracking-tight sm:text-xl',
+            'truncate font-display text-base font-semibold tracking-tight sm:text-lg',
             nameClassName
           )}
         >
-          Leased
+          {BRAND_NAME}
         </span>
         <span
           className={cn(
@@ -39,7 +41,7 @@ export function CreativeStudiosBrand({
             subtitleClassName
           )}
         >
-          Landlord Portal
+          {subtitle}
         </span>
       </div>
     </div>

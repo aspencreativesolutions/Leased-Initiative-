@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -6,29 +6,40 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
+import { isPublicDemoSession } from '@/lib/publicDemo'
+
+type DemoLoginState = {
+  demoCredentials?: { email: string; password: string }
+  from?: { pathname: string }
+}
 
 export function StudioLoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/studio'
+  const state = location.state as DemoLoginState | null
+  const from = state?.from?.pathname ?? '/studio'
+  const demoState = state?.demoCredentials
+  const autoSubmitted = useRef(false)
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(demoState?.email ?? '')
+  const [password, setPassword] = useState(demoState?.password ?? '')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
     setError('')
     setSubmitting(true)
     try {
-      const user = await login(email, password)
+      const user = await login(email, password, {
+        publicDemo: isPublicDemoSession(),
+      })
       if (user.role !== 'admin') {
         setError('This sign-in is for landlord accounts. Tenants should use tenant sign-in.')
         return
       }
-      navigate(from, { replace: true })
+      navigate(from === '/studio' || !state?.demoCredentials ? from : '/studio', { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
         const targetEmail = err.email ?? email
@@ -44,6 +55,14 @@ export function StudioLoginPage() {
     }
   }
 
+  useEffect(() => {
+    if (!demoState?.email || !demoState?.password || autoSubmitted.current) return
+    autoSubmitted.current = true
+    void handleSubmit()
+    // Prefill + one-shot auto sign-in after demo code redeem
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md">
@@ -55,6 +74,11 @@ export function StudioLoginPage() {
           <p className="mt-2 text-sm text-ink-muted">
             Approve tenants, send leases, and manage your properties
           </p>
+          {demoState && (
+            <p className="mt-3 text-xs font-semibold text-accent">
+              Demo credentials filled in — signing you in…
+            </p>
+          )}
         </div>
 
         <Card padding="lg">
@@ -95,7 +119,7 @@ export function StudioLoginPage() {
 
           <p className="mt-4 text-center text-sm text-ink-muted">
             <Link to="/" className="font-semibold text-brand hover:underline">
-              Back to role selection
+              Back to home
             </Link>
           </p>
         </Card>

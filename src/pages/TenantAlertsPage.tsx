@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, Bell } from 'lucide-react'
-import { DashboardSectionTabs } from '@/components/dashboard/DashboardSectionTabs'
 import { TenantAlertAttachment } from '@/components/dashboard/TenantAlertPhoto'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -32,10 +31,15 @@ function resolveAlertAddress(
 
 function resolveAlertDescription(alert: AdminNotification): string {
   if (alert.note?.trim()) return alert.note.trim()
+  // Legacy alerts may only carry the note inside the composed message
+  if (alert.note !== undefined && !alert.note.trim()) return 'No note provided.'
   const message = alert.message ?? ''
   const colon = message.indexOf(': ')
-  if (colon >= 0) return message.slice(colon + 2).trim() || message
-  return message || 'No description provided.'
+  if (colon >= 0) {
+    const extracted = message.slice(colon + 2).trim()
+    if (extracted) return extracted
+  }
+  return 'No note provided.'
 }
 
 export function TenantAlertsPage() {
@@ -64,8 +68,6 @@ export function TenantAlertsPage() {
         }
       />
 
-      <DashboardSectionTabs alertCount={unreadCount} />
-
       {error ? (
         <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
           {error}
@@ -76,7 +78,7 @@ export function TenantAlertsPage() {
         <EmptyState
           icon={Bell}
           title="No tenant alerts yet"
-          description="When a tenant reports an issue, it shows up here with their name, address, description, and the required photo or document they attached."
+          description="When a tenant logs a repair or concern, it shows up here with their name, address, optional note, and the required photo they attached."
         />
       ) : (
         <ul className="space-y-4">
@@ -131,17 +133,17 @@ export function TenantAlertsPage() {
                       </div>
 
                       <div>
-                        <p className="label-caps text-ink-faint">Problem</p>
+                        <p className="label-caps text-ink-faint">Note</p>
                         <p className="whitespace-pre-wrap text-sm text-ink">{description}</p>
                       </div>
 
                       {alert.fileId ? (
                         <div>
-                          <p className="mb-1.5 label-caps text-ink-faint">Attachment</p>
+                          <p className="mb-1.5 label-caps text-ink-faint">Photo</p>
                           <TenantAlertAttachment
                             fileId={alert.fileId}
                             fileName={alert.fileName}
-                            alt={`Attachment from ${name}'s issue report`}
+                            alt={`Photo from ${name}'s repair report`}
                           />
                         </div>
                       ) : null}

@@ -1,24 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Eye, KeyRound, Save, UserCircle, Users } from 'lucide-react'
+import { KeyRound, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { CompanyDetailsPanel } from '@/components/profile/CompanyDetailsPanel'
+import { LeaseUploadSection } from '@/components/profile/LeaseUploadSection'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { Input } from '@/components/ui/FormField'
-import { StatusBadge } from '@/components/ui/StatusBadge'
-import { OfficialClientBadge } from '@/components/clients/OfficialClientBadge'
-import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
-import { ProfileRemindersSection } from '@/components/profile/ProfileRemindersSection'
-import { useApp } from '@/context/AppContext'
 import { useAuth } from '@/context/AuthContext'
-import { countOfficialClients } from '@/lib/clientUtils'
 import { ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 
 export function ProfilePage() {
   const { user, updateProfile, changePassword } = useAuth()
-  const { clients } = useApp()
 
   const [name, setName] = useState(user?.name ?? '')
   const [nameSaving, setNameSaving] = useState(false)
@@ -88,43 +81,48 @@ export function ProfilePage() {
     }
   }
 
-  const officialCount = countOfficialClients(clients)
-
   return (
     <div className="w-full min-w-0">
       <PageHeader
-        title="My Profile"
-        subtitle="Your studio login, account settings, and current client roster."
+        title="Company Profile"
+        subtitle="Company details, portfolio overview, account settings, and lease import. Manage rentals from the Rentals page."
       />
 
       <div className="w-full min-w-0 space-y-6">
+        <CompanyDetailsPanel />
+
+        <LeaseUploadSection />
+
         <Card>
           <CardHeader
             title="Account"
-            subtitle={`Member since ${formatDate(user.createdAt.split('T')[0])}`}
+            subtitle={`Login, display name, and password · Member since ${formatDate(user.createdAt.split('T')[0])}`}
           />
-          <div className="space-y-4">
-            <Input
-              label="Login email"
-              type="email"
-              value={user.email}
-              readOnly
-              hint="Your sign-in email cannot be changed here."
-            />
-            <Input
-              label="Password"
-              type="password"
-              value="••••••••"
-              readOnly
-              hint="Your password is stored securely and cannot be displayed. Use the form below to change it."
-            />
-          </div>
-        </Card>
-
-        <form onSubmit={handleNameSubmit}>
-          <Card>
-            <CardHeader title="Display name" subtitle="Shown in the navigation and across the app" />
+          <div className="space-y-8">
             <div className="space-y-4">
+              <Input
+                label="Login email"
+                type="email"
+                value={user.email}
+                readOnly
+                hint="Your sign-in email cannot be changed here."
+              />
+              <Input
+                label="Password"
+                type="password"
+                value="••••••••"
+                readOnly
+                hint="Your password is stored securely and cannot be displayed. Use the form below to change it."
+              />
+            </div>
+
+            <form onSubmit={handleNameSubmit} className="space-y-4 border-t border-line pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Display name</h3>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Shown in the navigation and across the app
+                </p>
+              </div>
               {nameError && (
                 <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                   {nameError}
@@ -149,17 +147,15 @@ export function ProfilePage() {
                   <span className="text-sm font-medium text-brand">Name updated.</span>
                 )}
               </div>
-            </div>
-          </Card>
-        </form>
+            </form>
 
-        <form onSubmit={handlePasswordSubmit}>
-          <Card>
-            <CardHeader
-              title="Change password"
-              subtitle="Enter your current password, then choose a new one"
-            />
-            <div className="space-y-4">
+            <form onSubmit={handlePasswordSubmit} className="space-y-4 border-t border-line pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Change password</h3>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Enter your current password, then choose a new one
+                </p>
+              </div>
               {passwordError && (
                 <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                   {passwordError}
@@ -201,85 +197,8 @@ export function ProfilePage() {
                 <KeyRound className="h-4 w-4" />
                 {passwordSaving ? 'Updating…' : 'Update password'}
               </Button>
-            </div>
-          </Card>
-        </form>
-
-        <ProfileRemindersSection />
-
-        <Card>
-          <CardHeader
-            title="My clients"
-            subtitle={`${officialCount} client${officialCount !== 1 ? 's' : ''} · ${clients.length} total in your roster`}
-          />
-          {clients.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="No clients yet"
-              description="Clients you add will appear here and across the dashboard."
-              action={
-                <Link to="/studio/clients">
-                  <Button>
-                    <UserCircle className="h-4 w-4" />
-                    Go to Clients
-                  </Button>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="overflow-x-auto rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10">
-              <table className="w-full table-auto text-left text-sm">
-                <thead>
-                  <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
-                    <th className="label-caps px-3 py-2.5 sm:px-4">Client</th>
-                    <th className="label-caps px-3 py-2.5 hidden md:table-cell sm:px-4">Project</th>
-                    <th className="label-caps px-3 py-2.5 sm:px-4">Status</th>
-                    <th className="label-caps px-3 py-2.5 sm:px-4">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {clients.map((client) => (
-                    <tr key={client.id} className="hover:bg-surface transition-colors">
-                      <td className="px-3 py-2.5 align-top sm:px-4">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Link
-                            to={`/studio/clients/${client.id}`}
-                            className="truncate font-semibold text-ink hover:text-brand hover:underline"
-                          >
-                            {client.name}
-                          </Link>
-                          {client.isOfficialClient ? (
-                            <OfficialClientBadge />
-                          ) : (
-                            <PendingClientBadge />
-                          )}
-                        </div>
-                        <p className="truncate text-xs text-ink-muted">{client.businessName}</p>
-                      </td>
-                      <td className="hidden md:table-cell px-3 py-2.5 align-top sm:px-4">
-                        <p className="break-words font-medium text-ink">
-                          {client.projectName || '—'}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2.5 align-top sm:px-4">
-                        <StatusBadge type="project" status={client.projectStatus} />
-                      </td>
-                      <td className="px-3 py-2.5 align-top sm:px-4">
-                        <Link to={`/studio/clients/${client.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-3.5 w-3.5" />
-                            <span className="hidden xl:inline">View</span>
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            </form>
+          </div>
         </Card>
       </div>
     </div>

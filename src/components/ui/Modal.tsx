@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
-  size?: 'md' | 'lg' | 'xl'
+  size?: 'md' | 'lg' | 'xl' | 'full'
 }
 
 export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
@@ -28,6 +28,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    full: 'max-w-6xl',
   }[size]
 
   return (
@@ -42,7 +43,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
         aria-modal="true"
       >
         <div className="flex items-center justify-between border-b-[length:var(--border-width)] border-ink px-5 py-4">
-          <h2 className="heading-display text-xl">{title}</h2>
+          <h2 className="heading-display truncate pr-3 text-xl">{title}</h2>
           <button
             onClick={onClose}
             className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-transparent p-1 text-ink-muted hover:border-ink hover:text-ink"
@@ -51,7 +52,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
             <X className="h-5 w-5" strokeWidth={2.25} />
           </button>
         </div>
-        <div className="overflow-y-auto max-h-[calc(90vh-4rem)] p-5">{children}</div>
+        <div className="max-h-[calc(90vh-4rem)] overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   )

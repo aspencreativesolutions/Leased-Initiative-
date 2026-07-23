@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  Check,
   ChevronDown,
   ChevronRight,
+  Copy,
+  Link2,
   Loader2,
   RotateCcw,
   Shield,
@@ -13,6 +16,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { usePortalTheme } from '@/context/PortalThemeContext'
 import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import { clearWelcomeCarouselDone, notifyFirstTimeRestart } from '@/lib/welcomeSlides'
 import {
@@ -28,6 +32,13 @@ import {
   type AdminMockUser,
   type AdminScenario,
 } from '@/lib/adminMode'
+import {
+  createAdminCompanyDemoLink,
+  fetchAdminCompanyDemoLinks,
+  fetchAdminDemoCode,
+  saveAdminDemoCode,
+  type CompanyDemoLinkSummary,
+} from '@/lib/publicDemo'
 
 const PANEL_KEY = 'leased-admin-mode-open'
 const EXPANDED_KEY = 'leased-admin-mode-expanded'
@@ -42,6 +53,18 @@ function loadExpanded(): Record<string, boolean> {
   }
 }
 
+function formatExpiry(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  } catch {
+    return iso
+  }
+}
+
 export function AdminModeFab() {
   if (!isAdminModeEnabled()) return null
   return <AdminModeFabInner />
@@ -53,11 +76,22 @@ function AdminModeFabInner() {
   const { resetToDefault: resetPortalTheme } = usePortalTheme()
   const navigate = useNavigate()
   const titleId = useId()
+  const companyFieldId = useId()
   const [open, setOpen] = useState(() => sessionStorage.getItem(PANEL_KEY) === '1')
   const [expanded, setExpanded] = useState<Record<string, boolean>>(loadExpanded)
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [demoCode, setDemoCode] = useState('')
+  const [demoCodeSource, setDemoCodeSource] = useState<string | null>(null)
+  const [demoCodeLoaded, setDemoCodeLoaded] = useState(false)
+  const [companyLinkModalOpen, setCompanyLinkModalOpen] = useState(false)
+  const [companyName, setCompanyName] = useState('')
+  const [companySuggestions, setCompanySuggestions] = useState<string[]>([])
+  const [generatedLink, setGeneratedLink] = useState<CompanyDemoLinkSummary | null>(null)
+  const [generatedExpiryDays, setGeneratedExpiryDays] = useState<number | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [companyLinksLoaded, setCompanyLinksLoaded] = useState(false)
 
   const restartAsFirstTime = useCallback(() => {
     clearWelcomeCarouselDone()
@@ -72,17 +106,52 @@ function AdminModeFabInner() {
   }, [open])
 
   useEffect(() => {
+    if (!open || demoCodeLoaded) return
+    let cancelled = false
+    fetchAdminDemoCode()
+      .then((data) => {
+        if (cancelled) return
+        setDemoCode(data.code)
+        setDemoCodeSource(data.source)
+        setDemoCodeLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setDemoCodeLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, demoCodeLoaded])
+
+  useEffect(() => {
+    if (!open || companyLinksLoaded) return
+    let cancelled = false
+    fetchAdminCompanyDemoLinks()
+      .then((data) => {
+        if (cancelled) return
+        setCompanySuggestions(data.companySuggestions)
+        setCompanyLinksLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyLinksLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, companyLinksLoaded])
+
+  useEffect(() => {
     sessionStorage.setItem(EXPANDED_KEY, JSON.stringify(expanded))
   }, [expanded])
 
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape' && !companyLinkModalOpen) setOpen(false)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, companyLinkModalOpen])
 
   const toggleSection = (key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -175,6 +244,73 @@ function AdminModeFabInner() {
     setBusy(null)
   }
 
+  const handleSaveDemoCode = async () => {
+    setBusy('demo-code')
+    setError(null)
+    setMessage(null)
+    try {
+      const result = await saveAdminDemoCode(demoCode)
+      setDemoCode(result.code)
+      setDemoCodeSource('settings')
+      setMessage('Demo access code saved. Share it with visitors on the welcome carousel.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save demo code')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const openCompanyLinkModal = () => {
+    setCompanyName('')
+    setGeneratedLink(null)
+    setGeneratedExpiryDays(null)
+    setLinkCopied(false)
+    setError(null)
+    setCompanyLinkModalOpen(true)
+  }
+
+  const closeCompanyLinkModal = () => {
+    setCompanyLinkModalOpen(false)
+    setCompanyName('')
+    setGeneratedLink(null)
+    setGeneratedExpiryDays(null)
+    setLinkCopied(false)
+  }
+
+  const handleGenerateCompanyLink = async () => {
+    setBusy('company-link')
+    setError(null)
+    setMessage(null)
+    setLinkCopied(false)
+    try {
+      const result = await createAdminCompanyDemoLink(companyName)
+      setGeneratedLink(result.link)
+      setGeneratedExpiryDays(result.expiryDays)
+      setCompanySuggestions((prev) => {
+        const name = result.link.companyName
+        if (prev.some((entry) => entry.toLowerCase() === name.toLowerCase())) return prev
+        return [...prev, name].sort((a, b) => a.localeCompare(b))
+      })
+      setMessage(
+        `Company demo link ready for ${result.link.companyName}. Expires ${formatExpiry(result.link.expiresAt)}.`
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not generate company demo link')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const handleCopyCompanyLink = async () => {
+    if (!generatedLink?.url) return
+    try {
+      await navigator.clipboard.writeText(generatedLink.url)
+      setLinkCopied(true)
+    } catch {
+      setError('Could not copy link — select and copy it manually')
+    }
+  }
+
   return (
     <>
       <button
@@ -194,12 +330,12 @@ function AdminModeFabInner() {
 
       {open && (
         <div
-          className="fixed bottom-16 left-4 z-[90] flex max-h-[min(70vh,560px)] w-[min(calc(100vw-2rem),22rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper shadow-lift"
+          className="fixed bottom-16 left-4 z-[90] flex max-h-[min(88vh,44rem)] w-[min(calc(100vw-2rem),24rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper shadow-lift"
           role="dialog"
           aria-modal="false"
           aria-labelledby={titleId}
         >
-          <div className="flex items-start justify-between gap-2 border-b-[length:var(--border-width)] border-ink px-4 py-3">
+          <div className="flex items-start justify-between gap-2 border-b-[length:var(--border-width)] border-ink px-4 py-3.5">
             <div>
               <h2 id={titleId} className="heading-display text-base">
                 Admin Mode
@@ -218,7 +354,58 @@ function AdminModeFabInner() {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3">
+          <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-3.5 py-3.5">
+            <div className="space-y-2.5 rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-ink">Public demo access code</p>
+              <p className="text-[10px] leading-snug text-ink-muted">
+                Visitors enter this via Quick Access (key icon) → Have a Demo Code? on the homepage, then choose a point of view.
+                {demoCodeSource ? ` Currently from ${demoCodeSource}.` : ''}
+              </p>
+              <input
+                type="text"
+                value={demoCode}
+                onChange={(e) => setDemoCode(e.target.value)}
+                className="w-full rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface-paper px-2.5 py-2 text-[11px] text-ink"
+                placeholder="e.g. LEASED"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full justify-start"
+                disabled={Boolean(busy) || !demoCode.trim()}
+                onClick={handleSaveDemoCode}
+              >
+                {busy === 'demo-code' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Shield className="h-3.5 w-3.5" />
+                )}
+                Save demo code
+              </Button>
+            </div>
+
+            <div className="space-y-2.5 rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-ink">Generate Access Link for Company</p>
+              <p className="text-[10px] leading-snug text-ink-muted">
+                Create a unique invite link so a company can open the demo without an access code.
+                Links expire after a set period; regenerating for the same company replaces the old link.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full justify-start"
+                disabled={Boolean(busy)}
+                onClick={openCompanyLinkModal}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                Generate Company Demo Link
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Button
                 type="button"
@@ -311,7 +498,7 @@ function AdminModeFabInner() {
             </Section>
           </div>
 
-          <div className="border-t-[length:var(--border-width)] border-ink px-3 py-2">
+          <div className="border-t-[length:var(--border-width)] border-ink px-3.5 py-2.5">
             <p className="truncate text-[10px] text-ink-faint">
               {user ? (
                 <>
@@ -322,10 +509,108 @@ function AdminModeFabInner() {
               )}
             </p>
             {message && <p className="mt-1 text-[11px] text-accent">{message}</p>}
-            {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
+            {error && !companyLinkModalOpen && (
+              <p className="mt-1 text-[11px] text-red-600">{error}</p>
+            )}
           </div>
         </div>
       )}
+
+      <Modal
+        open={companyLinkModalOpen}
+        onClose={closeCompanyLinkModal}
+        title="Generate Company Demo Link"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-muted">
+            Enter or select the company name to verify. They’ll open a unique link, confirm Start
+            Demo, then choose landlord or tenant — no access code required.
+          </p>
+
+          {error && companyLinkModalOpen ? (
+            <p className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
+              {error}
+            </p>
+          ) : null}
+
+          {!generatedLink ? (
+            <>
+              <div>
+                <label htmlFor={companyFieldId} className="label-caps mb-2 block">
+                  Company name
+                </label>
+                <input
+                  id={companyFieldId}
+                  type="text"
+                  list="admin-company-demo-suggestions"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface px-3 py-2.5 text-sm text-ink"
+                  placeholder="e.g. Acme Property Group"
+                  autoComplete="organization"
+                  autoFocus
+                />
+                <datalist id="admin-company-demo-suggestions">
+                  {companySuggestions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={Boolean(busy) || !companyName.trim()}
+                onClick={() => {
+                  void handleGenerateCompanyLink()
+                }}
+              >
+                {busy === 'company-link' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+                {busy === 'company-link' ? 'Generating…' : 'Verify & generate link'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="label-caps mb-2">Demo link for {generatedLink.companyName}</p>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={generatedLink.url}
+                    className="min-w-0 flex-1 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface px-3 py-2.5 text-sm text-ink"
+                    onFocus={(event) => event.target.select()}
+                  />
+                  <Button type="button" variant="outline" onClick={() => void handleCopyCompanyLink()}>
+                    {linkCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {linkCopied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-ink-muted">
+                  Expires {formatExpiry(generatedLink.expiresAt)}
+                  {generatedExpiryDays != null ? ` (${generatedExpiryDays} days)` : ''}. Share this
+                  URL with the company — they won’t need the public demo code.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setGeneratedLink(null)
+                  setGeneratedExpiryDays(null)
+                  setCompanyName('')
+                  setLinkCopied(false)
+                }}
+              >
+                Generate another link
+              </Button>
+            </>
+          )}
+        </div>
+      </Modal>
     </>
   )
 }
@@ -346,7 +631,7 @@ function Section({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left text-[11px] font-semibold text-ink"
+        className="flex w-full items-center gap-1.5 px-2.5 py-2.5 text-left text-[11px] font-semibold text-ink"
       >
         {open ? (
           <ChevronDown className="h-3.5 w-3.5 text-ink-muted" />
@@ -355,7 +640,7 @@ function Section({
         )}
         {title}
       </button>
-      {open && <div className="border-t border-[var(--card-inset-border,var(--line))] px-2 pb-2 pt-1.5">{children}</div>}
+      {open && <div className="border-t border-[var(--card-inset-border,var(--line))] px-2 pb-2.5 pt-2">{children}</div>}
     </div>
   )
 }
@@ -383,7 +668,7 @@ function MockUserBlock({
   return (
     <div
       className={cn(
-        'rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-2 py-1.5',
+        'rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-2.5 py-2',
         isCurrent && 'border-accent'
       )}
     >
@@ -419,7 +704,7 @@ function MockUserBlock({
             type="button"
             disabled={Boolean(busy)}
             onClick={() => onEnter(mock, { reseed: mock.group === 'core' })}
-            className="flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] bg-ink px-2 py-1.5 text-left text-[10px] font-semibold text-surface disabled:opacity-40"
+            className="flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] bg-ink px-2 py-2 text-left text-[10px] font-semibold text-surface disabled:opacity-40"
           >
             {busy === mock.key ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -463,7 +748,7 @@ function ScenarioRow({
         type="button"
         disabled={Boolean(busy)}
         onClick={() => onRun(scenario)}
-        className="flex w-full items-start gap-1.5 rounded-[var(--radius-sm)] px-2 py-1.5 text-left transition hover:bg-accent-light/40 disabled:opacity-40"
+        className="flex w-full items-start gap-1.5 rounded-[var(--radius-sm)] px-2 py-2 text-left transition hover:bg-accent-light/40 disabled:opacity-40"
       >
         {busy === scenario.id ? (
           <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin text-ink-muted" />

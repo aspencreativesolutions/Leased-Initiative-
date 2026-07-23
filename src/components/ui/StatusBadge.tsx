@@ -38,8 +38,8 @@ const paymentLabels: Partial<Record<PaymentStatus, string>> = {
 }
 
 const projectLabels: Partial<Record<ProjectStatus, string>> = {
-  'Contract Sent': 'Lease Sent',
-  'Contract Signed': 'Lease Signed',
+  'Contract Sent': 'Lease Agreement Sent',
+  'Contract Signed': 'Lease Agreement Signed',
   'In Progress': 'Active',
   Completed: 'Ended',
 }

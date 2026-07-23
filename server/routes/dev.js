@@ -3,16 +3,28 @@
  * Disabled when NODE_ENV=production unless ENABLE_ADMIN_MODE=1.
  */
 import { Router } from 'express'
-import { readStore, writeStore } from '../db.js'
+import { readStore, writeStore, readStoreFromDisk, writeStoreToDisk } from '../db.js'
 import {
   LEASED_DEMO_USERS,
   forceReseedLeasedDemoUsers,
   resetDemoOnboarding,
   getDemoPassword,
 } from '../lib/leasedDemoUsers.js'
-import { ensureSamplePortalUsers, getSamplePortalPassword } from '../lib/samplePortalUsers.js'
+import { ensureSamplePortalUsers, getSamplePortalPassword, purgeRemovedSampleClients } from '../lib/samplePortalUsers.js'
 import { ensureSampleClientContracts } from '../lib/sampleClientContracts.js'
+import { purgeImportedLeaseScanData } from '../lib/purgeImportedLeaseScan.js'
+import { ensureStoreProperties } from '../lib/properties.js'
 import { SAMPLE_CLIENT_EMAILS } from '../lib/sampleClientDates.js'
+import {
+  getConfiguredDemoCode,
+  setDemoAccessCodeOnStore,
+} from '../lib/demoAccess.js'
+import {
+  buildCompanyDemoLinkUrl,
+  createCompanyDemoLink,
+  listActiveCompanyDemoLinks,
+  listKnownCompanyDemoNames,
+} from '../lib/companyDemoLinks.js'
 
 const router = Router()
 
@@ -28,9 +40,9 @@ const SAMPLE_SCENARIO_USERS = [
     email: 'emily@rodriguezwellness.com',
     name: 'Emily Rodriguez',
     role: 'client',
-    label: 'Tenant — early inquiry',
-    description: 'Linked inquiry; lease not started',
-    journey: 'inquiry',
+    label: 'Tenant — lease sent',
+    description: 'Accepted; lease sent, waiting to sign',
+    journey: 'lease_sent',
   },
   {
     key: 'sample-james',
@@ -40,15 +52,6 @@ const SAMPLE_SCENARIO_USERS = [
     label: 'Tenant — lease sent + overdue',
     description: 'Lease sent with overdue rent',
     journey: 'lease_sent_overdue',
-  },
-  {
-    key: 'sample-sarah',
-    email: 'sarah@bloombotanicals.com',
-    name: 'Sarah Mitchell',
-    role: 'client',
-    label: 'Tenant — in progress',
-    description: 'Signed, deposit paid, project in progress',
-    journey: 'in_progress',
   },
   {
     key: 'sample-marcus',
@@ -100,6 +103,15 @@ router.post('/admin/reseed', async (_req, res) => {
     const demoResult = await forceReseedLeasedDemoUsers(store)
     store = demoResult.store
 
+    const importPurge = purgeImportedLeaseScanData(store)
+    store = importPurge.store
+
+    const propertiesResult = ensureStoreProperties(store)
+    store = propertiesResult.store
+
+    const purgeResult = purgeRemovedSampleClients(store)
+    store = purgeResult.store
+
     const portalResult = await ensureSamplePortalUsers(store)
     store = portalResult.store
 
@@ -113,6 +125,12 @@ router.post('/admin/reseed', async (_req, res) => {
       demos: {
         createdUsers: demoResult.createdUsers,
         wiped: demoResult.wiped === true,
+      },
+      imports: {
+        removedClients: importPurge.removedClients,
+        removedContracts: importPurge.removedContracts,
+        removedProperties: importPurge.removedProperties,
+        removedInvites: importPurge.removedInvites,
       },
       samples: {
         createdUsers: portalResult.createdUsers,
@@ -177,6 +195,79 @@ router.get('/admin/users/:email', (req, res) => {
     passwordEqualsEmail: isDemo,
     demoPassword: isDemo ? getDemoPassword(email) || getSamplePortalPassword(email) : undefined,
   })
+})
+
+router.get('/admin/demo-code', (_req, res) => {
+  const store = readStoreFromDisk()
+  res.json({
+    code: getConfiguredDemoCode(store),
+    source: store.settings?.demoAccessCode
+      ? 'settings'
+      : process.env.DEMO_ACCESS_CODE
+        ? 'env'
+        : 'default',
+  })
+})
+
+router.put('/admin/demo-code', (req, res) => {
+  try {
+    const code = req.body?.code
+    const store = readStoreFromDisk()
+    const result = setDemoAccessCodeOnStore(store, code)
+    if (result.error) {
+      return res.status(400).json({ error: result.error })
+    }
+    writeStoreToDisk(result.store)
+    res.json({
+      ok: true,
+      code: getConfiguredDemoCode(result.store),
+      source: 'settings',
+    })
+  } catch (err) {
+    console.error('admin demo-code', err)
+    res.status(500).json({ error: 'Could not save demo access code' })
+  }
+})
+
+router.get('/admin/company-demo-links', (_req, res) => {
+  const store = readStoreFromDisk()
+  const links = listActiveCompanyDemoLinks(store).map((link) => ({
+    id: link.id,
+    companyName: link.companyName,
+    url: buildCompanyDemoLinkUrl(link.token),
+    createdAt: link.createdAt,
+    expiresAt: link.expiresAt,
+  }))
+  res.json({
+    links,
+    companySuggestions: listKnownCompanyDemoNames(store),
+  })
+})
+
+router.post('/admin/company-demo-links', (req, res) => {
+  try {
+    const store = readStoreFromDisk()
+    const result = createCompanyDemoLink(store, req.body?.companyName)
+    if (result.error) {
+      return res.status(400).json({ error: result.error })
+    }
+    writeStoreToDisk(result.store)
+    res.json({
+      ok: true,
+      url: result.url,
+      expiryDays: result.expiryDays,
+      link: {
+        id: result.link.id,
+        companyName: result.link.companyName,
+        url: result.url,
+        createdAt: result.link.createdAt,
+        expiresAt: result.link.expiresAt,
+      },
+    })
+  } catch (err) {
+    console.error('admin company-demo-links', err)
+    res.status(500).json({ error: 'Could not generate company demo link' })
+  }
 })
 
 export default router

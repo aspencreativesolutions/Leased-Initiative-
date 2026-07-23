@@ -1,57 +1,41 @@
 import { migrateServiceTier } from './serviceTier.js'
+import { PLACEHOLDER_MARKER, blankField } from './residentialLeaseTemplate.js'
 
-export const PLACEHOLDER_MARKER = '[To be customized]'
+export { PLACEHOLDER_MARKER }
 
-const TIER_SERVICES_INCLUDED = {
-  Launch:
-    'Custom single-page design, mobile-responsive layout, about/services/contact sections, contact form, basic SEO setup, and one revision round.',
-  Studio:
-    'Everything in Launch, plus up to 6 custom pages, blog setup, custom typography and color palette, social media integration, and two revision rounds.',
-  Summit:
-    'Everything in Studio, plus fully custom design and development, e-commerce setup, advanced integrations (booking, CRM, etc.), performance and accessibility optimization, and priority support.',
-}
-
-const TIER_SERVICES_NOT_INCLUDED =
-  'Copywriting, photography, stock image licensing, third-party plugin subscriptions, ongoing marketing, and work outside the agreed scope unless added via change order.'
-
-const TIER_DELIVERABLES = {
-  Launch: 'Final single-page website files, mobile-responsive layout, and launch-ready contact form.',
-  Studio: 'Multi-page website files, blog configuration, brand-aligned design system, and launch walkthrough.',
-  Summit:
-    'Fully custom website or application deliverables, e-commerce configuration, integration setup, and handoff documentation.',
-}
-
+/** @deprecated Agency tier copy removed — kept for import compatibility. */
 export function buildContractPlaceholderFields(client) {
-  const tier = migrateServiceTier(client.serviceTier)
-  const project = client.projectName || 'this project'
-
+  const project = client.projectName || 'this rental'
   return {
-    servicesIncluded: `${PLACEHOLDER_MARKER} List the services included for ${project}. ${tier} tier typically includes: ${TIER_SERVICES_INCLUDED[tier]}`,
-    servicesNotIncluded: `${PLACEHOLDER_MARKER} List services not included for ${project}. Common exclusions: ${TIER_SERVICES_NOT_INCLUDED}`,
-    deliverables: `${PLACEHOLDER_MARKER} Specify deliverables for ${project}. ${tier} tier example: ${TIER_DELIVERABLES[tier]}`,
-    totalCost: `${PLACEHOLDER_MARKER} Enter total project cost`,
-    depositAmount: `${PLACEHOLDER_MARKER} Enter deposit amount`,
-    remainingBalance: `${PLACEHOLDER_MARKER} Enter remaining balance`,
-    startDate: `${PLACEHOLDER_MARKER} Enter project start date`,
-    completionDate: `${PLACEHOLDER_MARKER} Enter estimated completion date`,
-    extraRevisionFee: `${PLACEHOLDER_MARKER} Enter fee for additional revisions, if applicable`,
+    servicesIncluded: blankField(`List utilities included for ${project}`),
+    servicesNotIncluded: blankField(`List utilities the tenant pays for ${project}`),
+    deliverables: blankField('Describe occupancy limits and permitted use'),
+    totalCost: blankField('Enter monthly rent amount'),
+    depositAmount: blankField('Enter security deposit amount'),
+    remainingBalance: blankField('Enter first payment / move-in total if applicable'),
+    startDate: blankField('Enter lease start date'),
+    completionDate: blankField('Enter lease end date'),
+    extraRevisionFee: blankField('Pet deposit or fee (if applicable)'),
   }
 }
 
+/**
+ * Whether the lease still needs landlord customization before it is considered
+ * complete. Generation creates a ready template that may still contain blanks.
+ */
 export function contractNeedsDetail(contract) {
   if (!contract) return false
-  if (contract.isPlaceholderDraft) return true
+  if (contract.leaseGenerationStatus === 'generating') return true
+  if (contract.isPlaceholderDraft && contract.leaseGenerationStatus !== 'ready') {
+    return true
+  }
 
-  const keyFields = [
-    'servicesIncluded',
-    'servicesNotIncluded',
-    'deliverables',
-    'totalCost',
-    'depositAmount',
-  ]
+  const keyFields = ['totalCost', 'depositAmount', 'startDate', 'completionDate']
 
   return keyFields.some((field) => {
     const value = contract[field]?.trim?.() ?? ''
     return !value || value.includes(PLACEHOLDER_MARKER)
   })
 }
+
+void migrateServiceTier

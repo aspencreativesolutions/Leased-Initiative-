@@ -1,4 +1,5 @@
-import type { BusinessSettings, Client, ProfileReminder } from '@/types'
+import type { BusinessSettings, Client, ProfileReminder, Property } from '@/types'
+import { getDemoAsOfIso, getDemoAsOfYmd } from '@/lib/demoClock'
 import { generateId } from '@/lib/storage'
 
 /** June 9, 2026 + 90 days */
@@ -20,9 +21,9 @@ export const defaultSettings: BusinessSettings = {
   phone: '(555) 000-0000',
   address: '4821 Westheimer Road, Suite 210, Houston, TX 77056',
   defaultPaymentTerms: 'Monthly rent due on the 1st of each month for the lease term.',
-  defaultRevisionLimit: '2',
+  defaultRevisionLimit: '3',
   defaultContractFooter:
-    'This agreement constitutes the entire understanding between the parties. Any modifications must be in writing and signed by both parties.',
+    'This residential lease agreement constitutes the entire understanding between landlord and tenant regarding the premises. Local and state landlord-tenant laws may impose additional rights and obligations. Any modifications must be in writing and signed by both parties.',
   profileReminders: defaultProfileReminders,
   automation: {
     enabled: true,
@@ -34,7 +35,7 @@ export const defaultSettings: BusinessSettings = {
   contractRegions: [],
 }
 
-/** Maps outdated mock/sample addresses to realistic replacements. */
+/** Maps outdated mock/sample addresses (and old agency project titles) to realistic replacements. */
 export const SAMPLE_ADDRESS_MIGRATIONS: Record<string, string> = {
   '123 Creative Lane, Your City, ST 00000':
     '4821 Westheimer Road, Suite 210, Houston, TX 77056',
@@ -53,6 +54,9 @@ export const SAMPLE_ADDRESS_MIGRATIONS: Record<string, string> = {
     '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
   '100 Lease Lane, Demo City, ST 00000':
     '1200 Congress Avenue, Suite 400, Austin, TX 78701',
+  'Portfolio Website': '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+  'Brand Identity Package': '56 East Market Street #210, Philadelphia, PA 19107',
+  'Local SEO Optimization': '3315 South Magnolia Avenue, Tampa, FL 33609',
 }
 
 export function migrateSampleAddress(address?: string): string | undefined {
@@ -60,70 +64,132 @@ export function migrateSampleAddress(address?: string): string | undefined {
   return SAMPLE_ADDRESS_MIGRATIONS[address.trim()] ?? address
 }
 
-function daysFromNow(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+/** Follow-ups relative to Demo Mode “today” (July 22). */
+function demoRelativeDate(daysFromDemoToday: number): string {
+  const [y, m, d] = getDemoAsOfYmd().split('-').map(Number)
+  const date = new Date(y, m - 1, d + daysFromDemoToday)
+  const yy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
 }
 
-function firstOfMonthFromNow(monthsAhead: number): string {
-  const d = new Date()
-  const target = new Date(d.getFullYear(), d.getMonth() + monthsAhead, 1)
-  const y = target.getFullYear()
-  const m = String(target.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}-01`
-}
-
-export function seedClients(): Client[] {
-  const now = new Date().toISOString()
+/**
+ * Curated landlord portfolio. Some properties have vacant units; Portland Unit 4
+ * is shared by two sample tenants (roommates).
+ */
+export function seedProperties(): Property[] {
+  const now = getDemoAsOfIso()
   return [
     {
       id: generateId(),
-      name: 'Sarah Mitchell',
-      businessName: 'Bloom Botanicals',
-      email: 'sarah@bloombotanicals.com',
-      phone: '(212) 234-5678',
-      website: 'https://bloombotanicals.com',
-      projectType: 'House',
-      projectName: '1847 North Whispering Pines Boulevard, Apartment 12B, Charlotte, NC 28202',
-      projectDescription: 'Full redesign with e-commerce for plant shop.',
-      projectStatus: 'In Progress',
-      contractStatus: 'Signed',
-      paymentStatus: 'Deposit Paid',
-      serviceTier: 'Summit',
-      leaseLengthMonths: 12,
-      isOfficialClient: true,
-      officialClientSince: now,
-      followUpDate: daysFromNow(3),
-      notes: [
-        {
-          id: generateId(),
-          text: 'Client prefers email for async updates. Weekly check-in on Fridays.',
-          createdAt: now,
-          category: 'General',
-        },
-      ],
-      deadlines: [
-        {
-          id: generateId(),
-          type: 'project',
-          date: daysFromNow(14),
-          time: '17:00',
-          label: 'Homepage mockup delivery',
-          description:
-            'First-round homepage mockups will be shared for review. Prepare consolidated feedback on layout, typography, and imagery so revisions can begin immediately.',
-        },
-        {
-          id: generateId(),
-          type: 'payment',
-          date: firstOfMonthFromNow(1),
-          label: 'Rent due',
-          description: 'Monthly rent is due on the 1st.',
-        },
-      ],
-      isSampleClient: true,
+      address: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+      propertyType: 'Apartment',
+      unitCount: 1,
+      bedrooms: 2,
+      maxTenants: 2,
       createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '902 West Cedar Ridge Drive, Unit 4',
+        city: 'Portland',
+        state: 'OR',
+        zip: '97205',
+      },
     },
+    {
+      id: generateId(),
+      address: '56 East Market Street #210, Philadelphia, PA 19107',
+      propertyType: 'Apartment',
+      unitCount: 3,
+      bedrooms: 1,
+      maxTenants: 3,
+      createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '56 East Market Street #210',
+        city: 'Philadelphia',
+        state: 'PA',
+        zip: '19107',
+      },
+    },
+    {
+      id: generateId(),
+      address: '3315 South Magnolia Avenue, Tampa, FL 33609',
+      propertyType: 'Single-Family Home',
+      unitCount: 1,
+      bedrooms: 3,
+      maxTenants: 4,
+      createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '3315 South Magnolia Avenue',
+        city: 'Tampa',
+        state: 'FL',
+        zip: '33609',
+      },
+    },
+    {
+      id: generateId(),
+      address: '7748 Highland Park Lane, Austin, TX 78745',
+      propertyType: 'Townhouse',
+      unitCount: 1,
+      bedrooms: 2,
+      maxTenants: 3,
+      createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '7748 Highland Park Lane',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78745',
+      },
+    },
+    {
+      id: generateId(),
+      address: '2140 Barton Springs Road, Unit 2B, Austin, TX 78704',
+      propertyType: 'Multi-Family Building',
+      unitCount: 4,
+      bedrooms: 2,
+      maxTenants: 6,
+      createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '2140 Barton Springs Road, Unit 2B',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78704',
+      },
+    },
+    {
+      id: generateId(),
+      address: '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
+      propertyType: 'Condominium (Condo)',
+      unitCount: 1,
+      bedrooms: 3,
+      maxTenants: 4,
+      createdAt: now,
+      addressConfirmed: true,
+      addressDetails: {
+        street: '8901 North Lamar Boulevard, Unit 3C',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78753',
+      },
+    },
+  ]
+}
+
+/**
+ * Seed clients use Jan 1 / Aug 1 lease starts (6 or 12 months only). Full payment
+ * histories are applied server-side by applyDemoLeaseFixturesToStore so landlord
+ * and tenant stay in sync. James Chen and Lisa Park share Portland Unit 4 (roommates).
+ * Official Tenants only lists leases currently in term as of demo today (July 22).
+ */
+export function seedClients(): Client[] {
+  const now = getDemoAsOfIso()
+  const sharedPortland = '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205'
+  return [
     {
       id: generateId(),
       name: 'James Chen',
@@ -131,42 +197,30 @@ export function seedClients(): Client[] {
       email: 'james@chenarch.com',
       phone: '(718) 876-5432',
       projectType: 'Apartment',
-      projectName: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
-      projectStatus: 'Contract Sent',
-      contractStatus: 'Sent',
+      projectName: sharedPortland,
+      projectDescription:
+        'January 1, 2026–January 1, 2027 lease — shares Unit 4 with Lisa Park; July rent currently past due.',
+      projectStatus: 'In Progress',
+      contractStatus: 'Signed',
       paymentStatus: 'Overdue',
       serviceTier: 'Studio',
       leaseLengthMonths: 12,
-      isOfficialClient: false,
+      isOfficialClient: true,
+      officialClientSince: now,
       notes: [],
       deadlines: [
         {
           id: generateId(),
           type: 'follow-up',
-          date: daysFromNow(1),
+          date: demoRelativeDate(2),
           time: '10:30',
           meetingLink: 'https://meet.example.com/chen-architecture-followup',
-          label: 'Lease review call',
-          description:
-            'Walk through the sent lease together — scope, timeline, deposit, and revision terms. Have any questions ready and confirm who will sign on your side.',
-        },
-        {
-          id: generateId(),
-          type: 'payment',
-          date: daysFromNow(-14),
-          label: 'First month rent due',
-          description: 'Monthly rent of $2,100 is past due.',
-        },
-        {
-          id: generateId(),
-          type: 'contract',
-          date: daysFromNow(5),
-          label: 'Lease signature follow-up',
-          description:
-            'If the lease is still unsigned, follow up on outstanding questions and confirm whether any edits are needed before signing.',
+          label: 'Overdue rent follow-up call',
+          description: 'Confirm July rent status and payment plan if needed.',
         },
       ],
       isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
       createdAt: now,
     },
     {
@@ -177,32 +231,36 @@ export function seedClients(): Client[] {
       phone: '(201) 111-2222',
       projectType: 'Condo',
       projectName: '56 East Market Street #210, Philadelphia, PA 19107',
-      projectStatus: 'Inquiry',
-      contractStatus: 'Not Started',
+      projectDescription:
+        'Accepted tenant — lease sent for August 1, 2026 start; awaiting signature.',
+      projectStatus: 'Contract Sent',
+      contractStatus: 'Sent',
       paymentStatus: 'Unpaid',
+      leaseLengthMonths: 12,
       isOfficialClient: false,
-      followUpDate: daysFromNow(7),
+      followUpDate: demoRelativeDate(9),
       notes: [
         {
           id: generateId(),
-          text: 'Discovery call scheduled. Interested in logo + social templates.',
+          text: 'Lease sent to portal. Waiting for Emily to review and sign.',
           createdAt: now,
-          category: 'Follow-Up',
+          category: 'Contract',
         },
       ],
       deadlines: [
         {
           id: generateId(),
           type: 'follow-up',
-          date: daysFromNow(7),
+          date: demoRelativeDate(9),
           time: '15:00',
           meetingLink: 'https://meet.example.com/rodriguez-wellness-discovery',
-          label: 'Discovery call',
+          label: 'Lease signature follow-up',
           description:
-            'Introductory discovery session for the brand identity package. Discuss target audience, brand personality, deliverables (logo + social templates), and timeline. Please prepare inspiration references, competitor examples, and any existing brand assets.',
+            'Confirm Emily received the lease and answer any move-in questions.',
         },
       ],
       isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
       createdAt: now,
     },
     {
@@ -213,25 +271,19 @@ export function seedClients(): Client[] {
       phone: '(305) 333-4444',
       projectType: 'Townhouse',
       projectName: '3315 South Magnolia Avenue, Tampa, FL 33609',
-      projectStatus: 'In Progress',
+      projectDescription:
+        'Signed 12-month lease begins August 1, 2026 (upcoming — not active before that date); first month already paid early.',
+      projectStatus: 'Contract Signed',
       contractStatus: 'Signed',
-      paymentStatus: 'Paid',
+      paymentStatus: 'Deposit Paid',
       serviceTier: 'Studio',
+      leaseLengthMonths: 12,
       isOfficialClient: true,
       officialClientSince: now,
-      projectStartedAt: now,
       notes: [],
-      deadlines: [
-        {
-          id: generateId(),
-          type: 'project',
-          date: daysFromNow(10),
-          label: 'SEO audit delivery',
-          description:
-            'Initial local SEO audit and keyword recommendations will be shared for review before on-page optimization begins.',
-        },
-      ],
+      deadlines: [],
       isSampleClient: true,
+      demoLeaseStartDate: '2026-08-01',
       createdAt: now,
     },
     {
@@ -241,40 +293,28 @@ export function seedClients(): Client[] {
       email: 'lisa@parkphoto.com',
       phone: '(415) 555-6666',
       projectType: 'Apartment',
-      projectName: '7748 Highland Park Lane, Austin, TX 78745',
+      projectName: sharedPortland,
+      projectDescription:
+        'Six-month lease (January 1–July 1, 2026) sharing Unit 4 with James Chen — term ended; re-sign outreach due.',
       projectStatus: 'Follow-Up Needed',
       contractStatus: 'Signed',
-      paymentStatus: 'Overdue',
+      paymentStatus: 'Paid',
       serviceTier: 'Launch',
       leaseLengthMonths: 6,
+      // Completed lease — not listed under Official Tenants
       isOfficialClient: false,
-      followUpDate: daysFromNow(4),
+      followUpDate: demoRelativeDate(4),
       notes: [
         {
           id: generateId(),
-          text: 'Payment reminder sent. No response yet.',
+          text: 'Six-month lease ended — discuss re-sign or move-out with roommate James Chen.',
           createdAt: now,
-          category: 'Payment',
+          category: 'Contract',
         },
       ],
-      deadlines: [
-        {
-          id: generateId(),
-          type: 'payment',
-          date: daysFromNow(-45),
-          label: 'Rent due — prior month',
-          description: 'Monthly rent of $1,850 is past due.',
-        },
-        {
-          id: generateId(),
-          type: 'payment',
-          date: daysFromNow(-14),
-          label: 'Rent due',
-          description:
-            'Second month of rent is past due. Send the tenant a message from Overdue Rent.',
-        },
-      ],
+      deadlines: [],
       isSampleClient: true,
+      demoLeaseStartDate: '2026-01-01',
       createdAt: now,
     },
   ]

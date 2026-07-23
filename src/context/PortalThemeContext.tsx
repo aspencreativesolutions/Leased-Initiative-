@@ -2,17 +2,21 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import { useAppearance } from '@/context/AppearanceContext'
 import {
+  THEME_PREFERENCE_EVENT,
   applyThemeToDocument,
+  isThemeId,
   loadStoredPortalThemeId,
 } from '@/themes/applyTheme'
 import { savePortalTheme } from '@/lib/portalThemeApi'
 import { getToken } from '@/lib/api'
+import { isPublicDemoSession } from '@/lib/publicDemo'
 import {
   DEFAULT_PORTAL_THEME_ID,
   DEFAULT_APPEARANCE,
@@ -46,11 +50,24 @@ export function PortalThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>(() => loadStoredPortalThemeId())
   const { appearance, setAppearance, resetAppearance } = useAppearance()
 
+  useEffect(() => {
+    const onPreference = (event: Event) => {
+      const id = (event as CustomEvent<{ themeId?: string }>).detail?.themeId
+      if (id && isThemeId(id)) setThemeId(id)
+    }
+    window.addEventListener(THEME_PREFERENCE_EVENT, onPreference)
+    return () => window.removeEventListener(THEME_PREFERENCE_EVENT, onPreference)
+  }, [])
+
   const setTheme = useCallback((id: ThemeId, options?: SetThemeOptions) => {
     // Always mirror onto the device so route sync stays consistent; API save is opt-in.
-    applyThemeToDocument(id, PORTAL_THEME_STORAGE_KEY, { persist: true })
+    applyThemeToDocument(id, PORTAL_THEME_STORAGE_KEY, {
+      persist: true,
+      syncSurfaces: isPublicDemoSession(),
+    })
     setThemeId(id)
     if (options?.persist === false || !getToken()) return
+    if (isPublicDemoSession()) return
     savePortalTheme(id).catch(() => {})
   }, [])
 

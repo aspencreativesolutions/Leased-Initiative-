@@ -10,6 +10,7 @@ import {
   deleteProjectFile,
   uploadMiddleware,
 } from '../lib/fileUpload.js'
+import { isAllowedPhotoUpload } from '../lib/allowedFileTypes.js'
 import { getPortalClientContractStatus } from '../lib/portalContractStatus.js'
 import { repairSentContracts } from '../lib/contractMerge.js'
 import { isProjectActive } from '../lib/clientWorkflow.js'
@@ -159,7 +160,7 @@ router.patch('/profile', (req, res) => {
   }
 })
 
-/** Tenant reports a maintenance / property issue — notifies the landlord with attachment */
+/** Tenant logs a repair / concern — requires a photo; note is optional */
 router.post('/problems', (req, res, next) => {
   const clientId = req.user.clientId
   if (!clientId) {
@@ -189,13 +190,15 @@ router.post('/problems', (req, res, next) => {
       if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
       return res.status(400).json({ error: 'Select a valid problem type.' })
     }
-    if (!note) {
-      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
-      return res.status(400).json({ error: 'Please add a short note describing the issue.' })
-    }
     if (!req.file) {
       return res.status(400).json({
-        error: 'Upload a photo or document so your landlord can assess the issue.',
+        error: 'Upload a photo so your landlord can assess the issue.',
+      })
+    }
+    if (!isAllowedPhotoUpload(req.file)) {
+      if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({
+        error: 'Attach a photo (JPG, PNG, or WEBP). Documents are not accepted for repairs.',
       })
     }
 
@@ -206,12 +209,13 @@ router.post('/problems', (req, res, next) => {
       return res.status(404).json({ error: 'Tenant profile not found' })
     }
 
+    const noteSuffix = note ? `: ${note}` : ''
     const fileEntry = saveUploadedFile({
       client,
       file: req.file,
       uploadedBy: 'client',
       uploadedByName: req.user.name,
-      initialNote: `Issue report (${problemType}): ${note}`,
+      initialNote: `Repair / concern (${problemType})${noteSuffix}`,
     })
 
     const leaseLabel = client.leaseLengthMonths
@@ -223,12 +227,15 @@ router.post('/problems', (req, res, next) => {
     )
 
     const resolvedAddress = address || client.projectName || 'their unit'
+    const messageBody = note
+      ? `${client.name} at ${resolvedAddress} (${leaseLabel}): ${note}`
+      : `${client.name} at ${resolvedAddress} (${leaseLabel}) submitted a photo for: ${problemType}`
 
     updateStore((s) => {
       let next = pushAdminNotification(s, {
         type: 'problem_report',
-        title: `Issue reported: ${problemType}`,
-        message: `${client.name} at ${resolvedAddress} (${leaseLabel}): ${note}`,
+        title: `Repair / concern: ${problemType}`,
+        message: messageBody,
         clientId: client.id,
         userId: req.user.id,
         fileId: fileEntry.id,
@@ -238,6 +245,10 @@ router.post('/problems', (req, res, next) => {
         tenantName: client.name,
         address: resolvedAddress,
       })
+
+      const clientNoteText = note
+        ? `[Repair / concern — ${problemType}] ${note} (photo: ${fileEntry.originalName})`
+        : `[Repair / concern — ${problemType}] (photo: ${fileEntry.originalName})`
 
       next = {
         ...next,
@@ -249,7 +260,7 @@ router.post('/problems', (req, res, next) => {
               ...(c.notes ?? []),
               {
                 id: generateId(),
-                text: `[Issue report — ${problemType}] ${note} (file: ${fileEntry.originalName})`,
+                text: clientNoteText,
                 category: 'Follow-Up',
                 createdAt: new Date().toISOString(),
               },
@@ -262,7 +273,7 @@ router.post('/problems', (req, res, next) => {
 
     res.status(201).json({
       ok: true,
-      message: 'Your landlord has been notified with your attachment.',
+      message: 'Your landlord has been notified with your photo.',
       file: fileEntry,
     })
   } catch (err) {
@@ -345,17 +356,21 @@ router.get('/dashboard', (req, res) => {
     (c) => c.clientId === clientId && c.sentAt
   )
 
-  const contractSummaries = sentContracts.map((c) => ({
-    id: c.id,
-    projectTitle: c.projectTitle,
-    totalCost: c.totalCost,
-    sentAt: c.sentAt,
-    signedAt: c.signedAt,
-    viewedAt: c.viewedAt,
-    confirmedByClient: c.confirmedByClient ?? false,
-    pdfGenerated: c.pdfGenerated ?? false,
-    portalStatus: getPortalContractStatus(c),
-  }))
+  const contractSummaries = sentContracts.map((c) => {
+    const propertyAddress = resolveTenantAddress(client, c)
+    return {
+      id: c.id,
+      projectTitle: propertyAddress || c.projectTitle,
+      address: propertyAddress || c.projectTitle,
+      totalCost: c.totalCost,
+      sentAt: c.sentAt,
+      signedAt: c.signedAt,
+      viewedAt: c.viewedAt,
+      confirmedByClient: c.confirmedByClient ?? false,
+      pdfGenerated: c.pdfGenerated ?? false,
+      portalStatus: getPortalContractStatus(c),
+    }
+  })
 
   const primaryContract =
     sentContracts[0] ?? activeStore.contracts.find((c) => c.clientId === clientId)

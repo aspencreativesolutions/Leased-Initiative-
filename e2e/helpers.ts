@@ -55,7 +55,15 @@ export async function registerClientApi(
 ): Promise<void> {
   await apiJson('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, accountType: 'client' }),
+    body: JSON.stringify({
+      name,
+      email,
+      password,
+      accountType: 'client',
+      preferredLandlordCompany: 'Your Studio',
+      preferredPropertyAddress: '100 Demo Street, Demo City, CA 90001',
+      preferredLeaseMonths: 12,
+    }),
   })
 }
 

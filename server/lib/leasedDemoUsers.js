@@ -1,11 +1,16 @@
 import { hashPassword, verifyPassword } from '../auth.js'
 import { createDraftContract } from './contractDraft.js'
 import {
-  buildMonthlyRentDeadlines,
+  applyDemoScenarioToClient,
+  applyDemoScenarioToContract,
+  resolveDemoScenario,
+  scenarioLeaseDates,
+} from './demoLeaseFixtures.js'
+import { forceApplyDemoLeaseFixturesToStore } from './applyDemoLeaseFixtures.js'
+import { getDemoAsOfIso } from './demoClock.js'
+import {
   computeLeaseEndDate,
-  computeLeaseStartDate,
   DEFAULT_LEASE_LENGTH_MONTHS,
-  listMonthlyRentDueDates,
 } from './leaseSchedule.js'
 import { generateId } from './notifications.js'
 import { DEFAULT_PORTAL_THEME_ID } from './themeIds.js'
@@ -15,12 +20,26 @@ export function getDemoPassword(email) {
   return email.trim().toLowerCase()
 }
 
+/** Seed rental addresses — must stay in sync with DEFAULT_SEED_PROPERTIES / Rentals. */
+export const DEMO_RENTAL_ADDRESSES = {
+  portland: '902 West Cedar Ridge Drive, Unit 4, Portland, OR 97205',
+  philadelphia: '56 East Market Street #210, Philadelphia, PA 19107',
+  tampa: '3315 South Magnolia Avenue, Tampa, FL 33609',
+  highland: '7748 Highland Park Lane, Austin, TX 78745',
+  barton: '2140 Barton Springs Road, Unit 2B, Austin, TX 78704',
+  lamar: '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
+}
+
+/** Retired demo emails removed on ensure / reseed. */
+const OBSOLETE_LEASED_DEMO_EMAILS = new Set(['pending@leased.test'])
+
 /**
- * One mock login per Leased flow state:
+ * One mock login per Leased flow state, plus extra Waiting to Connect applicants
+ * whose desired addresses match seeded Rentals:
  * 1. Landlord — approve tenants & send leases
- * 2. Tenant awaiting approval — signed up, not yet linked
- * 3. Tenant lease sent — approved, waiting to sign
- * 4. Tenant active — lease signed
+ * 2–4. Tenants awaiting approval (realistic names + rental addresses)
+ * 5. Tenant lease sent — approved, waiting to sign
+ * 6. Tenant active — lease signed
  */
 export const LEASED_DEMO_USERS = [
   {
@@ -33,13 +52,39 @@ export const LEASED_DEMO_USERS = [
   },
   {
     key: 'pending',
-    email: 'pending@leased.test',
-    name: 'Pat Pending',
+    email: 'emma.johnson@example.com',
+    name: 'Emma Johnson',
     role: 'client',
     label: 'Tenant — awaiting approval',
-    description: 'Signed up; waiting for landlord approval',
+    description: 'Signed up for Highland Park; waiting for landlord approval',
     tenantState: 'pending_approval',
     preferredLeaseMonths: 12,
+    preferredLandlordCompany: 'Leased Properties',
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.highland,
+  },
+  {
+    key: 'pending-michael',
+    email: 'michael.carter@example.com',
+    name: 'Michael Carter',
+    role: 'client',
+    label: 'Tenant — awaiting approval (Barton Springs)',
+    description: 'Signed up for Barton Springs; waiting for landlord approval',
+    tenantState: 'pending_approval',
+    preferredLeaseMonths: 12,
+    preferredLandlordCompany: 'Leased Properties',
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.barton,
+  },
+  {
+    key: 'pending-olivia',
+    email: 'olivia.davis@example.com',
+    name: 'Olivia Davis',
+    role: 'client',
+    label: 'Tenant — awaiting approval (Tampa Magnolia)',
+    description: 'Signed up for Magnolia Avenue; waiting for landlord approval',
+    tenantState: 'pending_approval',
+    preferredLeaseMonths: 6,
+    preferredLandlordCompany: 'Leased Properties',
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.tampa,
   },
   {
     key: 'awaiting',
@@ -50,11 +95,12 @@ export const LEASED_DEMO_USERS = [
     description: 'Approved; lease sent, waiting to sign',
     tenantState: 'lease_sent',
     preferredLeaseMonths: 12,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.barton,
     client: {
       businessName: 'Awaiting Lease Unit',
       phone: '(555) 200-0002',
       projectType: 'Apartment',
-      projectName: '2140 Barton Springs Road, Unit 2B, Austin, TX 78704',
+      projectName: DEMO_RENTAL_ADDRESSES.barton,
       projectDescription: 'Demo tenant with a lease waiting for signature.',
       projectStatus: 'Contract Sent',
       contractStatus: 'Sent',
@@ -69,15 +115,17 @@ export const LEASED_DEMO_USERS = [
     name: 'Casey Active',
     role: 'client',
     label: 'Tenant — active',
-    description: 'Lease signed; active tenant',
+    description: 'Lease signed; active tenant (Aug 2025–Jul 2026 term)',
     tenantState: 'active',
     preferredLeaseMonths: 12,
+    preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.lamar,
     client: {
       businessName: 'Active Lease Unit',
       phone: '(555) 200-0003',
       projectType: 'House',
-      projectName: '8901 North Lamar Boulevard, Unit 3C, Austin, TX 78753',
-      projectDescription: 'Demo tenant with a signed active lease.',
+      projectName: DEMO_RENTAL_ADDRESSES.lamar,
+      projectDescription:
+        'Demo tenant with a signed 12-month lease starting August 1, 2025 (ending soon).',
       projectStatus: 'Contract Signed',
       contractStatus: 'Signed',
       paymentStatus: 'Deposit Paid',
@@ -107,6 +155,9 @@ async function ensureUserRecord(users, demo, extras = {}) {
     demo.preferredLeaseMonths ??
     demo.client?.leaseLengthMonths ??
     (demo.role === 'client' ? DEFAULT_LEASE_LENGTH_MONTHS : undefined)
+  const preferredPropertyAddress =
+    demo.preferredPropertyAddress ?? demo.client?.projectName
+  const preferredLandlordCompany = demo.preferredLandlordCompany
 
   if (!user) {
     user = {
@@ -120,6 +171,8 @@ async function ensureUserRecord(users, demo, extras = {}) {
       isLeasedDemoUser: true,
       portalThemeId: demo.role === 'client' ? DEFAULT_PORTAL_THEME_ID : undefined,
       ...(preferredLeaseMonths != null ? { preferredLeaseMonths } : {}),
+      ...(preferredPropertyAddress ? { preferredPropertyAddress } : {}),
+      ...(preferredLandlordCompany ? { preferredLandlordCompany } : {}),
       createdAt: now,
       ...extras,
     }
@@ -133,6 +186,10 @@ async function ensureUserRecord(users, demo, extras = {}) {
     user.emailVerified !== true ||
     !passwordOk ||
     (preferredLeaseMonths != null && user.preferredLeaseMonths !== preferredLeaseMonths) ||
+    (preferredPropertyAddress != null &&
+      user.preferredPropertyAddress !== preferredPropertyAddress) ||
+    (preferredLandlordCompany != null &&
+      user.preferredLandlordCompany !== preferredLandlordCompany) ||
     (extras.clientId !== undefined && user.clientId !== extras.clientId) ||
     (extras.clientId === null && user.clientId)
 
@@ -148,6 +205,8 @@ async function ensureUserRecord(users, demo, extras = {}) {
     emailVerifiedAt: user.emailVerifiedAt ?? now,
     isLeasedDemoUser: true,
     ...(preferredLeaseMonths != null ? { preferredLeaseMonths } : {}),
+    ...(preferredPropertyAddress != null ? { preferredPropertyAddress } : {}),
+    ...(preferredLandlordCompany != null ? { preferredLandlordCompany } : {}),
     ...(!passwordOk ? { passwordHash: await hashPassword(password) } : {}),
     ...extras,
   }
@@ -168,12 +227,19 @@ async function ensureUserRecord(users, demo, extras = {}) {
 function ensureTenantClient(clients, demo, userId, now) {
   const email = demo.email.trim().toLowerCase()
   let client = findClientByEmail(clients, email)
+  const scenario = resolveDemoScenario(email)
   const leaseLengthMonths =
-    demo.client.leaseLengthMonths ?? demo.preferredLeaseMonths ?? DEFAULT_LEASE_LENGTH_MONTHS
-  const leaseStartDate = computeLeaseStartDate()
-  const leaseEndDate = computeLeaseEndDate(leaseStartDate, leaseLengthMonths)
-  const rentDueDates = listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
-  const rentDeadlines = buildMonthlyRentDeadlines(rentDueDates, generateId)
+    scenario?.leaseMonths ??
+    demo.client.leaseLengthMonths ??
+    demo.preferredLeaseMonths ??
+    DEFAULT_LEASE_LENGTH_MONTHS
+
+  const leaseDates = scenario
+    ? scenarioLeaseDates(scenario)
+    : {
+        leaseStartDate: '2026-08-01',
+        leaseEndDate: computeLeaseEndDate('2026-08-01', leaseLengthMonths),
+      }
 
   const base = {
     name: demo.name,
@@ -185,13 +251,13 @@ function ensureTenantClient(clients, demo, userId, now) {
     projectDescription: demo.client.projectDescription,
     projectStatus: demo.client.projectStatus,
     contractStatus: demo.client.contractStatus,
-    paymentStatus: demo.client.paymentStatus,
+    paymentStatus: scenario?.paymentStatus ?? demo.client.paymentStatus,
     serviceTier: 'Studio',
     leaseLengthMonths,
     isOfficialClient: demo.client.isOfficialClient,
     officialClientSince: demo.client.isOfficialClient ? now : undefined,
     notes: [],
-    deadlines: rentDeadlines,
+    deadlines: [],
     isSampleClient: true,
     isLeasedDemoClient: true,
     accountUserId: userId,
@@ -203,41 +269,44 @@ function ensureTenantClient(clients, demo, userId, now) {
       ...base,
       createdAt: now,
     }
+    if (scenario) {
+      client = applyDemoScenarioToClient(client, scenario, generateId)
+    }
     return {
       clients: [...clients, client],
       client,
       created: true,
-      leaseStartDate,
-      leaseEndDate,
+      leaseStartDate: leaseDates.leaseStartDate,
+      leaseEndDate: leaseDates.leaseEndDate,
     }
   }
 
-  const next = {
+  let next = {
     ...client,
     ...base,
     officialClientSince:
       demo.client.isOfficialClient
         ? client.officialClientSince ?? now
         : undefined,
-    // Keep existing deadlines if already populated with rent dues
-    deadlines:
-      client.deadlines?.some((d) => d.type === 'payment')
-        ? client.deadlines
-        : rentDeadlines,
+    deadlines: client.deadlines ?? [],
+  }
+  if (scenario) {
+    next = applyDemoScenarioToClient(next, scenario, generateId)
   }
 
   return {
     clients: clients.map((c) => (c.id === next.id ? next : c)),
     client: next,
     created: false,
-    leaseStartDate,
-    leaseEndDate,
+    leaseStartDate: leaseDates.leaseStartDate,
+    leaseEndDate: leaseDates.leaseEndDate,
   }
 }
 
 function ensureLeaseContract(contracts, client, settings, now, leaseDates) {
   const existing = contracts.find((c) => c.clientId === client.id)
-  const leaseStartDate = leaseDates?.leaseStartDate ?? computeLeaseStartDate()
+  const scenario = resolveDemoScenario(client.email)
+  const leaseStartDate = leaseDates?.leaseStartDate ?? '2026-08-01'
   const leaseEndDate =
     leaseDates?.leaseEndDate ??
     computeLeaseEndDate(
@@ -248,22 +317,16 @@ function ensureLeaseContract(contracts, client, settings, now, leaseDates) {
   if (existing) {
     let next = {
       ...existing,
-      startDate:
-        existing.startDate?.includes('[To be customized]') || !existing.startDate
-          ? leaseStartDate
-          : existing.startDate,
-      completionDate:
-        existing.completionDate?.includes('[To be customized]') || !existing.completionDate
-          ? leaseEndDate
-          : existing.completionDate,
-      paymentSchedule:
-        existing.paymentSchedule?.includes('deposit') || !existing.paymentSchedule
-          ? 'Monthly rent due on the 1st of each month for the lease term.'
-          : existing.paymentSchedule,
+      startDate: leaseStartDate,
+      completionDate: leaseEndDate,
+      paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
       clientAddress:
         client.isLeasedDemoClient || !existing.clientAddress
           ? client.projectName
           : existing.clientAddress,
+    }
+    if (scenario) {
+      next = applyDemoScenarioToContract(next, client, scenario)
     }
     if (client.contractStatus === 'Sent' || client.contractStatus === 'Signed') {
       next = { ...next, sentAt: next.sentAt ?? now }
@@ -274,7 +337,7 @@ function ensureLeaseContract(contracts, client, settings, now, leaseDates) {
         signedAt: next.signedAt ?? now,
         confirmedByClient: true,
         clientSignature: next.clientSignature || client.name,
-        clientSignDate: next.clientSignDate || now.slice(0, 10),
+        clientSignDate: next.clientSignDate || leaseStartDate,
       }
     }
     if (JSON.stringify(next) === JSON.stringify(existing)) {
@@ -291,11 +354,15 @@ function ensureLeaseContract(contracts, client, settings, now, leaseDates) {
     startDate: leaseStartDate,
     completionDate: leaseEndDate,
     paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
+    readyImmediately: true,
   })
   contract = {
     ...contract,
     clientAddress: client.projectName,
     isPlaceholderDraft: true,
+  }
+  if (scenario) {
+    contract = applyDemoScenarioToContract(contract, client, scenario)
   }
   if (client.contractStatus === 'Sent' || client.contractStatus === 'Signed') {
     contract = { ...contract, sentAt: now }
@@ -306,7 +373,7 @@ function ensureLeaseContract(contracts, client, settings, now, leaseDates) {
       signedAt: now,
       confirmedByClient: true,
       clientSignature: client.name,
-      clientSignDate: now.slice(0, 10),
+      clientSignDate: leaseStartDate,
     }
   }
 
@@ -323,7 +390,13 @@ export async function ensureLeasedDemoUsers(store) {
   let settings = { ...store.settings }
   let changed = false
   let createdUsers = 0
-  const now = new Date().toISOString()
+  const now = getDemoAsOfIso()
+
+  const usersBeforeObsolete = users.length
+  users = users.filter(
+    (u) => !OBSOLETE_LEASED_DEMO_EMAILS.has(u.email?.trim().toLowerCase())
+  )
+  if (users.length !== usersBeforeObsolete) changed = true
 
   if (!settings.businessName || settings.businessName === 'Your Studio') {
     settings = {
@@ -368,14 +441,15 @@ export async function ensureLeasedDemoUsers(store) {
       } else {
         // Keep pending tenants unlinked so they appear in the approval queue
         const linked = result.user.clientId
-        if (linked) {
+        const dismissed = result.user.registrationDismissed
+        if (linked || dismissed) {
           users = users.map((u) =>
             u.id === result.user.id
               ? { ...u, clientId: null, registrationDismissed: false }
               : u
           )
           changed = true
-        } else if (result.user.isLeasedDemoUser !== true) {
+        } else if (result.user !== findUserByEmail(store.users, demo.email)) {
           changed = true
         }
       }
@@ -442,7 +516,10 @@ function isLeasedDemoEmail(email) {
  * Use from Admin Mode so scenario testing always starts from a known baseline.
  */
 export async function forceReseedLeasedDemoUsers(store) {
-  const demoEmails = new Set(LEASED_DEMO_USERS.map((d) => d.email))
+  const demoEmails = new Set([
+    ...LEASED_DEMO_USERS.map((d) => d.email.trim().toLowerCase()),
+    ...OBSOLETE_LEASED_DEMO_EMAILS,
+  ])
   const demoClientIds = new Set(
     (store.clients ?? [])
       .filter(
@@ -453,7 +530,11 @@ export async function forceReseedLeasedDemoUsers(store) {
   )
 
   const users = (store.users ?? []).filter(
-    (u) => !(u.isLeasedDemoUser === true || demoEmails.has(u.email?.trim().toLowerCase()))
+    (u) =>
+      !(
+        u.isLeasedDemoUser === true ||
+        demoEmails.has(u.email?.trim().toLowerCase())
+      )
   )
   const clients = (store.clients ?? []).filter((c) => !demoClientIds.has(c.id))
   const contracts = (store.contracts ?? []).filter((c) => !demoClientIds.has(c.clientId))
@@ -465,8 +546,11 @@ export async function forceReseedLeasedDemoUsers(store) {
     contracts,
   })
 
+  const fixtures = forceApplyDemoLeaseFixturesToStore(result.store)
+
   return {
     ...result,
+    store: fixtures.store,
     wiped: true,
   }
 }

@@ -21,6 +21,13 @@ import {
 } from '../lib/leaseSchedule.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { DEFAULT_PORTAL_THEME_ID, isThemeId } from '../lib/themeIds.js'
+import { getSandboxStore } from '../lib/demoSandbox.js'
+import { LEASED_DEMO_USERS } from '../lib/leasedDemoUsers.js'
+import {
+  buildLandlordAgencies,
+  findValidTenantInvite,
+  markTenantInviteUsed,
+} from '../lib/tenantInvites.js'
 
 const router = Router()
 
@@ -57,20 +64,73 @@ async function issueVerificationEmail(user) {
 function notifyAdminOfNewClient(user) {
   if (user.role !== 'client' || user.clientId) return
 
+  const address = user.preferredPropertyAddress?.trim()
+  const company = user.preferredLandlordCompany?.trim()
+  const details = [
+    company ? `Landlord: ${company}` : null,
+    address ? `Property: ${address}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   updateStore((s) =>
     pushAdminNotification(s, {
       type: 'registration',
       userId: user.id,
       title: 'New tenant registration',
-      message: `${user.name} (${user.email}) signed up as a tenant and is waiting for approval.`,
+      message: details
+        ? `${user.name} (${user.email}) registered and is waiting for approval. ${details}`
+        : `${user.name} (${user.email}) signed up as a tenant and is waiting for approval.`,
     })
   )
 }
 
+router.get('/landlord-companies', (_req, res) => {
+  try {
+    const store = readStore()
+    const agencies = buildLandlordAgencies(store)
+    res.json({
+      companies: agencies.map((agency) => agency.name),
+      agencies,
+    })
+  } catch (err) {
+    console.error('landlord-companies', err)
+    res.status(500).json({ error: 'Could not load landlord companies' })
+  }
+})
+
+router.get('/invite/:token', (req, res) => {
+  try {
+    const token = String(req.params.token ?? '')
+    const store = readStore()
+    const invite = findValidTenantInvite(store, token)
+    if (!invite) {
+      return res.status(404).json({ error: 'This invite link is invalid or has expired' })
+    }
+    res.json({
+      landlordCompany: invite.landlordCompany,
+      propertyAddress: invite.propertyAddress ?? null,
+    })
+  } catch (err) {
+    console.error('invite lookup', err)
+    res.status(500).json({ error: 'Could not load invite' })
+  }
+})
+
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, portalThemeId, accountType, preferredLeaseMonths } =
-      req.body
+    const {
+      email,
+      password,
+      name,
+      portalThemeId,
+      accountType,
+      companyName,
+      preferredLeaseMonths,
+      preferredLandlordCompany,
+      preferredPropertyAddress,
+      inviteToken,
+    } = req.body
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required' })
     }
@@ -80,7 +140,11 @@ router.post('/register', async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase()
     const trimmedName = name.trim()
+    const trimmedCompanyName = String(companyName ?? '').trim()
     const isAdmin = accountType === 'admin'
+    if (isAdmin && !trimmedCompanyName) {
+      return res.status(400).json({ error: 'Company name is required' })
+    }
     if (
       !isAdmin &&
       preferredLeaseMonths != null &&
@@ -91,7 +155,64 @@ router.post('/register', async (req, res) => {
         error: 'Preferred lease length must be 6, 12, 18, or 24 months',
       })
     }
+
     const store = readStore()
+    const invite =
+      !isAdmin && inviteToken ? findValidTenantInvite(store, String(inviteToken)) : null
+    if (!isAdmin && inviteToken && !invite) {
+      return res.status(400).json({ error: 'This invite link is invalid or has expired' })
+    }
+
+    let landlordCompany = String(preferredLandlordCompany ?? '').trim()
+    let propertyAddress = String(preferredPropertyAddress ?? '').trim()
+    if (invite) {
+      // Invite always pre-links the tenant to the inviting company.
+      landlordCompany = invite.landlordCompany
+      if (invite.propertyAddress && !propertyAddress) {
+        propertyAddress = invite.propertyAddress
+      }
+    }
+
+    if (!isAdmin && !landlordCompany) {
+      return res.status(400).json({
+        error: 'Select the agency or landlord company you are renting from',
+      })
+    }
+    if (!isAdmin && !propertyAddress) {
+      return res.status(400).json({
+        error: 'Select the property you are interested in',
+      })
+    }
+
+    if (!isAdmin) {
+      const agencies = buildLandlordAgencies(store)
+      const matchedAgency = agencies.find(
+        (agency) => agency.name.toLowerCase() === landlordCompany.toLowerCase()
+      )
+      if (!invite && !matchedAgency) {
+        return res.status(400).json({
+          error: 'Select an agency from the list',
+        })
+      }
+      const allowedProperties = matchedAgency?.properties ?? []
+      const invitePropertyOk =
+        Boolean(invite?.propertyAddress) &&
+        invite.propertyAddress.trim().toLowerCase() === propertyAddress.toLowerCase()
+      if (
+        allowedProperties.length > 0 &&
+        !allowedProperties.includes(propertyAddress) &&
+        !invitePropertyOk
+      ) {
+        return res.status(400).json({
+          error: 'Select a property from the company’s list',
+        })
+      }
+      // Normalize company name to the canonical agency spelling when available.
+      if (matchedAgency) {
+        landlordCompany = matchedAgency.name
+      }
+    }
+
     if (store.users.some((u) => u.email === normalizedEmail)) {
       return res.status(409).json({
         error:
@@ -117,6 +238,9 @@ router.post('/register', async (req, res) => {
               preferredLeaseMonths,
               DEFAULT_LEASE_LENGTH_MONTHS
             ),
+            preferredLandlordCompany: landlordCompany,
+            preferredPropertyAddress: propertyAddress,
+            ...(invite ? { inviteToken: invite.token } : {}),
           }
         : {}),
       portalThemeId: isAdmin
@@ -128,16 +252,30 @@ router.post('/register', async (req, res) => {
       createdAt: new Date().toISOString(),
     }
 
-    updateStore((s) => ({
-      ...s,
-      users: [...s.users, user],
-      clients:
-        linkedClient && !isAdmin
-          ? s.clients.map((c) =>
-              c.id === linkedClient.id ? { ...c, accountUserId: user.id } : c
-            )
-          : s.clients,
-    }))
+    updateStore((s) => {
+      let next = {
+        ...s,
+        users: [...s.users, user],
+        clients:
+          linkedClient && !isAdmin
+            ? s.clients.map((c) =>
+                c.id === linkedClient.id ? { ...c, accountUserId: user.id } : c
+              )
+            : s.clients,
+        ...(isAdmin
+          ? {
+              settings: {
+                ...s.settings,
+                businessName: trimmedCompanyName,
+              },
+            }
+          : {}),
+      }
+      if (invite) {
+        next = markTenantInviteUsed(next, invite.token, user.id)
+      }
+      return next
+    })
 
     await issueVerificationEmail(user)
 
@@ -241,14 +379,15 @@ router.post('/resend-verification', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body
+    const { email, password, publicDemo } = req.body
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' })
     }
 
     const normalizedEmail = email.trim().toLowerCase()
-    const store = readStore()
-    const user = store.users.find((u) => u.email === normalizedEmail)
+    const wantPublicDemo = publicDemo === true
+    const store = wantPublicDemo ? getSandboxStore() || readStore() : readStore()
+    const user = store.users?.find((u) => u.email === normalizedEmail)
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
@@ -266,8 +405,26 @@ router.post('/login', async (req, res) => {
       })
     }
 
-    const token = signToken(user)
-    res.json({ token, user: sanitizeUser(user) })
+    const isDemo =
+      user.isLeasedDemoUser === true ||
+      LEASED_DEMO_USERS.some((d) => d.email === normalizedEmail)
+
+    if (wantPublicDemo && !isDemo) {
+      return res.status(403).json({
+        error: 'Public demo sign-in is only available for demo accounts.',
+      })
+    }
+
+    const token = signToken(user, { publicDemo: wantPublicDemo && isDemo })
+    const safeUser = sanitizeUser(user)
+    res.json({
+      token,
+      user: {
+        ...safeUser,
+        publicDemo: wantPublicDemo && isDemo,
+        isLeasedDemoUser: isDemo,
+      },
+    })
   } catch (err) {
     console.error('login', err)
     res.status(500).json({ error: 'Login failed' })
@@ -278,7 +435,13 @@ router.get('/me', authMiddleware, (req, res) => {
   const store = readStore()
   const user = store.users.find((u) => u.id === req.user.id)
   if (!user) return res.status(404).json({ error: 'User not found' })
-  res.json({ user: sanitizeUser(user) })
+  res.json({
+    user: {
+      ...sanitizeUser(user),
+      publicDemo: req.user.publicDemo === true,
+      isLeasedDemoUser: req.user.isLeasedDemoUser === true,
+    },
+  })
 })
 
 router.patch('/me', authMiddleware, (req, res) => {

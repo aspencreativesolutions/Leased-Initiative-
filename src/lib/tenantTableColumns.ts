@@ -2,21 +2,17 @@ export const TENANT_TABLE_COLUMN_ORDER_KEY = 'tenant-dashboard-column-order'
 
 export type TenantTableColumnId =
   | 'tenant'
-  | 'propertyType'
   | 'email'
   | 'address'
   | 'leaseStatus'
-  | 'contractStatus'
   | 'paymentStatus'
   | 'actions'
 
 export const DEFAULT_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
   'tenant',
-  'propertyType',
   'email',
   'address',
   'leaseStatus',
-  'contractStatus',
   'paymentStatus',
   'actions',
 ]
@@ -24,34 +20,28 @@ export const DEFAULT_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
 /** Data columns that can be rearranged; Actions stays pinned on the right. */
 export const REORDERABLE_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
   'tenant',
-  'propertyType',
   'email',
   'address',
   'leaseStatus',
-  'contractStatus',
   'paymentStatus',
 ]
 
 const COLUMN_SET = new Set<string>(DEFAULT_TENANT_TABLE_COLUMNS)
 
 export const TENANT_TABLE_COLUMN_WIDTHS: Record<TenantTableColumnId, string> = {
-  tenant: '14%',
-  propertyType: '10%',
-  email: '16%',
-  address: '20%',
-  leaseStatus: '12%',
-  contractStatus: '10%',
-  paymentStatus: '10%',
+  tenant: '18%',
+  email: '20%',
+  address: '26%',
+  leaseStatus: '16%',
+  paymentStatus: '12%',
   actions: '8%',
 }
 
 export const TENANT_TABLE_COLUMN_LABELS: Record<TenantTableColumnId, string> = {
   tenant: 'Name',
-  propertyType: 'Property Type',
   email: 'Email',
   address: 'Address',
   leaseStatus: 'Lease Status',
-  contractStatus: 'Lease Progress',
   paymentStatus: 'Payment Status',
   actions: 'Actions',
 }

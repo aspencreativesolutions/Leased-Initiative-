@@ -1,0 +1,23 @@
+---
+description: When adding features, keep carousel, onboarding, and related surfaces in sync
+alwaysApply: true
+---
+
+# Keep feature surfaces cohesive
+
+When you add or materially change a user-facing feature in Leased Solutions, update **all** discovery and reference surfaces in the same change so the product stays balanced and up to date.
+
+## Surfaces to review (every new feature)
+
+1. **Welcome carousel** — `src/lib/welcomeSlides.ts` (and `WelcomeCarousel.tsx` if structure changes). Keep landlord and tenant feature slide counts balanced when adding slides.
+2. **Onboarding tour** — `src/lib/onboardingSteps.ts`, plus matching `data-onboarding` attributes on nav/targets (`Navbar`, portal layout, page sections).
+3. **Nav / section tabs** — labels, routes, and onboarding hooks for any new primary area.
+4. **Empty states / page subtitles** — copy that still describes the old workflow.
+5. **Seed / demo data** — notes or sample copy that mention the old flow.
+6. **Related sibling UI** — e.g. if Payments gains Overdue messaging, mention it wherever Payments is introduced.
+
+## Do not
+
+- Ship a feature only on one page while the intro carousel or tour still omits it.
+- Add slides for one role without considering parity for the other role when the feature is cross-cutting.
+- Leave stale “Ping” / old action names in copy after renaming UX.

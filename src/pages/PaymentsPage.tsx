@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { DollarSign } from 'lucide-react'
+import { Clock, DollarSign } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { OverdueAmountIndicator } from '@/components/payments/OverdueAmountIndicator'
 import { PaymentsSectionTabs } from '@/components/payments/PaymentsSectionTabs'
@@ -9,9 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
-import { TenantMarkerBadge } from '@/components/clients/TenantMarkerBadge'
-import { clientNameMarkersClass } from '@/components/clients/clientBadgeStyles'
-import { getFirstName, getRemainingBalanceAmount } from '@/lib/clientUtils'
+import { getRemainingBalanceAmount } from '@/lib/clientUtils'
 import {
   formatDaysRemainingLabel,
   formatLeaseLengthLabel,
@@ -24,19 +22,21 @@ import {
   paymentTenantAnchorId,
 } from '@/lib/paymentTenantRows'
 import {
-  tileGridClassName,
-  tileScaleStyle,
+  PAYMENT_TILE_SCALE_DEFAULT,
+  paymentTileGridClassName,
+  paymentTileScaleStyle,
   useTileScale,
 } from '@/lib/tileScale'
 import { cn, formatDate } from '@/lib/utils'
 
-const PAYMENTS_TILE_SCALE_KEY = 'payments-tile-scale'
+/** Bumped so the new 100% default applies for existing sessions. */
+const PAYMENTS_TILE_SCALE_KEY = 'payments-tile-scale-v2'
 
 function TileDateMeta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
+    <div className="payment-tile-card__detail">
       <p className="tile-card__label">{label}</p>
-      <p className="tile-card__value truncate">{value}</p>
+      <p className="tile-card__value">{value}</p>
     </div>
   )
 }
@@ -45,7 +45,10 @@ export function PaymentsPage() {
   const { clients, contracts } = useApp()
   const location = useLocation()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
-  const { scale, setScale, factor } = useTileScale(PAYMENTS_TILE_SCALE_KEY)
+  const { scale, setScale, factor } = useTileScale(
+    PAYMENTS_TILE_SCALE_KEY,
+    PAYMENT_TILE_SCALE_DEFAULT
+  )
 
   const groups = useMemo(() => {
     const rows = buildTenantPaymentRows(clients, contracts)
@@ -55,8 +58,8 @@ export function PaymentsPage() {
   const totals = useMemo(() => {
     const rows = groups.flatMap((g) => g.tenants)
     return {
-      paid: rows.filter((r) => r.display === 'Paid').length,
-      due: rows.filter((r) => r.display !== 'Paid').length,
+      paid: rows.filter((r) => r.display === 'Paid' || r.display === 'Paid Early').length,
+      due: rows.filter((r) => r.display !== 'Paid' && r.display !== 'Paid Early').length,
     }
   }, [groups])
 
@@ -104,107 +107,125 @@ export function PaymentsPage() {
           description="Add tenants to track upcoming rent due dates, countdown, and lease end by property address."
         />
       ) : (
-        <div className="tile-scale-root space-y-5" style={tileScaleStyle(factor)}>
+        <div className="tile-scale-root space-y-6" style={paymentTileScaleStyle(factor)}>
           {groups.map(({ address, tenants }) => (
             <section key={address}>
-              <div className="mb-2.5 flex items-baseline justify-between gap-3">
+              <div className="mb-3 flex items-baseline justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-ink sm:text-base">
-                    {address}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-ink sm:text-base">{address}</h2>
                   <p className="text-xs text-ink-muted">
                     {tenants.length} {tenants.length === 1 ? 'tenant' : 'tenants'}
                   </p>
                 </div>
               </div>
 
-              <div className={tileGridClassName(scale)}>
+              <div className={paymentTileGridClassName(scale)}>
                 {tenants.map((row) => {
                   const remaining = getRemainingBalanceAmount(row.contract)
                   const anchorId = paymentTenantAnchorId(row.client.id)
+                  const paidEarly = row.earlyPayment != null
+                  const amountLabel =
+                    row.display === 'Overdue' && row.overdueAmount != null
+                      ? null
+                      : row.monthlyRent != null
+                        ? `$${row.monthlyRent.toLocaleString()}`
+                        : remaining != null
+                          ? `$${remaining.toLocaleString()}`
+                          : null
+
                   return (
                     <Card
                       key={row.client.id}
                       id={anchorId}
                       padding="none"
                       className={cn(
-                        'tile-card scroll-mt-28 transition-colors',
+                        'tile-card payment-tile-card scroll-mt-28 transition-colors',
+                        paidEarly && 'payment-tile-card--has-early',
                         highlightedId === anchorId && 'bg-accent-light/60 ring-2 ring-accent'
                       )}
                     >
-                      <Link
-                        to={`/studio/clients/${row.client.id}`}
-                        className="flex min-h-0 flex-1 flex-col gap-[calc(0.35rem*var(--tile-scale))] outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className={clientNameMarkersClass}>
-                              <p
-                                className="tile-card__title min-w-0 truncate"
-                                title={
-                                  row.client.name !== getFirstName(row.client.name)
-                                    ? row.client.name
-                                    : undefined
-                                }
-                              >
-                                {getFirstName(row.client.name)}
-                              </p>
-                              <TenantMarkerBadge />
+                      <div className="payment-tile-card__body">
+                        {paidEarly && (
+                          <span className="payment-tile-card__early-badge" title="Paid before due date">
+                            <Clock aria-hidden strokeWidth={2.25} />
+                            Paid Early
+                          </span>
+                        )}
+
+                        <Link
+                          to={`/studio/clients/${row.client.id}`}
+                          className="payment-tile-card__link"
+                        >
+                          <div className="payment-tile-card__content">
+                            <div className="payment-tile-card__icon" aria-hidden>
+                              <DollarSign strokeWidth={1.75} />
                             </div>
-                            <p className="tile-card__body mt-0.5 truncate">
-                              {row.client.businessName || row.client.email}
+
+                            <p className="tile-card__body font-semibold text-ink">
+                              {row.client.name}
                             </p>
+
+                            <h3 className="tile-card__title tile-card__address-static">
+                              {row.address}
+                            </h3>
+
+                            {row.display === 'Overdue' ? (
+                              <div className="payment-tile-card__status">
+                                <OverdueAmountIndicator
+                                  amount={row.overdueAmount}
+                                  overdueCount={row.overduePaymentCount}
+                                  className="justify-center [&_span.text-sm]:text-[length:var(--tile-amount)]"
+                                />
+                              </div>
+                            ) : amountLabel ? (
+                              <p className="payment-tile-card__amount">{amountLabel}</p>
+                            ) : null}
+
+                            <div className="payment-tile-card__status">
+                              <StatusBadge
+                                type="payment"
+                                status={displayBadgeStatus(row.display)}
+                                label={displayBadgeLabel(row.display)}
+                              />
+                            </div>
+
+                            {row.leaseLengthMonths != null && (
+                              <p className="tile-card__meta">
+                                {formatLeaseLengthLabel(row.leaseLengthMonths)}
+                                {row.display !== 'Overdue' &&
+                                  remaining != null &&
+                                  row.display !== 'Paid' &&
+                                  row.display !== 'Paid Early' && (
+                                    <> · ${remaining.toLocaleString()} remaining</>
+                                  )}
+                              </p>
+                            )}
                           </div>
-                          <StatusBadge
-                            type="payment"
-                            status={displayBadgeStatus(row.display)}
-                            label={displayBadgeLabel(row.display)}
-                            className="shrink-0"
-                          />
-                        </div>
 
-                        {row.leaseLengthMonths != null && (
-                          <p className="tile-card__meta">
-                            {formatLeaseLengthLabel(row.leaseLengthMonths)}
-                            {row.display !== 'Overdue' &&
-                              remaining != null &&
-                              row.display !== 'Paid' && (
-                                <> · ${remaining.toLocaleString()} remaining</>
-                              )}
-                          </p>
-                        )}
-
-                        {row.display === 'Overdue' && (
-                          <OverdueAmountIndicator
-                            amount={row.overdueAmount}
-                            overdueCount={row.overduePaymentCount}
-                            className="mt-0.5 [&_span.text-sm]:text-[length:var(--tile-body)]"
-                          />
-                        )}
-
-                        <div className="mt-auto grid grid-cols-2 gap-x-2 gap-y-1.5 pt-1">
-                          <TileDateMeta
-                            label="Next due"
-                            value={row.nextDueDate ? formatDate(row.nextDueDate) : '—'}
-                          />
-                          <TileDateMeta
-                            label="Countdown"
-                            value={
-                              row.daysUntilNextDue != null
-                                ? formatDaysRemainingLabel(row.daysUntilNextDue)
-                                : '—'
-                            }
-                          />
-                          <TileDateMeta
-                            label="Final due"
-                            value={row.finalDueDate ? formatDate(row.finalDueDate) : '—'}
-                          />
-                          <TileDateMeta
-                            label="Lease ends"
-                            value={row.leaseEndDate ? formatDate(row.leaseEndDate) : '—'}
-                          />
-                        </div>
-                      </Link>
+                          <div className="payment-tile-card__details">
+                            <TileDateMeta
+                              label="Next due"
+                              value={row.nextDueDate ? formatDate(row.nextDueDate) : '—'}
+                            />
+                            <TileDateMeta
+                              label="Countdown"
+                              value={
+                                row.daysUntilNextDue != null
+                                  ? formatDaysRemainingLabel(row.daysUntilNextDue)
+                                  : '—'
+                              }
+                            />
+                            <TileDateMeta
+                              label="Final due"
+                              value={row.finalDueDate ? formatDate(row.finalDueDate) : '—'}
+                            />
+                            <TileDateMeta
+                              label="Lease ends"
+                              value={row.leaseEndDate ? formatDate(row.leaseEndDate) : '—'}
+                            />
+                          </div>
+                        </Link>
+                      </div>
                     </Card>
                   )
                 })}

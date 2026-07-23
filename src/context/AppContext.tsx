@@ -14,6 +14,7 @@ import type {
   ContractData,
   Note,
   PayPalCaptureResponse,
+  Property,
   ServiceTier,
 } from '@/types'
 import { buildServiceTierChangeResult, normalizeClient, paymentStatusAfterCapture } from '@/lib/clientUtils'
@@ -23,25 +24,31 @@ import {
 } from '@/lib/contractReview'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
+import { createProperty as createPropertyRequest } from '@/lib/propertiesApi'
 import { migrateSampleAddress } from '@/data/seed'
 import { migrateServiceTier } from '@/lib/serviceTiers'
 import {
   generateId,
   loadClients,
   loadContracts,
+  loadProperties,
   loadSettings,
+  normalizeProperty,
   saveClients,
   saveContracts,
+  saveProperties,
   saveSettings,
 } from '@/lib/storage'
 
 function normalizeContracts(contracts: ContractData[]): ContractData[] {
   return contracts.map((c) => {
     const migratedAddress = migrateSampleAddress(c.clientAddress)
+    const migratedTitle = migrateSampleAddress(c.projectTitle)
     return {
       ...c,
       serviceTier: migrateServiceTier(c.serviceTier),
       ...(migratedAddress !== c.clientAddress ? { clientAddress: migratedAddress } : {}),
+      ...(migratedTitle !== c.projectTitle ? { projectTitle: migratedTitle } : {}),
     }
   })
 }
@@ -55,9 +62,20 @@ function normalizeSettings(settings: BusinessSettings): BusinessSettings {
 interface AppContextValue {
   clients: Client[]
   contracts: ContractData[]
+  properties: Property[]
   settings: BusinessSettings
   syncing: boolean
   addClient: (client: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>) => Client
+  addProperty: (input: {
+    address: string
+    propertyType: Property['propertyType']
+    bedrooms: number
+    maxTenants: number
+    unitCount?: number
+    importedFromLeaseScan?: boolean
+    addressConfirmed?: boolean
+    addressDetails?: Property['addressDetails']
+  }) => Promise<Property>
   updateClient: (id: string, updates: Partial<Client>) => void
   getClient: (id: string) => Client | undefined
   addNote: (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => void
@@ -87,6 +105,7 @@ async function fetchAdminData() {
     clients: Client[]
     contracts: ContractData[]
     settings: BusinessSettings
+    properties: Property[]
   }>('/api/data')
 }
 
@@ -119,6 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { isAdmin, user, loading: authLoading } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [contracts, setContracts] = useState<ContractData[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
   const [settings, setSettings] = useState<BusinessSettings>(loadSettings())
   const [syncing, setSyncing] = useState(false)
   const [migrated, setMigrated] = useState(false)
@@ -131,12 +151,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const nextClients = data.clients.map((c) => normalizeClient(c))
         const nextContracts = normalizeContracts(data.contracts)
         const nextSettings = normalizeSettings(data.settings)
+        const nextProperties = (Array.isArray(data.properties) ? data.properties : []).map(
+          (p) => normalizeProperty(p)
+        )
         setClients(nextClients)
         setContracts(nextContracts)
         setSettings(nextSettings)
+        setProperties(nextProperties)
         saveClients(nextClients)
         saveContracts(nextContracts)
         saveSettings(nextSettings)
+        saveProperties(nextProperties)
 
         const addressMigrated =
           nextClients.some((c, i) => c.projectName !== data.clients[i]?.projectName) ||
@@ -152,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setClients(loadClients())
       setContracts(loadContracts())
       setSettings(loadSettings())
+      setProperties(loadProperties())
     }
   }, [isAdmin])
 
@@ -162,6 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setClients(loadClients())
       setContracts(loadContracts())
       setSettings(loadSettings())
+      setProperties(loadProperties())
       return
     }
 
@@ -181,6 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               clients: loadClients(),
               contracts: loadContracts(),
               settings: loadSettings(),
+              properties: loadProperties(),
             }),
           })
           setMigrated(true)
@@ -191,6 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setClients(loadClients())
         setContracts(loadContracts())
         setSettings(loadSettings())
+        setProperties(loadProperties())
       } finally {
         setSyncing(false)
       }
@@ -249,6 +278,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return client
     },
     [clients, contracts, persist]
+  )
+
+  const addProperty = useCallback(
+    async (input: {
+      address: string
+      propertyType: Property['propertyType']
+      bedrooms: number
+      maxTenants: number
+      unitCount?: number
+      importedFromLeaseScan?: boolean
+      addressConfirmed?: boolean
+      addressDetails?: Property['addressDetails']
+    }) => {
+      if (isAdmin) {
+        const result = await createPropertyRequest(input)
+        setProperties(result.properties)
+        saveProperties(result.properties)
+        return result.property
+      }
+      const unitCount = Math.max(1, Math.floor(input.unitCount ?? 1))
+      const property: Property = {
+        id: generateId(),
+        address: input.address.trim(),
+        propertyType: input.propertyType,
+        unitCount,
+        bedrooms: Math.max(0, Math.floor(input.bedrooms)),
+        maxTenants: Math.max(1, Math.floor(input.maxTenants)),
+        createdAt: new Date().toISOString(),
+        ...(input.importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),
+        ...(input.addressConfirmed || input.importedFromLeaseScan
+          ? { addressConfirmed: true }
+          : {}),
+        ...(input.addressDetails ? { addressDetails: input.addressDetails } : {}),
+      }
+      const next = [...properties, property]
+      setProperties(next)
+      saveProperties(next)
+      return property
+    },
+    [isAdmin, properties]
   )
 
   const updateClient = useCallback(
@@ -454,9 +523,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       clients,
       contracts,
+      properties,
       settings,
       syncing,
       addClient,
+      addProperty,
       updateClient,
       getClient,
       addNote,
@@ -472,9 +543,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       clients,
       contracts,
+      properties,
       settings,
       syncing,
       addClient,
+      addProperty,
       updateClient,
       getClient,
       addNote,

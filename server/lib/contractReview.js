@@ -103,7 +103,8 @@ export function resolveContractStatus(client, contract) {
   return isClientProjectComplete(client) ? 'Completed' : 'Signed'
 }
 
-/** Align client.contractStatus when the contract record is already signed */
+/** Align client.contractStatus when the contract record is already signed.
+ *  Lease Signed also promotes the tenant to Official (out of Pending). */
 export function reconcileClientContractStatus(client, contract) {
   if (!client) return client
 
@@ -134,9 +135,11 @@ export function reconcileClientContractStatus(client, contract) {
     }
   }
 
+  const shouldPromoteOfficial = isSigned && !client.isOfficialClient
   if (
     client.contractStatus === targetContractStatus &&
-    client.projectStatus === projectStatus
+    client.projectStatus === projectStatus &&
+    !shouldPromoteOfficial
   ) {
     return client
   }
@@ -145,6 +148,12 @@ export function reconcileClientContractStatus(client, contract) {
     ...client,
     contractStatus: targetContractStatus,
     projectStatus,
+    ...(shouldPromoteOfficial
+      ? {
+          isOfficialClient: true,
+          officialClientSince: client.officialClientSince ?? new Date().toISOString(),
+        }
+      : {}),
   }
 }
 
@@ -172,10 +181,20 @@ export function clearContractClientSignature(contract) {
 
 export function prepareContractForClientReview(contract, now = new Date().toISOString()) {
   const cleared = clearContractClientSignature(contract)
+  const priorVersion = contract.leaseVersion ?? 1
+  const history = Array.isArray(contract.versionHistory) ? [...contract.versionHistory] : []
+  history.push({
+    version: priorVersion,
+    supersededAt: now,
+    sentAt: contract.sentAt,
+    contentFingerprint: contract.signedContentFingerprint || contractContentFingerprint(contract),
+  })
   return {
     ...cleared,
     sentAt: now,
     contentUpdatedAt: now,
+    leaseVersion: priorVersion + 1,
+    versionHistory: history,
   }
 }
 

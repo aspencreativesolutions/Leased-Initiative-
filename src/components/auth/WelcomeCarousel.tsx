@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  Compass,
-  KeyRound,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Compass, PlayCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { DemoCodeModal } from '@/components/auth/DemoCodeModal'
+import { RoleSelectGrid, RoleSelectTile } from '@/components/auth/RoleSelectTile'
 import {
   getWelcomeSlides,
   loginPathForRole,
+  registerPathForRole,
   WELCOME_CAROUSEL_STORAGE_KEY,
   type WelcomeRole,
 } from '@/lib/welcomeSlides'
+import { markPublicDemoSession, type DemoAccountCredentials } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 interface WelcomeCarouselProps {
@@ -27,6 +25,7 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
   const [role, setRole] = useState<WelcomeRole | null>(null)
   const [index, setIndex] = useState(0)
   const [direction, setDirection] = useState<1 | -1>(1)
+  const [demoOpen, setDemoOpen] = useState(false)
   const touchStartX = useRef<number | null>(null)
 
   const slides = getWelcomeSlides(role)
@@ -65,16 +64,41 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
     setIndex(1)
   }
 
+  const handleCreateAccount = useCallback(() => {
+    if (!role) return
+    markDone()
+    onComplete()
+    navigate(registerPathForRole(role))
+  }, [markDone, navigate, onComplete, role])
+
+  const handleDemoSuccess = useCallback(
+    (account: DemoAccountCredentials) => {
+      if (!role) return
+      markDone()
+      onComplete()
+      markPublicDemoSession(account.accountRole)
+      setDemoOpen(false)
+      navigate(account.loginPath, {
+        replace: true,
+        state: {
+          demoCredentials: {
+            email: account.email,
+            password: account.password,
+          },
+        },
+      })
+    },
+    [markDone, navigate, onComplete, role]
+  )
+
   const handleNext = useCallback(() => {
     if (!canAdvance) return
     if (isLast && role) {
-      markDone()
-      onComplete()
-      navigate(loginPathForRole(role))
+      handleCreateAccount()
       return
     }
     goTo(index + 1, 1)
-  }, [canAdvance, goTo, index, isLast, markDone, navigate, onComplete, role])
+  }, [canAdvance, goTo, handleCreateAccount, index, isLast, role])
 
   const handleBack = useCallback(() => {
     if (isFirst) return
@@ -83,6 +107,7 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (demoOpen) return
       if (e.key === 'ArrowRight') {
         e.preventDefault()
         handleNext()
@@ -93,7 +118,7 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleBack, handleNext])
+  }, [demoOpen, handleBack, handleNext])
 
   const Icon = current.icon
 
@@ -138,65 +163,37 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
           </p>
 
           {current.kind === 'role' && (
-            <div className="mt-8 grid flex-1 gap-3 sm:grid-cols-2 sm:gap-4">
-              <button
-                type="button"
+            <RoleSelectGrid className="mt-8 flex-1">
+              <RoleSelectTile
+                size="compact"
+                role="tenant"
+                title="I'm a Tenant"
+                description="Review and sign your lease"
+                selected={role === 'tenant'}
                 onClick={() => handleSelectRole('tenant')}
-                className={cn(
-                  'group flex min-h-[7.5rem] flex-col justify-between rounded-[var(--radius-md)] border-[length:var(--border-width)] p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:p-5',
-                  role === 'tenant'
-                    ? 'border-brand bg-brand/5'
-                    : 'border-ink bg-surface hover:border-brand hover:bg-brand/5'
-                )}
-              >
-                <KeyRound
-                  className={cn(
-                    'h-8 w-8 transition-colors',
-                    role === 'tenant' ? 'text-brand' : 'text-ink group-hover:text-brand'
-                  )}
-                  strokeWidth={1.5}
-                  aria-hidden
-                />
-                <div>
-                  <span className="heading-display text-lg sm:text-xl">I&apos;m a Tenant</span>
-                  <span className="mt-1 block text-xs text-ink-muted sm:text-sm">
-                    Review and sign your lease
-                  </span>
-                </div>
-              </button>
-
-              <button
-                type="button"
+              />
+              <RoleSelectTile
+                size="compact"
+                role="landlord"
+                title="I'm a Landlord"
+                description="Manage tenants and leases"
+                selected={role === 'landlord'}
                 onClick={() => handleSelectRole('landlord')}
-                className={cn(
-                  'group flex min-h-[7.5rem] flex-col justify-between rounded-[var(--radius-md)] border-[length:var(--border-width)] p-4 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:p-5',
-                  role === 'landlord'
-                    ? 'border-brand bg-brand/5'
-                    : 'border-ink bg-surface hover:border-brand hover:bg-brand/5'
-                )}
-              >
-                <Building2
-                  className={cn(
-                    'h-8 w-8 transition-colors',
-                    role === 'landlord' ? 'text-brand' : 'text-ink group-hover:text-brand'
-                  )}
-                  strokeWidth={1.5}
-                  aria-hidden
-                />
-                <div>
-                  <span className="heading-display text-lg sm:text-xl">I&apos;m a Landlord</span>
-                  <span className="mt-1 block text-xs text-ink-muted sm:text-sm">
-                    Manage tenants and leases
-                  </span>
-                </div>
-              </button>
-            </div>
+              />
+            </RoleSelectGrid>
           )}
 
           {current.kind === 'tour' && (
             <div className="mt-8 inline-flex w-fit items-center gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink">
               <Compass className="h-4 w-4" aria-hidden />
               Tour
+            </div>
+          )}
+
+          {current.kind === 'demo' && (
+            <div className="mt-8 inline-flex w-fit items-center gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-surface px-3 py-2 text-sm font-semibold text-ink">
+              <PlayCircle className="h-4 w-4" aria-hidden />
+              Demo · changes not saved
             </div>
           )}
         </div>
@@ -235,16 +232,40 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
           ))}
         </div>
 
-        <Button
-          size="sm"
-          onClick={handleNext}
-          disabled={!canAdvance}
-          className="min-w-[5.5rem]"
-        >
-          {isLast ? 'Get started' : 'Next'}
-          {!isLast && <ChevronRight className="h-4 w-4" aria-hidden />}
-        </Button>
+        {isLast && role ? (
+          <span className="min-w-[5.5rem]" aria-hidden />
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleNext}
+            disabled={!canAdvance}
+            className="min-w-[5.5rem]"
+          >
+            Next
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Button>
+        )}
       </div>
+
+      {isLast && role && (
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setDemoOpen(true)}
+            className="w-full sm:w-auto sm:min-w-[10rem]"
+          >
+            Use Demo Account
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleCreateAccount}
+            className="w-full sm:w-auto sm:min-w-[10rem]"
+          >
+            Create Account
+          </Button>
+        </div>
+      )}
 
       <div className="mt-6 flex justify-center">
         <button
@@ -255,6 +276,15 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
           Skip
         </button>
       </div>
+
+      {role && (
+        <DemoCodeModal
+          open={demoOpen}
+          role={role}
+          onClose={() => setDemoOpen(false)}
+          onSuccess={handleDemoSuccess}
+        />
+      )}
     </div>
   )
 }
