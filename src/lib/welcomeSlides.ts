@@ -92,7 +92,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Building2,
     title: 'Rentals and lease import',
     description:
-      'Open Rentals to add addresses with rental type, bedrooms, bed sizes per bedroom, and total monthly rent — maximum occupancy is calculated from beds. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, people occupancy, and bed availability (a bed with at least one tenant is taken); color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
+      'Open Rentals to add addresses with rental type, bedrooms, bed sizes per bedroom, and total monthly rent — maximum occupancy is calculated from beds. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, bed availability, and an occupancy box (people count); hover for “Click to see occupants,” expand the list, and open Tenant Details from a name. Color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
   },
   {
     id: 'landlord-users',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants pick your agency and a rental when they register — or join via your Send Invite link. New sign-ups appear under Waiting to Connect on the Dashboard. Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
+      'Tenants find you by agency name when Public Discovery is on, or join with a one-time connection link/code when you set Invite-Only in Settings. New sign-ups appear under Waiting to Connect on the Dashboard (invite-only joins require open occupancy). Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',

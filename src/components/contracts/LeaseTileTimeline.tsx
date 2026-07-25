@@ -1,5 +1,5 @@
 import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
-import { cn, formatDate, formatShortMonthDate } from '@/lib/utils'
+import { cn, formatDate, formatLongDate, formatShortMonthDate } from '@/lib/utils'
 import type { LeaseTermProgress } from '@/lib/clientUtils'
 
 function daysLabel(count: number, noun: string): string {
@@ -13,8 +13,9 @@ export function LeaseTileTimeline({ progress }: { progress: LeaseTermProgress })
     progress.percentComplete != null &&
     progress.daysElapsed != null &&
     progress.totalDays != null
+  const isNotStarted = progress.state === 'Upcoming' && Boolean(progress.startDate)
 
-  if (!hasTermDates && !hasProgress) return null
+  if (!hasTermDates && !hasProgress && !isNotStarted) return null
 
   const termLabel = [
     progress.startDate ? `Start ${formatDate(progress.startDate)}` : null,
@@ -33,6 +34,10 @@ export function LeaseTileTimeline({ progress }: { progress: LeaseTermProgress })
 
   const startedOnLabel = progress.startDate
     ? `Started ${formatShortMonthDate(progress.startDate)}`
+    : undefined
+
+  const startsOnLabel = progress.startDate
+    ? `Starts on ${formatLongDate(progress.startDate)}`
     : undefined
 
   const progressAriaLabel = monthLabel
@@ -54,7 +59,18 @@ export function LeaseTileTimeline({ progress }: { progress: LeaseTermProgress })
         </p>
       ) : null}
 
-      {hasProgress ? (
+      {isNotStarted ? (
+        <div
+          className="lease-tile-timeline__not-started"
+          role="status"
+          aria-label={`Not started. ${startsOnLabel}`}
+        >
+          <span className="lease-tile-timeline__progress-pct">Not started</span>
+          {startsOnLabel ? (
+            <span className="lease-tile-timeline__progress-days">{startsOnLabel}</span>
+          ) : null}
+        </div>
+      ) : hasProgress ? (
         <div className="lease-tile-timeline__progress">
           <div className="lease-tile-timeline__progress-hover">
             <div className="lease-tile-timeline__progress-meta">
@@ -74,11 +90,9 @@ export function LeaseTileTimeline({ progress }: { progress: LeaseTermProgress })
               ) : (
                 <span className="lease-tile-timeline__progress-pct">{progressPrimary}</span>
               )}
-              {!monthLabel ? (
-                <span className="lease-tile-timeline__progress-days">
-                  {daysLabel(progress.daysElapsed!, 'day')} elapsed
-                </span>
-              ) : null}
+              <span className="lease-tile-timeline__progress-days">
+                {daysLabel(progress.daysElapsed!, 'day')} elapsed
+              </span>
             </div>
             <div
               className="lease-tile-timeline__track"

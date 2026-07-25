@@ -39,6 +39,7 @@ export const defaultSettings: BusinessSettings = {
     followUpReminders: true,
   },
   contractRegions: [],
+  tenantDiscoveryMode: 'public',
 }
 
 /** Maps outdated mock/sample addresses (and old agency project titles) to realistic replacements. */

@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Users } from 'lucide-react'
 import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
 import { cn } from '@/lib/utils'
@@ -14,33 +13,31 @@ type BedsOccupancyTagProps = {
   bedrooms: number
   currentTenants: number
   maxTenants: number
-  totalBeds: number
-  occupiedBeds: number
   occupants: BedsOccupancyOccupant[]
+  /** Opens Tenant Details for the selected occupant (same modal as Official Tenants). */
+  onOccupantClick?: (occupantId: string) => void
   className?: string
 }
 
 /**
- * Compact people + beds occupancy tag for rental tiles.
- * Hover swaps to “See Occupants”; click reveals the current occupant list.
+ * Compact occupancy box for rental tiles.
+ * Shows “Occupancy: X of X people.”; hover swaps to “Click to see occupants.”
+ * Click expands the occupant list; names open Tenant Details.
  */
 export function BedsOccupancyTag({
   bedrooms,
   currentTenants,
   maxTenants,
-  totalBeds,
-  occupiedBeds,
   occupants,
+  onOccupantClick,
   className,
 }: BedsOccupancyTagProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
-  const peopleLabel = `Occupancy: ${currentTenants} of ${maxTenants} people`
-  const bedsLabel = `Beds: ${occupiedBeds} of ${totalBeds} occupied`
-  const label = `${peopleLabel} · ${bedsLabel}`
-  const hoverLabel = 'See Occupants'
+  const peopleLabel = `Occupancy: ${currentTenants} of ${maxTenants} people.`
+  const hoverLabel = 'Click to see occupants.'
   const roomHint =
     bedrooms === 1 ? '1 bedroom' : `${bedrooms} bedrooms`
 
@@ -76,25 +73,25 @@ export function BedsOccupancyTag({
           className="beds-occupancy-tag__trigger"
           aria-expanded={true}
           aria-controls={listId}
-          aria-label={`${label}. Hide occupants`}
+          aria-label={`${peopleLabel} Hide occupants`}
           onClick={(event) => {
             event.stopPropagation()
             setOpen(false)
           }}
         >
           <Users className="beds-occupancy-tag__icon" aria-hidden strokeWidth={1.75} />
-          <span className="beds-occupancy-tag__label">{label}</span>
+          <span className="beds-occupancy-tag__label">{peopleLabel}</span>
         </button>
       ) : (
         <InPlaceHoverText
           primary={
             <>
               <Users className="beds-occupancy-tag__icon" aria-hidden strokeWidth={1.75} />
-              <span className="beds-occupancy-tag__label">{label}</span>
+              <span className="beds-occupancy-tag__label">{peopleLabel}</span>
             </>
           }
           secondary={<span className="whitespace-nowrap">{hoverLabel}</span>}
-          ariaLabel={`${label}. ${roomHint}. ${hoverLabel}`}
+          ariaLabel={`${peopleLabel} ${roomHint}. ${hoverLabel}`}
           requireRevealBeforeActivate
           layerClassName="gap-[0.35rem]"
           className="beds-occupancy-tag__trigger beds-occupancy-tag__trigger--swap"
@@ -112,10 +109,13 @@ export function BedsOccupancyTag({
           ) : (
             occupants.map((occupant) => (
               <li key={occupant.id}>
-                <Link
-                  to={`/clients/${occupant.id}`}
+                <button
+                  type="button"
                   className="beds-occupancy-tag__link"
-                  onClick={(event) => event.stopPropagation()}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onOccupantClick?.(occupant.id)
+                  }}
                 >
                   {occupant.name}
                   {occupant.bedLabel ? (
@@ -123,7 +123,7 @@ export function BedsOccupancyTag({
                       {occupant.bedLabel}
                     </span>
                   ) : null}
-                </Link>
+                </button>
               </li>
             ))
           )}

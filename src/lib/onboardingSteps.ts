@@ -164,7 +164,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio lives here. Add addresses with type, bedrooms, and bed sizes (occupancy is calculated from beds); track people and bed availability on each tile; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
+      'Your rental portfolio lives here. Add addresses with type, bedrooms, and bed sizes (occupancy is calculated from beds); each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -254,7 +254,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-business"]',
     title: 'Business Information',
     description:
-      'Company name, contact details, and address used in lease headers and signatures live here. Keep these current so generated agreements stay accurate.',
+      'Company name, contact details, and address used in lease headers and signatures live here. Choose Public Discovery (tenants can find you by name) or Invite-Only (tenants need a connection link or code). Keep these current so generated agreements stay accurate.',
     placement: 'bottom',
     route: '/studio/settings?tab=business',
     section: 'settings',

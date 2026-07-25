@@ -11,6 +11,7 @@ import {
 import { ThemePicker } from '@/components/settings/ThemePicker'
 import { AutomationSettingsSection } from '@/components/settings/AutomationSettingsSection'
 import { LeaseDefaultDatesSection } from '@/components/settings/LeaseDefaultDatesSection'
+import { TenantDiscoverySection } from '@/components/settings/TenantDiscoverySection'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -18,7 +19,7 @@ import { Input, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import { defaultSettings } from '@/data/seed'
 import { cn } from '@/lib/utils'
-import type { AutomationSettings } from '@/types'
+import type { AutomationSettings, TenantDiscoveryMode } from '@/types'
 
 type SettingsCategoryId = 'business' | 'automation' | 'lease' | 'style'
 
@@ -109,6 +110,11 @@ export function SettingsPage() {
 
   const updateAutomation = (value: AutomationSettings) => {
     setForm((f) => ({ ...f, automation: value }))
+    setSaved(false)
+  }
+
+  const updateDiscoveryMode = (mode: TenantDiscoveryMode) => {
+    setForm((f) => ({ ...f, tenantDiscoveryMode: mode }))
     setSaved(false)
   }
 
@@ -281,6 +287,10 @@ export function SettingsPage() {
                   </div>
                 </div>
               </div>
+              <TenantDiscoverySection
+                value={form.tenantDiscoveryMode === 'invite_only' ? 'invite_only' : 'public'}
+                onChange={updateDiscoveryMode}
+              />
             </div>
           )}
 

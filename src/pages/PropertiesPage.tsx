@@ -21,6 +21,7 @@ import {
 import { BedsOccupancyTag } from '@/components/properties/BedsOccupancyTag'
 import { RentalInterestCue } from '@/components/properties/RentalInterestCue'
 import { RentalDetailModal } from '@/components/properties/RentalDetailModal'
+import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { UpcomingOpeningsPanel } from '@/components/dashboard/UpcomingOpeningsPanel'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -182,6 +183,7 @@ export function PropertiesPage() {
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [regionsOpen, setRegionsOpen] = useState(false)
   const [selectedRental, setSelectedRental] = useState<Property | null>(null)
+  const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState('')
   const [stateFilter, setStateFilter] = useState('')
   const [townFilter, setTownFilter] = useState('')
@@ -890,12 +892,11 @@ export function PropertiesPage() {
                               Monthly Rent: {formatUsd(row.monthlyRent)}
                               {row.unitLabel ? ` · ${row.unitLabel}` : ''}
                             </p>
-                            <p className="tile-card__meta tabular-nums">
-                              Occupancy: {row.currentTenants} of {row.maxTenants} people
-                              {row.tenantShare != null && row.currentTenants > 1
-                                ? ` · Per bed share: ${formatUsd(row.tenantShare)}/month`
-                                : ''}
-                            </p>
+                            {row.tenantShare != null && row.currentTenants > 1 ? (
+                              <p className="tile-card__meta tabular-nums">
+                                Per bed share: {formatUsd(row.tenantShare)}/month
+                              </p>
+                            ) : null}
                             <p className="tile-card__meta tabular-nums text-ink-muted">
                               Beds: {row.occupiedBeds} of {row.totalBeds} occupied
                             </p>
@@ -904,9 +905,8 @@ export function PropertiesPage() {
                               bedrooms={row.bedrooms}
                               currentTenants={row.currentTenants}
                               maxTenants={row.maxTenants}
-                              totalBeds={row.totalBeds}
-                              occupiedBeds={row.occupiedBeds}
                               occupants={occupants}
+                              onOccupantClick={setDetailsTenantId}
                               className="mt-0.5"
                             />
                             <RentalInterestCue
@@ -968,6 +968,13 @@ export function PropertiesPage() {
         property={selectedRental}
         open={Boolean(selectedRental)}
         onClose={() => setSelectedRental(null)}
+      />
+
+      <TenantDetailsModal
+        tenantId={detailsTenantId}
+        open={Boolean(detailsTenantId)}
+        onClose={() => setDetailsTenantId(null)}
+        onSelectTenant={setDetailsTenantId}
       />
     </div>
   )

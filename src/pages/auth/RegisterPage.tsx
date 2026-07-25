@@ -7,7 +7,7 @@ import { Input, Select } from '@/components/ui/FormField'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { fetchLandlordCompanies, fetchTenantInvite } from '@/lib/authApi'
+import { fetchLandlordCompanies, fetchTenantInvite, fetchTenantInviteByCode } from '@/lib/authApi'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   formatLeaseLengthLabel,
@@ -31,7 +31,8 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const { register } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const inviteToken = mode === 'client' ? searchParams.get('invite')?.trim() || '' : ''
+  const inviteTokenFromUrl = mode === 'client' ? searchParams.get('invite')?.trim() || '' : ''
+  const codeFromUrl = mode === 'client' ? searchParams.get('code')?.trim() || '' : ''
 
   const resolvedLoginPath = loginPath ?? (mode === 'admin' ? '/studio/login' : '/login')
 
@@ -46,9 +47,13 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const [landlordCompany, setLandlordCompany] = useState('')
   const [propertyAddress, setPropertyAddress] = useState('')
   const [agencies, setAgencies] = useState<AgencyOption[]>([])
+  const [inviteToken, setInviteToken] = useState(inviteTokenFromUrl)
+  const [connectionCodeInput, setConnectionCodeInput] = useState(codeFromUrl)
+  const [resolvedConnectionCode, setResolvedConnectionCode] = useState('')
   const [inviteLocked, setInviteLocked] = useState(false)
   const [invitePropertyLocked, setInvitePropertyLocked] = useState(false)
   const [inviteError, setInviteError] = useState('')
+  const [codeBusy, setCodeBusy] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -72,22 +77,47 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
     }
   }, [mode])
 
+  const applyInvitePayload = (invite: {
+    landlordCompany: string
+    propertyAddress: string | null
+    agency?: { name: string; properties: string[] } | null
+    inviteToken?: string
+  }) => {
+    setLandlordCompany(invite.landlordCompany)
+    if (invite.agency?.name) {
+      setAgencies((prev) => {
+        const without = prev.filter(
+          (agency) => agency.name.toLowerCase() !== invite.agency!.name.toLowerCase()
+        )
+        return [
+          {
+            name: invite.agency!.name,
+            properties: invite.agency!.properties ?? [],
+          },
+          ...without,
+        ]
+      })
+    }
+    if (invite.propertyAddress) {
+      setPropertyAddress(invite.propertyAddress)
+      setInvitePropertyLocked(true)
+    } else {
+      setPropertyAddress('')
+      setInvitePropertyLocked(false)
+    }
+    if (invite.inviteToken) setInviteToken(invite.inviteToken)
+    setInviteLocked(true)
+    setInviteError('')
+  }
+
   useEffect(() => {
-    if (mode !== 'client' || !inviteToken) return
+    if (mode !== 'client' || !inviteTokenFromUrl) return
     let cancelled = false
-    void fetchTenantInvite(inviteToken)
+    void fetchTenantInvite(inviteTokenFromUrl)
       .then((invite) => {
         if (cancelled) return
-        setLandlordCompany(invite.landlordCompany)
-        if (invite.propertyAddress) {
-          setPropertyAddress(invite.propertyAddress)
-          setInvitePropertyLocked(true)
-        } else {
-          setPropertyAddress('')
-          setInvitePropertyLocked(false)
-        }
-        setInviteLocked(true)
-        setInviteError('')
+        setInviteToken(inviteTokenFromUrl)
+        applyInvitePayload(invite)
       })
       .catch((err) => {
         if (cancelled) return
@@ -100,7 +130,60 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
     return () => {
       cancelled = true
     }
-  }, [inviteToken, mode])
+  }, [inviteTokenFromUrl, mode])
+
+  useEffect(() => {
+    if (mode !== 'client' || !codeFromUrl || inviteTokenFromUrl) return
+    let cancelled = false
+    setCodeBusy(true)
+    void fetchTenantInviteByCode(codeFromUrl)
+      .then((invite) => {
+        if (cancelled) return
+        setConnectionCodeInput(codeFromUrl)
+        setResolvedConnectionCode(invite.connectionCode ?? codeFromUrl)
+        applyInvitePayload(invite)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setInviteError(
+          err instanceof ApiError
+            ? err.message
+            : 'This connection code is invalid, already used, or has expired'
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setCodeBusy(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [codeFromUrl, inviteTokenFromUrl, mode])
+
+  const handleApplyConnectionCode = async () => {
+    const code = connectionCodeInput.trim()
+    if (!code) {
+      setInviteError('Enter a connection code')
+      return
+    }
+    setCodeBusy(true)
+    setInviteError('')
+    setError('')
+    try {
+      const invite = await fetchTenantInviteByCode(code)
+      setResolvedConnectionCode(invite.connectionCode ?? code)
+      applyInvitePayload(invite)
+    } catch (err) {
+      setInviteError(
+        err instanceof ApiError
+          ? err.message
+          : 'This connection code is invalid, already used, or has expired'
+      )
+      setInviteLocked(false)
+      setInvitePropertyLocked(false)
+    } finally {
+      setCodeBusy(false)
+    }
+  }
 
   const agencyNames = useMemo(() => agencies.map((agency) => agency.name), [agencies])
 
@@ -177,6 +260,10 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
         preferredLandlordCompany: mode === 'client' ? landlordCompany.trim() : undefined,
         preferredPropertyAddress: mode === 'client' ? propertyAddress.trim() : undefined,
         inviteToken: mode === 'client' && inviteToken ? inviteToken : undefined,
+        connectionCode:
+          mode === 'client' && !inviteToken && resolvedConnectionCode
+            ? resolvedConnectionCode
+            : undefined,
       })
       const params = new URLSearchParams({ email: registeredEmail })
       if (mode === 'admin') params.set('studio', '1')
@@ -203,8 +290,8 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             {mode === 'admin'
               ? 'Sign up with your company name and email to manage tenants and lease agreements.'
               : inviteLocked
-                ? `You’re joining ${landlordCompany}. Choose a property, then finish creating your account.`
-                : 'Select your agency and property. After approval, you can review and sign your lease agreement.'}
+                ? `You’re joining ${landlordCompany}. Choose an available property, then finish creating your account.`
+                : 'Select your agency and property, or enter a landlord connection code. After approval, you can review and sign your lease agreement.'}
           </p>
         </div>
 
@@ -247,6 +334,36 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             />
             {mode === 'client' && (
               <>
+                {!inviteLocked ? (
+                  <div className="space-y-2 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-3">
+                    <p className="text-xs font-semibold text-ink">Have a connection code?</p>
+                    <div className="flex gap-2">
+                      <div className="min-w-0 flex-1">
+                        <Input
+                          label="Connection code"
+                          value={connectionCodeInput}
+                          onChange={(e) => setConnectionCodeInput(e.target.value.toUpperCase())}
+                          placeholder="e.g. A1B2C3D4"
+                          autoComplete="off"
+                          className="font-mono tracking-widest"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mb-[2px] shrink-0 self-end"
+                        disabled={codeBusy || !connectionCodeInput.trim()}
+                        onClick={() => void handleApplyConnectionCode()}
+                      >
+                        {codeBusy ? 'Checking…' : 'Apply'}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-ink-muted">
+                      Invite-only landlords won’t appear in the agency search — use their link or
+                      code instead.
+                    </p>
+                  </div>
+                ) : null}
                 <SearchableSelect
                   label="Type Agency"
                   name="preferredLandlordCompany"
@@ -258,7 +375,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
                   placeholder="Start typing an agency name…"
                   hint={
                     inviteLocked
-                      ? 'Pre-filled from your invite link'
+                      ? 'Pre-filled from your connection invite'
                       : 'Search and select your landlord or agency'
                   }
                   emptyMessage="No matching agencies"
@@ -282,12 +399,12 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
                   }
                   hint={
                     invitePropertyLocked
-                      ? 'Pre-filled from your invite link for this opening'
+                      ? 'Pre-filled from your invite for this opening'
                       : inviteLocked
-                        ? 'Choose the property you’re interested in from this company’s list'
+                        ? 'Only rentals with open occupancy are listed'
                         : 'All listed properties are shown — availability is confirmed after approval'
                   }
-                  emptyMessage="No properties found for this agency"
+                  emptyMessage="No available properties found for this agency"
                 />
                 <Select
                   label="Preferred lease length"

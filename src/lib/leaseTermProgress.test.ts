@@ -58,15 +58,17 @@ describe('getLeaseTermProgress', () => {
     expect(progress.percentComplete).toBeGreaterThan(80)
   })
 
-  it('treats upcoming leases as 0% complete', () => {
+  it('omits progress metrics for leases that have not started yet', () => {
     const progress = getLeaseTermProgress(
       makeClient(),
       makeContract({ startDate: '2026-08-01', completionDate: '2027-07-31' }),
       new Date(2026, 6, 1)
     )
     expect(progress.state).toBe('Upcoming')
-    expect(progress.percentComplete).toBe(0)
-    expect(progress.daysElapsed).toBe(0)
+    expect(progress.startDate).toBe('2026-08-01')
+    expect(progress.percentComplete).toBeNull()
+    expect(progress.daysElapsed).toBeNull()
+    expect(progress.totalDays).toBeNull()
     expect(progress.showEndingAlert).toBe(false)
   })
 })

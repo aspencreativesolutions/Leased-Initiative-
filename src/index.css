@@ -255,6 +255,14 @@
     padding-bottom: max(0.15rem, calc(0.1rem * var(--tile-scale)));
   }
 
+  .lease-tile-timeline__not-started {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
   .lease-tile-timeline__progress {
     display: flex;
     width: 100%;
@@ -3085,12 +3093,14 @@ a.in-place-hover {
   }
 }
 
-/* Rentals tiles — beds + occupancy tag with occupants popover */
+/* Rentals tiles — occupancy box; expands occupant list underneath */
 .beds-occupancy-tag {
   position: relative;
   display: flex;
   width: 100%;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
   z-index: 1;
 }
 
@@ -3190,26 +3200,40 @@ a.in-place-hover {
 
 .beds-occupancy-tag__list {
   margin: 0;
-  padding: 0;
+  padding: 0.15rem 0 0;
   list-style: none;
   display: flex;
+  width: 100%;
   flex-direction: column;
+  align-items: stretch;
   gap: 0.25rem;
 }
 
 .beds-occupancy-tag__link {
   display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
   font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.3;
   color: var(--ink);
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .beds-occupancy-tag__link:hover,
 .beds-occupancy-tag__link:focus-visible {
   color: var(--brand);
   text-decoration: underline;
+}
+
+.beds-occupancy-tag__link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

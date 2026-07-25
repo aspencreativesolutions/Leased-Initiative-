@@ -1059,11 +1059,13 @@ router.post('/tenant-invites', (req, res) => {
         id: invite.id,
         landlordCompany: invite.landlordCompany,
         propertyAddress: invite.propertyAddress ?? null,
+        connectionCode: invite.connectionCode ?? null,
         expiresAt: invite.expiresAt,
         source: invite.source,
         status: invite.status ?? 'pending',
       },
       inviteUrl: buildTenantInviteUrl(invite.token),
+      connectionCode: invite.connectionCode ?? null,
     })
   } catch (err) {
     console.error('tenant-invites', err)

@@ -32,6 +32,7 @@ interface AuthContextValue {
       preferredLandlordCompany?: string
       preferredPropertyAddress?: string
       inviteToken?: string
+      connectionCode?: string
     }
   ) => Promise<{ email: string }>
   updateProfile: (name: string) => Promise<User>
@@ -84,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferredLandlordCompany?: string
         preferredPropertyAddress?: string
         inviteToken?: string
+        connectionCode?: string
       }
     ) => {
       const data = await registerAccount({
@@ -97,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferredLandlordCompany: options?.preferredLandlordCompany,
         preferredPropertyAddress: options?.preferredPropertyAddress,
         inviteToken: options?.inviteToken,
+        connectionCode: options?.connectionCode,
       })
       return { email: data.email }
     },

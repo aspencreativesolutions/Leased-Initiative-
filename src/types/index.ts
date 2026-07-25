@@ -785,6 +785,8 @@ export interface Property {
   units?: PropertyUnit[]
 }
 
+export type TenantDiscoveryMode = 'public' | 'invite_only'
+
 export interface BusinessSettings {
   businessName: string
   ownerName: string
@@ -808,6 +810,12 @@ export interface BusinessSettings {
   automation?: AutomationSettings
   /** Named rental groups used to filter leases and rentals by location */
   contractRegions?: ContractRegion[]
+  /**
+   * How tenants find this landlord:
+   * - public: searchable by agency name at signup
+   * - invite_only: tenants must use a connection link or code
+   */
+  tenantDiscoveryMode?: TenantDiscoveryMode
 }
 
 export interface EmailDraft {

@@ -26,9 +26,24 @@ export async function fetchLandlordCompanies() {
 }
 
 export async function fetchTenantInvite(token: string) {
-  return apiFetch<{ landlordCompany: string; propertyAddress: string | null }>(
-    `/api/auth/invite/${encodeURIComponent(token)}`
-  )
+  return apiFetch<{
+    landlordCompany: string
+    propertyAddress: string | null
+    connectionCode?: string | null
+    agency?: { name: string; properties: string[]; discoveryMode?: string } | null
+    discoveryMode?: string
+  }>(`/api/auth/invite/${encodeURIComponent(token)}`)
+}
+
+export async function fetchTenantInviteByCode(code: string) {
+  return apiFetch<{
+    inviteToken: string
+    landlordCompany: string
+    propertyAddress: string | null
+    connectionCode?: string | null
+    agency?: { name: string; properties: string[]; discoveryMode?: string } | null
+    discoveryMode?: string
+  }>(`/api/auth/invite-code/${encodeURIComponent(code)}`)
 }
 
 export async function registerAccount(payload: {
@@ -42,6 +57,7 @@ export async function registerAccount(payload: {
   preferredLandlordCompany?: string
   preferredPropertyAddress?: string
   inviteToken?: string
+  connectionCode?: string
 }) {
   return apiFetch<RegisterResponse>('/api/auth/register', {
     method: 'POST',

@@ -26,10 +26,14 @@ import { preparePublicDemoStore } from '../lib/demoAccess.js'
 import { LEASED_DEMO_USERS, isLeasedDemoEmail } from '../lib/leasedDemoUsers.js'
 import { SAMPLE_CLIENT_EMAILS } from '../lib/sampleClientDates.js'
 import {
+  buildAgencyForInvite,
   buildLandlordAgencies,
   findValidTenantInvite,
+  findValidTenantInviteByCode,
+  getTenantDiscoveryMode,
   markTenantInviteUsed,
 } from '../lib/tenantInvites.js'
+import { availableApplicantSlotsAtAddress } from '../lib/rentalOccupancy.js'
 
 const router = Router()
 
@@ -90,7 +94,7 @@ function notifyAdminOfNewClient(user) {
 router.get('/landlord-companies', (_req, res) => {
   try {
     const store = readStore()
-    const agencies = buildLandlordAgencies(store)
+    const agencies = buildLandlordAgencies(store, { forPublicDiscovery: true })
     res.json({
       companies: agencies.map((agency) => agency.name),
       agencies,
@@ -109,13 +113,43 @@ router.get('/invite/:token', (req, res) => {
     if (!invite) {
       return res.status(404).json({ error: 'This invite link is invalid or has expired' })
     }
+    const agency = buildAgencyForInvite(store, invite)
     res.json({
       landlordCompany: invite.landlordCompany,
       propertyAddress: invite.propertyAddress ?? null,
+      connectionCode: invite.connectionCode ?? null,
+      agency,
+      discoveryMode: getTenantDiscoveryMode(store),
     })
   } catch (err) {
     console.error('invite lookup', err)
     res.status(500).json({ error: 'Could not load invite' })
+  }
+})
+
+/** Resolve a short connection code to the same payload as an invite token. */
+router.get('/invite-code/:code', (req, res) => {
+  try {
+    const code = String(req.params.code ?? '')
+    const store = readStore()
+    const invite = findValidTenantInviteByCode(store, code)
+    if (!invite) {
+      return res.status(404).json({
+        error: 'This connection code is invalid, already used, or has expired',
+      })
+    }
+    const agency = buildAgencyForInvite(store, invite)
+    res.json({
+      inviteToken: invite.token,
+      landlordCompany: invite.landlordCompany,
+      propertyAddress: invite.propertyAddress ?? null,
+      connectionCode: invite.connectionCode ?? null,
+      agency,
+      discoveryMode: getTenantDiscoveryMode(store),
+    })
+  } catch (err) {
+    console.error('invite-code lookup', err)
+    res.status(500).json({ error: 'Could not load connection code' })
   }
 })
 
@@ -132,6 +166,7 @@ router.post('/register', async (req, res) => {
       preferredLandlordCompany,
       preferredPropertyAddress,
       inviteToken,
+      connectionCode,
     } = req.body
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required' })
@@ -159,10 +194,21 @@ router.post('/register', async (req, res) => {
     }
 
     const store = readStore()
-    const invite =
-      !isAdmin && inviteToken ? findValidTenantInvite(store, String(inviteToken)) : null
-    if (!isAdmin && inviteToken && !invite) {
-      return res.status(400).json({ error: 'This invite link is invalid or has expired' })
+    let invite = null
+    if (!isAdmin) {
+      if (inviteToken) {
+        invite = findValidTenantInvite(store, String(inviteToken))
+        if (!invite) {
+          return res.status(400).json({ error: 'This invite link is invalid or has expired' })
+        }
+      } else if (connectionCode) {
+        invite = findValidTenantInviteByCode(store, String(connectionCode))
+        if (!invite) {
+          return res.status(400).json({
+            error: 'This connection code is invalid, already used, or has expired',
+          })
+        }
+      }
     }
 
     let landlordCompany = String(preferredLandlordCompany ?? '').trim()
@@ -187,7 +233,17 @@ router.post('/register', async (req, res) => {
     }
 
     if (!isAdmin) {
-      const agencies = buildLandlordAgencies(store)
+      const discoveryMode = getTenantDiscoveryMode(store)
+      if (discoveryMode === 'invite_only' && !invite) {
+        return res.status(403).json({
+          error:
+            'This landlord is invite-only. Use a connection link or connection code to register.',
+        })
+      }
+
+      const agencies = invite
+        ? [buildAgencyForInvite(store, invite)].filter(Boolean)
+        : buildLandlordAgencies(store, { forPublicDiscovery: true })
       const matchedAgency = agencies.find(
         (agency) => agency.name.toLowerCase() === landlordCompany.toLowerCase()
       )
@@ -212,6 +268,17 @@ router.post('/register', async (req, res) => {
       // Normalize company name to the canonical agency spelling when available.
       if (matchedAgency) {
         landlordCompany = matchedAgency.name
+      }
+
+      // Invite-only (and invite-path) registrations require open occupancy.
+      if (invite || discoveryMode === 'invite_only') {
+        const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
+        if (!capacity.available) {
+          return res.status(409).json({
+            error:
+              'That rental has no open occupancy right now. Choose another available property or ask your landlord for a new invite.',
+          })
+        }
       }
     }
 

@@ -32,13 +32,15 @@ export interface LeaseTermProgress {
   currentMonth?: number
   /** Total lease length in months, when known */
   termMonths?: number
-  /** 0–100 when start and end are known; null otherwise */
+  /** 0–100 when the lease term has begun; null before start or when dates are unknown */
   percentComplete: number | null
+  /** Days since start once underway; null before start */
   daysElapsed: number | null
   daysRemaining: number | null
   totalDays: number | null
   /** True when the lease is underway and ends within LEASE_TILE_ENDING_ALERT_DAYS */
   showEndingAlert: boolean
+  /** Upcoming = signed/dated but not begun — UI shows “Not started”, not a bar */
   state?: LeaseTimelineState
 }
 
@@ -344,15 +346,27 @@ export function getLeaseTermProgress(
   const daysFromStart = daysUntilYmd(parseLocalYmd(startDate), asOfYmd)
   const daysRemainingRaw = daysUntilYmd(effectiveAsOf, endDate)
 
+  // Signed (or dated) leases that have not begun yet: no bar until time is passing.
+  if (state === 'Upcoming' || daysFromStart < 0) {
+    return {
+      startDate,
+      endDate,
+      currentMonth: details.currentMonth,
+      termMonths: details.termMonths,
+      percentComplete: null,
+      daysElapsed: null,
+      daysRemaining: Math.max(0, daysRemainingRaw),
+      totalDays: null,
+      showEndingAlert: false,
+      state: state ?? 'Upcoming',
+    }
+  }
+
   let percentComplete: number
   let daysElapsed: number
   let daysRemaining: number
 
-  if (state === 'Upcoming' || daysFromStart < 0) {
-    percentComplete = 0
-    daysElapsed = 0
-    daysRemaining = Math.max(0, daysRemainingRaw)
-  } else if (state === 'Expired' || daysRemainingRaw < 0) {
+  if (state === 'Expired' || daysRemainingRaw < 0) {
     percentComplete = 100
     daysElapsed = totalDays
     daysRemaining = 0

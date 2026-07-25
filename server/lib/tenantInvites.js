@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { availablePropertyAddresses } from './rentalOccupancy.js'
 
 /** Sample agency always offered on tenant signup (demo / discovery). */
 export const SAMPLE_AGENCY_NAME = 'JMC Development'
@@ -10,6 +11,11 @@ export const SAMPLE_AGENCY_PROPERTIES = [
 ]
 
 const INVITE_EXPIRY_DAYS = 30
+
+export function getTenantDiscoveryMode(store) {
+  const mode = store?.settings?.tenantDiscoveryMode
+  return mode === 'invite_only' ? 'invite_only' : 'public'
+}
 
 export function collectPropertyAddresses(store) {
   const addresses = new Set()
@@ -34,20 +40,27 @@ export function collectPropertyAddresses(store) {
 }
 
 /**
- * Agencies available at tenant signup: live landlord business name + sample JMC.
- * Properties list every known address (availability is not filtered).
+ * Agencies available at tenant signup.
+ * Invite-only landlords are omitted from the public discovery list.
+ * When `availableOnly` is true, property lists are filtered to units with open capacity.
  */
-export function buildLandlordAgencies(store) {
-  const allProperties = collectPropertyAddresses(store)
+export function buildLandlordAgencies(store, options = {}) {
+  const forPublicDiscovery = options.forPublicDiscovery !== false
+  const availableOnly = options.availableOnly === true
+  const allProperties = availableOnly
+    ? availablePropertyAddresses(store)
+    : collectPropertyAddresses(store)
   const agencies = []
   const seen = new Set()
 
   const businessName = store.settings?.businessName?.trim()
-  if (businessName) {
+  const discoveryMode = getTenantDiscoveryMode(store)
+  if (businessName && !(forPublicDiscovery && discoveryMode === 'invite_only')) {
     seen.add(businessName.toLowerCase())
     agencies.push({
       name: businessName,
       properties: allProperties.length > 0 ? allProperties : [...SAMPLE_AGENCY_PROPERTIES],
+      discoveryMode,
     })
   }
 
@@ -57,14 +70,55 @@ export function buildLandlordAgencies(store) {
       properties: [...SAMPLE_AGENCY_PROPERTIES, ...allProperties].filter(
         (address, index, list) => list.indexOf(address) === index
       ),
+      discoveryMode: 'public',
     })
   }
 
   return agencies.sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/** Agency payload for an invite (includes vacant-only properties when invite-only). */
+export function buildAgencyForInvite(store, invite) {
+  const company = invite?.landlordCompany?.trim()
+  if (!company) return null
+  const discoveryMode = getTenantDiscoveryMode(store)
+  const availableOnly = discoveryMode === 'invite_only'
+  const properties = availableOnly
+    ? availablePropertyAddresses(store)
+    : collectPropertyAddresses(store)
+
+  if (invite.propertyAddress) {
+    const locked = invite.propertyAddress.trim()
+    return {
+      name: company,
+      properties: locked ? [locked] : [],
+      discoveryMode,
+    }
+  }
+
+  return {
+    name: company,
+    properties:
+      properties.length > 0 ? properties : [...SAMPLE_AGENCY_PROPERTIES],
+    discoveryMode,
+  }
+}
+
 export function createTenantInviteToken() {
   return crypto.randomBytes(24).toString('hex')
+}
+
+export function createConnectionCode(store) {
+  const existing = new Set(
+    (store.tenantInvites ?? [])
+      .map((invite) => String(invite.connectionCode ?? '').toUpperCase())
+      .filter(Boolean)
+  )
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase()
+    if (!existing.has(code)) return code
+  }
+  return crypto.randomBytes(6).toString('hex').toUpperCase()
 }
 
 export function buildTenantInviteUrl(token) {
@@ -80,6 +134,7 @@ export function createTenantInvite(store, options = {}) {
       ? options.propertyAddress.trim()
       : null
   const token = createTenantInviteToken()
+  const connectionCode = createConnectionCode(store)
   const now = new Date()
   const expiresAt = new Date(
     now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
@@ -87,6 +142,7 @@ export function createTenantInvite(store, options = {}) {
   const invite = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     token,
+    connectionCode,
     landlordCompany,
     propertyAddress,
     source: options.source === 'lease-import' ? 'lease-import' : 'manual',
@@ -139,14 +195,30 @@ export function markTenantInviteDelivered(store, inviteId, delivery) {
   }
 }
 
+function inviteStillValid(invite) {
+  if (!invite) return false
+  if (invite.usedAt) return false
+  if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return false
+  return true
+}
+
 export function findValidTenantInvite(store, token) {
   if (!token || typeof token !== 'string') return null
   const invites = store.tenantInvites ?? []
   const invite = invites.find((entry) => entry.token === token)
-  if (!invite) return null
-  if (invite.usedAt) return null
-  if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return null
-  return invite
+  return inviteStillValid(invite) ? invite : null
+}
+
+export function findValidTenantInviteByCode(store, code) {
+  const normalized = String(code ?? '')
+    .trim()
+    .toUpperCase()
+  if (!normalized) return null
+  const invites = store.tenantInvites ?? []
+  const invite = invites.find(
+    (entry) => String(entry.connectionCode ?? '').toUpperCase() === normalized
+  )
+  return inviteStillValid(invite) ? invite : null
 }
 
 export function markTenantInviteUsed(store, token, userId) {

@@ -167,8 +167,9 @@ function OpeningActionsModal({
   onLogged?: () => void
 }) {
   const [inviteUrl, setInviteUrl] = useState('')
+  const [connectionCode, setConnectionCode] = useState('')
   const [inviteBusy, setInviteBusy] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'link' | 'code' | null>(null)
   const [error, setError] = useState('')
   const [resignMessage, setResignMessage] = useState('')
   const [resignBusy, setResignBusy] = useState(false)
@@ -177,7 +178,8 @@ function OpeningActionsModal({
   useEffect(() => {
     if (!opening || !action) {
       setInviteUrl('')
-      setCopied(false)
+      setConnectionCode('')
+      setCopied(null)
       setError('')
       setResignMessage('')
       setResignDone(false)
@@ -193,7 +195,8 @@ function OpeningActionsModal({
       })
     )
     setInviteUrl('')
-    setCopied(false)
+    setConnectionCode('')
+    setCopied(null)
     setError('')
     setResignDone(false)
   }, [opening, action, landlordName, getClient])
@@ -202,15 +205,16 @@ function OpeningActionsModal({
 
   const canResign = opening.kind === 'lease_ending' && opening.tenantIds.length > 0
   const title =
-    action === 'resign' ? 'Send re-sign message' : 'Generate invite code'
+    action === 'resign' ? 'Send re-sign message' : 'Generate connection invite'
 
   const handleGenerateInvite = async () => {
     setInviteBusy(true)
     setError('')
-    setCopied(false)
+    setCopied(null)
     try {
       const result = await createTenantInvite(opening.address)
       setInviteUrl(result.inviteUrl)
+      setConnectionCode(result.connectionCode ?? result.invite.connectionCode ?? '')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create invite')
     } finally {
@@ -218,13 +222,13 @@ function OpeningActionsModal({
     }
   }
 
-  const handleCopy = async () => {
-    if (!inviteUrl) return
+  const handleCopy = async (value: string, kind: 'link' | 'code') => {
+    if (!value) return
     try {
-      await navigator.clipboard.writeText(inviteUrl)
-      setCopied(true)
+      await navigator.clipboard.writeText(value)
+      setCopied(kind)
     } catch {
-      setError('Could not copy — select and copy the link manually')
+      setError('Could not copy — select and copy it manually')
     }
   }
 
@@ -333,7 +337,7 @@ function OpeningActionsModal({
               <div>
                 <p className="text-sm font-semibold text-ink">Generate invite for new tenant</p>
                 <p className="mt-0.5 text-xs text-ink-muted">
-                  Creates a signup link pre-linked to this property address.
+                  Creates a one-time connection link and code pre-linked to this property.
                 </p>
               </div>
             </div>
@@ -345,20 +349,40 @@ function OpeningActionsModal({
                 ) : (
                   <Link2 className="h-4 w-4" />
                 )}
-                {inviteBusy ? 'Generating…' : 'Generate invite code'}
+                {inviteBusy ? 'Generating…' : 'Generate connection invite'}
               </Button>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  readOnly
-                  value={inviteUrl}
-                  className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2.5 text-sm text-ink"
-                  onFocus={(e) => e.target.select()}
-                />
-                <Button type="button" variant="outline" onClick={handleCopy}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={inviteUrl}
+                    className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2.5 text-sm text-ink"
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <Button type="button" variant="outline" onClick={() => void handleCopy(inviteUrl, 'link')}>
+                    {copied === 'link' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied === 'link' ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                {connectionCode ? (
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={connectionCode}
+                      className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-2.5 font-mono text-sm tracking-widest text-ink"
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleCopy(connectionCode, 'code')}
+                    >
+                      {copied === 'code' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied === 'code' ? 'Copied' : 'Copy'}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

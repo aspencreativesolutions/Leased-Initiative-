@@ -31,11 +31,13 @@ export async function createTenantInvite(
       id: string
       landlordCompany: string
       propertyAddress: string | null
+      connectionCode: string | null
       expiresAt: string
       source?: string
       status?: string
     }
     inviteUrl: string
+    connectionCode: string | null
   }>('/api/data/tenant-invites', {
     method: 'POST',
     body: JSON.stringify({

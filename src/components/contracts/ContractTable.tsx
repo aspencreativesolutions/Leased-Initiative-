@@ -239,9 +239,11 @@ function ContractCell({
             outlineClass
           )}
         >
-          {row.progress.percentComplete != null
-            ? `${row.progress.percentComplete}%`
-            : '—'}
+          {row.progress.state === 'Upcoming'
+            ? 'Not started'
+            : row.progress.percentComplete != null
+              ? `${row.progress.percentComplete}%`
+              : '—'}
         </td>
       )
   }
