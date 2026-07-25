@@ -341,9 +341,14 @@ export function OnboardingTour({
 
   const completeStep = useCallback(
     async (stepId: string) => {
-      const next = await updateOnboardingProgress(role, { stepId, complete: true })
-      setProgress(next)
-      await refreshUser()
+      try {
+        const next = await updateOnboardingProgress(role, { stepId, complete: true })
+        setProgress(next)
+        await refreshUser()
+      } catch (err) {
+        // Tour navigation must not freeze if the progress API is slow or offline.
+        console.warn('onboarding progress save failed', err)
+      }
     },
     [role, refreshUser]
   )
@@ -356,23 +361,21 @@ export function OnboardingTour({
     advancingRef.current = false
   }, [])
 
-  const handleNext = useCallback(async () => {
-    if (!currentStep || advancingRef.current) return
-    advancingRef.current = true
-    try {
-      await completeStep(currentStep.id)
-      if (stepIndex < tourSteps.length - 1) {
-        goToStepIndex(stepIndex + 1)
-      } else {
-        endTour()
-      }
-    } finally {
-      advancingRef.current = false
+  const handleNext = useCallback(() => {
+    if (!currentStep) return
+    const stepId = currentStep.id
+    const atEnd = stepIndex >= tourSteps.length - 1
+    if (atEnd) {
+      endTour()
+    } else {
+      goToStepIndex(stepIndex + 1)
     }
+    // Persist in the background — never block the next/prev controls on network.
+    void completeStep(stepId)
   }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex, endTour])
 
   const handleBack = useCallback(() => {
-    if (stepIndex <= 0 || advancingRef.current) return
+    if (stepIndex <= 0) return
     goToStepIndex(stepIndex - 1)
   }, [stepIndex, goToStepIndex])
 
@@ -380,10 +383,14 @@ export function OnboardingTour({
     if (advancingRef.current) return
     advancingRef.current = true
     try {
-      const next = await updateOnboardingProgress(role, { dismiss: true })
-      setProgress(next)
+      try {
+        const next = await updateOnboardingProgress(role, { dismiss: true })
+        setProgress(next)
+        await refreshUser()
+      } catch (err) {
+        console.warn('onboarding dismiss save failed', err)
+      }
       endTour()
-      await refreshUser()
     } finally {
       advancingRef.current = false
     }
@@ -401,19 +408,27 @@ export function OnboardingTour({
     if (!active) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Enter' || event.isComposing) return
-      // Capture Enter so highlighted dashboard controls never activate underneath.
-      event.preventDefault()
-      event.stopPropagation()
-      if (event.repeat) return
-      void handleNext()
+      if (event.isComposing) return
+      if (event.key === 'ArrowRight' || event.key === 'Enter') {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.repeat) return
+        handleNext()
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.repeat) return
+        handleBack()
+      }
     }
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [active, handleNext])
+  }, [active, handleNext, handleBack])
 
   if (!active || !currentStep) return null
 
@@ -539,7 +554,7 @@ export function OnboardingTour({
             </button>
             <button
               type="button"
-              onClick={() => void handleNext()}
+              onClick={handleNext}
               className={NAV_ARROW_CLASS}
               aria-label={isLastStep ? 'Finish tour' : 'Next tour step'}
             >
