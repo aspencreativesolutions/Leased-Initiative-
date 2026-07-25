@@ -32,6 +32,7 @@ import {
   type AdminMockUser,
   type AdminScenario,
 } from '@/lib/adminMode'
+import { ADMIN_UNLOCK_EVENT, lockAdminMode } from '@/lib/adminUnlock'
 import {
   createAdminCompanyDemoLink,
   fetchAdminCompanyDemoLinks,
@@ -66,8 +67,26 @@ function formatExpiry(iso: string): string {
 }
 
 export function AdminModeFab() {
-  if (!isAdminModeEnabled()) return null
-  return <AdminModeFabInner />
+  const [enabled, setEnabled] = useState(() => isAdminModeEnabled())
+
+  useEffect(() => {
+    const sync = () => {
+      const next = isAdminModeEnabled()
+      setEnabled(next)
+      if (next) {
+        try {
+          sessionStorage.setItem(PANEL_KEY, '1')
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    window.addEventListener(ADMIN_UNLOCK_EVENT, sync)
+    return () => window.removeEventListener(ADMIN_UNLOCK_EVENT, sync)
+  }, [])
+
+  if (!enabled) return null
+  return <AdminModeFabInner key="admin-fab" />
 }
 
 function AdminModeFabInner() {
@@ -104,6 +123,12 @@ function AdminModeFabInner() {
   useEffect(() => {
     sessionStorage.setItem(PANEL_KEY, open ? '1' : '0')
   }, [open])
+
+  useEffect(() => {
+    const openPanel = () => setOpen(true)
+    window.addEventListener(ADMIN_UNLOCK_EVENT, openPanel)
+    return () => window.removeEventListener(ADMIN_UNLOCK_EVENT, openPanel)
+  }, [])
 
   useEffect(() => {
     if (!open || demoCodeLoaded) return
@@ -344,14 +369,26 @@ function AdminModeFabInner() {
                 Test journeys · password = email
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-[var(--radius-sm)] p-1 text-ink-muted hover:text-ink"
-              aria-label="Close Admin Mode"
-            >
-              <X className="h-4 w-4" strokeWidth={2.25} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  lockAdminMode()
+                }}
+                className="rounded-[var(--radius-sm)] px-2 py-1 text-[10px] font-semibold text-ink-muted hover:bg-surface hover:text-ink"
+              >
+                Lock
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-[var(--radius-sm)] p-1 text-ink-muted hover:text-ink"
+                aria-label="Close Admin Mode"
+              >
+                <X className="h-4 w-4" strokeWidth={2.25} />
+              </button>
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-3.5 py-3.5">

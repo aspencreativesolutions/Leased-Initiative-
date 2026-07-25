@@ -1,3 +1,5 @@
+import { getAdminUnlockHeader } from '@/lib/adminUnlock'
+
 const TOKEN_KEY = 'client-craft-token'
 
 export function getToken(): string | null {
@@ -36,6 +38,10 @@ export async function apiFetch<T>(
     ...(options.headers as Record<string, string>),
   }
   if (token) headers.Authorization = `Bearer ${token}`
+  if (path.startsWith('/api/dev')) {
+    const unlock = getAdminUnlockHeader()
+    if (unlock) headers['X-Leased-Admin-Unlock'] = unlock
+  }
 
   const serverDownMessage =
     'API server is not running — stop the app (Ctrl+C in your terminal) and run npm run dev again.'

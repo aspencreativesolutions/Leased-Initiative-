@@ -40,7 +40,7 @@ import { ensureSamplePortalUsers, purgeRemovedSampleClients } from './lib/sample
 import { ensureSampleClientContracts } from './lib/sampleClientContracts.js'
 import { ensureSampleHouseholdFields } from './lib/sampleClientDates.js'
 import { applyDemoLeaseFixturesToStore } from './lib/applyDemoLeaseFixtures.js'
-import devRoutes, { isAdminModeApiEnabled } from './routes/dev.js'
+import devRoutes, { requireAdminModeAccess } from './routes/dev.js'
 import {
   ensureLeasedDemoUsers,
   formatLeasedDemoLogins,
@@ -151,8 +151,8 @@ app.use('/api/invoices', invoiceRoutes)
 if (process.env.E2E_TEST === '1') {
   app.use('/api/e2e', e2eRoutes)
 }
-if (isAdminModeApiEnabled()) {
-  app.use('/api/dev', devRoutes)
+if (process.env.E2E_TEST !== '1') {
+  app.use('/api/dev', requireAdminModeAccess, devRoutes)
 }
 
 app.get('/api/paypal/health', (_req, res) => {

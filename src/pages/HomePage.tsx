@@ -29,6 +29,7 @@ import {
   type WelcomeRole,
 } from '@/lib/welcomeSlides'
 import { markPublicDemoSession, redeemDemoCode } from '@/lib/publicDemo'
+import { unlockAdminMode } from '@/lib/adminUnlock'
 import { cn } from '@/lib/utils'
 import { persistThemeIdAcrossSurfaces } from '@/themes/applyTheme'
 import { DEFAULT_THEME_ID, THEME_STORAGE_KEY } from '@/themes/options'
@@ -152,7 +153,9 @@ export function HomePage() {
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null)
-  const [logoPreviewOpen, setLogoPreviewOpen] = useState(false)
+  const [adminUnlockOpen, setAdminUnlockOpen] = useState(false)
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminUnlockError, setAdminUnlockError] = useState('')
   const [styleChooserOpen, setStyleChooserOpen] = useState(false)
   const [termsOpen, setTermsOpen] = useState(false)
   /** Collapsed on every home-page mount; open state only lasts while staying here. */
@@ -525,9 +528,13 @@ export function HomePage() {
             <div className="home-page__brand mb-2.5 flex flex-col items-center gap-1.5 sm:mb-3 sm:gap-2">
               <button
                 type="button"
-                onClick={() => setLogoPreviewOpen(true)}
-                className="home-page__brand-mark-trigger cursor-zoom-in rounded-none border-0 bg-transparent p-0 text-ink transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
-                aria-label="View enlarged brand mark"
+                onClick={() => {
+                  setAdminUnlockError('')
+                  setAdminPassword('')
+                  setAdminUnlockOpen(true)
+                }}
+                className="home-page__brand-mark-trigger rounded-none border-0 bg-transparent p-0 text-ink transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
+                aria-label="Admin access"
               >
                 <BrandMark className="home-page__brand-mark h-10 w-10 shadow-[0_10px_32px_-20px_rgb(0_0_0_/_0.35)] sm:h-11 sm:w-11" />
               </button>
@@ -586,17 +593,54 @@ export function HomePage() {
       </div>
 
       <Modal
-        open={logoPreviewOpen}
-        onClose={() => setLogoPreviewOpen(false)}
-        title="Brand mark"
-        size="lg"
+        open={adminUnlockOpen}
+        onClose={() => {
+          setAdminUnlockOpen(false)
+          setAdminPassword('')
+          setAdminUnlockError('')
+        }}
+        title="Admin access"
+        size="md"
       >
-        <div className="flex flex-col items-center gap-4 py-4 sm:py-6">
-          <BrandMark className="home-page__brand-mark h-[min(70vw,22rem)] w-[min(70vw,22rem)] text-ink" />
-          <p className="max-w-sm text-center text-sm text-ink-muted">
-            Enlarged for inspection. Close with the × button, Escape, or by clicking outside.
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!unlockAdminMode(adminPassword)) {
+              setAdminUnlockError('Incorrect password.')
+              return
+            }
+            setAdminUnlockOpen(false)
+            setAdminPassword('')
+            setAdminUnlockError('')
+          }}
+        >
+          <p className="text-sm text-ink-muted">
+            Enter the admin password to open Admin Mode and set the public demo code.
           </p>
-        </div>
+          <label className="flex flex-col gap-1.5 text-left text-sm font-medium text-ink">
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={adminPassword}
+              onChange={(e) => {
+                setAdminPassword(e.target.value)
+                if (adminUnlockError) setAdminUnlockError('')
+              }}
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
+              autoFocus
+            />
+          </label>
+          {adminUnlockError ? (
+            <p className="text-sm font-medium text-accent" role="alert">
+              {adminUnlockError}
+            </p>
+          ) : null}
+          <Button type="submit" className="w-full sm:w-auto">
+            Unlock Admin Mode
+          </Button>
+        </form>
       </Modal>
       <HomeStyleChooserModal open={styleChooserOpen} onClose={() => setStyleChooserOpen(false)} />
       <TermsOfServiceModal open={termsOpen} onClose={() => setTermsOpen(false)} />

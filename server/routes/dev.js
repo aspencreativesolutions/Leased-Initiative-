@@ -28,10 +28,25 @@ import {
 
 const router = Router()
 
+/** Matches client `ADMIN_UNLOCK_PASSWORD` — override with ADMIN_UNLOCK_PASSWORD env. */
+export function getAdminUnlockPassword() {
+  return (process.env.ADMIN_UNLOCK_PASSWORD || 'divengineer').trim().toLowerCase()
+}
+
 export function isAdminModeApiEnabled() {
   if (process.env.ENABLE_ADMIN_MODE === '1') return true
   if (process.env.E2E_TEST === '1') return false
   return process.env.NODE_ENV !== 'production'
+}
+
+/** Allow /api/dev when local/admin env is on, or when the logo unlock password is sent. */
+export function requireAdminModeAccess(req, res, next) {
+  if (isAdminModeApiEnabled()) return next()
+  const header = String(req.get('x-leased-admin-unlock') || '')
+    .trim()
+    .toLowerCase()
+  if (header && header === getAdminUnlockPassword()) return next()
+  return res.status(403).json({ error: 'Admin mode is locked.' })
 }
 
 const SAMPLE_SCENARIO_USERS = [

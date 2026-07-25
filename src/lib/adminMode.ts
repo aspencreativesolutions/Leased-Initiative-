@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api'
+import { isAdminUnlocked } from '@/lib/adminUnlock'
 
 export type AdminMockRole = 'admin' | 'client'
 
@@ -442,6 +443,7 @@ export async function resetMockOnboarding(email: string) {
 
 export function isAdminModeEnabled() {
   if (import.meta.env.VITE_ADMIN_MODE === 'false') return false
+  if (isAdminUnlocked()) return true
   if (import.meta.env.VITE_ADMIN_MODE === 'true') return true
   return import.meta.env.DEV
 }
