@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Building2,
   FileText,
@@ -57,6 +58,7 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
 
 export function SettingsPage() {
   const { settings, updateSettings } = useApp()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState(settings)
   const [saved, setSaved] = useState(false)
   const [dateError, setDateError] = useState('')
@@ -70,6 +72,13 @@ export function SettingsPage() {
   const activeMeta = SETTINGS_CATEGORIES.find((c) => c.id === activeCategory)!
   const tabPanelId = `${baseId}-panel`
   const tabId = (id: SettingsCategoryId) => `${baseId}-tab-${id}`
+
+  useEffect(() => {
+    const tab = searchParams.get('tab') as SettingsCategoryId | null
+    if (tab && SETTINGS_CATEGORIES.some((category) => category.id === tab)) {
+      setActiveCategory(tab)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     tabRefs.current[activeCategory]?.scrollIntoView({
@@ -174,6 +183,7 @@ export function SettingsPage() {
         <div
           role="tablist"
           aria-label="Settings categories"
+          data-onboarding="admin-settings-tabs"
           className={cn(
             'flex w-full min-w-0 items-stretch gap-0 overflow-x-auto border-b border-line',
             '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
@@ -194,6 +204,7 @@ export function SettingsPage() {
                 aria-selected={selected}
                 aria-controls={tabPanelId}
                 tabIndex={selected ? 0 : -1}
+                data-onboarding={`admin-settings-${category.id}`}
                 onClick={() => selectCategory(category.id)}
                 onKeyDown={(e) => handleTabKeyDown(e, index)}
                 className={cn(
@@ -216,6 +227,7 @@ export function SettingsPage() {
           role="tabpanel"
           aria-labelledby={tabId(activeCategory)}
           aria-label={`${activeMeta.title} settings`}
+          data-onboarding="admin-settings-panel"
         >
           <CardHeader dense title={activeMeta.title} subtitle={activeMeta.description} />
 

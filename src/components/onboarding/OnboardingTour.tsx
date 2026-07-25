@@ -173,7 +173,7 @@ export function OnboardingTour({
   forceStart,
   onForceStartHandled,
 }: OnboardingTourProps) {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, isPublicDemo } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const adminMode = isAdminModeEnabled()
@@ -413,7 +413,11 @@ export function OnboardingTour({
         event.preventDefault()
         event.stopPropagation()
         if (event.repeat) return
-        handleNext()
+        if (isLastStep) {
+          void handleDismiss()
+        } else {
+          handleNext()
+        }
         return
       }
       if (event.key === 'ArrowLeft') {
@@ -428,7 +432,7 @@ export function OnboardingTour({
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [active, handleNext, handleBack])
+  }, [active, handleNext, handleBack, handleDismiss, isLastStep])
 
   if (!active || !currentStep) return null
 
@@ -533,35 +537,65 @@ export function OnboardingTour({
         <h3 className="font-display text-lg font-semibold text-ink">{currentStep.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-ink-muted">{currentStep.description}</p>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => void handleDismiss()}
-            className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
-          >
-            Exit Tour
-          </button>
-
-          <div className="flex items-center gap-2">
+        {isLastStep ? (
+          <div className="mt-4 space-y-3">
             <button
               type="button"
-              onClick={handleBack}
-              disabled={isFirstStep}
-              className={NAV_ARROW_CLASS}
-              aria-label="Previous tour step"
+              onClick={() => void handleDismiss()}
+              className="tour-continue-demo-btn w-full rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-lift focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+              {isPublicDemo || user?.publicDemo ? 'Continue to manual demo' : 'Continue exploring'}
             </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className={NAV_ARROW_CLASS}
-              aria-label={isLastStep ? 'Finish tour' : 'Next tour step'}
-            >
-              <ChevronRight className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-            </button>
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => void handleDismiss()}
+                className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+              >
+                Exit Tour
+              </button>
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={isFirstStep}
+                className={NAV_ARROW_CLASS}
+                aria-label="Previous tour step"
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => void handleDismiss()}
+              className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+            >
+              Exit Tour
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={isFirstStep}
+                className={NAV_ARROW_CLASS}
+                aria-label="Previous tour step"
+              >
+                <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className={NAV_ARROW_CLASS}
+                aria-label="Next tour step"
+              >
+                <ChevronRight className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

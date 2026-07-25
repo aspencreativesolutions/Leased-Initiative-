@@ -87,8 +87,15 @@ export function DashboardPage() {
     <div className="w-full min-w-0" data-onboarding="admin-dashboard">
       {registrationsError && (
         <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
-          {registrationsError}. Try restarting the app with{' '}
-          <code className="text-xs">npm run desktop:stop && npm run desktop</code>.
+          {registrationsError}.{' '}
+          {import.meta.env.PROD
+            ? 'Sign out and sign back in (or re-enter your demo code) to refresh your session.'
+            : (
+              <>
+                Try restarting the app with{' '}
+                <code className="text-xs">npm run desktop:stop && npm run desktop</code>.
+              </>
+            )}
         </p>
       )}
 

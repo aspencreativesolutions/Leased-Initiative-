@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils'
 
 const ATTENTION_MS = 2600
 const ATTENTION_REDUCED_MS = 900
+const REMINDER_INTERVAL_MS = 45_000
+const REMINDER_ATTENTION_MS = 2800
+const REMINDER_ATTENTION_REDUCED_MS = 900
 
 type DemoPovSwitcherShellProps = {
   title?: string
@@ -43,6 +46,7 @@ export function DemoPovSwitcherShell({
   const rootRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(() => !hasPlayedDemoPovIntro())
   const [attention, setAttention] = useState(() => !hasPlayedDemoPovIntro())
+  const [reminderPulse, setReminderPulse] = useState(false)
 
   const finishIntro = useCallback(() => {
     markDemoPovIntroPlayed()
@@ -52,11 +56,13 @@ export function DemoPovSwitcherShell({
   const collapse = useCallback(() => {
     finishIntro()
     setExpanded(false)
+    setReminderPulse(false)
   }, [finishIntro])
 
   const expand = useCallback(() => {
     finishIntro()
     setExpanded(true)
+    setReminderPulse(false)
   }, [finishIntro])
 
   useEffect(() => {
@@ -73,6 +79,27 @@ export function DemoPovSwitcherShell({
     )
     return () => window.clearTimeout(timer)
   }, [attention, finishIntro])
+
+  /** Periodic nudge so visitors remember they can switch landlord/tenant POV. */
+  useEffect(() => {
+    if (attention) return
+    const reduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let pulseTimer: number | undefined
+    const interval = window.setInterval(() => {
+      setReminderPulse(true)
+      window.clearTimeout(pulseTimer)
+      pulseTimer = window.setTimeout(
+        () => setReminderPulse(false),
+        reduced ? REMINDER_ATTENTION_REDUCED_MS : REMINDER_ATTENTION_MS
+      )
+    }, REMINDER_INTERVAL_MS)
+    return () => {
+      window.clearInterval(interval)
+      window.clearTimeout(pulseTimer)
+    }
+  }, [attention])
 
   useEffect(() => {
     if (collapseSignal > 0) collapse()
@@ -105,7 +132,10 @@ export function DemoPovSwitcherShell({
         <button
           type="button"
           onClick={expand}
-          className="flex items-center gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-surface-paper px-3 py-2 text-xs font-semibold text-ink shadow-lift transition hover:border-brand hover:text-brand"
+          className={cn(
+            'demo-pov-switcher-tab flex items-center gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-surface-paper px-3 py-2 text-xs font-semibold text-ink shadow-lift transition hover:border-brand hover:text-brand',
+            reminderPulse && 'demo-pov-switcher-tab--reminder'
+          )}
           aria-expanded={false}
           aria-controls={panelId}
           aria-label="Demo mode controls"
@@ -129,6 +159,7 @@ export function DemoPovSwitcherShell({
       className={cn(
         'demo-pov-switcher fixed bottom-4 right-4 z-[80] w-[min(calc(100vw-2rem),15.5rem)] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 shadow-lift sm:bottom-5 sm:right-5 sm:p-3.5',
         attention && 'demo-pov-switcher--attention',
+        reminderPulse && 'demo-pov-switcher--reminder',
         className
       )}
     >

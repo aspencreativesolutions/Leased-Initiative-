@@ -3553,6 +3553,73 @@ a.in-place-hover {
   }
 }
 
+@keyframes demo-pov-reminder {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-lift);
+  }
+  25% {
+    transform: translateY(-4px) scale(1.04);
+    box-shadow:
+      var(--shadow-lift),
+      0 0 0 3px color-mix(in srgb, var(--brand) 28%, transparent);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow:
+      var(--shadow-lift),
+      0 0 0 2px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+}
+
+.demo-pov-switcher-tab--reminder,
+.demo-pov-switcher--reminder {
+  transform-origin: bottom right;
+  will-change: transform, box-shadow;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .demo-pov-switcher-tab--reminder,
+  .demo-pov-switcher--reminder {
+    animation: demo-pov-reminder 2.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-pov-switcher-tab--reminder,
+  .demo-pov-switcher--reminder {
+    animation: demo-pov-attention-static 0.85s ease both;
+  }
+}
+
+@keyframes tour-continue-demo-pulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-lift);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+      var(--shadow-lift),
+      0 0 0 3px color-mix(in srgb, var(--brand) 24%, transparent);
+  }
+}
+
+.tour-continue-demo-btn {
+  will-change: transform, box-shadow;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tour-continue-demo-btn {
+    animation: tour-continue-demo-pulse 1.8s ease-in-out infinite;
+  }
+}
+
 /* Profile lease import — row reveal, added checkmark, invite-sent breathe */
 @keyframes lease-scan-row-reveal {
   from {

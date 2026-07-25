@@ -5,6 +5,7 @@ export type AdminTourSectionId =
   | 'contracts'
   | 'payments'
   | 'alerts'
+  | 'settings'
 
 export const ADMIN_TOUR_SECTIONS: { id: AdminTourSectionId; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -12,6 +13,7 @@ export const ADMIN_TOUR_SECTIONS: { id: AdminTourSectionId; label: string }[] = 
   { id: 'contracts', label: 'Lease Agreements' },
   { id: 'payments', label: 'Payments' },
   { id: 'alerts', label: 'Tenant Alerts' },
+  { id: 'settings', label: 'Settings' },
 ]
 
 export interface OnboardingStep {
@@ -225,6 +227,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
       'Review your registered company name and browse rental-type or renter counts. Tap a count to explore that group, and filter lists by lease duration when needed.',
     placement: 'bottom',
     route: '/studio/profile',
+    section: 'settings',
   },
   {
     id: 'lease-upload',
@@ -234,15 +237,57 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
       'Queue lease PDFs, images, or spreadsheets, then click Scan Files. Review the records that appear, confirm what looks right, and send invite links by email or text.',
     placement: 'bottom',
     route: '/studio/profile',
+    section: 'settings',
   },
   {
-    id: 'automation',
-    target: '[data-onboarding="admin-settings"]',
-    title: 'Tour complete — Settings',
+    id: 'settings-hub',
+    target: '[data-onboarding="admin-settings-tabs"]',
+    title: 'Settings',
     description:
-      'Configure lease calendar defaults, automated reminders, and status updates here. Restart this tour anytime with the Tour button beside Settings. You have finished the tour — press the forward arrow or Enter to close it.',
+      'Open Settings anytime from the gear icon in the toolbar. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
     placement: 'bottom',
-    route: '/studio',
+    route: '/studio/settings',
+    section: 'settings',
+  },
+  {
+    id: 'settings-business',
+    target: '[data-onboarding="admin-settings-business"]',
+    title: 'Business Information',
+    description:
+      'Company name, contact details, and address used in lease headers and signatures live here. Keep these current so generated agreements stay accurate.',
+    placement: 'bottom',
+    route: '/studio/settings?tab=business',
+    section: 'settings',
+  },
+  {
+    id: 'settings-automation',
+    target: '[data-onboarding="admin-settings-automation"]',
+    title: 'Client Automation',
+    description:
+      'Turn on reminders, follow-ups, and status updates so overdue rent and lease milestones nudge tenants without you chasing every message.',
+    placement: 'bottom',
+    route: '/studio/settings?tab=automation',
+    section: 'settings',
+  },
+  {
+    id: 'settings-lease',
+    target: '[data-onboarding="admin-settings-lease"]',
+    title: 'Lease Defaults',
+    description:
+      'Set seasonal start and end dates, payment terms, revision limits, and contract footers that prefill when you draft a new lease.',
+    placement: 'bottom',
+    route: '/studio/settings?tab=lease',
+    section: 'settings',
+  },
+  {
+    id: 'settings-style',
+    target: '[data-onboarding="admin-settings-style"]',
+    title: 'App Style',
+    description:
+      'Pick a visual finish for the landlord studio — previews apply instantly. Restart this tour anytime with the Tour button beside Settings.',
+    placement: 'bottom',
+    route: '/studio/settings?tab=style',
+    section: 'settings',
   },
 ]
 

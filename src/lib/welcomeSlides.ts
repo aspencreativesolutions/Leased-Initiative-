@@ -134,7 +134,7 @@ const TOUR_SLIDE: WelcomeSlide = {
   icon: Compass,
   title: 'Revisit the tour anytime',
   description:
-    'Once you are signed in, use the Tour button in the top toolbar to walk through the dashboard, rentals, lease agreements, payments, and tenant alerts again. Jump to any section from the bar at the top of the tour. Use Bug Report beside Settings to flag unexpected behavior to Aspen Creative Solutions.',
+    'Once you are signed in, use the Tour button in the top toolbar to walk through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report beside Settings to flag unexpected behavior to Aspen Creative Solutions.',
 }
 
 const DEMO_SLIDE: WelcomeSlide = {
