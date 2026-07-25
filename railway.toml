@@ -1,0 +1,13 @@
+# Railway — Leased API (Express)
+# Deploys the Node API that the Vercel frontend calls via VITE_API_URL.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install"
+
+[deploy]
+startCommand = "node server/index.js"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

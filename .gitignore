@@ -16,3 +16,5 @@ blob-report/
 .playwright-browsers/
 portfolio/node_modules/
 portfolio/.next/
+.vercel
+.env*

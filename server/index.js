@@ -57,16 +57,39 @@ const WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID
 const APP_URL = process.env.APP_URL || 'http://localhost:5173'
 const MODE = process.env.PAYPAL_MODE || 'sandbox'
 
+function isAllowedCorsOrigin(origin) {
+  if (!origin) return true
+  const extras = String(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const allowed = new Set([
+    APP_URL,
+    'http://localhost:3010',
+    'http://127.0.0.1:3010',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3021',
+    'http://127.0.0.1:3021',
+    'https://leased-initiative-sand.vercel.app',
+    ...extras,
+  ])
+  if (allowed.has(origin)) return true
+  // Vercel preview + production aliases for this project
+  if (/^https:\/\/leased-initiative[a-z0-9-]*\.vercel\.app$/i.test(origin)) return true
+  if (/^https:\/\/leased-initiative[a-z0-9-]*-sophie-6463s-projects\.vercel\.app$/i.test(origin)) {
+    return true
+  }
+  return false
+}
+
 const app = express()
 app.use(
   cors({
-    origin: [
-      APP_URL,
-      'http://localhost:3010',
-      'http://127.0.0.1:3010',
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-    ],
+    origin(origin, callback) {
+      if (isAllowedCorsOrigin(origin)) return callback(null, true)
+      return callback(null, false)
+    },
     credentials: true,
   })
 )
@@ -367,22 +390,47 @@ async function bootstrapSamplePortalUsers() {
   }
 }
 
-app.listen(PORT, async () => {
-  if (process.env.E2E_TEST !== '1') {
-    await bootstrapSamplePortalUsers()
+let bootstrapPromise = null
+function ensureBootstrapped() {
+  if (process.env.E2E_TEST === '1') return Promise.resolve()
+  if (!bootstrapPromise) {
+    bootstrapPromise = bootstrapSamplePortalUsers().catch((err) => {
+      console.error('sample portal user bootstrap', err)
+    })
   }
-  startAutomationScheduler()
-  console.log(`Leased Initiative API → http://localhost:${PORT}`)
-  console.log(
-    `PayPal mode: ${MODE}`,
-    isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'
-  )
-  console.log(
-    `Stripe mode: ${process.env.STRIPE_MODE || 'test'}`,
-    isStripeConfigured() ? '(credentials loaded)' : '(missing credentials)'
-  )
-  console.log(
-    `Square mode: ${getSquareEnvironment()}`,
-    isSquareConfigured() ? '(credentials loaded)' : '(missing credentials)'
-  )
+  return bootstrapPromise
+}
+
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureBootstrapped()
+  } catch {
+    /* already logged */
+  }
+  next()
 })
+
+export default app
+
+const isDirectRun =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isDirectRun && !process.env.VERCEL) {
+  app.listen(PORT, async () => {
+    await ensureBootstrapped()
+    startAutomationScheduler()
+    console.log(`Leased Initiative API → http://localhost:${PORT}`)
+    console.log(
+      `PayPal mode: ${MODE}`,
+      isPayPalConfigured() ? '(credentials loaded)' : '(missing credentials)'
+    )
+    console.log(
+      `Stripe mode: ${process.env.STRIPE_MODE || 'test'}`,
+      isStripeConfigured() ? '(credentials loaded)' : '(missing credentials)'
+    )
+    console.log(
+      `Square mode: ${getSquareEnvironment()}`,
+      isSquareConfigured() ? '(credentials loaded)' : '(missing credentials)'
+    )
+  })
+}

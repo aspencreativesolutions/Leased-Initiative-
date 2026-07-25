@@ -7,7 +7,7 @@
     "dev": "concurrently -n web,api -c blue,green \"vite\" \"node --watch server/index.js\"",
     "dev:site": "npm run dev --prefix portfolio",
     "dev:all": "concurrently -n site,craft,api -c magenta,blue,green \"CLIENT_CRAFT_URL=http://127.0.0.1:3021 npm run dev:site\" \"CLIENT_CRAFT_PORT=3021 vite\" \"node --watch server/index.js\"",
-    "postinstall": "npm install --prefix portfolio",
+    "postinstall": "node -e \"if (!process.env.VERCEL) { require('child_process').execSync('npm install --prefix portfolio', {stdio:'inherit'}) }\"",
     "dev:web": "vite",
     "dev:server": "node --watch server/index.js",
     "build": "tsc -b && vite build",
