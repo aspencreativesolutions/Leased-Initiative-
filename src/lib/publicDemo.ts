@@ -3,6 +3,8 @@ import type { WelcomeRole } from '@/lib/welcomeSlides'
 
 export const PUBLIC_DEMO_SESSION_KEY = 'leased-public-demo'
 export const PUBLIC_DEMO_ROLE_KEY = 'leased-public-demo-role'
+/** One-shot: after a demo auth session fails, send the visitor home to re-enter a code. */
+export const PUBLIC_DEMO_RECOVER_HOME_KEY = 'leased-public-demo-recover-home'
 /** One-time attention cue for the Switch POV control within a demo session. */
 export const PUBLIC_DEMO_POV_INTRO_KEY = 'leased-public-demo-pov-intro'
 /** Session tip after a tenant application (Waiting to Connect nudge). */
@@ -27,6 +29,10 @@ export const PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY = 'leased-public-demo-tour-not
 export const PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY = 'leased-public-demo-tour-notice-tenant'
 /** Custom event to open/highlight Menu → Take the tour during the notice. */
 export const DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT = 'leased-demo-tour-notice-highlight'
+/** Optional visitor first name for personalizing mock messages/docs this demo session. */
+export const PUBLIC_DEMO_FIRST_NAME_KEY = 'leased-public-demo-first-name'
+/** Shown in templates when the visitor skips the optional first-name field. */
+export const DEMO_SENDER_NAME_PLACEHOLDER = '[Your Name]'
 
 export type DemoTourNoticePov = 'landlord' | 'tenant'
 
@@ -74,6 +80,47 @@ export function isPublicDemoSession(): boolean {
   } catch {
     return false
   }
+}
+
+/** True when a JWT payload claims `publicDemo` (client-side peek; not signature-verified). */
+export function tokenLooksLikePublicDemo(token: string | null | undefined): boolean {
+  if (!token) return false
+  try {
+    const payloadPart = token.split('.')[1]
+    if (!payloadPart) return false
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+    const payload = JSON.parse(atob(padded)) as { publicDemo?: unknown }
+    return payload.publicDemo === true
+  } catch {
+    return false
+  }
+}
+
+/** Mark that the next unauthenticated redirect should go to the homepage demo entry. */
+export function markPublicDemoRecoverHome(): void {
+  try {
+    sessionStorage.setItem(PUBLIC_DEMO_RECOVER_HOME_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True when a failed demo auth asked to recover on the homepage. */
+export function peekPublicDemoRecoverHome(): boolean {
+  try {
+    return sessionStorage.getItem(PUBLIC_DEMO_RECOVER_HOME_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Unauthenticated demo visitors should land on the homepage Quick Access (key icon)
+ * to re-enter a demo code — not on landlord/tenant sign-in.
+ */
+export function shouldRecoverPublicDemoAtHome(): boolean {
+  return isPublicDemoSession() || peekPublicDemoRecoverHome()
 }
 
 export function getPublicDemoRole(): WelcomeRole | null {
@@ -140,8 +187,11 @@ export function markPublicDemoSession(role?: WelcomeRole | null): void {
   try {
     const wasActive = sessionStorage.getItem(PUBLIC_DEMO_SESSION_KEY) === '1'
     sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
-    // New demo session — reset one-time per-POV tour notices.
-    if (!wasActive) clearDemoTourNoticeState()
+    // New demo session — reset one-time per-POV tour notices and personalization.
+    if (!wasActive) {
+      clearDemoTourNoticeState()
+      sessionStorage.removeItem(PUBLIC_DEMO_FIRST_NAME_KEY)
+    }
     if (role === 'landlord' || role === 'tenant') {
       sessionStorage.setItem(PUBLIC_DEMO_ROLE_KEY, role)
     } else {
@@ -163,10 +213,60 @@ export function clearPublicDemoSession(): void {
     sessionStorage.removeItem(PUBLIC_DEMO_APPLICANT_NAME_KEY)
     sessionStorage.removeItem(PUBLIC_DEMO_NEW_REGISTRANTS_CUE_KEY)
     sessionStorage.removeItem(PUBLIC_DEMO_PENDING_TENANT_CUE_KEY)
+    sessionStorage.removeItem(PUBLIC_DEMO_FIRST_NAME_KEY)
+    sessionStorage.removeItem(PUBLIC_DEMO_RECOVER_HOME_KEY)
     clearDemoTourNoticeState()
   } catch {
     /* ignore */
   }
+}
+
+/** Optional first name entered on the demo entry screen (session-scoped). */
+export function getDemoFirstName(): string | null {
+  try {
+    const name = sessionStorage.getItem(PUBLIC_DEMO_FIRST_NAME_KEY)?.trim()
+    return name || null
+  } catch {
+    return null
+  }
+}
+
+/** Persist or clear the optional demo first name for this browser session only. */
+export function setDemoFirstName(name: string | null | undefined): void {
+  try {
+    const trimmed = name?.trim() ?? ''
+    if (trimmed) {
+      sessionStorage.setItem(PUBLIC_DEMO_FIRST_NAME_KEY, trimmed)
+    } else {
+      sessionStorage.removeItem(PUBLIC_DEMO_FIRST_NAME_KEY)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * In a public demo: visitor first name, or `[Your Name]` when skipped.
+ * Outside a public demo: `null` (callers should use account settings).
+ */
+export function resolveDemoSenderName(): string | null {
+  if (!isPublicDemoSession()) return null
+  return getDemoFirstName() || DEMO_SENDER_NAME_PLACEHOLDER
+}
+
+/**
+ * Display name for landlord → tenant mock messages and document signatures.
+ * Prefers the optional demo first name while a public demo is active.
+ */
+export function resolveLandlordSenderName(settings: {
+  ownerName?: string
+  businessName?: string
+}): string {
+  const demoName = resolveDemoSenderName()
+  if (demoName) return demoName
+  const owner = settings.ownerName?.trim()
+  if (owner && owner !== 'Your Name') return owner
+  return settings.businessName?.trim() || 'Your landlord'
 }
 
 /** Whether the Switch POV control has already played its entrance cue this demo session. */

@@ -6,7 +6,10 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { isPublicDemoSession } from '@/lib/publicDemo'
+import {
+  isPublicDemoSession,
+  shouldRecoverPublicDemoAtHome,
+} from '@/lib/publicDemo'
 
 type DemoLoginState = {
   demoCredentials?: { email: string; password: string }
@@ -50,10 +53,16 @@ export function LoginPage() {
   }
 
   useEffect(() => {
-    if (!demoState?.email || !demoState?.password || autoSubmitted.current) return
-    autoSubmitted.current = true
-    void handleSubmit()
-    // Prefill + one-shot auto sign-in after demo code redeem
+    // Prefill + one-shot auto sign-in after welcome-carousel demo redeem
+    if (demoState?.email && demoState?.password && !autoSubmitted.current) {
+      autoSubmitted.current = true
+      void handleSubmit()
+      return
+    }
+    // Demo refresh / expired session: recover on homepage Quick Access, not this form
+    if (!demoState && shouldRecoverPublicDemoAtHome()) {
+      navigate('/', { replace: true, state: { openDemoCode: true } })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

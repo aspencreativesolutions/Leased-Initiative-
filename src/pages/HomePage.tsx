@@ -28,7 +28,7 @@ import {
   registerPathForRole,
   type WelcomeRole,
 } from '@/lib/welcomeSlides'
-import { markPublicDemoSession, redeemDemoCode } from '@/lib/publicDemo'
+import { markPublicDemoSession, redeemDemoCode, setDemoFirstName, clearPublicDemoSession } from '@/lib/publicDemo'
 import { unlockAdminMode } from '@/lib/adminUnlock'
 import { prepareViewportForNavigation } from '@/lib/mobileViewport'
 import { cn } from '@/lib/utils'
@@ -143,6 +143,7 @@ export function HomePage() {
   const location = useLocation()
   const content = gatherHomePageContent()
   const demoCodeId = useId()
+  const demoFirstNameId = useId()
   const quickAccessPanelId = useId()
   const demoInputRef = useRef<HTMLInputElement>(null)
   const demoTileRef = useRef<HTMLFormElement>(null)
@@ -154,6 +155,7 @@ export function HomePage() {
 
   const [authIntent, setAuthIntent] = useState<AuthIntent>(null)
   const [demoCode, setDemoCode] = useState('')
+  const [demoFirstName, setDemoFirstNameInput] = useState('')
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
   const [demoTileHighlight, setDemoTileHighlight] = useState(false)
@@ -370,6 +372,8 @@ export function HomePage() {
   useEffect(() => {
     const state = location.state as { openDemoCode?: boolean } | null
     if (!state?.openDemoCode) return
+    // Expired / refreshed demo sessions land here to re-enter a code via Quick Access.
+    clearPublicDemoSession()
     guideToDemoCode()
     navigate('.', { replace: true, state: null })
   }, [guideToDemoCode, location.state, navigate])
@@ -382,11 +386,13 @@ export function HomePage() {
     try {
       await redeemDemoCode(demoCode, 'landlord')
       markPublicDemoSession()
+      setDemoFirstName(demoFirstName)
       // Carry the homepage Style Chooser pick into landlord + tenant demo surfaces.
       persistThemeIdAcrossSurfaces(themeId)
       // Blur + settle viewport so iOS does not carry input zoom onto /demo/pov.
       await prepareViewportForNavigation(demoInputRef.current)
       navigate('/demo/pov', { replace: true })
+      setDemoFirstNameInput('')
     } catch (err) {
       setDemoError(err instanceof ApiError ? err.message : 'Could not unlock the demo')
     } finally {
@@ -585,6 +591,26 @@ export function HomePage() {
                   disabled={demoSubmitting}
                   className="home-demo-tile__input"
                 />
+                <label
+                  htmlFor={demoFirstNameId}
+                  className="text-center text-[11px] font-semibold leading-snug text-ink"
+                >
+                  First Name (Optional)
+                </label>
+                <input
+                  id={demoFirstNameId}
+                  type="text"
+                  value={demoFirstName}
+                  onChange={(e) => setDemoFirstNameInput(e.target.value)}
+                  autoComplete="given-name"
+                  spellCheck={false}
+                  placeholder="Your first name"
+                  disabled={demoSubmitting}
+                  className="home-demo-tile__input"
+                />
+                <p className="max-w-[14rem] text-center text-[10px] leading-snug text-ink-faint">
+                  Personalize mock messages and documents — or leave blank to skip.
+                </p>
                 <Button
                   type="submit"
                   size="sm"
@@ -594,7 +620,7 @@ export function HomePage() {
                   {demoSubmitting ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                   ) : null}
-                  {demoSubmitting ? 'Checking…' : 'Enter Code'}
+                  {demoSubmitting ? 'Checking…' : 'Start Demo'}
                 </Button>
                 {demoError && (
                   <p className="text-[10px] font-medium leading-snug text-accent" role="alert">

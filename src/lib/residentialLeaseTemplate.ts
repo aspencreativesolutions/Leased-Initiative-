@@ -9,6 +9,7 @@ import {
   parseLeaseLengthMonths,
   resolveDefaultLeaseDates,
 } from '@/lib/leaseSchedule'
+import { resolveDemoSenderName } from '@/lib/publicDemo'
 
 export const PLACEHOLDER_MARKER = '[To be customized]'
 
@@ -131,9 +132,10 @@ export function buildResidentialLeaseFields({
     effectiveLeaseMonths && `Lease duration: ${effectiveLeaseMonths}-month term`,
   ].filter(Boolean)
 
+  const representativeName = resolveDemoSenderName() || settings.ownerName
   const landlordBlock = [
     settings.businessName && `Company: ${settings.businessName}`,
-    settings.ownerName && `Authorized representative: ${settings.ownerName}`,
+    representativeName && `Authorized representative: ${representativeName}`,
     settings.email && `Email: ${settings.email}`,
     settings.phone && `Phone: ${settings.phone}`,
     settings.address && `Mailing address: ${settings.address}`,

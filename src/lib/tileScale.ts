@@ -118,5 +118,6 @@ export function paymentTileScaleStyle(factor: number): CSSProperties {
 
 /** Auto-fill grid of equal squares — same layout as lease agreements. */
 export function paymentTileGridClassName(scale: number): string {
-  return leaseTileGridClassName(scale)
+  // `payment-tile-grid` keeps overdue message panels from stretching sibling tiles.
+  return `${leaseTileGridClassName(scale)} payment-tile-grid`
 }

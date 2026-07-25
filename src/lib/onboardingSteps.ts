@@ -181,7 +181,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Use the Payment tile size slider in Display Settings to enlarge or shrink tiles. Filter for Overdue Rent, Paid Early, or payment method, then Send Message to Tenant when someone is past due (replies stay on your phone).',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Use the Payment tile size slider in Display Settings to enlarge or shrink tiles. Filter for Overdue Rent, Paid Early, or payment method, then Send Message to Tenant when someone is past due — the message panel opens below the payment summary so replies stay on your phone.',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',

@@ -116,7 +116,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: AlertTriangle,
     title: 'Overdue rent messaging',
     description:
-      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings to resize payment tiles, or filter → Overdue Rent to focus past-due tiles. Send a custom text or pick a template — replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
+      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings to resize payment tiles, or filter → Overdue Rent to focus past-due tiles. Send Message to Tenant opens a compact composer panel under the payment summary — pick a template or write your own; replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
   },
   {
     id: 'landlord-tenant-alerts',
@@ -143,7 +143,7 @@ const DEMO_SLIDE: WelcomeSlide = {
   icon: PlayCircle,
   title: 'Try the full product demo',
   description:
-    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — or open the invite link they sent. Confirm Start Demo, then choose landlord or a specific tenant scenario. After a tenant application (try Ava Mitchell), Switch to Landlord POV goes straight to Waiting to Connect — no second role prompt. Switch POV anytime from the bottom-right controls to try another mock user — nothing you change is saved.',
+    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — optionally add your first name to personalize mock messages — or open the invite link they sent. Confirm Start Demo, then choose landlord or a specific tenant scenario. After a tenant application (try Ava Mitchell), Switch to Landlord POV goes straight to Waiting to Connect — no second role prompt. Switch POV anytime from the bottom-right controls to try another mock user — nothing you change is saved.',
 }
 
 const READY_SLIDE: WelcomeSlide = {

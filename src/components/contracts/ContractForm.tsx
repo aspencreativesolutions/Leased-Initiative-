@@ -16,6 +16,7 @@ import {
 import { SendContractModal } from './SendContractModal'
 import type { BusinessSettings, Client, ContractData, PaymentProvider, ServiceTier } from '@/types'
 import { paymentMethodsTextForProvider } from '@/lib/paymentProvider'
+import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
 import { buildResidentialLeaseFields } from '@/lib/residentialLeaseTemplate'
 import { findPropertyByAddress } from '@/lib/properties'
@@ -115,7 +116,7 @@ function emptyContract(
     ownershipTerms: fields.ownershipTerms,
     portfolioRights: fields.portfolioRights,
     terminationTerms: fields.terminationTerms,
-    designerSignature: settings.ownerName || settings.businessName || '',
+    designerSignature: resolveLandlordSenderName(settings),
     isPlaceholderDraft: false,
     leaseGenerationStatus: 'ready',
     leaseVersion: 1,
@@ -217,7 +218,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
         <>
           <ContractReviewView
             contract={contract}
-            designerName={settings.ownerName}
+            designerName={resolveLandlordSenderName(settings)}
             businessName={settings.businessName}
           />
           <div className="contract-form-shell mt-4">
@@ -511,9 +512,11 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                 <ContractSignatureRow
                   label="Landlord"
                   hint="Signature & Date"
-                  value={contract.designerSignature || settings.ownerName || settings.businessName}
+                  value={
+                    contract.designerSignature || resolveLandlordSenderName(settings)
+                  }
                   onChange={(v) => update('designerSignature', v)}
-                  placeholder={settings.ownerName || settings.businessName || 'Landlord name'}
+                  placeholder={resolveLandlordSenderName(settings)}
                 />
                 <div className="mx-auto max-w-md">
                   <div className="mb-4 flex items-baseline gap-2">

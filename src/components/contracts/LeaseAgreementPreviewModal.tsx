@@ -15,6 +15,7 @@ import {
 } from '@/lib/filesApi'
 import { getFilePreviewKind } from '@/lib/filePreview'
 import { downloadContractPdf } from '@/lib/pdf'
+import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import type { Client, ContractData } from '@/types'
 
 interface LeaseAgreementPreviewModalProps {
@@ -270,7 +271,7 @@ export function LeaseAgreementPreviewModal({
         ) : (
           <ContractReviewView
             contract={liveContract}
-            designerName={settings.ownerName}
+            designerName={resolveLandlordSenderName(settings)}
             businessName={settings.businessName}
           />
         )}

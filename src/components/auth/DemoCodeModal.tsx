@@ -4,7 +4,11 @@ import { Input } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
 import { prepareViewportForNavigation } from '@/lib/mobileViewport'
-import { redeemDemoCode, type DemoAccountCredentials } from '@/lib/publicDemo'
+import {
+  redeemDemoCode,
+  setDemoFirstName,
+  type DemoAccountCredentials,
+} from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
 interface DemoCodeModalProps {
@@ -24,13 +28,16 @@ export function DemoCodeModal({
   variant = 'welcome',
 }: DemoCodeModalProps) {
   const codeId = useId()
+  const firstNameId = useId()
   const [code, setCode] = useState('')
+  const [firstName, setFirstName] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const handleClose = () => {
     if (submitting) return
     setCode('')
+    setFirstName('')
     setError('')
     onClose()
   }
@@ -47,7 +54,9 @@ export function DemoCodeModal({
       const result = await redeemDemoCode(code, role)
       await prepareViewportForNavigation()
       onSuccess(result.account)
+      setDemoFirstName(firstName)
       setCode('')
+      setFirstName('')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not start the demo')
     } finally {
@@ -82,6 +91,16 @@ export function DemoCodeModal({
           required
           placeholder="Enter code"
           // 16px — prevents iOS Safari auto-zoom on focus (text-sm is 14px).
+          style={{ fontSize: 16 }}
+        />
+        <Input
+          id={firstNameId}
+          label="First Name (Optional)"
+          hint="Enter your first name to personalize mock messages and documents throughout the demo. You can also skip this step."
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          autoComplete="given-name"
+          placeholder="e.g. Christine"
           style={{ fontSize: 16 }}
         />
         <div className="flex flex-wrap justify-end gap-2 pt-1">

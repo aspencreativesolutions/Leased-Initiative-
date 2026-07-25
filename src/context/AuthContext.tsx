@@ -10,7 +10,12 @@ import {
 import type { AuthResponse, User } from '@/types'
 import { apiFetch, getToken, setToken } from '@/lib/api'
 import { registerAccount } from '@/lib/authApi'
-import { clearPublicDemoSession } from '@/lib/publicDemo'
+import {
+  clearPublicDemoSession,
+  isPublicDemoSession,
+  markPublicDemoRecoverHome,
+  tokenLooksLikePublicDemo,
+} from '@/lib/publicDemo'
 
 interface AuthContextValue {
   user: User | null
@@ -118,6 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user
   }, [])
 
+  const failSession = useCallback(
+    (token: string | null) => {
+      const wasPublicDemo =
+        isPublicDemoSession() || tokenLooksLikePublicDemo(token)
+      logout()
+      if (wasPublicDemo) markPublicDemoRecoverHome()
+    },
+    [logout]
+  )
+
   const refreshUser = useCallback(async () => {
     const token = getToken()
     if (!token) {
@@ -129,10 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user)
       return data.user
     } catch {
-      logout()
+      failSession(token)
       return null
     }
-  }, [logout])
+  }, [failSession])
 
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
@@ -152,9 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     apiFetch<{ user: User }>('/api/auth/me')
       .then(({ user: me }) => setUser(me))
-      .catch(() => logout())
+      .catch(() => failSession(token))
       .finally(() => setLoading(false))
-  }, [logout])
+  }, [failSession])
 
   const value = useMemo(
     () => ({

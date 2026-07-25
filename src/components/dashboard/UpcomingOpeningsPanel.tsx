@@ -12,6 +12,7 @@ import { formatDate, cn } from '@/lib/utils'
 import { createTenantInvite } from '@/lib/portalUsersApi'
 import { buildUpcomingOpenings, type PropertyOpening } from '@/lib/properties'
 import { logResignMessage } from '@/lib/propertiesApi'
+import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import { openSmsCompose } from '@/lib/tenantMessageTemplates'
 import type { Client } from '@/types'
 
@@ -143,7 +144,7 @@ export function UpcomingOpeningsPanel() {
         opening={active?.opening ?? null}
         action={active?.action ?? null}
         onClose={() => setActive(null)}
-        landlordName={settings.businessName || settings.ownerName || 'your landlord'}
+        landlordName={resolveLandlordSenderName(settings)}
         getClient={getClient}
         onLogged={refresh}
       />

@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { resolveDemoSenderName } from '@/lib/publicDemo'
 import type { BusinessSettings, ContractData } from '@/types'
 
 /** Editorial lease palette — matches the in-app form preview */
@@ -120,7 +121,7 @@ function addDocumentHeader(
   doc.setFontSize(9)
   setText(doc, PDF.inkMuted)
   doc.text(
-    `Prepared by ${settings.businessName || settings.ownerName || 'Your landlord'} · Issued ${new Date(contract.createdAt).toLocaleDateString('en-US')}`,
+    `Prepared by ${resolveDemoSenderName() || settings.businessName || settings.ownerName || 'Your landlord'} · Issued ${new Date(contract.createdAt).toLocaleDateString('en-US')}`,
     PAGE_WIDTH / 2,
     53,
     { align: 'center' }
@@ -238,6 +239,7 @@ export function generateContractPdf(
     y += 10
 
     const landlordName =
+      resolveDemoSenderName() ||
       contract.designerSignature?.trim() ||
       settings.ownerName?.trim() ||
       settings.businessName?.trim() ||

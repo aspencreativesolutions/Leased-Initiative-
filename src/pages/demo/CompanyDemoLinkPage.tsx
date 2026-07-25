@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/FormField'
 import { ApiError } from '@/lib/api'
 import { persistThemeIdAcrossSurfaces, loadStoredThemeId } from '@/themes/applyTheme'
 import {
   fetchCompanyDemoLink,
   markPublicDemoSession,
   redeemCompanyDemoLink,
+  setDemoFirstName,
 } from '@/lib/publicDemo'
 
 type LinkState =
@@ -18,9 +20,11 @@ type LinkState =
 export function CompanyDemoLinkPage() {
   const { token = '' } = useParams<{ token: string }>()
   const navigate = useNavigate()
+  const firstNameId = useId()
   const [linkState, setLinkState] = useState<LinkState>({ status: 'loading' })
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState('')
+  const [firstName, setFirstName] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -62,6 +66,7 @@ export function CompanyDemoLinkPage() {
     try {
       await redeemCompanyDemoLink(token)
       markPublicDemoSession()
+      setDemoFirstName(firstName)
       // Keep whatever style was already chosen on the public site (or default).
       persistThemeIdAcrossSurfaces(loadStoredThemeId())
       navigate('/demo/pov', { replace: true })
@@ -71,7 +76,7 @@ export function CompanyDemoLinkPage() {
       )
       setStarting(false)
     }
-  }, [navigate, starting, token])
+  }, [firstName, navigate, starting, token])
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface text-ink">
@@ -116,7 +121,21 @@ export function CompanyDemoLinkPage() {
               nothing you change is saved.
             </p>
 
-            <div className="mt-10 flex w-full max-w-sm flex-col gap-3">
+            <div className="mt-8 w-full max-w-sm text-left">
+              <Input
+                id={firstNameId}
+                label="First Name (Optional)"
+                hint="Enter your first name to personalize mock messages and documents throughout the demo. You can also skip this step."
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoComplete="given-name"
+                placeholder="e.g. Christine"
+                disabled={starting}
+                style={{ fontSize: 16 }}
+              />
+            </div>
+
+            <div className="mt-6 flex w-full max-w-sm flex-col gap-3">
               <Button
                 type="button"
                 className="w-full"

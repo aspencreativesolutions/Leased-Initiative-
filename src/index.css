@@ -465,6 +465,11 @@
     grid-template-columns: repeat(auto-fit, var(--lease-tile-size, 260px));
   }
 
+  /* Payments: keep sibling tiles stable when a message panel opens */
+  .lease-tile-grid.payment-tile-grid {
+    align-items: start;
+  }
+
   /*
    * Mobile section tiles (Rentals, Official Tenants, Lease Agreements):
    * fixed 1 or 2 columns. Desktop keeps the square auto-fit lease grid,
@@ -533,6 +538,9 @@
   /* Payments gallery — reuses .lease-tile-card shell; payment-only chrome below */
   .payment-tile-card {
     position: relative;
+    /* Grow with content instead of stretching to the tallest grid peer */
+    height: auto;
+    align-self: start;
   }
 
   /* Deep-link flash from Notify — inset so width/height stay identical to peers */
@@ -648,28 +656,59 @@
     flex-shrink: 0;
   }
 
+  /* Message strip: stays within the tile; does not reflow payment summary */
   .payment-tile-card__message {
     box-sizing: border-box;
-    width: calc(100% + 32px);
-    margin: max(0.35rem, calc(0.35rem * var(--tile-scale))) -16px -16px;
+    width: 100%;
+    min-width: 0;
+    margin: max(0.45rem, calc(0.4rem * var(--tile-scale))) 0 0;
+    flex-shrink: 0;
     text-align: left;
   }
 
-  @media (min-width: 768px) {
-    .payment-tile-card__message {
-      width: calc(100% + 36px);
-      margin-left: -18px;
-      margin-right: -18px;
-      margin-bottom: -18px;
-    }
+  .payment-message-shell {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
   }
 
-  @media (min-width: 1024px) {
-    .payment-tile-card__message {
-      width: calc(100% + 48px);
-      margin-left: -24px;
-      margin-right: -24px;
-      margin-bottom: -24px;
+  .payment-message-shell__trigger {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid var(--line, color-mix(in srgb, var(--ink) 14%, transparent));
+    padding: 0.65rem 0 0;
+  }
+
+  .payment-message-shell__collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s ease;
+  }
+
+  .payment-message-shell__collapse--open {
+    grid-template-rows: 1fr;
+  }
+
+  .payment-message-shell__collapse-inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .payment-message-shell__composer {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface) 88%, var(--surface-paper, #fff));
+    padding: 0.75rem 0.8rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .payment-message-shell__collapse {
+      transition: none;
     }
   }
 
@@ -678,8 +717,9 @@
     display: flex;
     width: 100%;
     min-width: 0;
-    min-height: 100%;
-    flex: 1;
+    /* Keep payment summary height stable when the message panel opens */
+    min-height: 0;
+    flex: 0 1 auto;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;

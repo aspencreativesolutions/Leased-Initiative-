@@ -34,6 +34,7 @@ import {
   useTileScale,
 } from '@/lib/tileScale'
 import { cn, formatDate } from '@/lib/utils'
+import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import type { PaymentProvider } from '@/types'
 
 /** Bumped so the new 100% default applies for existing sessions. */
@@ -75,15 +76,6 @@ function paymentMethodForClient(clientId: string): PaymentProvider {
     hash = (hash * 31 + clientId.charCodeAt(i)) >>> 0
   }
   return PAYMENT_METHOD_OPTIONS[hash % PAYMENT_METHOD_OPTIONS.length]
-}
-
-function landlordDisplayName(settings: {
-  ownerName?: string
-  businessName?: string
-}): string {
-  const owner = settings.ownerName?.trim()
-  if (owner && owner !== 'Your Name') return owner
-  return settings.businessName?.trim() || 'Your landlord'
 }
 
 type PaymentRowWithMethod = TenantPaymentRow & { paymentMethod: PaymentProvider }
@@ -140,7 +132,7 @@ export function PaymentsPage() {
         ? `${totals.overdueCount} overdue · ${formatUsd(totals.overdueTotal)} past due · ${totals.paid} current · ${rows.length} ${rows.length === 1 ? 'tenant' : 'tenants'}.`
         : `${totals.due} due · ${totals.paid} current across ${rows.length} ${rows.length === 1 ? 'tenant' : 'tenants'}.`
 
-  const landlordName = landlordDisplayName(settings)
+  const landlordName = resolveLandlordSenderName(settings)
   const filtersActive = statusFilter != null || methodFilter !== ''
 
   useEffect(() => {

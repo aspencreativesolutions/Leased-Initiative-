@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { shouldRecoverPublicDemoAtHome } from '@/lib/publicDemo'
 
 interface ProtectedRouteProps {
   role?: 'admin' | 'client'
@@ -18,6 +19,11 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
   }
 
   if (!user) {
+    // Demo sessions recover via homepage Quick Access (key → demo code), not role login.
+    // HomePage clears the demo session when it handles openDemoCode.
+    if (shouldRecoverPublicDemoAtHome()) {
+      return <Navigate to="/" replace state={{ openDemoCode: true }} />
+    }
     const loginPath = role === 'admin' ? '/studio/login' : '/login'
     return <Navigate to={loginPath} state={{ from: location }} replace />
   }
