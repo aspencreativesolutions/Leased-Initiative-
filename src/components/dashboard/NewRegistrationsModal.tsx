@@ -272,6 +272,7 @@ export function NewRegistrationsModal({
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold text-ink">{registration.name}</p>
+                    <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
                     <p className="truncate text-sm text-ink-muted">{registration.email}</p>
                     {registration.preferredLandlordCompany && (
                       <p className="text-sm text-ink">
