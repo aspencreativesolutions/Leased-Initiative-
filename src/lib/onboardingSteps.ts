@@ -38,39 +38,21 @@ export interface OnboardingContext {
   hasInvoice?: boolean
 }
 
+/** Tenant tour — ordered by when each action is needed in the lease journey. */
 export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
-  {
-    id: 'welcome',
-    target: '[data-onboarding="portal-nav"]',
-    title: 'Welcome to your portal',
-    description:
-      'This is your Leased Initiative tenant dashboard — everything about your lease lives here. Use the areas below to pay rent, review your agreement, share files, and stay on top of updates.',
-    placement: 'bottom',
-  },
   {
     id: 'registration-waiting',
     target: '[data-onboarding="portal-contracts"]',
     title: 'Start your application',
-    description:
-      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Renting the entire home or Open to roommates, and for furnished homes tap Furnished to select an available bed or room. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
+    description: 'Choose a landlord and property, set your rent share, then send.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
   {
-    id: 'pay-rent',
-    target: '[data-onboarding="portal-pay-rent"]',
-    title: 'Pay rent anytime',
-    description:
-      'See when your next payment is due and tap Pay Rent. If your lease allows, choose consecutive months to pay upfront via PayPal, Stripe, or Square.',
-    placement: 'top',
-    when: (ctx) => ctx.linked === true,
-  },
-  {
     id: 'contracts',
     target: '[data-onboarding="portal-contracts"]',
-    title: 'Review and sign your lease agreement',
-    description:
-      'When your landlord sends your lease agreement, it appears under Lease Agreements. Open it or tap Sign, review the terms, then draw your signature with a mouse or touchscreen — saved with your name to complete the agreement.',
+    title: 'Review and sign',
+    description: 'Open your lease, review terms, and sign when it arrives.',
     placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
@@ -78,17 +60,23 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'payment',
     target: '[data-onboarding="portal-invoice"]',
     title: 'Pay your deposit',
-    description:
-      'After signing, your deposit invoice appears here automatically with a PayPal, Stripe, or Square payment link. Pay from your dashboard — your landlord confirms receipt and your status moves to Upcoming.',
+    description: 'Your deposit invoice and pay link show up here after signing.',
     placement: 'top',
     when: (ctx) => ctx.linked === true && ctx.hasInvoice === true,
+  },
+  {
+    id: 'pay-rent',
+    target: '[data-onboarding="portal-pay-rent"]',
+    title: 'Pay rent anytime',
+    description: 'Check what’s due and pay here when you’re ready.',
+    placement: 'top',
+    when: (ctx) => ctx.linked === true,
   },
   {
     id: 'files',
     target: '[data-onboarding="portal-files"]',
     title: 'Share documents',
-    description:
-      'Once you are active, upload documents and other files here. Add notes so your landlord knows what you are sending.',
+    description: 'Upload files and add a short note for your landlord.',
     placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
@@ -96,45 +84,24 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'report-problem',
     target: '[data-onboarding="portal-report-problem"]',
     title: 'Request Maintenance',
-    description:
-      'Beside Lease Active on your dashboard, tap Request Maintenance. Pick a household problem, upload a required photo, and optionally add a note — your landlord is notified under Tenant Alerts.',
+    description: 'Report a problem with a photo — your landlord gets notified.',
     placement: 'bottom',
-    when: (ctx) => ctx.linked === true,
-  },
-  {
-    id: 'timeline',
-    target: '[data-onboarding="portal-dashboard-timeline"]',
-    title: 'Follow your lease timeline',
-    description:
-      'Your dashboard shows every milestone — lease signing, deposit invoice, payment, and more — so you always know what is next. The Timeline page offers the same view on its own.',
-    placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'timeline-nav',
     target: '[data-onboarding="portal-timeline-nav"]',
-    title: 'Timeline anytime',
-    description:
-      'Open Timeline from the nav for a focused view of the same project milestones shown on your dashboard.',
+    title: 'Follow your timeline',
+    description: 'See what’s done and what’s next on your lease.',
     placement: 'bottom',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'notifications',
     target: '[data-onboarding="portal-notifications"]',
-    title: 'Stay informed automatically',
-    description:
-      'Important updates, reminders, and deadline alerts appear here. You will also receive email reminders when deadlines approach.',
+    title: 'Stay informed',
+    description: 'Alerts and reminders land here — and by email when needed.',
     placement: 'bottom',
-  },
-  {
-    id: 'tour-complete',
-    target: '[data-onboarding="portal-nav"]',
-    title: 'Tour complete',
-    description:
-      "You're all set. Explore your portal on your own — reopen this walkthrough anytime with the Tour button in the toolbar.",
-    placement: 'bottom',
-    completion: true,
   },
 ]
 
