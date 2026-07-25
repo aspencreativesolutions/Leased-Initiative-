@@ -25,6 +25,7 @@ import {
   listActiveCompanyDemoLinks,
   listKnownCompanyDemoNames,
 } from '../lib/companyDemoLinks.js'
+import { listDemoVisitors } from '../lib/demoVisitors.js'
 
 const router = Router()
 
@@ -283,6 +284,18 @@ router.post('/admin/company-demo-links', (req, res) => {
     console.error('admin company-demo-links', err)
     res.status(500).json({ error: 'Could not generate company demo link' })
   }
+})
+
+router.get('/admin/demo-visitors', (_req, res) => {
+  const store = readStoreFromDisk()
+  const visitors = listDemoVisitors(store).map((entry) => ({
+    id: entry.id,
+    firstName: entry.firstName,
+    source: entry.source,
+    companyName: entry.companyName,
+    createdAt: entry.createdAt,
+  }))
+  res.json({ visitors })
 })
 
 export default router

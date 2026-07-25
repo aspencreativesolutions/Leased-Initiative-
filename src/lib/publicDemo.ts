@@ -450,11 +450,16 @@ export function consumePendingTenantDemoCue(): string | null {
 
 export async function redeemDemoCode(
   code: string,
-  role: WelcomeRole
+  role: WelcomeRole,
+  firstName?: string | null
 ): Promise<DemoRedeemResponse> {
   return apiFetch<DemoRedeemResponse>('/api/demo/redeem', {
     method: 'POST',
-    body: JSON.stringify({ code, role }),
+    body: JSON.stringify({
+      code,
+      role,
+      ...(firstName?.trim() ? { firstName: firstName.trim() } : {}),
+    }),
   })
 }
 
@@ -523,11 +528,27 @@ export async function fetchCompanyDemoLink(token: string): Promise<CompanyDemoLi
 }
 
 export async function redeemCompanyDemoLink(
-  token: string
+  token: string,
+  firstName?: string | null
 ): Promise<{ ok: true; publicDemo: true; companyName: string; message: string }> {
   return apiFetch(`/api/demo/company-link/${encodeURIComponent(token)}/redeem`, {
     method: 'POST',
+    body: JSON.stringify({
+      ...(firstName?.trim() ? { firstName: firstName.trim() } : {}),
+    }),
   })
+}
+
+export interface DemoVisitorEntry {
+  id: string
+  firstName: string
+  source: 'access-code' | 'company-link'
+  companyName?: string
+  createdAt: string
+}
+
+export async function fetchAdminDemoVisitors(): Promise<{ visitors: DemoVisitorEntry[] }> {
+  return apiFetch<{ visitors: DemoVisitorEntry[] }>('/api/dev/admin/demo-visitors')
 }
 
 /** Opposite demo POV so visitors can try landlord and tenant sides. */

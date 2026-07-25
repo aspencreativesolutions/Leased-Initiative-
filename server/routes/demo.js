@@ -2,7 +2,7 @@
  * Public demo access — redeem a host-provided code or company link to explore static demo data.
  */
 import { Router } from 'express'
-import { readStoreFromDisk } from '../db.js'
+import { readStoreFromDisk, writeStoreToDisk } from '../db.js'
 import {
   demoAccountForRole,
   demoCodesMatch,
@@ -14,6 +14,7 @@ import {
   findValidCompanyDemoLink,
   isCompanyDemoLinkExpired,
 } from '../lib/companyDemoLinks.js'
+import { recordDemoVisitor } from '../lib/demoVisitors.js'
 
 const router = Router()
 
@@ -41,6 +42,15 @@ router.post('/redeem', async (req, res) => {
     const account = demoAccountForRole(role)
     if (!account) {
       return res.status(500).json({ error: 'Demo account is not available' })
+    }
+
+    // Persist outside the sandbox so Admin Mode can review visitor names after exit.
+    const visitorResult = recordDemoVisitor(readStoreFromDisk(), {
+      firstName: req.body?.firstName,
+      source: 'access-code',
+    })
+    if (visitorResult.recorded) {
+      writeStoreToDisk(visitorResult.store)
     }
 
     res.json({
@@ -103,6 +113,15 @@ router.post('/company-link/:token/redeem', async (req, res) => {
     }
 
     await preparePublicDemoStore()
+
+    const visitorResult = recordDemoVisitor(readStoreFromDisk(), {
+      firstName: req.body?.firstName,
+      source: 'company-link',
+      companyName: link.companyName,
+    })
+    if (visitorResult.recorded) {
+      writeStoreToDisk(visitorResult.store)
+    }
 
     res.json({
       ok: true,

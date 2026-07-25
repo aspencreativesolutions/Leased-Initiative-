@@ -51,7 +51,7 @@ export function DemoCodeModal({
     }
     setSubmitting(true)
     try {
-      const result = await redeemDemoCode(code, role)
+      const result = await redeemDemoCode(code, role, firstName)
       await prepareViewportForNavigation()
       onSuccess(result.account)
       setDemoFirstName(firstName)

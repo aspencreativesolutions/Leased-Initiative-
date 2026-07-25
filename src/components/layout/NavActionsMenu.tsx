@@ -209,7 +209,7 @@ export function NavActionsMenu({
           }}
           aria-label={ariaLabel}
           className={cn(
-            'flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-brand/5 focus-visible:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 active:bg-brand/10',
+            'flex min-h-11 w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 py-2 text-left text-sm font-semibold text-ink transition-colors hover:bg-brand/5 focus-visible:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 active:bg-brand/10',
             highlightItem &&
               'demo-tour-notice-item ring-2 ring-brand ring-offset-2 ring-offset-surface-paper bg-brand/10'
           )}
@@ -219,7 +219,7 @@ export function NavActionsMenu({
             strokeWidth={2.25}
             aria-hidden
           />
-          <span className="min-w-0 flex-1">{itemLabel}</span>
+          <span className="whitespace-nowrap">{itemLabel}</span>
           {trailing}
         </button>
       </li>
@@ -269,21 +269,21 @@ export function NavActionsMenu({
           onKeyDown={onMenuKeyDown}
           data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
           className={cn(
-            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
+            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-max max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
             tourNoticeActive && 'z-[96] demo-tour-notice-panel'
           )}
         >
-          <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1.5">
+          <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1">
             {header ? <div className="mb-1.5 border-b border-line px-2.5 py-2">{header}</div> : null}
 
             {sections?.length ? (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-0.5">
                 {sections.map((section, sectionIndex) => (
                   <div key={section.id}>
                     {sectionIndex > 0 ? (
-                      <div className="mx-2 my-1.5 border-t border-line" role="separator" />
+                      <div className="mx-2 my-1 border-t border-line" role="separator" />
                     ) : null}
-                    <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted">
+                    <p className="whitespace-nowrap px-2.5 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-caps text-ink-muted">
                       {section.label}
                     </p>
                     <ul className="flex flex-col gap-0.5" role="none">

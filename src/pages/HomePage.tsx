@@ -384,7 +384,7 @@ export function HomePage() {
     setDemoError('')
     setDemoSubmitting(true)
     try {
-      await redeemDemoCode(demoCode, 'landlord')
+      await redeemDemoCode(demoCode, 'landlord', demoFirstName)
       markPublicDemoSession()
       setDemoFirstName(demoFirstName)
       // Carry the homepage Style Chooser pick into landlord + tenant demo surfaces.

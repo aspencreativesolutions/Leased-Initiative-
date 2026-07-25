@@ -64,7 +64,7 @@ export function CompanyDemoLinkPage() {
     setStarting(true)
     setStartError('')
     try {
-      await redeemCompanyDemoLink(token)
+      await redeemCompanyDemoLink(token, firstName)
       markPublicDemoSession()
       setDemoFirstName(firstName)
       // Keep whatever style was already chosen on the public site (or default).

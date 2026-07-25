@@ -229,13 +229,33 @@ export function DemoTourNoticeHost() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const viewportH = typeof window !== 'undefined' ? window.innerHeight : 800
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1200
-  const cardWidth = Math.min(340, viewportW - 32)
+  const sidePad = 12
+  const gap = 10
 
+  let cardWidth = Math.min(340, viewportW - 32)
   let cardTop = 96
   let cardLeft = 16
   let pinToBottom = false
-  if (isMobile) {
-    // Keep the prompt in the lower viewport so an open Menu near the top stays readable.
+  let besideMenu = false
+
+  const mobileBesideWidth =
+    isMobile && rects.panel && rects.panel.width > 2
+      ? rects.panel.left - sidePad - gap
+      : 0
+  const mobilePanel = rects.panel
+
+  if (mobileBesideWidth >= 128 && mobilePanel) {
+    // Sit to the left of the open Menu so both fit in one viewport (no stack/scroll).
+    besideMenu = true
+    cardWidth = Math.min(200, mobileBesideWidth)
+    cardLeft = sidePad
+    const preferredTop = rects.item
+      ? rects.item.top + rects.item.height / 2 - 88
+      : mobilePanel.top
+    const maxTop = Math.max(sidePad, viewportH - 210 - sidePad)
+    cardTop = Math.min(Math.max(sidePad, preferredTop), maxTop)
+  } else if (isMobile) {
+    // Fallback before the panel measures: keep the prompt in the lower viewport.
     pinToBottom = true
     cardTop = viewportH - 220
     cardLeft = 16
@@ -318,8 +338,10 @@ export function DemoTourNoticeHost() {
 
       <div
         className={cn(
-          'pointer-events-auto absolute z-[96] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-4 shadow-lift',
-          'left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:right-auto sm:w-[min(calc(100vw-2rem),21.25rem)]'
+          'pointer-events-auto absolute z-[96] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper shadow-lift',
+          besideMenu
+            ? 'p-3'
+            : 'p-4 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:right-auto sm:w-[min(calc(100vw-2rem),21.25rem)]'
         )}
         style={
           pinToBottom
@@ -330,17 +352,32 @@ export function DemoTourNoticeHost() {
               }
             : {
                 top: `max(${cardTop}px, calc(0.75rem + env(safe-area-inset-top, 0px)))`,
-                left: cardLeft,
+                left: `max(${cardLeft}px, env(safe-area-inset-left, 0px))`,
                 right: 'auto',
+                width: besideMenu ? cardWidth : undefined,
                 maxWidth: cardWidth,
-                paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
+                paddingBottom: besideMenu
+                  ? undefined
+                  : 'max(1rem, env(safe-area-inset-bottom, 0px))',
               }
         }
       >
-        <p id={titleId} className="heading-display text-base text-ink">
+        <p
+          id={titleId}
+          className={cn(
+            'heading-display text-ink',
+            besideMenu ? 'text-sm leading-snug' : 'text-base'
+          )}
+        >
           Explore at your own pace
         </p>
-        <p id={descId} className="mt-2 text-sm leading-snug text-ink-muted">
+        <p
+          id={descId}
+          className={cn(
+            'text-ink-muted',
+            besideMenu ? 'mt-1.5 text-xs leading-snug' : 'mt-2 text-sm leading-snug'
+          )}
+        >
           If you would like a guided tour of the features, the Take the tour option will always be
           available in the Menu dropdown.
         </p>
@@ -348,7 +385,12 @@ export function DemoTourNoticeHost() {
           ref={continueRef}
           type="button"
           onClick={dismiss}
-          className="mt-4 flex min-h-11 w-full items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-brand-light hover:bg-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          className={cn(
+            'flex w-full items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand font-semibold text-white transition-colors hover:border-brand-light hover:bg-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+            besideMenu
+              ? 'mt-3 min-h-10 px-3 py-2 text-xs'
+              : 'mt-4 min-h-11 px-4 py-2.5 text-sm'
+          )}
         >
           Continue to manual demo
         </button>

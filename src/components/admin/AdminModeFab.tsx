@@ -39,8 +39,10 @@ import {
   createAdminCompanyDemoLink,
   fetchAdminCompanyDemoLinks,
   fetchAdminDemoCode,
+  fetchAdminDemoVisitors,
   saveAdminDemoCode,
   type CompanyDemoLinkSummary,
+  type DemoVisitorEntry,
 } from '@/lib/publicDemo'
 
 const PANEL_KEY = 'leased-admin-mode-open'
@@ -62,6 +64,20 @@ function formatExpiry(iso: string): string {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+    })
+  } catch {
+    return iso
+  }
+}
+
+function formatVisitedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
     })
   } catch {
     return iso
@@ -114,6 +130,9 @@ function AdminModeFabInner() {
   const [linkCopied, setLinkCopied] = useState(false)
   const [companyLinksLoaded, setCompanyLinksLoaded] = useState(false)
   const [tenantScenariosModalOpen, setTenantScenariosModalOpen] = useState(false)
+  const [visitorsModalOpen, setVisitorsModalOpen] = useState(false)
+  const [demoVisitors, setDemoVisitors] = useState<DemoVisitorEntry[]>([])
+  const [visitorsLoading, setVisitorsLoading] = useState(false)
 
   const restartAsFirstTime = useCallback(() => {
     clearWelcomeCarouselDone()
@@ -175,11 +194,11 @@ function AdminModeFabInner() {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !companyLinkModalOpen) setOpen(false)
+      if (e.key === 'Escape' && !companyLinkModalOpen && !visitorsModalOpen) setOpen(false)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, companyLinkModalOpen])
+  }, [open, companyLinkModalOpen, visitorsModalOpen])
 
   const toggleSection = (key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -339,6 +358,25 @@ function AdminModeFabInner() {
     }
   }
 
+  const openVisitorsModal = async () => {
+    setVisitorsModalOpen(true)
+    setVisitorsLoading(true)
+    setError(null)
+    try {
+      const data = await fetchAdminDemoVisitors()
+      setDemoVisitors(data.visitors)
+    } catch (err) {
+      setDemoVisitors([])
+      setError(err instanceof Error ? err.message : 'Could not load demo visitors')
+    } finally {
+      setVisitorsLoading(false)
+    }
+  }
+
+  const closeVisitorsModal = () => {
+    setVisitorsModalOpen(false)
+  }
+
   return (
     <>
       <button
@@ -443,6 +481,30 @@ function AdminModeFabInner() {
               >
                 <Link2 className="h-3.5 w-3.5" />
                 Generate Company Demo Link
+              </Button>
+            </div>
+
+            <div className="space-y-2.5 rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-ink">Demo visitors</p>
+              <p className="text-[10px] leading-snug text-ink-muted">
+                First names entered when someone starts the demo via Quick Access or a company link.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full justify-start"
+                disabled={Boolean(busy) || visitorsLoading}
+                onClick={() => {
+                  void openVisitorsModal()
+                }}
+              >
+                {visitorsLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UserRound className="h-3.5 w-3.5" />
+                )}
+                View demo visitor names
               </Button>
             </div>
 
@@ -563,7 +625,7 @@ function AdminModeFabInner() {
               )}
             </p>
             {message && <p className="mt-1 text-[11px] text-accent">{message}</p>}
-            {error && !companyLinkModalOpen && (
+            {error && !companyLinkModalOpen && !visitorsModalOpen && (
               <p className="mt-1 text-[11px] text-red-600">{error}</p>
             )}
           </div>
@@ -668,6 +730,68 @@ function AdminModeFabInner() {
               </Button>
             </>
           )}
+        </div>
+      </Modal>
+
+      <Modal open={visitorsModalOpen} onClose={closeVisitorsModal} title="Demo visitor names">
+        <div className="space-y-4">
+          <p className="text-sm text-ink-muted">
+            People who entered a first name when starting the public demo. Newest first.
+          </p>
+
+          {error && visitorsModalOpen ? (
+            <p className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
+              {error}
+            </p>
+          ) : null}
+
+          {visitorsLoading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-ink-muted">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading…
+            </div>
+          ) : demoVisitors.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink-muted">
+              No visitor names yet. Names appear here after someone starts the demo with a first name
+              filled in.
+            </p>
+          ) : (
+            <ul className="max-h-[min(50vh,22rem)] space-y-2 overflow-y-auto">
+              {demoVisitors.map((visitor) => (
+                <li
+                  key={visitor.id}
+                  className="rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5"
+                >
+                  <p className="text-sm font-semibold text-ink">{visitor.firstName}</p>
+                  <p className="mt-0.5 text-[11px] text-ink-muted">
+                    {formatVisitedAt(visitor.createdAt)}
+                    {visitor.source === 'company-link'
+                      ? visitor.companyName
+                        ? ` · Company link (${visitor.companyName})`
+                        : ' · Company link'
+                      : ' · Access code'}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={visitorsLoading}
+            onClick={() => {
+              void openVisitorsModal()
+            }}
+          >
+            {visitorsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            Refresh list
+          </Button>
         </div>
       </Modal>
     </>

@@ -38,6 +38,7 @@ const DEFAULT_STORE = {
   tenantInvites: [],
   companyDemoLinks: [],
   bugReports: [],
+  demoVisitors: [],
 }
 
 function ensureDataDir() {
