@@ -27,6 +27,10 @@ describe('auth email verification flow', () => {
         email,
         password: 'password123',
         accountType: 'client',
+        preferredLandlordCompany: 'Your Studio',
+        preferredPropertyAddress: '211 East Main Street, St. Clairsville, OH 43950',
+        preferredLeaseMonths: 12,
+        acceptedTermsOfService: true,
       })
   }
 

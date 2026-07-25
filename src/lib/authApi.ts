@@ -78,6 +78,7 @@ export async function claimTenantInvite(input: {
   preferredPropertyAddress: string
   preferredLeaseStartDate: string
   preferredPaymentMethod: PaymentProvider
+  acceptedTermsOfService: true
 }) {
   return apiFetch<{ token: string; user: User }>('/api/auth/claim-invite', {
     method: 'POST',
@@ -97,6 +98,7 @@ export async function registerAccount(payload: {
   preferredPropertyAddress?: string
   inviteToken?: string
   connectionCode?: string
+  acceptedTermsOfService: true
 }) {
   return apiFetch<RegisterResponse>('/api/auth/register', {
     method: 'POST',

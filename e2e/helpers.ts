@@ -61,8 +61,9 @@ export async function registerClientApi(
       password,
       accountType: 'client',
       preferredLandlordCompany: 'Your Studio',
-      preferredPropertyAddress: '100 Demo Street, Demo City, CA 90001',
+      preferredPropertyAddress: '211 East Main Street, St. Clairsville, OH 43950',
       preferredLeaseMonths: 12,
+      acceptedTermsOfService: true,
     }),
   })
 }

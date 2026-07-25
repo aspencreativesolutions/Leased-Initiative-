@@ -1,7 +1,12 @@
 import { useEffect, useId, useState } from 'react'
 import { ChevronDown, ChevronRight, Loader2, MapPin } from 'lucide-react'
-import { DEMO_TENANT_POV_OPTIONS, DEMO_TENANT_POV_SECTIONS } from '@/lib/demoTenantPov'
+import { DEMO_TENANT_POV_OPTIONS } from '@/lib/demoTenantPov'
 import type { DemoTenantPovOption } from '@/lib/demoTenantPov'
+import {
+  DEMO_TENANT_SCENARIO_VISIBILITY_EVENT,
+  filterVisibleDemoTenantPovSections,
+  loadDemoTenantScenarioVisibility,
+} from '@/lib/demoTenantScenarioVisibility'
 import { cn } from '@/lib/utils'
 
 type DemoTenantPovPickerProps = {
@@ -247,14 +252,25 @@ export function DemoTenantPovPicker({
   className,
 }: DemoTenantPovPickerProps) {
   const byKey = new Map(DEMO_TENANT_POV_OPTIONS.map((o) => [o.key, o]))
+  const [sections, setSections] = useState(() =>
+    filterVisibleDemoTenantPovSections(loadDemoTenantScenarioVisibility())
+  )
   const [openSections, setOpenSections] = useState<Set<string>>(() => new Set())
   const [openUsers, setOpenUsers] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    const sync = () => {
+      setSections(filterVisibleDemoTenantPovSections(loadDemoTenantScenarioVisibility()))
+    }
+    window.addEventListener(DEMO_TENANT_SCENARIO_VISIBILITY_EVENT, sync)
+    return () => window.removeEventListener(DEMO_TENANT_SCENARIO_VISIBILITY_EVENT, sync)
+  }, [])
 
   useEffect(() => {
     if (!busyKey && !selectedKey) return
     const focusKey = busyKey ?? selectedKey
     if (!focusKey) return
-    const section = DEMO_TENANT_POV_SECTIONS.find((s) => s.keys.includes(focusKey))
+    const section = sections.find((s) => s.keys.includes(focusKey))
     if (!section || section.id === FEATURED_SECTION_ID) return
     setOpenSections((prev) => {
       if (prev.has(section.id)) return prev
@@ -268,7 +284,7 @@ export function DemoTenantPovPicker({
       next.add(focusKey)
       return next
     })
-  }, [busyKey, selectedKey])
+  }, [busyKey, selectedKey, sections])
 
   const toggleSection = (sectionId: string) => {
     setOpenSections((prev) => {
@@ -288,9 +304,23 @@ export function DemoTenantPovPicker({
     })
   }
 
+  if (sections.length === 0) {
+    return (
+      <div
+        className={cn(
+          'rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface-paper px-4 py-6 text-center text-sm text-ink-muted',
+          className
+        )}
+      >
+        No tenant scenarios are visible right now. An admin can restore them via Edit Tenant
+        Scenarios.
+      </div>
+    )
+  }
+
   return (
     <div className={cn('w-full space-y-3 text-left', className)}>
-      {DEMO_TENANT_POV_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const options = section.keys
           .map((key) => byKey.get(key))
           .filter((o): o is DemoTenantPovOption => Boolean(o))

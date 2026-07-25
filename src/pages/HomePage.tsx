@@ -7,7 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Building2, KeyRound, Loader2, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -139,6 +139,7 @@ export function HomePage() {
   const { user, loading } = useAuth()
   const { themeId } = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
   const content = gatherHomePageContent()
   const demoCodeId = useId()
   const quickAccessPanelId = useId()
@@ -365,6 +366,13 @@ export function HomePage() {
     return () => window.removeEventListener(OPEN_DEMO_CODE_EVENT, onOpenDemoCode)
   }, [guideToDemoCode])
 
+  useEffect(() => {
+    const state = location.state as { openDemoCode?: boolean } | null
+    if (!state?.openDemoCode) return
+    guideToDemoCode()
+    navigate('.', { replace: true, state: null })
+  }, [guideToDemoCode, location.state, navigate])
+
   const handleDemoSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (demoSubmitting || !demoCode.trim()) return
@@ -425,7 +433,7 @@ export function HomePage() {
         <div
           ref={quickAccessPanelRef}
           id={quickAccessPanelId}
-          className="home-quick-access__panel w-[min(14.5rem,calc(100vw-1.5rem))] max-h-[min(70vh,36rem)] overflow-x-hidden overflow-y-auto overscroll-contain"
+          className="home-quick-access__panel w-[min(15.25rem,calc(100vw-1.5rem))]"
           data-state={quickAccessPhase}
           role="dialog"
           aria-label="Quick Access"
@@ -439,156 +447,158 @@ export function HomePage() {
             }
           }}
         >
-          <div className="home-quick-access__panel-inner flex w-[min(13.5rem,calc(100vw-1.5rem))] flex-col items-stretch gap-3 sm:w-[14.5rem]">
-            <div className="relative flex flex-col items-stretch gap-3">
-              <Button size="lg" className="w-full" onClick={() => setAuthIntent('signin')}>
-                Sign In
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full"
-                onClick={() => setAuthIntent('register')}
-              >
-                Create Account
-              </Button>
-
-              {authIntent && (
-                <div
-                  className="home-page__role-picker w-full rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper/95 p-3 text-left shadow-[0_16px_48px_-28px_rgb(0_0_0_/_0.4)]"
-                  role="dialog"
-                  aria-label={
-                    authIntent === 'signin' ? 'Choose sign-in role' : 'Choose account type'
-                  }
+          <div className="home-quick-access__menu max-h-[min(70vh,36rem)] overflow-x-hidden overflow-y-auto overscroll-contain">
+            <div className="home-quick-access__panel-inner flex w-full flex-col items-stretch gap-3">
+              <div className="relative flex flex-col items-stretch gap-3">
+                <Button size="lg" className="w-full" onClick={() => setAuthIntent('signin')}>
+                  Sign In
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setAuthIntent('register')}
                 >
-                  <p className="px-1 pb-2 text-center text-xs font-semibold text-ink-muted">
-                    {authIntent === 'signin' ? 'Sign in as' : 'Create an account as'}
-                  </p>
-                  <div className="grid gap-2">
+                  Create Account
+                </Button>
+
+                {authIntent && (
+                  <div
+                    className="home-page__role-picker w-full rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 text-left shadow-[0_16px_48px_-28px_rgb(0_0_0_/_0.4)]"
+                    role="dialog"
+                    aria-label={
+                      authIntent === 'signin' ? 'Choose sign-in role' : 'Choose account type'
+                    }
+                  >
+                    <p className="px-1 pb-2 text-center text-xs font-semibold text-ink-muted">
+                      {authIntent === 'signin' ? 'Sign in as' : 'Create an account as'}
+                    </p>
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        onClick={() => goAuth('tenant')}
+                        className="flex items-start gap-2 rounded-[var(--radius-sm)] border border-line px-3 py-3 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                      >
+                        <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                        <span>
+                          <span className="block text-sm font-semibold text-ink">Tenant</span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-ink-muted">
+                            Portal for leases and rent
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => goAuth('landlord')}
+                        className="flex items-start gap-2 rounded-[var(--radius-sm)] border border-line px-3 py-3 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                      >
+                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                        <span>
+                          <span className="block text-sm font-semibold text-ink">Landlord</span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-ink-muted">
+                            Manage tenants and properties
+                          </span>
+                        </span>
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => goAuth('tenant')}
-                      className="flex items-start gap-2 rounded-[var(--radius-sm)] border border-line px-3 py-3 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                      onClick={() => setAuthIntent(null)}
+                      className="mt-2 w-full py-1.5 text-center text-xs font-semibold text-ink-muted hover:text-ink"
                     >
-                      <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                      <span>
-                        <span className="block text-sm font-semibold text-ink">Tenant</span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-ink-muted">
-                          Portal for leases and rent
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => goAuth('landlord')}
-                      className="flex items-start gap-2 rounded-[var(--radius-sm)] border border-line px-3 py-3 text-left transition-colors hover:border-brand hover:bg-brand/5"
-                    >
-                      <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                      <span>
-                        <span className="block text-sm font-semibold text-ink">Landlord</span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-ink-muted">
-                          Manage tenants and properties
-                        </span>
-                      </span>
+                      Cancel
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAuthIntent(null)}
-                    className="mt-2 w-full py-1.5 text-center text-xs font-semibold text-ink-muted hover:text-ink"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="flex flex-col gap-2 border-t border-line pt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  closeQuickAccess()
-                  setStyleChooserOpen(true)
-                }}
-                className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
-              >
-                <Palette className="h-4 w-4 shrink-0 text-brand" aria-hidden />
-                <span className="text-sm font-semibold text-ink">Style Chooser</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  closeQuickAccess()
-                  setTermsOpen(true)
-                }}
-                className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
-                title="View Terms of Service"
-              >
-                <span
-                  className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden"
-                  aria-hidden
+              <div className="flex flex-col gap-2 border-t border-line pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeQuickAccess()
+                    setStyleChooserOpen(true)
+                  }}
+                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
                 >
-                  <img
-                    src={HOME_TILE_ICON_SRC.draftFinalizeLeases}
-                    alt=""
-                    className="h-5 w-5 object-contain"
-                    draggable={false}
-                    decoding="async"
-                  />
-                </span>
-                <span className="text-sm font-semibold text-ink">Terms of Service</span>
-              </button>
-            </div>
+                  <Palette className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                  <span className="text-sm font-semibold text-ink">Style Chooser</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeQuickAccess()
+                    setTermsOpen(true)
+                  }}
+                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                  title="View Terms of Service"
+                >
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden"
+                    aria-hidden
+                  >
+                    <img
+                      src={HOME_TILE_ICON_SRC.draftFinalizeLeases}
+                      alt=""
+                      className="h-5 w-5 object-contain"
+                      draggable={false}
+                      decoding="async"
+                    />
+                  </span>
+                  <span className="text-sm font-semibold text-ink">Terms of Service</span>
+                </button>
+              </div>
 
-            <form
-              ref={demoTileRef}
-              onSubmit={(e) => {
-                void handleDemoSubmit(e)
-              }}
-              className={cn(
-                'home-demo-tile flex flex-col items-center gap-2.5',
-                demoTileHighlight && 'home-demo-tile--highlight'
-              )}
-            >
-              <label
-                htmlFor={demoCodeId}
-                className="text-center text-[11px] font-semibold leading-snug text-ink"
-              >
-                Have a Demo Code?
-              </label>
-              <input
-                ref={demoInputRef}
-                id={demoCodeId}
-                type="text"
-                value={demoCode}
-                onChange={(e) => {
-                  setDemoCode(e.target.value)
-                  if (demoError) setDemoError('')
-                  if (demoTileHighlight) clearDemoTileHighlight()
+              <form
+                ref={demoTileRef}
+                onSubmit={(e) => {
+                  void handleDemoSubmit(e)
                 }}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="Access code"
-                disabled={demoSubmitting}
-                className="home-demo-tile__input"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!demoCodeReady}
-                className="w-full"
+                className={cn(
+                  'home-demo-tile flex flex-col items-center gap-2.5',
+                  demoTileHighlight && 'home-demo-tile--highlight'
+                )}
               >
-                {demoSubmitting ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : null}
-                {demoSubmitting ? 'Checking…' : 'Enter Code'}
-              </Button>
-              {demoError && (
-                <p className="text-[10px] font-medium leading-snug text-accent" role="alert">
-                  {demoError}
-                </p>
-              )}
-            </form>
+                <label
+                  htmlFor={demoCodeId}
+                  className="text-center text-[11px] font-semibold leading-snug text-ink"
+                >
+                  Have a Demo Code?
+                </label>
+                <input
+                  ref={demoInputRef}
+                  id={demoCodeId}
+                  type="text"
+                  value={demoCode}
+                  onChange={(e) => {
+                    setDemoCode(e.target.value)
+                    if (demoError) setDemoError('')
+                    if (demoTileHighlight) clearDemoTileHighlight()
+                  }}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Access code"
+                  disabled={demoSubmitting}
+                  className="home-demo-tile__input"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!demoCodeReady}
+                  className="w-full"
+                >
+                  {demoSubmitting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  ) : null}
+                  {demoSubmitting ? 'Checking…' : 'Enter Code'}
+                </Button>
+                {demoError && (
+                  <p className="text-[10px] font-medium leading-snug text-accent" role="alert">
+                    {demoError}
+                  </p>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       </div>

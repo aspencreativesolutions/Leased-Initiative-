@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ScrollText } from 'lucide-react'
 import { BrandMark } from '@/components/brand/BrandMark'
+import { TermsDownloadButton } from '@/components/legal/TermsDownloadButton'
 import { TermsOfServiceContent } from '@/components/legal/TermsOfServiceContent'
 import { BRAND_NAME } from '@/lib/brand'
 
@@ -18,16 +19,18 @@ export function TermsOfServicePage() {
             <BrandMark className="h-10 w-10" />
             <span className="heading-display text-xl tracking-tight">{BRAND_NAME}</span>
           </Link>
-          <p className="inline-flex items-center gap-2 text-sm font-semibold text-ink-muted">
-            <ScrollText className="h-4 w-4 text-brand" aria-hidden />
-            Terms of Service
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-ink-muted">
+              <ScrollText className="h-4 w-4 text-brand" aria-hidden />
+              Terms of Service
+            </p>
+            <TermsDownloadButton />
+          </div>
         </header>
 
         <TermsOfServiceContent />
 
         <footer className="mt-10 flex flex-col gap-3 border-t border-line pt-6 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>{BRAND_NAME}</p>
           <Link
             to="/"
             className="font-semibold text-ink underline-offset-4 transition-colors hover:text-brand hover:underline"

@@ -24,7 +24,7 @@ interface AuthContextValue {
     name: string,
     email: string,
     password: string,
-    options?: {
+    options: {
       accountType?: 'client' | 'admin'
       companyName?: string
       portalThemeId?: string
@@ -33,6 +33,7 @@ interface AuthContextValue {
       preferredPropertyAddress?: string
       inviteToken?: string
       connectionCode?: string
+      acceptedTermsOfService: true
     }
   ) => Promise<{ email: string }>
   updateProfile: (name: string) => Promise<User>
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: string,
       email: string,
       password: string,
-      options?: {
+      options: {
         accountType?: 'client' | 'admin'
         companyName?: string
         portalThemeId?: string
@@ -86,20 +87,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferredPropertyAddress?: string
         inviteToken?: string
         connectionCode?: string
+        acceptedTermsOfService: true
       }
     ) => {
       const data = await registerAccount({
         name,
         email,
         password,
-        accountType: options?.accountType ?? 'client',
-        companyName: options?.companyName,
-        portalThemeId: options?.portalThemeId,
-        preferredLeaseMonths: options?.preferredLeaseMonths,
-        preferredLandlordCompany: options?.preferredLandlordCompany,
-        preferredPropertyAddress: options?.preferredPropertyAddress,
-        inviteToken: options?.inviteToken,
-        connectionCode: options?.connectionCode,
+        accountType: options.accountType ?? 'client',
+        companyName: options.companyName,
+        portalThemeId: options.portalThemeId,
+        preferredLeaseMonths: options.preferredLeaseMonths,
+        preferredLandlordCompany: options.preferredLandlordCompany,
+        preferredPropertyAddress: options.preferredPropertyAddress,
+        inviteToken: options.inviteToken,
+        connectionCode: options.connectionCode,
+        acceptedTermsOfService: options.acceptedTermsOfService,
       })
       return { email: data.email }
     },

@@ -159,7 +159,14 @@ router.post('/claim-invite', async (req, res) => {
       preferredPropertyAddress,
       preferredLeaseStartDate,
       preferredPaymentMethod,
+      acceptedTermsOfService,
     } = req.body ?? {}
+
+    if (acceptedTermsOfService !== true) {
+      return res.status(400).json({
+        error: 'You must sign the Terms of Service before creating an account',
+      })
+    }
 
     const trimmedName = String(name ?? '').trim()
     const normalizedEmail = String(email ?? '')
@@ -262,6 +269,7 @@ router.post('/claim-invite', async (req, res) => {
       portalThemeId: DEFAULT_PORTAL_THEME_ID,
       emailVerified: true,
       emailVerifiedAt: new Date().toISOString(),
+      termsAcceptedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     }
 
@@ -301,7 +309,13 @@ router.post('/register', async (req, res) => {
       preferredPropertyAddress,
       inviteToken,
       connectionCode,
+      acceptedTermsOfService,
     } = req.body
+    if (acceptedTermsOfService !== true) {
+      return res.status(400).json({
+        error: 'You must sign the Terms of Service before creating an account',
+      })
+    }
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Name, email, and password are required' })
     }
@@ -452,6 +466,7 @@ router.post('/register', async (req, res) => {
           ? portalThemeId
           : DEFAULT_PORTAL_THEME_ID,
       emailVerified: false,
+      termsAcceptedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     }
 

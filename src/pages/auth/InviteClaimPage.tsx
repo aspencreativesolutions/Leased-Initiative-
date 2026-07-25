@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Home, Loader2 } from 'lucide-react'
+import { TermsAcceptanceField } from '@/components/legal/TermsAcceptanceField'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/FormField'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
@@ -43,6 +44,7 @@ export function InviteClaimPage() {
   const [propertyAddress, setPropertyAddress] = useState('')
   const [leaseStartDate, setLeaseStartDate] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>('stripe')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   const minStartDate = earliestFutureLeaseStartDate(resolveScheduleAsOf())
   const propertyLocked = Boolean(invite?.propertyAddress)
@@ -125,6 +127,10 @@ export function InviteClaimPage() {
       setError('Lease start date must be a future date.')
       return
     }
+    if (!acceptedTerms) {
+      setError('You must sign the Terms of Service before creating an account.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -137,6 +143,7 @@ export function InviteClaimPage() {
         preferredPropertyAddress: propertyAddress.trim(),
         preferredLeaseStartDate: leaseStartDate,
         preferredPaymentMethod: paymentMethod,
+        acceptedTermsOfService: true,
       })
       setToken(result.token)
       await refreshUser()
@@ -289,7 +296,13 @@ export function InviteClaimPage() {
             </Select>
           </div>
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <TermsAcceptanceField
+            checked={acceptedTerms}
+            onChange={setAcceptedTerms}
+            disabled={submitting}
+          />
+
+          <Button type="submit" disabled={submitting || !acceptedTerms} className="w-full">
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (

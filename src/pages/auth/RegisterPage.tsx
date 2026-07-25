@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { UserPlus } from 'lucide-react'
+import { TermsAcceptanceField } from '@/components/legal/TermsAcceptanceField'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input, Select } from '@/components/ui/FormField'
@@ -57,6 +58,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const [invitePropertyLocked, setInvitePropertyLocked] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [codeBusy, setCodeBusy] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -271,6 +273,10 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
       setError('Select a property from the list')
       return
     }
+    if (!acceptedTerms) {
+      setError('You must sign the Terms of Service before creating an account')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -286,6 +292,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
           mode === 'client' && !inviteToken && resolvedConnectionCode
             ? resolvedConnectionCode
             : undefined,
+        acceptedTermsOfService: true,
       })
       const params = new URLSearchParams({ email: registeredEmail })
       if (mode === 'admin') params.set('studio', '1')
@@ -474,7 +481,16 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
               required
               autoComplete="new-password"
             />
-            <Button type="submit" className="w-full" disabled={submitting || Boolean(inviteError)}>
+            <TermsAcceptanceField
+              checked={acceptedTerms}
+              onChange={setAcceptedTerms}
+              disabled={submitting}
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={submitting || Boolean(inviteError) || !acceptedTerms}
+            >
               <UserPlus className="h-4 w-4" />
               {submitting
                 ? mode === 'client'

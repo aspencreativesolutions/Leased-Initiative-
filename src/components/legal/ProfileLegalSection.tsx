@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ScrollText } from 'lucide-react'
+import { TermsDownloadButton } from '@/components/legal/TermsDownloadButton'
 import { TermsOfServiceModal } from '@/components/legal/TermsOfServiceModal'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -29,6 +30,7 @@ export function ProfileLegalSection() {
               <ScrollText className="h-4 w-4" aria-hidden />
               Terms of Service
             </Button>
+            <TermsDownloadButton />
             <Link
               to="/terms"
               className="text-sm font-semibold text-brand underline-offset-4 hover:underline"

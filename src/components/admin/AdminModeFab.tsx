@@ -10,11 +10,13 @@ import {
   RotateCcw,
   Shield,
   UserRound,
+  Users,
   X,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { usePortalTheme } from '@/context/PortalThemeContext'
+import { EditTenantScenariosModal } from '@/components/admin/EditTenantScenariosModal'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
@@ -111,6 +113,7 @@ function AdminModeFabInner() {
   const [generatedExpiryDays, setGeneratedExpiryDays] = useState<number | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [companyLinksLoaded, setCompanyLinksLoaded] = useState(false)
+  const [tenantScenariosModalOpen, setTenantScenariosModalOpen] = useState(false)
 
   const restartAsFirstTime = useCallback(() => {
     clearWelcomeCarouselDone()
@@ -539,7 +542,17 @@ function AdminModeFabInner() {
             </Section>
           </div>
 
-          <div className="border-t-[length:var(--border-width)] border-ink px-3.5 py-2.5">
+          <div className="space-y-2 border-t-[length:var(--border-width)] border-ink px-3.5 py-2.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => setTenantScenariosModalOpen(true)}
+            >
+              <Users className="h-3.5 w-3.5" />
+              Edit Tenant Scenarios
+            </Button>
             <p className="truncate text-[10px] text-ink-faint">
               {user ? (
                 <>
@@ -556,6 +569,11 @@ function AdminModeFabInner() {
           </div>
         </div>
       )}
+
+      <EditTenantScenariosModal
+        open={tenantScenariosModalOpen}
+        onClose={() => setTenantScenariosModalOpen(false)}
+      />
 
       <Modal
         open={companyLinkModalOpen}
