@@ -390,9 +390,13 @@ export function OnboardingTour({
     }
   }, [forceStart, role])
 
-  /** Auto-start once for first-time users who have never exited or finished */
+  /**
+   * Auto-start once for first-time (non-demo) users who have never exited or finished.
+   * Public demo never auto-starts — visitors get a one-time notice and start via Menu → Take the tour.
+   */
   useEffect(() => {
     if (adminMode || forceStart || active) return
+    if (isPublicDemo || user?.publicDemo) return
     if (optedOutRef.current || isOptedOut()) return
     if (!progress) return
     if (progress.dismissedAt || progress.completedAt) {
@@ -421,6 +425,8 @@ export function OnboardingTour({
     role,
     userId,
     isOptedOut,
+    isPublicDemo,
+    user?.publicDemo,
   ])
 
   useEffect(() => {

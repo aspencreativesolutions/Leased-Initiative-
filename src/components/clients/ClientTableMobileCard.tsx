@@ -25,6 +25,7 @@ interface ClientTableMobileCardProps {
   onCycleContactDisplay: () => void
   highlighted?: boolean
   dimmed?: boolean
+  showOccupancyStatus?: boolean
   onRemove: () => void
   onOpenTenantDetails: (tenantId: string) => void
   onConfirmPayment?: () => void
@@ -52,6 +53,7 @@ export function ClientTableMobileCard({
   onCycleContactDisplay,
   highlighted = false,
   dimmed = false,
+  showOccupancyStatus = false,
   onRemove,
   onOpenTenantDetails,
   onConfirmPayment,
@@ -82,14 +84,16 @@ export function ClientTableMobileCard({
           >
             {client.name}
           </button>
-          <div className="mt-1">
-            <OccupancyPreferenceTag
-              {...clientOccupancyTagProps(
-                client,
-                getTenantAssignedProperty(client, contract, properties)
-              )}
-            />
-          </div>
+          {showOccupancyStatus ? (
+            <div className="mt-1 empty:hidden">
+              <OccupancyPreferenceTag
+                {...clientOccupancyTagProps(
+                  client,
+                  getTenantAssignedProperty(client, contract, properties)
+                )}
+              />
+            </div>
+          ) : null}
           <div className="mt-1">
             <LeaseStatusBadge
               details={leaseStatus}

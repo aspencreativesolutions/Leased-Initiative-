@@ -18,24 +18,17 @@ import { AddClientModal } from '@/components/clients/AddClientModal'
 import { SendInviteModal } from '@/components/clients/SendInviteModal'
 import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
 import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
-import {
-  OnboardingRestartButton,
-  restartOnboardingTour,
-} from '@/components/onboarding/OnboardingTour'
+import { restartOnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { BugReportModal } from '@/components/support/BugReportModal'
 import {
   NavActionsMenu,
+  type NavActionsMenuItem,
   type NavActionsMenuSection,
 } from '@/components/layout/NavActionsMenu'
-import { Button } from '@/components/ui/Button'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { useTenantAlerts } from '@/hooks/useTenantAlerts'
-import {
-  NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS,
-  NAV_TOOLBAR_ICON_BUTTON_CLASS,
-} from '@/lib/navToolbar'
 import { buildUpcomingOpenings } from '@/lib/properties'
 import { exitPublicDemo } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
@@ -171,6 +164,61 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
     logout()
   }, [isPublicDemo, logout, navigate])
 
+  const accountItems = useMemo((): NavActionsMenuItem[] => {
+    const items: NavActionsMenuItem[] = []
+    if (user) {
+      items.push({
+        id: 'profile',
+        label: 'Company Profile',
+        icon: UserCircle,
+        dataOnboarding: 'admin-profile',
+        onSelect: () => navigate('/studio/profile'),
+      })
+    }
+    items.push({
+      id: 'sign-out',
+      label: 'Sign out',
+      icon: LogOut,
+      onSelect: handleSignOut,
+    })
+    return items
+  }, [handleSignOut, navigate, user])
+
+  const helpPreferenceItems = useMemo(
+    (): NavActionsMenuItem[] => [
+      {
+        id: 'tour',
+        label: 'Take the tour',
+        icon: Compass,
+        onSelect: () => {
+          void restartOnboardingTour('admin', user?.id, () => onStartTour?.())
+        },
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        dataOnboarding: 'admin-settings',
+        onSelect: () => navigate('/studio/settings'),
+      },
+      {
+        id: 'bug',
+        label: 'Bug Report',
+        icon: Bug,
+        onSelect: () => setBugReportOpen(true),
+      },
+    ],
+    [navigate, onStartTour, user?.id]
+  )
+
+  const utilityMenuSections = useMemo(
+    (): NavActionsMenuSection[] => [
+      { id: 'account', label: 'Account', items: accountItems },
+      { id: 'help', label: 'Help and Preferences', items: helpPreferenceItems },
+    ],
+    [accountItems, helpPreferenceItems]
+  )
+
   const mobileMenuSections = useMemo((): NavActionsMenuSection[] => {
     const navigationItems = links.map(({ to, label, icon, onboarding }) => ({
       id: to,
@@ -197,59 +245,11 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             : undefined,
     }))
 
-    const accountItems = [
-      ...(user
-        ? [
-            {
-              id: 'profile',
-              label: 'Company Profile',
-              icon: UserCircle,
-              dataOnboarding: 'admin-profile',
-              onSelect: () => navigate('/studio/profile'),
-            },
-          ]
-        : []),
-      {
-        id: 'tour',
-        label: 'Take the tour',
-        icon: Compass,
-        onSelect: () => {
-          void restartOnboardingTour('admin', user?.id, () => onStartTour?.())
-        },
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        icon: Settings,
-        dataOnboarding: 'admin-settings',
-        onSelect: () => navigate('/studio/settings'),
-      },
-      {
-        id: 'bug',
-        label: 'Bug Report',
-        icon: Bug,
-        onSelect: () => setBugReportOpen(true),
-      },
-      {
-        id: 'sign-out',
-        label: 'Sign out',
-        icon: LogOut,
-        onSelect: handleSignOut,
-      },
-    ]
-
     return [
       { id: 'navigation', label: 'Navigation', items: navigationItems },
-      { id: 'tools', label: 'Tools and Account', items: accountItems },
+      ...utilityMenuSections,
     ]
-  }, [
-    handleSignOut,
-    hasAvailableRentals,
-    navigate,
-    onStartTour,
-    unreadAlertCount,
-    user,
-  ])
+  }, [hasAvailableRentals, navigate, unreadAlertCount, utilityMenuSections])
 
   return (
     <>
@@ -272,65 +272,21 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             />
           </NavLink>
 
-          {/* Mobile: single Menu with navigation + tools */}
+          {/* Mobile: Menu with navigation + account / help */}
           <NavActionsMenu
+            className="md:hidden"
             sections={mobileMenuSections}
             triggerOnboarding="admin-mobile-menu"
+            tourNoticeScope="mobile"
           />
 
-          {/* Desktop / tablet: original icon buttons */}
-          <div className="hidden shrink-0 items-center gap-1.5 sm:gap-2 md:flex">
-            {user && (
-              <NavLink
-                to="/studio/profile"
-                data-onboarding="admin-profile"
-                className={({ isActive }) =>
-                  cn(
-                    NAV_TOOLBAR_ICON_BUTTON_CLASS,
-                    isActive && NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS
-                  )
-                }
-                data-tooltip="Company Profile"
-                aria-label="Company Profile"
-              >
-                <UserCircle className="h-3.5 w-3.5" />
-              </NavLink>
-            )}
-            <OnboardingRestartButton role="admin" onStart={() => onStartTour?.()} />
-            <NavLink
-              to="/studio/settings"
-              data-onboarding="admin-settings"
-              className={({ isActive }) =>
-                cn(
-                  NAV_TOOLBAR_ICON_BUTTON_CLASS,
-                  isActive && NAV_TOOLBAR_ICON_BUTTON_ACTIVE_CLASS
-                )
-              }
-              data-tooltip="Settings"
-              aria-label="Settings"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </NavLink>
-            <button
-              type="button"
-              onClick={() => setBugReportOpen(true)}
-              className={NAV_TOOLBAR_ICON_BUTTON_CLASS}
-              data-tooltip="Bug Report"
-              aria-label="Bug Report"
-            >
-              <Bug className="h-3.5 w-3.5" />
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="quick-tooltip quick-tooltip--below !border-nav-fg/30 !bg-transparent !text-nav-fg-muted hover:!border-nav-fg hover:!bg-transparent hover:!text-nav-fg"
-              data-tooltip="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {/* Desktop / tablet: consolidated Menu (utility actions only) */}
+          <NavActionsMenu
+            className="hidden md:block"
+            sections={utilityMenuSections}
+            triggerOnboarding="admin-desktop-menu"
+            tourNoticeScope="desktop"
+          />
         </div>
       </div>
 

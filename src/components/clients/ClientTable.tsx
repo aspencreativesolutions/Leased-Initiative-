@@ -79,6 +79,11 @@ interface ClientTableProps {
    * Pass `useTileScale(...).factor` from the page.
    */
   tileScaleFactor?: number
+  /**
+   * When true, show occupancy preference tags under tenant names.
+   * Off by default — Display Settings control; not a table column.
+   */
+  showOccupancyStatus?: boolean
   /** Opens Tenant Details for the selected official tenant. */
   onOpenTenantDetails: (tenantId: string) => void
 }
@@ -136,12 +141,17 @@ function renderCell(
   onOpenTenantDetails: (tenantId: string) => void,
   onConfirmPayment: (clientId: string) => void,
   confirmingPayment: boolean,
+  showOccupancyStatus: boolean,
   arrangeClassName = ''
 ): ReactNode {
   const addressValue = getFullPropertyAddress(client, contract, properties)
   const contactValue = getOfficialTenantContactDisplayValue(client, contactDisplayMode)
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
+  const occupancyProps = clientOccupancyTagProps(
+    client,
+    getTenantAssignedProperty(client, contract, properties)
+  )
 
   switch (columnId) {
     case 'tenant':
@@ -162,14 +172,11 @@ function renderCell(
             >
               {client.name}
             </button>
-            <div className="mt-1">
-              <OccupancyPreferenceTag
-                {...clientOccupancyTagProps(
-                  client,
-                  getTenantAssignedProperty(client, contract, properties)
-                )}
-              />
-            </div>
+            {showOccupancyStatus ? (
+              <div className="mt-1 empty:hidden">
+                <OccupancyPreferenceTag {...occupancyProps} />
+              </div>
+            ) : null}
             <div className="mt-1">
               <LeaseStatusBadge
                 details={leaseStatus}
@@ -317,6 +324,7 @@ export function ClientTable({
   mobileTileColumns: controlledMobileColumns,
   onMobileTileColumnsChange: _onMobileTileColumnsChange,
   tileScaleFactor,
+  showOccupancyStatus = false,
   onOpenTenantDetails,
 }: ClientTableProps) {
   const { getContractForClient, refresh, properties } = useApp()
@@ -437,6 +445,7 @@ export function ClientTable({
             onCycleContactDisplay={cycleContactDisplay}
             highlighted={highlighted}
             dimmed={dimmed}
+            showOccupancyStatus={showOccupancyStatus}
             onRemove={() => setRemoveTarget(client)}
             onOpenTenantDetails={onOpenTenantDetails}
             onConfirmPayment={() => handleConfirmPayment(client.id)}
@@ -586,6 +595,7 @@ export function ClientTable({
                         onOpenTenantDetails,
                         handleConfirmPayment,
                         confirmingClientId === client.id,
+                        showOccupancyStatus,
                         columnArrangeOutlineClass(
                           columnId,
                           selectedColumnId,

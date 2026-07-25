@@ -2366,11 +2366,16 @@
   .demo-guide-target--pulse {
     animation: tenant-registers-demo-cue 1.35s ease-in-out infinite;
   }
+
+  .demo-tour-notice-target--pulse {
+    animation: tenant-registers-demo-cue 1.35s ease-in-out infinite;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tenant-action-registers--demo-cue,
-  .demo-guide-target--pulse {
+  .demo-guide-target--pulse,
+  .demo-tour-notice-target--pulse {
     animation: none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent);
   }

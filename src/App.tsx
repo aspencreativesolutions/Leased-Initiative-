@@ -12,6 +12,7 @@ import { PortalLayout } from '@/components/layout/PortalLayout'
 import { AdminModeFab } from '@/components/admin/AdminModeFab'
 import { PublicDemoPovFab } from '@/components/auth/PublicDemoPovFab'
 import { DemoGuideCueHost } from '@/components/auth/DemoGuideCueHost'
+import { DemoTourNoticeHost } from '@/components/auth/DemoTourNoticeHost'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 import { HomePage } from '@/pages/HomePage'
 import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
@@ -57,6 +58,7 @@ export default function App() {
                 <AdminModeFab />
                 <PublicDemoPovFab />
                 <DemoGuideCueHost />
+                <DemoTourNoticeHost />
                 {/* Main column fills the viewport so the in-flow footer stays below the fold. */}
                 <div className="flex min-h-dvh flex-col">
                   <div className="flex min-h-dvh flex-1 flex-col">

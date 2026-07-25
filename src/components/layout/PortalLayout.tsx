@@ -9,7 +9,6 @@ import { PortalStyleButton } from '@/components/portal/PortalStyleButton'
 import { PortalStyleModal } from '@/components/portal/PortalStyleModal'
 import { PortalNotificationBanner } from '@/components/portal/PortalNotificationBanner'
 import {
-  OnboardingRestartButton,
   OnboardingTour,
   restartOnboardingTour,
 } from '@/components/onboarding/OnboardingTour'
@@ -38,6 +37,18 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
     logout()
   }, [isPublicDemo, logout, navigate])
 
+  const tourMenuItem = useMemo(
+    () => ({
+      id: 'tour',
+      label: 'Take the tour',
+      icon: Compass,
+      onSelect: () => {
+        void restartOnboardingTour('client', user?.id, () => onStartTour?.())
+      },
+    }),
+    [onStartTour, user?.id]
+  )
+
   const mobileMenuItems = useMemo(
     () => [
       {
@@ -58,14 +69,7 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
         icon: Palette,
         onSelect: () => setStyleOpen(true),
       },
-      {
-        id: 'tour',
-        label: 'Take the tour',
-        icon: Compass,
-        onSelect: () => {
-          void restartOnboardingTour('client', user?.id, () => onStartTour?.())
-        },
-      },
+      tourMenuItem,
       ...(user
         ? [
             {
@@ -83,7 +87,12 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
         onSelect: handleSignOut,
       },
     ],
-    [handleSignOut, navigate, onStartTour, user]
+    [handleSignOut, navigate, tourMenuItem, user]
+  )
+
+  const desktopMenuSections = useMemo(
+    () => [{ id: 'help', label: 'Help', items: [tourMenuItem] }],
+    [tourMenuItem]
   )
 
   return (
@@ -104,7 +113,10 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
 
         {/* Mobile: single Menu with every top-bar action */}
         <NavActionsMenu
+          className="md:hidden"
           items={mobileMenuItems}
+          tourNoticeScope="mobile"
+          triggerOnboarding="portal-mobile-menu"
           header={
             supportsAppearance ? (
               <div className="flex items-center justify-between gap-2">
@@ -151,7 +163,11 @@ export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
             />
           )}
           <PortalStyleButton />
-          <OnboardingRestartButton role="client" onStart={() => onStartTour?.()} />
+          <NavActionsMenu
+            sections={desktopMenuSections}
+            tourNoticeScope="desktop"
+            triggerOnboarding="portal-desktop-menu"
+          />
           {user && (
             <NavLink
               to="/portal/profile"

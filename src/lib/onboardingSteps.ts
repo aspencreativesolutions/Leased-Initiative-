@@ -141,7 +141,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. After signing they show Awaiting Deposit under each name (hover for Confirm Payment, or use Confirm Payment Complete in the row); once you confirm, status becomes Upcoming until the lease starts, then Active. Payment tags (On Time / Overdue / Deposit Paid / Awaiting Deposit) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default — switch to Tile View to use the Tenant tile size slider, or Edit Columns in Spreadsheet View to rearrange, hide, or restore fields.',
+      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. After signing they show Awaiting Deposit under each name (hover for Confirm Payment, or use Confirm Payment Complete in the row); once you confirm, status becomes Upcoming until the lease starts, then Active. Payment tags (On Time / Overdue / Deposit Paid / Awaiting Deposit) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default in Display Settings — switch to Tile View to use the Tenant tile size slider, Edit Columns in Spreadsheet View to rearrange fields, or turn on Show Occupancy Status for optional tags under each name.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -231,7 +231,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-tabs"]',
     title: 'Settings',
     description:
-      'Open Settings anytime from the gear icon in the toolbar, or from Menu on mobile. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
+      'Open Settings anytime from Menu in the top bar. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
     placement: 'bottom',
     route: '/studio/settings',
     section: 'settings',
@@ -281,7 +281,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-style"]',
     title: 'Tour complete',
     description:
-      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime with Tour beside Settings (or under Menu on mobile).",
+      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime from Menu → Take the tour.",
     placement: 'bottom',
     route: '/studio/settings?tab=style',
     section: 'settings',

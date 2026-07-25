@@ -7,6 +7,10 @@ import {
   type ReactNode,
 } from 'react'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
+import {
+  DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT,
+  type DemoTourNoticeHighlightDetail,
+} from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 export type NavActionsMenuItem = {
@@ -40,6 +44,11 @@ type NavActionsMenuProps = {
   label?: string
   /** Tour hook on the Menu trigger */
   triggerOnboarding?: string
+  /**
+   * Which viewport this instance serves for the demo tour notice highlight.
+   * Mobile and desktop menus can both mount; only the matching visible one opens.
+   */
+  tourNoticeScope?: 'mobile' | 'desktop'
 }
 
 function flattenItems(
@@ -50,9 +59,19 @@ function flattenItems(
   return items ?? []
 }
 
+function scopeMatches(
+  detail: DemoTourNoticeHighlightDetail | undefined,
+  scope: 'mobile' | 'desktop' | undefined
+): boolean {
+  const wanted = detail?.menuScope ?? 'any'
+  if (wanted === 'any') return true
+  if (!scope) return false
+  return scope === wanted
+}
+
 /**
- * Mobile-only overflow menu for cramped portal / studio top bars.
- * Desktop toolbars stay as individual buttons; this replaces them under `md`.
+ * Overflow menu for portal / studio top bars.
+ * Parent controls viewport visibility (e.g. `md:hidden` for mobile-only).
  */
 export function NavActionsMenu({
   items,
@@ -61,25 +80,53 @@ export function NavActionsMenu({
   className,
   label = 'Menu',
   triggerOnboarding,
+  tourNoticeScope,
 }: NavActionsMenuProps) {
   const menuId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [open, setOpen] = useState(false)
+  const [tourNoticeActive, setTourNoticeActive] = useState(false)
 
   const flatItems = flattenItems(sections, items)
+
+  useEffect(() => {
+    const onHighlight = (event: Event) => {
+      const detail = (event as CustomEvent<DemoTourNoticeHighlightDetail>).detail
+      if (!detail) return
+      if (!scopeMatches(detail, tourNoticeScope)) {
+        // Another menu instance owns this highlight — stay closed/unhighlighted.
+        if (detail.active) {
+          setTourNoticeActive(false)
+          setOpen(false)
+        }
+        return
+      }
+      if (detail.active) {
+        setTourNoticeActive(true)
+        setOpen(true)
+      } else {
+        setTourNoticeActive(false)
+        setOpen(false)
+      }
+    }
+    window.addEventListener(DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT, onHighlight)
+    return () => window.removeEventListener(DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT, onHighlight)
+  }, [tourNoticeScope])
 
   useEffect(() => {
     if (!open) return
 
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      if (tourNoticeActive) return
       const target = event.target as Node | null
       if (target && rootRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (tourNoticeActive) return
         setOpen(false)
         triggerRef.current?.focus()
       }
@@ -93,15 +140,22 @@ export function NavActionsMenu({
       document.removeEventListener('touchstart', onPointerDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, tourNoticeActive])
 
   useEffect(() => {
     if (!open) return
+    if (tourNoticeActive) {
+      const frame = window.requestAnimationFrame(() => {
+        const tourBtn = rootRef.current?.querySelector<HTMLElement>('[data-menu-item="tour"]')
+        tourBtn?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
     const frame = window.requestAnimationFrame(() => {
       itemRefs.current[0]?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
-  }, [open])
+  }, [open, tourNoticeActive])
 
   const focusItemAt = (index: number) => {
     const count = flatItems.length
@@ -135,6 +189,8 @@ export function NavActionsMenu({
     const index = itemIndex++
     const { id, label: itemLabel, icon: Icon, onSelect, trailing, dataOnboarding, ariaLabel } =
       item
+    const isTourItem = id === 'tour'
+    const highlightItem = tourNoticeActive && isTourItem
     return (
       <li key={id} role="none">
         <button
@@ -144,14 +200,25 @@ export function NavActionsMenu({
             itemRefs.current[index] = el
           }}
           data-onboarding={dataOnboarding}
+          data-menu-item={id}
+          data-tour-notice-item={highlightItem ? 'true' : undefined}
           onClick={() => {
+            if (tourNoticeActive && isTourItem) return
             setOpen(false)
             onSelect()
           }}
           aria-label={ariaLabel}
-          className="flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-brand/5 focus-visible:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 active:bg-brand/10"
+          className={cn(
+            'flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-brand/5 focus-visible:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 active:bg-brand/10',
+            highlightItem &&
+              'demo-tour-notice-item ring-2 ring-brand ring-offset-2 ring-offset-surface-paper bg-brand/10'
+          )}
         >
-          <Icon className="h-4 w-4 shrink-0 text-brand" strokeWidth={2.25} aria-hidden />
+          <Icon
+            className={cn('h-4 w-4 shrink-0 text-brand', highlightItem && 'text-brand')}
+            strokeWidth={2.25}
+            aria-hidden
+          />
           <span className="min-w-0 flex-1">{itemLabel}</span>
           {trailing}
         </button>
@@ -160,17 +227,27 @@ export function NavActionsMenu({
   }
 
   return (
-    <div ref={rootRef} className={cn('relative shrink-0 md:hidden', className)}>
+    <div
+      ref={rootRef}
+      className={cn('relative shrink-0', className)}
+      data-tour-notice-menu={tourNoticeActive ? 'true' : undefined}
+    >
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (tourNoticeActive) return
+          setOpen((value) => !value)
+        }}
         data-onboarding={triggerOnboarding}
+        data-tour-notice-trigger={tourNoticeActive ? 'true' : undefined}
         className={cn(
           'inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-nav-fg/30 bg-transparent px-3 text-[11px] font-semibold text-nav-fg-muted transition-colors',
           'hover:border-nav-fg hover:text-nav-fg',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nav-fg/40',
-          open && 'border-nav-fg text-nav-fg'
+          open && 'border-nav-fg text-nav-fg',
+          tourNoticeActive &&
+            'demo-tour-notice-trigger border-nav-fg text-nav-fg shadow-[0_0_0_3px_rgba(255,255,255,0.35)]'
         )}
         aria-expanded={open}
         aria-controls={menuId}
@@ -190,7 +267,11 @@ export function NavActionsMenu({
           role="menu"
           aria-label={label}
           onKeyDown={onMenuKeyDown}
-          className="absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]"
+          data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
+          className={cn(
+            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-[min(18rem,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
+            tourNoticeActive && 'z-[96] demo-tour-notice-panel'
+          )}
         >
           <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1.5">
             {header ? <div className="mb-1.5 border-b border-line px-2.5 py-2">{header}</div> : null}

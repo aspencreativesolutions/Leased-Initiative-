@@ -3,11 +3,11 @@ import { Columns3, LayoutGrid, LayoutList, Plus, Users } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
-import { OfficialTenantsSortControls } from '@/components/clients/OfficialTenantsSortControls'
 import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { TenantPipelineSections } from '@/components/clients/TenantPipelineSections'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { Card, CardHeader } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
@@ -21,10 +21,7 @@ import {
   useTileScale,
 } from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
-import {
-  sortOfficialTenants,
-  type OfficialTenantAddressFocus,
-} from '@/lib/officialTenantSort'
+import { sortOfficialTenants } from '@/lib/officialTenantSort'
 import {
   loadTenantTableColumnOrder,
   type TenantTableColumnId,
@@ -33,6 +30,7 @@ import { cn } from '@/lib/utils'
 
 const DASHBOARD_VIEW_KEY = 'dashboard-view-mode'
 const DASHBOARD_TILE_SCALE_KEY = 'dashboard-official-tenants-tile-scale'
+const DASHBOARD_OCCUPANCY_STATUS_KEY = 'dashboard-show-occupancy-status'
 
 type DashboardViewMode = 'tile' | 'spreadsheet'
 
@@ -46,6 +44,18 @@ function readViewModePreference(): DashboardViewMode {
     return 'spreadsheet'
   }
 }
+
+/** Occupancy tags under tenant names — off until the landlord opts in. */
+function readShowOccupancyStatus(): boolean {
+  try {
+    return localStorage.getItem(DASHBOARD_OCCUPANCY_STATUS_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+const filterButtonClass =
+  'inline-flex h-9 items-center rounded-[var(--radius-sm)] border-2 px-3 text-[10px] font-semibold uppercase tracking-caps transition-colors shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
 
 const segmentedShellClass =
   'inline-flex h-9 shrink-0 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-0.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
@@ -61,9 +71,9 @@ export function DashboardPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<DashboardViewMode>(readViewModePreference)
+  const [showOccupancyStatus, setShowOccupancyStatus] = useState(readShowOccupancyStatus)
   const [arrangeColumns, setArrangeColumns] = useState(false)
   const [columnOrder, setColumnOrder] = useState<TenantTableColumnId[]>(loadTenantTableColumnOrder)
-  const [addressFocus, setAddressFocus] = useState<OfficialTenantAddressFocus>({ kind: 'all' })
   const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
     useMobileTileColumns()
   const { scale, setScale, factor } = useTileScale(
@@ -88,16 +98,10 @@ export function DashboardPage() {
         officialClients,
         getContractForClient,
         regions,
-        { mode: 'address', focus: addressFocus },
+        { mode: 'address', focus: { kind: 'all' } },
         { properties, locationDisplayMode: 'address' }
       ),
-    [
-      officialClients,
-      getContractForClient,
-      regions,
-      addressFocus,
-      properties,
-    ]
+    [officialClients, getContractForClient, regions, properties]
   )
 
   useEffect(() => {
@@ -110,6 +114,17 @@ export function DashboardPage() {
       setArrangeColumns(false)
     }
   }, [viewMode])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DASHBOARD_OCCUPANCY_STATUS_KEY,
+        showOccupancyStatus ? 'true' : 'false'
+      )
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }, [showOccupancyStatus])
 
   useEffect(() => {
     if (isMobile) setArrangeColumns(false)
@@ -132,6 +147,127 @@ export function DashboardPage() {
     return () => window.cancelAnimationFrame(frame)
   }, [location.hash, clients.length])
 
+  const displaySettings =
+    officialClients.length > 0 ? (
+      <Card className="w-fit max-w-full !px-3 !py-2">
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint">
+            Display Settings
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Tenant tile size"
+                className="min-w-[12.5rem] flex-none"
+              />
+            ) : null}
+
+            {isMobile ? (
+              <MobileTileColumnsControl
+                value={mobileTileColumns}
+                onChange={setMobileTileColumns}
+              />
+            ) : null}
+
+            <div
+              role="group"
+              aria-label="Official Tenants display"
+              className={cn(segmentedShellClass, 'hidden md:inline-flex')}
+            >
+              <button
+                type="button"
+                title="Tile View"
+                aria-label="Tile View"
+                aria-pressed={viewMode === 'tile'}
+                onClick={() => setViewMode('tile')}
+                className={cn(
+                  segmentedSegmentClass,
+                  viewMode === 'tile'
+                    ? 'bg-brand text-surface-paper'
+                    : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Tile</span>
+              </button>
+              <button
+                type="button"
+                title="Spreadsheet View"
+                aria-label="Spreadsheet View"
+                aria-pressed={viewMode === 'spreadsheet'}
+                onClick={() => setViewMode('spreadsheet')}
+                className={cn(
+                  segmentedSegmentClass,
+                  viewMode === 'spreadsheet'
+                    ? 'bg-brand text-surface-paper'
+                    : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                )}
+              >
+                <LayoutList className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Spreadsheet</span>
+              </button>
+            </div>
+
+            {effectiveViewMode === 'spreadsheet' && !arrangeColumns ? (
+              <button
+                type="button"
+                onClick={() => setArrangeColumns(true)}
+                aria-pressed={false}
+                title="Edit Columns"
+                aria-label="Edit Columns"
+                className={cn(
+                  filterButtonClass,
+                  'hidden gap-1.5 md:inline-flex',
+                  'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                )}
+              >
+                <Columns3 className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Edit Columns</span>
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showOccupancyStatus}
+              aria-label="Show Occupancy Status"
+              title="Show Occupancy Status"
+              onClick={() => setShowOccupancyStatus((value) => !value)}
+              className={cn(
+                filterButtonClass,
+                'gap-2',
+                showOccupancyStatus
+                  ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                  : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+              )}
+            >
+              <span
+                className={cn(
+                  'relative h-4 w-7 shrink-0 rounded-full border transition-colors',
+                  showOccupancyStatus
+                    ? 'border-brand bg-brand'
+                    : 'border-line bg-surface'
+                )}
+                aria-hidden
+              >
+                <span
+                  className={cn(
+                    'absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white shadow-sm transition-all',
+                    showOccupancyStatus ? 'left-[0.85rem]' : 'left-0.5'
+                  )}
+                />
+              </span>
+              <span className="whitespace-nowrap">Show Occupancy Status</span>
+            </button>
+          </div>
+        </div>
+      </Card>
+    ) : undefined
+
   return (
     <div className="w-full min-w-0" data-onboarding="admin-dashboard">
       {registrationsError && (
@@ -149,97 +285,13 @@ export function DashboardPage() {
       )}
 
       <div className="w-full min-w-0 space-y-6">
-        <Card
-          className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5"
-          data-onboarding="admin-official-tenants"
-        >
-          <CardHeader
-            dense
+        <div className="w-full min-w-0" data-onboarding="admin-official-tenants">
+          <PageHeader
             title="Official Tenants"
             help="Tenants with signed leases that are active or starting soon"
-            action={
-              officialClients.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-                  {effectiveViewMode === 'tile' && !isMobile ? (
-                    <TileScaleControl
-                      variant="row"
-                      value={scale}
-                      onChange={setScale}
-                      label="Tenant tile size"
-                      className="min-w-[12.5rem] flex-none"
-                    />
-                  ) : null}
-                  {isMobile ? (
-                    <MobileTileColumnsControl
-                      value={mobileTileColumns}
-                      onChange={setMobileTileColumns}
-                    />
-                  ) : null}
-                  <OfficialTenantsSortControls
-                    clients={officialClients}
-                    getContractForClient={getContractForClient}
-                    regions={regions}
-                    properties={properties}
-                    addressFocus={addressFocus}
-                    onAddressFocusChange={setAddressFocus}
-                  />
-                  <div
-                    role="group"
-                    aria-label="Official Tenants display"
-                    className={cn(segmentedShellClass, 'hidden md:inline-flex')}
-                  >
-                    <button
-                      type="button"
-                      title="Tile View"
-                      aria-label="Tile View"
-                      aria-pressed={viewMode === 'tile'}
-                      onClick={() => setViewMode('tile')}
-                      className={cn(
-                        segmentedSegmentClass,
-                        viewMode === 'tile'
-                          ? 'bg-brand text-surface-paper'
-                          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-                      )}
-                    >
-                      <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
-                      <span className="hidden sm:inline">Tile</span>
-                    </button>
-                    <button
-                      type="button"
-                      title="Spreadsheet View"
-                      aria-label="Spreadsheet View"
-                      aria-pressed={viewMode === 'spreadsheet'}
-                      onClick={() => setViewMode('spreadsheet')}
-                      className={cn(
-                        segmentedSegmentClass,
-                        viewMode === 'spreadsheet'
-                          ? 'bg-brand text-surface-paper'
-                          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-                      )}
-                    >
-                      <LayoutList className="h-3.5 w-3.5" aria-hidden />
-                      <span className="hidden sm:inline">Spreadsheet</span>
-                    </button>
-                  </div>
-                  {effectiveViewMode === 'spreadsheet' && !arrangeColumns ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setArrangeColumns(true)}
-                      aria-pressed={false}
-                      title="Edit Columns"
-                      aria-label="Edit Columns"
-                      className="hidden md:inline-flex"
-                    >
-                      <Columns3 className="h-3.5 w-3.5" aria-hidden />
-                      <span className="hidden sm:inline">Edit Columns</span>
-                    </Button>
-                  ) : null}
-                </div>
-              ) : undefined
-            }
+            below={displaySettings}
           />
+
           {tableClients.length === 0 ? (
             <EmptyState
               icon={Users}
@@ -263,10 +315,11 @@ export function DashboardPage() {
               mobileTileColumns={mobileTileColumns}
               onMobileTileColumnsChange={setMobileTileColumns}
               tileScaleFactor={effectiveViewMode === 'tile' ? factor : undefined}
+              showOccupancyStatus={showOccupancyStatus}
               onOpenTenantDetails={setDetailsTenantId}
             />
           )}
-        </Card>
+        </div>
 
         <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">
           <div data-onboarding="dashboard-pending-tenants">

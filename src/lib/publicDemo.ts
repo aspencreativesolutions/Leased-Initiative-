@@ -22,6 +22,19 @@ export const PUBLIC_DEMO_PENDING_TENANT_CUE_KEY = 'leased-public-demo-pending-te
 export const DEMO_POV_ATTENTION_EVENT = 'leased-demo-pov-attention'
 /** Custom event for tour-like landlord guide cues. */
 export const DEMO_GUIDE_CUE_EVENT = 'leased-demo-guide-cue'
+/** One-time “tour is optional” notice per POV within a demo session. */
+export const PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY = 'leased-public-demo-tour-notice-landlord'
+export const PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY = 'leased-public-demo-tour-notice-tenant'
+/** Custom event to open/highlight Menu → Take the tour during the notice. */
+export const DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT = 'leased-demo-tour-notice-highlight'
+
+export type DemoTourNoticePov = 'landlord' | 'tenant'
+
+export type DemoTourNoticeHighlightDetail = {
+  active: boolean
+  /** Which menu trigger to target when both mobile and desktop exist. */
+  menuScope?: 'mobile' | 'desktop' | 'any'
+}
 
 export const DEMO_POST_APPLY_TIP =
   'Tap Switch to Landlord POV — you’ll land on New Registrants / Waiting to Connect without choosing a role again.'
@@ -73,10 +86,62 @@ export function getPublicDemoRole(): WelcomeRole | null {
   }
 }
 
+function tourNoticeStorageKey(pov: DemoTourNoticePov): string {
+  return pov === 'landlord'
+    ? PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY
+    : PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY
+}
+
+function clearDemoTourNoticeState(): void {
+  try {
+    sessionStorage.removeItem(PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY)
+    sessionStorage.removeItem(PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Whether the one-time tour notice has already been dismissed for this POV. */
+export function hasSeenDemoTourNotice(pov: DemoTourNoticePov): boolean {
+  try {
+    return sessionStorage.getItem(tourNoticeStorageKey(pov)) === '1'
+  } catch {
+    return true
+  }
+}
+
+export function markDemoTourNoticeSeen(pov: DemoTourNoticePov): void {
+  try {
+    sessionStorage.setItem(tourNoticeStorageKey(pov), '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Expand/highlight Menu → Take the tour while the optional-tour notice is visible. */
+export function setDemoTourNoticeHighlight(
+  active: boolean,
+  menuScope: DemoTourNoticeHighlightDetail['menuScope'] = 'any'
+): void {
+  try {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(
+      new CustomEvent<DemoTourNoticeHighlightDetail>(DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT, {
+        detail: { active, menuScope },
+      })
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Mark the browser session as a public demo. Pass a role once the visitor chooses a POV. */
 export function markPublicDemoSession(role?: WelcomeRole | null): void {
   try {
+    const wasActive = sessionStorage.getItem(PUBLIC_DEMO_SESSION_KEY) === '1'
     sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
+    // New demo session — reset one-time per-POV tour notices.
+    if (!wasActive) clearDemoTourNoticeState()
     if (role === 'landlord' || role === 'tenant') {
       sessionStorage.setItem(PUBLIC_DEMO_ROLE_KEY, role)
     } else {
@@ -98,6 +163,7 @@ export function clearPublicDemoSession(): void {
     sessionStorage.removeItem(PUBLIC_DEMO_APPLICANT_NAME_KEY)
     sessionStorage.removeItem(PUBLIC_DEMO_NEW_REGISTRANTS_CUE_KEY)
     sessionStorage.removeItem(PUBLIC_DEMO_PENDING_TENANT_CUE_KEY)
+    clearDemoTourNoticeState()
   } catch {
     /* ignore */
   }
