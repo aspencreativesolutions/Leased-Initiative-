@@ -521,7 +521,7 @@ export function formatLeasedDemoLogins() {
   return lines.join('\n')
 }
 
-function isLeasedDemoEmail(email) {
+export function isLeasedDemoEmail(email) {
   const normalized = email?.trim().toLowerCase()
   return Boolean(normalized && LEASED_DEMO_USERS.some((d) => d.email === normalized))
 }

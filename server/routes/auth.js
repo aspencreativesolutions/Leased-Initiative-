@@ -22,7 +22,9 @@ import {
 import { pushAdminNotification } from '../lib/notifications.js'
 import { DEFAULT_PORTAL_THEME_ID, isThemeId } from '../lib/themeIds.js'
 import { getSandboxStore } from '../lib/demoSandbox.js'
-import { LEASED_DEMO_USERS } from '../lib/leasedDemoUsers.js'
+import { preparePublicDemoStore } from '../lib/demoAccess.js'
+import { LEASED_DEMO_USERS, isLeasedDemoEmail } from '../lib/leasedDemoUsers.js'
+import { SAMPLE_CLIENT_EMAILS } from '../lib/sampleClientDates.js'
 import {
   buildLandlordAgencies,
   findValidTenantInvite,
@@ -377,6 +379,18 @@ router.post('/resend-verification', async (req, res) => {
   }
 })
 
+function isPublicDemoEligibleUser(user, normalizedEmail) {
+  if (!user) return false
+  if (user.isLeasedDemoUser === true || user.isSamplePortalUser === true) return true
+  if (isLeasedDemoEmail(normalizedEmail)) return true
+  if (SAMPLE_CLIENT_EMAILS.has(normalizedEmail)) return true
+  return LEASED_DEMO_USERS.some((d) => d.email === normalizedEmail)
+}
+
+function findUserInStore(store, normalizedEmail) {
+  return store?.users?.find((u) => u.email === normalizedEmail) ?? null
+}
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password, publicDemo } = req.body
@@ -386,8 +400,18 @@ router.post('/login', async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase()
     const wantPublicDemo = publicDemo === true
-    const store = wantPublicDemo ? getSandboxStore() || readStore() : readStore()
-    const user = store.users?.find((u) => u.email === normalizedEmail)
+
+    let store = wantPublicDemo ? getSandboxStore() || readStore() : readStore()
+    let user = findUserInStore(store, normalizedEmail)
+
+    // Public demo on serverless hosts can land on a fresh instance with an empty
+    // in-memory sandbox — reseed before failing the POV picker.
+    if (wantPublicDemo && !user) {
+      await preparePublicDemoStore()
+      store = getSandboxStore() || readStore()
+      user = findUserInStore(store, normalizedEmail)
+    }
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
@@ -405,9 +429,7 @@ router.post('/login', async (req, res) => {
       })
     }
 
-    const isDemo =
-      user.isLeasedDemoUser === true ||
-      LEASED_DEMO_USERS.some((d) => d.email === normalizedEmail)
+    const isDemo = isPublicDemoEligibleUser(user, normalizedEmail)
 
     if (wantPublicDemo && !isDemo) {
       return res.status(403).json({
