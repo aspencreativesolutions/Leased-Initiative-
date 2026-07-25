@@ -79,7 +79,7 @@ export function PortalPayRentSection({
     <section
       className={
         embedded
-          ? 'mx-auto w-full max-w-xl px-1 text-center'
+          ? 'w-full min-w-0 px-1 text-center'
           : 'mx-auto max-w-lg px-2 py-10 text-center sm:py-14'
       }
       data-onboarding="portal-pay-rent"

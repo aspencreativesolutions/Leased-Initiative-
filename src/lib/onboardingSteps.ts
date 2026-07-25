@@ -26,6 +26,8 @@ export interface OnboardingStep {
   route?: string
   /** Landlord tour section — used for top jump navigation */
   section?: AdminTourSectionId
+  /** Centered wrap-up card — no spotlight; ends the tour when continued */
+  completion?: boolean
   when?: (ctx: OnboardingContext) => boolean
 }
 
@@ -113,8 +115,17 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-notifications"]',
     title: 'Stay informed automatically',
     description:
-      'Important updates, reminders, and deadline alerts appear here. You will also receive email reminders when deadlines approach. You have finished the tour — press the forward arrow or Enter to close it.',
+      'Important updates, reminders, and deadline alerts appear here. You will also receive email reminders when deadlines approach.',
     placement: 'bottom',
+  },
+  {
+    id: 'tour-complete',
+    target: '[data-onboarding="portal-nav"]',
+    title: 'Tour complete',
+    description:
+      "You're all set. Explore your portal on your own — reopen this walkthrough anytime with the Tour button in the toolbar.",
+    placement: 'bottom',
+    completion: true,
   },
 ]
 
@@ -284,10 +295,21 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-style"]',
     title: 'App Style',
     description:
-      'Pick a visual finish for the landlord studio — previews apply instantly. Restart this tour anytime with the Tour button beside Settings.',
+      'Pick a visual finish for the landlord studio — previews apply instantly.',
     placement: 'bottom',
     route: '/studio/settings?tab=style',
     section: 'settings',
+  },
+  {
+    id: 'tour-complete',
+    target: '[data-onboarding="admin-settings-style"]',
+    title: 'Tour complete',
+    description:
+      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime with the Tour button beside Settings.",
+    placement: 'bottom',
+    route: '/studio/settings?tab=style',
+    section: 'settings',
+    completion: true,
   },
 ]
 

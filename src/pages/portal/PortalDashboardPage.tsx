@@ -40,9 +40,9 @@ export function PortalDashboardPage() {
 
   if (!data.linked) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="w-full min-w-0">
         <TenantPortalHeading />
-        <div className="paper-box mx-auto mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10">
+        <div className="paper-box mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10">
           <p className="text-base font-medium text-ink sm:text-lg">Hello there</p>
           <p className="mt-6 text-sm text-ink-muted">
             Your rent payment schedule will appear once your lease is set.
@@ -119,7 +119,7 @@ export function PortalDashboardPage() {
   const rentReady = Boolean(data.rentPayment)
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full min-w-0">
       <TenantPortalHeading />
       {leaseActiveTag}
 
@@ -163,7 +163,7 @@ export function PortalDashboardPage() {
         />
       </div>
 
-      <div className="mx-auto max-w-lg">
+      <div className="w-full min-w-0">
         <PortalInvoiceSection invoice={data.invoice} title="Deposit Invoice" />
         {data.remainingBalance && (
           <PortalRemainingBalanceSection balance={data.remainingBalance} />
@@ -171,7 +171,7 @@ export function PortalDashboardPage() {
         <PortalInvoiceSection invoice={data.finalInvoice} title="Final Invoice" />
       </div>
 
-      <div className="mx-auto mt-2 max-w-lg">
+      <div className="mt-2 w-full min-w-0">
         <PortalProjectFilesSection
           className="mt-0"
           projectName={address || data.client?.projectName || 'your lease'}

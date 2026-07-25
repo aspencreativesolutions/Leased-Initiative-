@@ -187,7 +187,8 @@ export function OnboardingTour({
     height: TOOLTIP_FALLBACK_HEIGHT,
   })
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const advancingRef = useRef(false)
+  /** Prevents auto-restart after Exit / finish even before the dismiss API returns */
+  const dismissedLocallyRef = useRef(false)
   const onForceStartHandledRef = useRef(onForceStartHandled)
   onForceStartHandledRef.current = onForceStartHandled
 
@@ -202,10 +203,12 @@ export function OnboardingTour({
   const currentSection = currentStep?.section
   const isFirstStep = stepIndex <= 0
   const isLastStep = stepIndex >= tourSteps.length - 1
+  const isCompletionStep = Boolean(currentStep?.completion)
 
   const beginTour = useCallback(
     (steps: OnboardingStep[], preferredStepId?: string | null) => {
       if (steps.length === 0) return
+      dismissedLocallyRef.current = false
       const remembered = preferredStepId ?? (role === 'admin' ? readRememberedStepId() : null)
       let index = 0
       if (remembered) {
@@ -236,7 +239,7 @@ export function OnboardingTour({
   )
 
   const refreshSpotlight = useCallback(() => {
-    if (!currentStep) {
+    if (!currentStep || currentStep.completion) {
       setSpotlight(null)
       return
     }
@@ -259,6 +262,7 @@ export function OnboardingTour({
   useEffect(() => {
     if (!forceStart) return
     let cancelled = false
+    dismissedLocallyRef.current = false
     ;(async () => {
       let next: OnboardingProgress = { completedSteps: [] }
       try {
@@ -280,10 +284,14 @@ export function OnboardingTour({
   /** Auto-start for first-time users who have not dismissed (skip in admin/dev tooling mode) */
   useEffect(() => {
     if (adminMode || forceStart || active) return
+    if (dismissedLocallyRef.current) return
     if (!progress || progress.dismissedAt) return
     if (pendingSteps.length === 0) return
     const steps = tourPathSteps(allSteps, context)
-    const timer = setTimeout(() => beginTour(steps, pendingSteps[0]?.id), 800)
+    const timer = setTimeout(() => {
+      if (dismissedLocallyRef.current) return
+      beginTour(steps, pendingSteps[0]?.id)
+    }, 800)
     return () => clearTimeout(timer)
   }, [
     progress,
@@ -343,8 +351,15 @@ export function OnboardingTour({
     async (stepId: string) => {
       try {
         const next = await updateOnboardingProgress(role, { stepId, complete: true })
-        setProgress(next)
-        await refreshUser()
+        setProgress((prev) => ({
+          ...next,
+          // Keep a local dismiss if a concurrent complete response races ahead of dismiss.
+          dismissedAt: prev?.dismissedAt ?? next.dismissedAt,
+          completedAt: prev?.completedAt ?? next.completedAt,
+        }))
+        if (!dismissedLocallyRef.current) {
+          await refreshUser()
+        }
       } catch (err) {
         // Tour navigation must not freeze if the progress API is slow or offline.
         console.warn('onboarding progress save failed', err)
@@ -358,43 +373,58 @@ export function OnboardingTour({
     setTourSteps([])
     setSpotlight(null)
     rememberStepId(null)
-    advancingRef.current = false
   }, [])
+
+  /** Close the tour immediately and permanently (Exit or finish). Persist dismiss in background. */
+  const finishTour = useCallback(() => {
+    dismissedLocallyRef.current = true
+    const now = new Date().toISOString()
+    setProgress((prev) => ({
+      completedSteps: prev?.completedSteps ?? [],
+      completedAt: prev?.completedAt ?? now,
+      dismissedAt: prev?.dismissedAt ?? now,
+    }))
+    endTour()
+    void updateOnboardingProgress(role, { dismiss: true })
+      .then(async (next) => {
+        setProgress((prev) => ({
+          ...next,
+          dismissedAt: next.dismissedAt ?? prev?.dismissedAt ?? now,
+          completedAt: next.completedAt ?? prev?.completedAt ?? now,
+        }))
+        try {
+          await refreshUser()
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch((err) => {
+        console.warn('onboarding dismiss save failed', err)
+      })
+  }, [role, refreshUser, endTour])
 
   const handleNext = useCallback(() => {
     if (!currentStep) return
     const stepId = currentStep.id
     const atEnd = stepIndex >= tourSteps.length - 1
     if (atEnd) {
-      endTour()
-    } else {
-      goToStepIndex(stepIndex + 1)
+      // Mark final step complete, then permanently close — never leave pending auto-start.
+      void completeStep(stepId)
+      finishTour()
+      return
     }
-    // Persist in the background — never block the next/prev controls on network.
+    goToStepIndex(stepIndex + 1)
     void completeStep(stepId)
-  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex, endTour])
+  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex, finishTour])
 
   const handleBack = useCallback(() => {
     if (stepIndex <= 0) return
     goToStepIndex(stepIndex - 1)
   }, [stepIndex, goToStepIndex])
 
-  const handleDismiss = useCallback(async () => {
-    if (advancingRef.current) return
-    advancingRef.current = true
-    try {
-      try {
-        const next = await updateOnboardingProgress(role, { dismiss: true })
-        setProgress(next)
-        await refreshUser()
-      } catch (err) {
-        console.warn('onboarding dismiss save failed', err)
-      }
-      endTour()
-    } finally {
-      advancingRef.current = false
-    }
-  }, [role, refreshUser, endTour])
+  const handleDismiss = useCallback(() => {
+    finishTour()
+  }, [finishTour])
 
   const handleJumpToSection = useCallback(
     (sectionId: AdminTourSectionId) => {
@@ -413,11 +443,7 @@ export function OnboardingTour({
         event.preventDefault()
         event.stopPropagation()
         if (event.repeat) return
-        if (isLastStep) {
-          void handleDismiss()
-        } else {
-          handleNext()
-        }
+        handleNext()
         return
       }
       if (event.key === 'ArrowLeft') {
@@ -426,28 +452,41 @@ export function OnboardingTour({
         if (event.repeat) return
         handleBack()
       }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.repeat) return
+        handleDismiss()
+      }
     }
 
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [active, handleNext, handleBack, handleDismiss, isLastStep])
+  }, [active, handleNext, handleBack, handleDismiss])
 
   if (!active || !currentStep) return null
 
-  const tooltipStyle = getTooltipPosition(
-    spotlight,
-    currentStep.placement ?? 'bottom',
-    tooltipSize
-  )
+  const tooltipStyle = isCompletionStep
+    ? {
+        top: Math.max(VIEWPORT_PAD, (window.innerHeight - tooltipSize.height) / 2),
+        left: clamp(
+          (window.innerWidth - TOOLTIP_WIDTH) / 2,
+          VIEWPORT_PAD,
+          Math.max(VIEWPORT_PAD, window.innerWidth - TOOLTIP_WIDTH - VIEWPORT_PAD)
+        ),
+      }
+    : getTooltipPosition(spotlight, currentStep.placement ?? 'bottom', tooltipSize)
   const stepNumber = stepIndex + 1
   const totalSteps = tourSteps.length
-  const showSectionNav = role === 'admin'
+  const showSectionNav = role === 'admin' && !isCompletionStep
+  const continueLabel =
+    isPublicDemo || user?.publicDemo ? 'Continue to manual demo' : 'Continue exploring'
   const tooltipPositionStyle: CSSProperties = {
     top: tooltipStyle.top,
     left: tooltipStyle.left,
-    width: TOOLTIP_WIDTH,
+    width: isCompletionStep ? Math.min(TOOLTIP_WIDTH + 40, window.innerWidth - VIEWPORT_PAD * 2) : TOOLTIP_WIDTH,
   }
 
   return (
@@ -456,7 +495,7 @@ export function OnboardingTour({
         <defs>
           <mask id="onboarding-spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {spotlight ? (
+            {spotlight && !isCompletionStep ? (
               <rect
                 x={spotlight.left}
                 y={spotlight.top}
@@ -510,7 +549,7 @@ export function OnboardingTour({
         </div>
       ) : null}
 
-      {spotlight ? (
+      {spotlight && !isCompletionStep ? (
         <div
           className="pointer-events-none absolute rounded-[var(--radius-md)] border-[length:var(--border-width)] border-brand shadow-[0_0_0_4px_rgba(30,77,107,0.25)]"
           style={{
@@ -524,52 +563,89 @@ export function OnboardingTour({
 
       <div
         ref={tooltipRef}
-        className="absolute z-[102] w-80 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift"
+        className={cn(
+          'absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift',
+          isCompletionStep ? 'w-[min(22.5rem,calc(100vw-2rem))] p-5 text-center sm:p-6' : 'w-80'
+        )}
         style={tooltipPositionStyle}
       >
-        <div className="mb-2 flex items-center gap-2">
+        <div
+          className={cn(
+            'mb-2 flex items-center gap-2',
+            isCompletionStep && 'justify-center'
+          )}
+        >
           <Compass className="h-4 w-4 shrink-0 text-brand" />
           <p className="text-[10px] font-bold uppercase tracking-caps text-brand">
-            {isLastStep ? 'Final step' : `Step ${stepNumber} of ${totalSteps}`}
+            {isCompletionStep
+              ? 'All done'
+              : isLastStep
+                ? 'Final step'
+                : `Step ${stepNumber} of ${totalSteps}`}
           </p>
         </div>
 
-        <h3 className="font-display text-lg font-semibold text-ink">{currentStep.title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-ink-muted">{currentStep.description}</p>
+        <h3
+          className={cn(
+            'font-display font-semibold text-ink',
+            isCompletionStep ? 'text-xl' : 'text-lg'
+          )}
+        >
+          {currentStep.title}
+        </h3>
+        <p
+          className={cn(
+            'mt-2 text-sm leading-relaxed text-ink-muted',
+            isCompletionStep && 'mx-auto max-w-[18rem]'
+          )}
+        >
+          {currentStep.description}
+        </p>
 
         {isLastStep ? (
-          <div className="mt-4 space-y-3">
+          <div className={cn('mt-4 space-y-3', isCompletionStep && 'space-y-4')}>
             <button
               type="button"
-              onClick={() => void handleDismiss()}
+              onClick={handleNext}
               className="tour-continue-demo-btn w-full rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-lift focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              {isPublicDemo || user?.publicDemo ? 'Continue to manual demo' : 'Continue exploring'}
+              {continueLabel}
             </button>
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => void handleDismiss()}
-                className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
-              >
-                Exit Tour
-              </button>
+            {!isCompletionStep ? (
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+                >
+                  Exit Tour
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={isFirstStep}
+                  className={NAV_ARROW_CLASS}
+                  aria-label="Previous tour step"
+                >
+                  <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={isFirstStep}
-                className={NAV_ARROW_CLASS}
-                aria-label="Previous tour step"
+                className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
               >
-                <ChevronLeft className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                Back to last tip
               </button>
-            </div>
+            )}
           </div>
         ) : (
           <div className="mt-4 flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => void handleDismiss()}
+              onClick={handleDismiss}
               className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
             >
               Exit Tour

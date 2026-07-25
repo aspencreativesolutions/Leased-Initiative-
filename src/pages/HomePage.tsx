@@ -143,15 +143,18 @@ export function HomePage() {
   const demoCodeId = useId()
   const quickAccessPanelId = useId()
   const demoInputRef = useRef<HTMLInputElement>(null)
+  const demoTileRef = useRef<HTMLFormElement>(null)
   const quickAccessRef = useRef<HTMLDivElement>(null)
   const quickAccessPanelRef = useRef<HTMLDivElement>(null)
   const quickAccessPhaseRef = useRef<QuickAccessPhase>('closed')
   const quickAccessPendingRef = useRef<'open' | 'closed' | null>(null)
+  const demoHighlightTimerRef = useRef<number | null>(null)
 
   const [authIntent, setAuthIntent] = useState<AuthIntent>(null)
   const [demoCode, setDemoCode] = useState('')
   const [demoError, setDemoError] = useState('')
   const [demoSubmitting, setDemoSubmitting] = useState(false)
+  const [demoTileHighlight, setDemoTileHighlight] = useState(false)
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null)
   const [adminUnlockOpen, setAdminUnlockOpen] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
@@ -201,8 +204,17 @@ export function HomePage() {
     }
   }, [])
 
+  const clearDemoTileHighlight = useCallback(() => {
+    if (demoHighlightTimerRef.current != null) {
+      window.clearTimeout(demoHighlightTimerRef.current)
+      demoHighlightTimerRef.current = null
+    }
+    setDemoTileHighlight(false)
+  }, [])
+
   const closeQuickAccess = useCallback(() => {
     setAuthIntent(null)
+    clearDemoTileHighlight()
     const current = quickAccessPhaseRef.current
     if (current === 'closed') {
       quickAccessPendingRef.current = null
@@ -218,11 +230,46 @@ export function HomePage() {
     }
     quickAccessPhaseRef.current = 'closing'
     setQuickAccessPhase('closing')
+  }, [clearDemoTileHighlight])
+
+  const openQuickAccess = useCallback(() => {
+    setKeyIdleAnimation(false)
+    const current = quickAccessPhaseRef.current
+    if (current === 'open' || current === 'opening') {
+      quickAccessPendingRef.current = null
+      return
+    }
+    if (current === 'closing') {
+      quickAccessPendingRef.current = 'open'
+      return
+    }
+    quickAccessPendingRef.current = null
+    quickAccessPhaseRef.current = 'opening'
+    setQuickAccessPhase('opening')
   }, [])
+
+  const guideToDemoCode = useCallback(() => {
+    openQuickAccess()
+    // Drop then re-apply so the rim animation restarts on repeat clicks.
+    setDemoTileHighlight(false)
+    if (demoHighlightTimerRef.current != null) {
+      window.clearTimeout(demoHighlightTimerRef.current)
+      demoHighlightTimerRef.current = null
+    }
+    window.requestAnimationFrame(() => {
+      setDemoTileHighlight(true)
+      // Three soft rim pulses (~1.6s each), then settle.
+      demoHighlightTimerRef.current = window.setTimeout(() => {
+        setDemoTileHighlight(false)
+        demoHighlightTimerRef.current = null
+      }, 4800)
+    })
+  }, [openQuickAccess])
 
   const toggleQuickAccess = useCallback(() => {
     setKeyIdleAnimation(false)
     setAuthIntent(null)
+    clearDemoTileHighlight()
     const current = quickAccessPhaseRef.current
     if (current === 'closed') {
       quickAccessPendingRef.current = null
@@ -238,7 +285,7 @@ export function HomePage() {
     }
     // Finish the in-flight animation, then honor the latest intent.
     quickAccessPendingRef.current = current === 'opening' ? 'closed' : 'open'
-  }, [])
+  }, [clearDemoTileHighlight])
 
   useEffect(() => {
     if (loading || !user) return
@@ -294,6 +341,23 @@ export function HomePage() {
     if (quickAccessInteractive) panel.removeAttribute('inert')
     else panel.setAttribute('inert', '')
   }, [quickAccessInteractive])
+
+  useEffect(() => {
+    if (!demoTileHighlight || quickAccessPhase !== 'open') return
+    const frame = window.requestAnimationFrame(() => {
+      demoTileRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      demoInputRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [demoTileHighlight, quickAccessPhase])
+
+  useEffect(() => {
+    return () => {
+      if (demoHighlightTimerRef.current != null) {
+        window.clearTimeout(demoHighlightTimerRef.current)
+      }
+    }
+  }, [])
 
   const handleDemoSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -473,10 +537,14 @@ export function HomePage() {
             </div>
 
             <form
+              ref={demoTileRef}
               onSubmit={(e) => {
                 void handleDemoSubmit(e)
               }}
-              className="home-demo-tile flex flex-col items-center gap-2.5"
+              className={cn(
+                'home-demo-tile flex flex-col items-center gap-2.5',
+                demoTileHighlight && 'home-demo-tile--highlight'
+              )}
             >
               <label
                 htmlFor={demoCodeId}
@@ -492,6 +560,7 @@ export function HomePage() {
                 onChange={(e) => {
                   setDemoCode(e.target.value)
                   if (demoError) setDemoError('')
+                  if (demoTileHighlight) clearDemoTileHighlight()
                 }}
                 autoComplete="off"
                 spellCheck={false}
@@ -582,12 +651,13 @@ export function HomePage() {
             >
               Terms of Service
             </Link>
-            <Link
-              to="/welcome"
+            <button
+              type="button"
+              onClick={guideToDemoCode}
               className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
             >
               Guided product tour
-            </Link>
+            </button>
           </div>
         </footer>
       </div>

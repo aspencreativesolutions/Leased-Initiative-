@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/FormField'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 import { isPublicDemoSession } from '@/lib/publicDemo'
 
 type DemoLoginState = {
@@ -59,9 +58,8 @@ export function LoginPage() {
   }, [])
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface">
-      <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+      <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink font-display text-2xl font-bold">
             L
@@ -119,10 +117,7 @@ export function LoginPage() {
             </Link>
           </p>
         </Card>
-        </div>
       </div>
-
-      <PaymentPartnerLogos />
     </div>
   )
 }

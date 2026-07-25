@@ -15,7 +15,6 @@ import {
   type LeaseLengthMonths,
 } from '@/lib/leaseSchedule'
 import { loadStoredPortalThemeId } from '@/themes/applyTheme'
-import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 
 interface AgencyOption {
   name: string
@@ -460,8 +459,6 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             </Link>
           </p>
         </Card>
-
-        {mode === 'client' && <PaymentPartnerLogos />}
       </div>
       </div>
     </div>

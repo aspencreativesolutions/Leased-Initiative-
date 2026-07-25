@@ -11,6 +11,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PortalLayout } from '@/components/layout/PortalLayout'
 import { AdminModeFab } from '@/components/admin/AdminModeFab'
 import { PublicDemoPovFab } from '@/components/auth/PublicDemoPovFab'
+import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 import { HomePage } from '@/pages/HomePage'
 import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
 import { DemoPovPage } from '@/pages/demo/DemoPovPage'
@@ -53,6 +54,7 @@ export default function App() {
                 <PortalThemeSync />
                 <AdminModeFab />
                 <PublicDemoPovFab />
+                <PaymentPartnerLogos />
                 <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />

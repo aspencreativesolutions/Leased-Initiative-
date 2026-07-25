@@ -24,6 +24,17 @@
       color 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* Clearance for fixed PaymentPartnerLogos on pre-dashboard screens */
+  body.has-secure-payments-footer {
+    padding-bottom: 6.5rem;
+  }
+
+  @media (min-width: 640px) {
+    body.has-secure-payments-footer {
+      padding-bottom: 7rem;
+    }
+  }
+
   #root {
     width: 100%;
     max-width: 100%;
@@ -1509,6 +1520,42 @@
     text-align: center;
     backdrop-filter: blur(2px);
     box-shadow: 0 14px 36px -28px rgb(0 0 0 / 0.35);
+  }
+
+  /* Soft animated rim — directs attention from footer “Guided product tour” */
+  @keyframes home-demo-tile-rim {
+    0%,
+    100% {
+      border-color: color-mix(in srgb, var(--brand) 42%, transparent);
+      box-shadow:
+        0 14px 36px -28px rgb(0 0 0 / 0.35),
+        0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    }
+    50% {
+      border-color: color-mix(in srgb, var(--brand) 68%, transparent);
+      box-shadow:
+        0 14px 36px -28px rgb(0 0 0 / 0.35),
+        0 0 0 3px color-mix(in srgb, var(--brand) 26%, transparent);
+    }
+  }
+
+  .home-demo-tile--highlight {
+    border-color: color-mix(in srgb, var(--brand) 55%, transparent);
+    will-change: box-shadow, border-color;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .home-demo-tile--highlight {
+      animation: home-demo-tile-rim 1.6s ease-in-out 3;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .home-demo-tile--highlight {
+      box-shadow:
+        0 14px 36px -28px rgb(0 0 0 / 0.35),
+        0 0 0 2px color-mix(in srgb, var(--brand) 30%, transparent);
+    }
   }
 
   .home-demo-tile__input {
