@@ -59,6 +59,15 @@ function isPlainYmd(value) {
   return !Number.isNaN(parsed.getTime())
 }
 
+export { isPlainYmd }
+
+/** Lease start must be strictly after asOf’s calendar day (future dates only). */
+export function isFutureLeaseStartDate(ymd, asOf = new Date()) {
+  if (!isPlainYmd(ymd)) return false
+  const asOfYmd = formatYmd(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
+  return ymd.slice(0, 10) > asOfYmd
+}
+
 /** Inclusive month span for a lease term (Jan 1–Dec 31 → 12). */
 export function monthsBetweenLeaseDates(startYmd, endYmd) {
   const start = parseYmd(startYmd.slice(0, 10))

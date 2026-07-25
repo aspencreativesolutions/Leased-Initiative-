@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Loader2, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -13,10 +13,14 @@ import { useAuth } from '@/context/AuthContext'
 import { CORE_MOCK_USERS, getMockPassword } from '@/lib/adminMode'
 import type { DemoTenantPovOption } from '@/lib/demoTenantPov'
 import {
+  DEMO_AVA_NAME,
   exitPublicDemo,
   isPublicDemoSession,
   markDemoPovIntroPlayed,
   markPublicDemoSession,
+  peekDemoApplicantName,
+  peekWaitingConnectHighlightEmail,
+  requestNewRegistrantsDemoCue,
 } from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
@@ -33,6 +37,7 @@ export function DemoPovPage() {
   const [busyTenantKey, setBusyTenantKey] = useState<string | null>(null)
   const [error, setError] = useState('')
   const didSoftLogout = useRef(false)
+  const autoLandlordStarted = useRef(false)
 
   useEffect(() => {
     if (loading) return
@@ -50,8 +55,73 @@ export function DemoPovPage() {
   useEffect(() => {
     if (searchParams.get('pick') === 'tenant') {
       setStep('tenant')
+    } else if (!searchParams.get('pick')) {
+      setStep('role')
     }
   }, [searchParams])
+
+  const beginAsLandlord = useCallback(async () => {
+    if (startingRole || busyTenantKey) return
+    setError('')
+    setStartingRole('landlord')
+    didSoftLogout.current = true
+    try {
+      const mock = CORE_MOCK_USERS.find((m) => m.key === 'landlord')
+      if (!mock) throw new Error('Demo account unavailable')
+
+      markPublicDemoSession('landlord')
+      markDemoPovIntroPlayed()
+      await login(mock.email, getMockPassword(mock.email), {
+        publicDemo: true,
+      })
+      const highlightEmail = peekWaitingConnectHighlightEmail()
+      if (highlightEmail) {
+        requestNewRegistrantsDemoCue(peekDemoApplicantName() || DEMO_AVA_NAME)
+        navigate('/studio/clients#tenants-waiting-connect', { replace: true })
+      } else {
+        navigate('/studio', { replace: true })
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open the demo')
+      setStartingRole(null)
+      autoLandlordStarted.current = false
+    }
+  }, [busyTenantKey, login, navigate, startingRole])
+
+  // After Ava (or any tenant) submits an application: land here with ?role=landlord
+  // and open the landlord dashboard without asking to pick a role again.
+  useEffect(() => {
+    if (loading || !isPublicDemoSession()) return
+    if (searchParams.get('role') !== 'landlord') return
+    if (autoLandlordStarted.current || startingRole === 'landlord') return
+    // Wait until soft-logout finished so we don't fight the session clear.
+    if (user) return
+    autoLandlordStarted.current = true
+    void beginAsLandlord()
+  }, [loading, searchParams, user, startingRole, beginAsLandlord])
+
+  const beginAsTenant = useCallback(
+    async (option: DemoTenantPovOption) => {
+      if (busyTenantKey || startingRole === 'landlord') return
+      setError('')
+      setBusyTenantKey(option.key)
+      setStartingRole('tenant')
+      didSoftLogout.current = true
+      try {
+        markPublicDemoSession('tenant')
+        markDemoPovIntroPlayed()
+        const nextUser = await login(option.email, getMockPassword(option.email), {
+          publicDemo: true,
+        })
+        navigate(nextUser.role === 'admin' ? '/studio' : '/portal', { replace: true })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not open the tenant demo')
+        setBusyTenantKey(null)
+        setStartingRole(null)
+      }
+    },
+    [busyTenantKey, login, navigate, startingRole]
+  )
 
   const goToRoleStep = () => {
     setStep('role')
@@ -75,48 +145,6 @@ export function DemoPovPage() {
     setSearchParams(next, { replace: true })
   }
 
-  const beginAsLandlord = async () => {
-    if (startingRole || busyTenantKey) return
-    setError('')
-    setStartingRole('landlord')
-    // Prevent the arrival soft-logout from clearing this intentional sign-in
-    didSoftLogout.current = true
-    try {
-      const mock = CORE_MOCK_USERS.find((m) => m.key === 'landlord')
-      if (!mock) throw new Error('Demo account unavailable')
-
-      markPublicDemoSession('landlord')
-      markDemoPovIntroPlayed()
-      const nextUser = await login(mock.email, getMockPassword(mock.email), {
-        publicDemo: true,
-      })
-      navigate(nextUser.role === 'admin' ? '/studio' : '/portal', { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open the demo')
-      setStartingRole(null)
-    }
-  }
-
-  const beginAsTenant = async (option: DemoTenantPovOption) => {
-    if (busyTenantKey || startingRole === 'landlord') return
-    setError('')
-    setBusyTenantKey(option.key)
-    setStartingRole('tenant')
-    didSoftLogout.current = true
-    try {
-      markPublicDemoSession('tenant')
-      markDemoPovIntroPlayed()
-      const nextUser = await login(option.email, getMockPassword(option.email), {
-        publicDemo: true,
-      })
-      navigate(nextUser.role === 'admin' ? '/studio' : '/portal', { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open the tenant demo')
-      setBusyTenantKey(null)
-      setStartingRole(null)
-    }
-  }
-
   const handleExit = async () => {
     logout()
     await exitPublicDemo()
@@ -132,6 +160,21 @@ export function DemoPovPage() {
   }
 
   const selecting = startingRole === 'landlord' || busyTenantKey !== null
+  const autoStartingLandlord = searchParams.get('role') === 'landlord'
+
+  if (autoStartingLandlord) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-surface text-ink-muted">
+        <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+        <p className="text-sm">Opening landlord demo…</p>
+        {error ? (
+          <p className="text-sm font-medium text-accent" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface text-ink">
@@ -223,13 +266,16 @@ export function DemoPovPage() {
                   Back to roles
                 </button>
                 <div className="max-w-2xl">
+                  <p className="mb-2 inline-flex rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2.5 py-1 text-[11px] font-semibold text-brand">
+                    Featured · Ava Mitchell · Start Application stage
+                  </p>
                   <h1 className="heading-display text-3xl font-bold tracking-tight sm:text-4xl">
                     Choose a tenant scenario.
                   </h1>
                   <p className="mt-3 text-base leading-relaxed text-ink-muted sm:text-lg">
-                    Each card is a different mock user — review the address, lease dates, and
-                    payment details, then open that point of view. Switch POV anytime to pick
-                    another tenant or return to the landlord.
+                    Open a scenario section to browse mock users and their status. Expand a user
+                    for the full card — Ava Mitchell is ready at Start Application — then click
+                    the card to open that point of view.
                   </p>
                 </div>
               </div>
@@ -259,7 +305,7 @@ export function DemoPovPage() {
             ? 'Pick a tenant scenario, or go back for landlord.'
             : 'Choose a role to start your demo.'
         }
-        subtitle="Exit demo anytime. After you enter a dashboard, Switch POV brings you back here."
+        subtitle="Exit demo anytime. After a tenant application, Switch to Landlord POV opens the landlord side directly."
         action={
           <Button
             type="button"

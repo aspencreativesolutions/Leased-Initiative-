@@ -16,7 +16,9 @@ import {
 } from '../lib/emailVerification.js'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
+  isFutureLeaseStartDate,
   isLeaseLengthMonths,
+  isPlainYmd,
   parseLeaseLengthMonths,
 } from '../lib/leaseSchedule.js'
 import { pushAdminNotification } from '../lib/notifications.js'
@@ -32,6 +34,7 @@ import {
   findValidTenantInviteByCode,
   getTenantDiscoveryMode,
   markTenantInviteUsed,
+  publicInvitePayload,
 } from '../lib/tenantInvites.js'
 import { availableApplicantSlotsAtAddress } from '../lib/rentalOccupancy.js'
 
@@ -113,14 +116,7 @@ router.get('/invite/:token', (req, res) => {
     if (!invite) {
       return res.status(404).json({ error: 'This invite link is invalid or has expired' })
     }
-    const agency = buildAgencyForInvite(store, invite)
-    res.json({
-      landlordCompany: invite.landlordCompany,
-      propertyAddress: invite.propertyAddress ?? null,
-      connectionCode: invite.connectionCode ?? null,
-      agency,
-      discoveryMode: getTenantDiscoveryMode(store),
-    })
+    res.json(publicInvitePayload(store, invite))
   } catch (err) {
     console.error('invite lookup', err)
     res.status(500).json({ error: 'Could not load invite' })
@@ -138,18 +134,156 @@ router.get('/invite-code/:code', (req, res) => {
         error: 'This connection code is invalid, already used, or has expired',
       })
     }
-    const agency = buildAgencyForInvite(store, invite)
-    res.json({
-      inviteToken: invite.token,
-      landlordCompany: invite.landlordCompany,
-      propertyAddress: invite.propertyAddress ?? null,
-      connectionCode: invite.connectionCode ?? null,
-      agency,
-      discoveryMode: getTenantDiscoveryMode(store),
-    })
+    res.json(publicInvitePayload(store, invite))
   } catch (err) {
     console.error('invite-code lookup', err)
     res.status(500).json({ error: 'Could not load connection code' })
+  }
+})
+
+const PAYMENT_METHODS = new Set(['paypal', 'stripe', 'square'])
+
+/**
+ * Streamlined invite claim: no password / full signup.
+ * Creates a verified tenant account from invite details + personal info,
+ * then returns a session so they land on the portal waiting dashboard.
+ */
+router.post('/claim-invite', async (req, res) => {
+  try {
+    const {
+      inviteToken,
+      connectionCode,
+      name,
+      email,
+      password,
+      preferredPropertyAddress,
+      preferredLeaseStartDate,
+      preferredPaymentMethod,
+    } = req.body ?? {}
+
+    const trimmedName = String(name ?? '').trim()
+    const normalizedEmail = String(email ?? '')
+      .trim()
+      .toLowerCase()
+    const rawPassword = String(password ?? '')
+    if (!trimmedName || !normalizedEmail) {
+      return res.status(400).json({ error: 'Name and email are required' })
+    }
+    if (rawPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' })
+    }
+    if (!PAYMENT_METHODS.has(preferredPaymentMethod)) {
+      return res.status(400).json({
+        error: 'Choose a payment method (PayPal, Stripe, or Square)',
+      })
+    }
+
+    const startDate = String(preferredLeaseStartDate ?? '')
+      .trim()
+      .slice(0, 10)
+    if (!isPlainYmd(startDate) || !isFutureLeaseStartDate(startDate)) {
+      return res.status(400).json({ error: 'Lease start date must be a future date' })
+    }
+
+    const store = readStore()
+    let invite = null
+    if (inviteToken) {
+      invite = findValidTenantInvite(store, String(inviteToken))
+      if (!invite) {
+        return res.status(400).json({ error: 'This invite link is invalid or has expired' })
+      }
+    } else if (connectionCode) {
+      invite = findValidTenantInviteByCode(store, String(connectionCode))
+      if (!invite) {
+        return res.status(400).json({
+          error: 'This connection code is invalid, already used, or has expired',
+        })
+      }
+    } else {
+      return res.status(400).json({ error: 'Invite token or connection code is required' })
+    }
+
+    let propertyAddress = String(preferredPropertyAddress ?? '').trim()
+    if (invite.propertyAddress) {
+      propertyAddress = invite.propertyAddress.trim()
+    }
+    if (!propertyAddress) {
+      return res.status(400).json({ error: 'Confirm the property for this invite' })
+    }
+
+    const agency = buildAgencyForInvite(store, invite)
+    const allowedProperties = agency?.properties ?? []
+    const invitePropertyOk =
+      Boolean(invite.propertyAddress) &&
+      invite.propertyAddress.trim().toLowerCase() === propertyAddress.toLowerCase()
+    if (
+      allowedProperties.length > 0 &&
+      !allowedProperties.includes(propertyAddress) &&
+      !invitePropertyOk
+    ) {
+      return res.status(400).json({ error: 'Select a property from the company’s list' })
+    }
+
+    const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
+    if (!capacity.available) {
+      return res.status(409).json({
+        error:
+          'That rental has no open occupancy right now. Ask your landlord for a new invite.',
+      })
+    }
+
+    if (store.users.some((u) => u.email === normalizedEmail)) {
+      return res.status(409).json({
+        error:
+          'An account with this email already exists. Sign in instead, or use a different email.',
+      })
+    }
+
+    const leaseLengthMonths = parseLeaseLengthMonths(
+      invite.leaseLengthMonths,
+      DEFAULT_LEASE_LENGTH_MONTHS
+    )
+    const passwordHash = await hashPassword(rawPassword)
+    const user = {
+      id: generateId(),
+      email: normalizedEmail,
+      passwordHash,
+      name: trimmedName,
+      role: 'client',
+      clientId: null,
+      phone: invite.phone || '',
+      preferredLeaseMonths: leaseLengthMonths,
+      preferredLeaseStartDate: startDate,
+      preferredLandlordCompany: invite.landlordCompany,
+      preferredPropertyAddress: propertyAddress,
+      preferredPaymentMethod,
+      inviteToken: invite.token,
+      inviteClaimed: true,
+      portalThemeId: DEFAULT_PORTAL_THEME_ID,
+      emailVerified: true,
+      emailVerifiedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }
+
+    updateStore((s) => {
+      let next = {
+        ...s,
+        users: [...s.users, user],
+      }
+      next = markTenantInviteUsed(next, invite.token, user.id)
+      return next
+    })
+
+    notifyAdminOfNewClient(user)
+
+    const token = signToken(user)
+    res.status(201).json({
+      token,
+      user: sanitizeUser(user),
+    })
+  } catch (err) {
+    console.error('claim-invite', err)
+    res.status(500).json({ error: 'Could not submit invite details' })
   }
 })
 

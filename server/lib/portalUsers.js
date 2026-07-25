@@ -3,12 +3,22 @@ import {
   completeLeaseGenerationIfDue,
   resolveLeaseAgreementAction,
 } from './contractDraft.js'
+import { applySendContract, shouldAutoSendLeaseDrafts } from './sendContract.js'
+
+/** True when an unlinked tenant has submitted agency + property preferences. */
+export function hasSubmittedPortalApplication(user) {
+  return Boolean(
+    String(user?.preferredLandlordCompany ?? '').trim() &&
+      String(user?.preferredPropertyAddress ?? '').trim()
+  )
+}
 
 export function isPendingPortalRegistration(user) {
   return (
     user?.role === 'client' &&
     !user.clientId &&
-    !user.registrationDismissed
+    !user.registrationDismissed &&
+    hasSubmittedPortalApplication(user)
   )
 }
 
@@ -23,7 +33,7 @@ export function resolveClientTimelineStage(client, contract) {
     client?.contractStatus !== 'Signed' &&
     client?.contractStatus !== 'Completed'
   ) {
-    return { id: 'lease_ready', label: 'Lease Ready' }
+    return { id: 'lease_ready', label: 'Lease Drafted' }
   }
 
   const steps = buildProjectTimeline(client, contract ?? null)
@@ -48,17 +58,41 @@ export function resolveClientTimelineStage(client, contract) {
 
 /**
  * Advance any due lease generations. Returns { store, changed }.
+ * When auto-send is enabled, newly ready drafts are sent immediately.
  * Callers that read overview should persist when changed.
  */
 export function advanceLeaseGenerations(store, now = Date.now()) {
   let changed = false
-  const contracts = (store.contracts ?? []).map((contract) => {
+  const autoSend = shouldAutoSendLeaseDrafts(store.settings)
+  const completedIds = []
+  let contracts = (store.contracts ?? []).map((contract) => {
     const next = completeLeaseGenerationIfDue(contract, now)
-    if (next !== contract) changed = true
+    if (next !== contract) {
+      changed = true
+      if (
+        autoSend &&
+        contract.leaseGenerationStatus === 'generating' &&
+        next.leaseGenerationStatus === 'ready' &&
+        !next.sentAt
+      ) {
+        completedIds.push(next.id)
+      }
+    }
     return next
   })
+
+  let nextStore = changed ? { ...store, contracts } : store
+
+  for (const contractId of completedIds) {
+    const sent = applySendContract(nextStore, contractId, new Date(now).toISOString())
+    if (sent) {
+      nextStore = sent.store
+      changed = true
+    }
+  }
+
   if (!changed) return { store, changed: false }
-  return { store: { ...store, contracts }, changed: true }
+  return { store: nextStore, changed: true }
 }
 
 export function buildPortalUsersOverview(store) {
@@ -72,11 +106,19 @@ export function buildPortalUsersOverview(store) {
       name: u.name,
       email: u.email,
       createdAt: u.createdAt,
+      applicationSubmittedAt: u.applicationSubmittedAt || u.createdAt,
       preferredLeaseMonths: u.preferredLeaseMonths,
       preferredLandlordCompany: u.preferredLandlordCompany,
       preferredPropertyAddress: u.preferredPropertyAddress,
+      preferredLeaseStartDate: u.preferredLeaseStartDate,
+      preferredPaymentMethod: u.preferredPaymentMethod,
+      phone: u.phone,
     }))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort((a, b) => {
+      const aAt = new Date(a.applicationSubmittedAt || a.createdAt).getTime()
+      const bAt = new Date(b.applicationSubmittedAt || b.createdAt).getTime()
+      return bAt - aAt
+    })
 
   const accepted = store.users
     .filter((u) => u.role === 'client' && u.clientId)
@@ -99,24 +141,25 @@ export function buildPortalUsersOverview(store) {
       const leaseSent =
         !leaseFullySigned &&
         leaseAction !== 'generating' &&
+        Boolean(contract?.sentAt) &&
         (client.contractStatus === 'Sent' ||
-          Boolean(contract?.sentAt) ||
           stage.id === 'contract_sent' ||
           stage.label === 'Lease Sent' ||
-          stage.label === 'Lease Resent')
+          stage.label === 'Lease Resent' ||
+          Boolean(contract?.resentAt))
       // Keep status + actions aligned: Lease Sent/Resent only when a lease exists and was sent (not a draft).
       const canShowLeaseSent =
         leaseSent &&
         leaseAction !== 'draft' &&
         leaseAction !== 'generating' &&
-        Boolean(contract)
+        Boolean(contract?.sentAt)
       const leaseSentLabel = contract?.resentAt ? 'Lease Resent' : 'Lease Sent'
       const alignedStage = canShowLeaseSent
         ? { id: 'contract_sent', label: leaseSentLabel }
         : leaseAction === 'generating'
           ? { id: 'lease_generating', label: 'Generating Lease Agreement' }
-          : stage.label === 'Lease Ready'
-            ? stage
+          : stage.label === 'Lease Drafted' || stage.label === 'Lease Ready'
+            ? { id: 'lease_ready', label: 'Lease Drafted' }
             : stage.label === 'Lease Sent' ||
                 stage.label === 'Lease Resent' ||
                 stage.label === 'Awaiting Signature'

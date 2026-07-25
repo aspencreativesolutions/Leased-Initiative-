@@ -53,6 +53,26 @@ function isUsableLeaseDate(value?: string): value is string {
   return !Number.isNaN(parsed.getTime())
 }
 
+function isPlainYmd(value?: string | null): value is string {
+  if (!value?.trim()) return false
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10))) return false
+  const parsed = parseYmd(value.slice(0, 10))
+  return !Number.isNaN(parsed.getTime())
+}
+
+/** Lease start must be strictly after asOf’s calendar day (future dates only). */
+export function isFutureLeaseStartDate(ymd: string, asOf: Date = new Date()): boolean {
+  if (!isPlainYmd(ymd)) return false
+  const asOfYmd = formatYmd(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
+  return ymd.slice(0, 10) > asOfYmd
+}
+
+/** Earliest selectable lease start (tomorrow) as YYYY-MM-DD. */
+export function earliestFutureLeaseStartDate(asOf: Date = new Date()): string {
+  const next = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate() + 1)
+  return formatYmd(next.getFullYear(), next.getMonth(), next.getDate())
+}
+
 /** Wall clock, or Demo Mode July date when a public demo session is active. */
 export function resolveScheduleAsOf(asOf?: Date): Date {
   if (asOf) return asOf
@@ -123,13 +143,6 @@ export function computeLeaseEndDate(startYmd: string, months: number): string {
   const end = new Date(endExclusive)
   end.setDate(end.getDate() - 1)
   return formatYmd(end.getFullYear(), end.getMonth(), end.getDate())
-}
-
-function isPlainYmd(value?: string | null): value is string {
-  if (!value?.trim()) return false
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10))) return false
-  const parsed = parseYmd(value.slice(0, 10))
-  return !Number.isNaN(parsed.getTime())
 }
 
 /** Inclusive month span for a lease term (Jan 1–Dec 31 → 12). */

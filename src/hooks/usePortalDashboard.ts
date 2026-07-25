@@ -40,5 +40,5 @@ export function usePortalDashboard() {
     }
   }, [load])
 
-  return { data, loading, error, refresh: () => load(true) }
+  return { data, loading, error, refresh: () => load(true), setData }
 }

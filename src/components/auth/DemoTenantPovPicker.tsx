@@ -1,4 +1,5 @@
-import { Loader2, MapPin } from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
+import { ChevronDown, ChevronRight, Loader2, MapPin } from 'lucide-react'
 import { DEMO_TENANT_POV_OPTIONS, DEMO_TENANT_POV_SECTIONS } from '@/lib/demoTenantPov'
 import type { DemoTenantPovOption } from '@/lib/demoTenantPov'
 import { cn } from '@/lib/utils'
@@ -9,6 +10,9 @@ type DemoTenantPovPickerProps = {
   onSelect: (option: DemoTenantPovOption) => void
   className?: string
 }
+
+const FEATURED_SECTION_ID = 'start-application'
+const FEATURED_USER_KEY = 'pending-fresh'
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -76,9 +80,7 @@ function TenantPovCard({
       <dl className="mt-4 space-y-2 border-t border-line pt-3">
         <DetailRow label="Lease start" value={option.leaseStart} />
         <DetailRow label="Term" value={option.leaseTerm} />
-        {option.monthlyRent ? (
-          <DetailRow label="Rent" value={option.monthlyRent} />
-        ) : null}
+        {option.monthlyRent ? <DetailRow label="Rent" value={option.monthlyRent} /> : null}
         <DetailRow label="Payment method" value={option.paymentMethod} />
         <DetailRow label="Payment status" value={option.paymentStatus} />
       </dl>
@@ -93,12 +95,102 @@ function TenantPovCard({
           ))}
         </ul>
       ) : null}
+
+      <p className="mt-4 text-xs font-semibold text-brand">
+        {busy ? 'Opening this point of view…' : 'Click to open this point of view'}
+      </p>
     </button>
   )
 }
 
+function StatusPointList({ points }: { points: string[] }) {
+  if (points.length === 0) return null
+  return (
+    <ul className="mt-2 space-y-1">
+      {points.slice(0, 3).map((point) => (
+        <li key={point} className="flex gap-2 text-sm leading-snug text-ink-muted">
+          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand/70" aria-hidden />
+          <span>{point}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function TenantPovUserRow({
+  option,
+  expanded,
+  onToggle,
+  selected,
+  busy,
+  disabled,
+  onSelect,
+}: {
+  option: DemoTenantPovOption
+  expanded: boolean
+  onToggle: () => void
+  selected: boolean
+  busy: boolean
+  disabled: boolean
+  onSelect: () => void
+}) {
+  const panelId = useId()
+
+  return (
+    <div
+      className={cn(
+        'rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface-paper',
+        (expanded || selected) && 'border-brand/40'
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        disabled={busy}
+        className={cn(
+          'flex w-full items-start gap-2 px-3.5 py-3 text-left transition-colors sm:px-4 sm:py-3.5',
+          'hover:bg-brand/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30',
+          busy && 'opacity-80'
+        )}
+      >
+        {expanded ? (
+          <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+        ) : (
+          <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="heading-display text-base font-semibold tracking-tight text-ink sm:text-lg">
+              {option.name}
+            </span>
+            <span className="inline-flex shrink-0 items-center rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2 py-0.5 text-[11px] font-semibold text-brand">
+              {option.scenario}
+            </span>
+          </span>
+          <StatusPointList points={option.statusPoints} />
+        </span>
+      </button>
+
+      {expanded ? (
+        <div id={panelId} className="border-t border-line px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
+          <TenantPovCard
+            option={option}
+            selected={selected}
+            busy={busy}
+            disabled={disabled}
+            onSelect={onSelect}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 /**
- * Scannable list of mock tenant scenarios for Demo Mode POV selection.
+ * Nested scenario dropdowns for Demo Mode tenant POV selection.
+ * Section → mock users with status points → full card to proceed.
  */
 export function DemoTenantPovPicker({
   selectedKey,
@@ -107,30 +199,106 @@ export function DemoTenantPovPicker({
   className,
 }: DemoTenantPovPickerProps) {
   const byKey = new Map(DEMO_TENANT_POV_OPTIONS.map((o) => [o.key, o]))
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set([FEATURED_SECTION_ID])
+  )
+  const [openUsers, setOpenUsers] = useState<Set<string>>(() => new Set([FEATURED_USER_KEY]))
+
+  useEffect(() => {
+    if (!busyKey && !selectedKey) return
+    const focusKey = busyKey ?? selectedKey
+    if (!focusKey) return
+    const section = DEMO_TENANT_POV_SECTIONS.find((s) => s.keys.includes(focusKey))
+    if (!section) return
+    setOpenSections((prev) => {
+      if (prev.has(section.id)) return prev
+      const next = new Set(prev)
+      next.add(section.id)
+      return next
+    })
+    setOpenUsers((prev) => {
+      if (prev.has(focusKey)) return prev
+      const next = new Set(prev)
+      next.add(focusKey)
+      return next
+    })
+  }, [busyKey, selectedKey])
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }
+
+  const toggleUser = (userKey: string) => {
+    setOpenUsers((prev) => {
+      const next = new Set(prev)
+      if (next.has(userKey)) next.delete(userKey)
+      else next.add(userKey)
+      return next
+    })
+  }
 
   return (
-    <div className={cn('w-full space-y-8 text-left', className)}>
+    <div className={cn('w-full space-y-3 text-left', className)}>
       {DEMO_TENANT_POV_SECTIONS.map((section) => {
         const options = section.keys
           .map((key) => byKey.get(key))
           .filter((o): o is DemoTenantPovOption => Boolean(o))
         if (options.length === 0) return null
+
+        const sectionOpen = openSections.has(section.id)
+        const panelId = `demo-tenant-section-${section.id}`
+        const countLabel = `${options.length} mock user${options.length === 1 ? '' : 's'}`
+
         return (
-          <section key={section.title} className="space-y-3">
-            <h2 className="label-caps text-ink-faint">{section.title}</h2>
-            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {options.map((option) => (
-                <li key={option.key}>
-                  <TenantPovCard
+          <section
+            key={section.id}
+            className="overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/15 bg-surface-paper"
+          >
+            <button
+              type="button"
+              onClick={() => toggleSection(section.id)}
+              aria-expanded={sectionOpen}
+              aria-controls={panelId}
+              className={cn(
+                'flex w-full items-center gap-2 px-4 py-3.5 text-left transition-colors sm:px-5',
+                'hover:bg-brand/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/30',
+                sectionOpen && 'border-b border-line'
+              )}
+            >
+              {sectionOpen ? (
+                <ChevronDown className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="heading-display block text-lg font-semibold tracking-tight text-ink sm:text-xl">
+                  {section.title}
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{countLabel}</span>
+              </span>
+            </button>
+
+            {sectionOpen ? (
+              <div id={panelId} className="space-y-2.5 px-3 py-3 sm:px-4 sm:py-4">
+                {options.map((option) => (
+                  <TenantPovUserRow
+                    key={option.key}
                     option={option}
+                    expanded={openUsers.has(option.key)}
+                    onToggle={() => toggleUser(option.key)}
                     selected={selectedKey === option.key}
                     busy={busyKey === option.key}
                     disabled={busyKey !== null && busyKey !== option.key}
                     onSelect={() => onSelect(option)}
                   />
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            ) : null}
           </section>
         )
       })}

@@ -28,6 +28,8 @@ type DemoPovSwitcherShellProps = {
   className?: string
   /** When true, force-collapse after a successful POV action from the parent. */
   collapseSignal?: number
+  /** Increment to expand + replay the attention animation (e.g. post-apply tip). */
+  attentionSignal?: number
 }
 
 /**
@@ -41,12 +43,14 @@ export function DemoPovSwitcherShell({
   children,
   className,
   collapseSignal = 0,
+  attentionSignal = 0,
 }: DemoPovSwitcherShellProps) {
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(() => !hasPlayedDemoPovIntro())
   const [attention, setAttention] = useState(() => !hasPlayedDemoPovIntro())
   const [reminderPulse, setReminderPulse] = useState(false)
+  const lastAttentionSignal = useRef(0)
 
   const finishIntro = useCallback(() => {
     markDemoPovIntroPlayed()
@@ -104,6 +108,14 @@ export function DemoPovSwitcherShell({
   useEffect(() => {
     if (collapseSignal > 0) collapse()
   }, [collapseSignal, collapse])
+
+  useEffect(() => {
+    if (attentionSignal <= 0 || attentionSignal === lastAttentionSignal.current) return
+    lastAttentionSignal.current = attentionSignal
+    setReminderPulse(false)
+    setExpanded(true)
+    setAttention(true)
+  }, [attentionSignal])
 
   useEffect(() => {
     if (!expanded) return

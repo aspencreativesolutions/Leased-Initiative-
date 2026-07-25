@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { useApp } from '@/context/AppContext'
 import { downloadContractPdf } from '@/lib/pdf'
 import { generateId } from '@/lib/storage'
+import { AutoSendLeaseToggle } from './AutoSendLeaseToggle'
 import { ContractFormLayout } from './ContractFormLayout'
 import { ContractReviewView } from './ContractReviewView'
 import {
@@ -114,7 +115,7 @@ function emptyContract(
     ownershipTerms: fields.ownershipTerms,
     portfolioRights: fields.portfolioRights,
     terminationTerms: fields.terminationTerms,
-    designerSignature: settings.ownerName || '',
+    designerSignature: settings.ownerName || settings.businessName || '',
     isPlaceholderDraft: false,
     leaseGenerationStatus: 'ready',
     leaseVersion: 1,
@@ -211,6 +212,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
 
   return (
     <div className="space-y-4">
+      <AutoSendLeaseToggle />
       {step === 5 ? (
         <>
           <ContractReviewView
@@ -509,17 +511,34 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                 <ContractSignatureRow
                   label="Landlord"
                   hint="Signature & Date"
-                  value={contract.designerSignature || settings.ownerName}
+                  value={contract.designerSignature || settings.ownerName || settings.businessName}
                   onChange={(v) => update('designerSignature', v)}
-                  placeholder={settings.ownerName}
+                  placeholder={settings.ownerName || settings.businessName || 'Landlord name'}
                 />
-                <ContractSignatureRow
-                  label="Tenant"
-                  hint="Signature & Date"
-                  value={contract.clientSignature || ''}
-                  onChange={(v) => update('clientSignature', v)}
-                  placeholder={contract.clientName}
-                />
+                <div className="mx-auto max-w-md">
+                  <div className="mb-4 flex items-baseline gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink">
+                      Tenant
+                    </span>
+                    <span className="font-serif text-[11px] italic text-ink-faint">
+                      Signature & Date
+                    </span>
+                  </div>
+                  {contract.clientSignature?.trim() ? (
+                    <p className="border-b border-line/70 pb-2.5 text-center text-sm text-ink sm:text-left">
+                      {contract.clientSignature}
+                    </p>
+                  ) : (
+                    <div className="space-y-2 border-b border-line/70 pb-2.5 text-center sm:text-left">
+                      <p className="font-serif text-sm italic text-ink-faint">
+                        Electronic Signature Here
+                      </p>
+                      <span className="inline-flex rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                        Send to Tenant to Sign
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-8 sm:grid-cols-2">
                   <ContractInput
                     label="Landlord Signature Date"
@@ -532,6 +551,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                     type="date"
                     value={contract.clientSignDate || ''}
                     onChange={(e) => update('clientSignDate', e.target.value)}
+                    disabled={!contract.clientSignature}
                   />
                 </div>
               </div>

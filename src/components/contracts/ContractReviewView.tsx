@@ -209,36 +209,49 @@ export function ContractReviewView({
               .join('\n')}
           />
 
-          {(contract.designerSignature || contract.clientSignature) && (
-            <div className="mx-auto max-w-md space-y-10 border-t border-line/40 pt-10">
-              {contract.designerSignature && (
-                <ContractDocumentSection
-                  label="20. Landlord signature"
-                  hint="Signature & date"
-                  value={[
-                    contract.designerSignature,
-                    contract.designerSignDate
-                      ? formatDate(contract.designerSignDate)
-                      : undefined,
-                  ]
-                    .filter(Boolean)
-                    .join('\n')}
-                />
-              )}
-              {contract.clientSignature && (
-                <ContractDocumentSection
-                  label="21–22. Tenant signature"
-                  hint="Signature & date"
-                  value={[
-                    contract.clientSignature,
-                    contract.clientSignDate ? formatDate(contract.clientSignDate) : undefined,
-                  ]
-                    .filter(Boolean)
-                    .join('\n')}
-                />
-              )}
+          <div className="mx-auto max-w-md space-y-10 border-t border-line/40 pt-10">
+              <ContractDocumentSection
+                label="20. Landlord signature"
+                hint="Signature & date"
+              >
+                <div className="space-y-2">
+                  <p>
+                    {contract.designerSignature?.trim() ||
+                      designerName?.trim() ||
+                      businessName?.trim() ||
+                      'Landlord'}
+                  </p>
+                  {contract.designerSignDate ? (
+                    <p className="text-ink-muted">{formatDate(contract.designerSignDate)}</p>
+                  ) : (
+                    <p className="font-serif text-xs italic text-ink-faint">
+                      Signature line — landlord signs here
+                    </p>
+                  )}
+                </div>
+              </ContractDocumentSection>
+
+              <ContractDocumentSection
+                label="21–22. Tenant signature"
+                hint="Signature & date"
+              >
+                {contract.clientSignature?.trim() ? (
+                  <div className="space-y-2">
+                    <p>{contract.clientSignature}</p>
+                    {contract.clientSignDate ? (
+                      <p className="text-ink-muted">{formatDate(contract.clientSignDate)}</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="font-serif italic text-ink-faint">Electronic Signature Here</p>
+                    <span className="inline-flex rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                      Send to Tenant to Sign
+                    </span>
+                  </div>
+                )}
+              </ContractDocumentSection>
             </div>
-          )}
         </div>
       </article>
     </div>

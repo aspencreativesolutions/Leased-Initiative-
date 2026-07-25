@@ -154,7 +154,7 @@ export function gatherHomePageContent(): HomePageContent {
     audienceLine: HOME_AUDIENCE_LINE,
     features: HOME_ACTION_TILES,
     demoBlurb:
-      'Open Quick Access (key icon, top right) and enter a host access code, or use a company demo link your host sent. Confirm Start Demo when prompted, then choose landlord or a specific tenant scenario (address, lease dates, payment status, and more). Switch POV anytime from the bottom-right controls to try another mock user or return to the landlord. Changes are not saved.',
+      'Open Quick Access (key icon, top right) and enter a host access code, or use a company demo link your host sent. Confirm Start Demo when prompted, then choose landlord or a specific tenant scenario (address, lease dates, payment status, and more). After Ava Mitchell submits an application, Switch to Landlord POV jumps straight to the landlord side — no second role prompt. Switch POV anytime from the bottom-right controls to try another mock user. Changes are not saved.',
     flows: [
       {
         id: 'landlord',

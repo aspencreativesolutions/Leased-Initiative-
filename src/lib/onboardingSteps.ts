@@ -50,9 +50,9 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'registration-waiting',
     target: '[data-onboarding="portal-contracts"]',
-    title: 'Waiting for approval',
+    title: 'Start your application',
     description:
-      'After you sign up with your agency and property (or via an invite link), your landlord reviews your registration under Waiting to Connect. Once approved, your lease agreement will appear here.',
+      'Start with Start Application: pick landlord + property, choose Pay full rent or Live with roommates (invite friends up to open spots from the rental’s max occupancy), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
@@ -145,7 +145,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="tenants-waiting-connect"]',
     title: 'Waiting to Connect',
     description:
-      'This section shows prospective tenants who have registered but are not yet connected to a rental. Review their requested properties, confirm availability, and complete the connection process from here.',
+      'This section shows people who claimed an invite or registered but are not yet connected. Review their property and requested lease start, then Accept & Draft Lease to generate a draft (not sent yet) — or dismiss them.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -155,7 +155,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Draft, review, and send lease agreements from this list.',
+      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted with Review & Send Lease (draft only — not delivered yet). Open the draft to review, edit if needed, then intentionally Send to Tenant. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants (Upcoming until the lease start date).',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -225,7 +225,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-tenant-actions]',
     title: 'Tenant shortcuts',
     description:
-      'These compact icons let you Send Invite or Add Tenant without leaving the page. View New Registers appears only when a new sign-up is waiting under Waiting to Connect.',
+      'These compact icons let you Send Invite Link or Add Tenant without leaving the page. Send Invite Link texts a one-time link with property, future lease start, duration, and optional custom code. View New Registers appears only when someone is waiting under Waiting to Connect.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',

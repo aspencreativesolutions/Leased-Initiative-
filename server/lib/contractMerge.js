@@ -82,6 +82,8 @@ export function mergeContractsList(
   const contracts = []
   const revisedClientIds = new Set()
 
+  const incomingIds = new Set()
+
   for (const incoming of incomingContracts) {
     const existing = byId.get(incoming.id)
     let { contract, revised } = mergeContractOnAdminSave(existing, incoming, now)
@@ -93,9 +95,17 @@ export function mergeContractsList(
     }
 
     contracts.push(contract)
+    incomingIds.add(contract.id)
     if (revised && contract.clientId) {
       revisedClientIds.add(contract.clientId)
     }
+  }
+
+  // Preserve contracts for portal-linked clients missing from a stale admin PUT.
+  for (const existing of existingContracts) {
+    if (!existing?.id || incomingIds.has(existing.id)) continue
+    if (!existing.clientId || !clientsById.has(existing.clientId)) continue
+    contracts.push(existing)
   }
 
   return { contracts, revisedClientIds: [...revisedClientIds] }

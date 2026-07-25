@@ -34,10 +34,31 @@ import { verifySquareOrderPayment } from '../lib/square.js'
 import { applyPaymentToStore } from '../lib/payments.js'
 import { DEFAULT_SERVICE_TIER, migrateServiceTier } from '../lib/serviceTier.js'
 import {
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  computeLeaseStartDate,
   formatLeaseLengthLabel,
   getLeaseRentSchedule,
+  isFutureLeaseStartDate,
+  isLeaseLengthMonths,
+  parseLeaseLengthMonths,
   resolveTenantAddress,
 } from '../lib/leaseSchedule.js'
+import { hasSubmittedPortalApplication } from '../lib/portalUsers.js'
+import {
+  buildAgencyForInvite,
+  buildInviteSmsBody,
+  buildLandlordAgencies,
+  buildTenantInviteUrl,
+  createTenantInvite,
+  findValidTenantInvite,
+  findValidTenantInviteByCode,
+  getTenantDiscoveryMode,
+  markTenantInviteDelivered,
+  markTenantInviteUsed,
+  propertyOccupancyDetail,
+} from '../lib/tenantInvites.js'
+import { availableApplicantSlotsAtAddress } from '../lib/rentalOccupancy.js'
+import { sendSms } from '../lib/sms.js'
 import {
   buildPortalRentPayment,
   buildRentInvoiceDraft,
@@ -81,7 +102,7 @@ function buildPortalProfilePayload({ user, client, settings, store }) {
     contractId: contract.id,
     projectTitle: contract.projectTitle,
     serviceTier: migrateServiceTier(contract.serviceTier || client?.serviceTier),
-    developerName: settings.ownerName || 'Your designer',
+    developerName: settings.ownerName || 'Your landlord',
     businessName: settings.businessName || 'Your studio',
     sentAt: contract.sentAt,
     signedAt: contract.signedAt,
@@ -327,19 +348,201 @@ router.patch('/checklist', (req, res) => {
   res.json({ projectChecklistCompleted: nextCompleted })
 })
 
+function buildUnlinkedApplicationPayload(user) {
+  const submitted = hasSubmittedPortalApplication(user)
+  return {
+    linked: false,
+    applicationSubmitted: submitted,
+    application: submitted
+      ? {
+          name: user.name,
+          email: user.email,
+          preferredLandlordCompany: user.preferredLandlordCompany ?? null,
+          preferredPropertyAddress: user.preferredPropertyAddress ?? null,
+          preferredLeaseMonths: user.preferredLeaseMonths ?? null,
+          preferredLeaseStartDate: user.preferredLeaseStartDate ?? null,
+          preferredPaymentMethod: user.preferredPaymentMethod ?? null,
+          preferredOccupancyMode: user.preferredOccupancyMode ?? null,
+          roommateInvitePhones: user.roommateInvitePhones ?? [],
+        }
+      : null,
+    client: null,
+    contracts: [],
+    isOfficialClient: false,
+    message: submitted
+      ? 'Your account is waiting to be accepted by your landlord. Once accepted, lease agreement and payment timeline will appear here.'
+      : 'Start your application or enter an invite code to connect with a landlord.',
+  }
+}
+
+function normalizeRoommatePhones(raw) {
+  if (!Array.isArray(raw)) return []
+  const phones = []
+  const seen = new Set()
+  for (const entry of raw) {
+    const digits = String(entry ?? '').replace(/\D/g, '')
+    if (digits.length < 10) continue
+    const key = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+    if (seen.has(key)) continue
+    seen.add(key)
+    phones.push(String(entry).trim())
+  }
+  return phones
+}
+
+function notifyAdminOfPortalApplication(user) {
+  if (user.role !== 'client' || user.clientId) return
+  const address = user.preferredPropertyAddress?.trim()
+  const company = user.preferredLandlordCompany?.trim()
+  const details = [
+    company ? `Landlord: ${company}` : null,
+    address ? `Property: ${address}` : null,
+    user.preferredOccupancyMode === 'roommates'
+      ? `Occupancy: roommates${
+          Array.isArray(user.roommateInvitePhones) && user.roommateInvitePhones.length
+            ? ` (${user.roommateInvitePhones.length} invite${user.roommateInvitePhones.length === 1 ? '' : 's'} sent)`
+            : ''
+        }`
+      : user.preferredOccupancyMode === 'full_rent'
+        ? 'Occupancy: full rent'
+        : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  updateStore((s) =>
+    pushAdminNotification(s, {
+      type: 'registration',
+      userId: user.id,
+      title: 'New tenant registration',
+      message: details
+        ? `${user.name} (${user.email}) submitted an application and is waiting for approval. ${details}`
+        : `${user.name} (${user.email}) submitted an application and is waiting for approval.`,
+    })
+  )
+}
+
+/**
+ * Resolve landlord company + property for a logged-in tenant application
+ * (public discovery or invite/code path).
+ */
+function resolvePortalApplicationSelection(store, {
+  preferredLandlordCompany,
+  preferredPropertyAddress,
+  preferredLeaseMonths,
+  inviteToken,
+  connectionCode,
+}) {
+  let invite = null
+  if (inviteToken) {
+    invite = findValidTenantInvite(store, String(inviteToken))
+    if (!invite) {
+      return { error: 'This invite link is invalid or has expired', status: 400 }
+    }
+  } else if (connectionCode) {
+    invite = findValidTenantInviteByCode(store, String(connectionCode))
+    if (!invite) {
+      return {
+        error: 'This connection code is invalid, already used, or has expired',
+        status: 400,
+      }
+    }
+  }
+
+  let landlordCompany = String(preferredLandlordCompany ?? '').trim()
+  let propertyAddress = String(preferredPropertyAddress ?? '').trim()
+  if (invite) {
+    landlordCompany = invite.landlordCompany
+    if (invite.propertyAddress && !propertyAddress) {
+      propertyAddress = invite.propertyAddress
+    }
+  }
+
+  if (!landlordCompany) {
+    return {
+      error: 'Select the agency or landlord company you are renting from',
+      status: 400,
+    }
+  }
+  if (!propertyAddress) {
+    return { error: 'Select the property you are interested in', status: 400 }
+  }
+
+  const discoveryMode = getTenantDiscoveryMode(store)
+  if (discoveryMode === 'invite_only' && !invite) {
+    return {
+      error:
+        'This landlord is invite-only. Use a connection link or connection code to apply.',
+      status: 403,
+    }
+  }
+
+  const agencies = invite
+    ? [buildAgencyForInvite(store, invite)].filter(Boolean)
+    : buildLandlordAgencies(store, { forPublicDiscovery: true })
+  const matchedAgency = agencies.find(
+    (agency) => agency.name.toLowerCase() === landlordCompany.toLowerCase()
+  )
+  if (!invite && !matchedAgency) {
+    return { error: 'Select an agency from the list', status: 400 }
+  }
+  const allowedProperties = matchedAgency?.properties ?? []
+  const invitePropertyOk =
+    Boolean(invite?.propertyAddress) &&
+    invite.propertyAddress.trim().toLowerCase() === propertyAddress.toLowerCase()
+  if (
+    allowedProperties.length > 0 &&
+    !allowedProperties.includes(propertyAddress) &&
+    !invitePropertyOk
+  ) {
+    return { error: 'Select a property from the company’s list', status: 400 }
+  }
+  if (matchedAgency) {
+    landlordCompany = matchedAgency.name
+  }
+
+  if (invite || discoveryMode === 'invite_only') {
+    const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
+    if (!capacity.available) {
+      return {
+        error:
+          'That rental has no open occupancy right now. Choose another available property or ask your landlord for a new invite.',
+        status: 409,
+      }
+    }
+  }
+
+  let leaseMonths = preferredLeaseMonths
+  if (invite?.leaseLengthMonths != null) {
+    leaseMonths = invite.leaseLengthMonths
+  }
+  if (leaseMonths != null && leaseMonths !== '' && !isLeaseLengthMonths(leaseMonths)) {
+    return {
+      error: 'Preferred lease length must be 6, 12, 18, or 24 months',
+      status: 400,
+    }
+  }
+  const preferredLeaseMonthsResolved = parseLeaseLengthMonths(
+    leaseMonths,
+    DEFAULT_LEASE_LENGTH_MONTHS
+  )
+
+  return {
+    invite,
+    landlordCompany,
+    propertyAddress,
+    preferredLeaseMonths: preferredLeaseMonthsResolved,
+  }
+}
+
 /** Client dashboard — own profile + contracts */
 router.get('/dashboard', (req, res) => {
   const clientId = req.user.clientId
 
   if (!clientId) {
-    return res.json({
-      linked: false,
-      client: null,
-      contracts: [],
-      isOfficialClient: false,
-      message:
-        'Your account is waiting to be accepted by your designer. Once accepted, contracts and project files will appear here.',
-    })
+    const store = readStore()
+    const user = store.users.find((u) => u.id === req.user.id) ?? req.user
+    return res.json(buildUnlinkedApplicationPayload(user))
   }
 
   ensureClientFileSharing(clientId)
@@ -426,6 +629,269 @@ router.get('/dashboard', (req, res) => {
       phone: activeStore.settings.phone,
     },
   })
+})
+
+/**
+ * Logged-in tenant submits (or updates) a discovery application:
+ * landlord company + property + preferred lease length (+ optional roommate invites).
+ */
+router.post('/application', async (req, res) => {
+  try {
+    if (req.user.clientId) {
+      return res.status(400).json({
+        error: 'Your account is already linked to a lease.',
+      })
+    }
+
+    const store = readStore()
+    const user = store.users.find((u) => u.id === req.user.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (hasSubmittedPortalApplication(user)) {
+      return res.status(409).json({
+        error: 'You already submitted an application. Wait for your landlord to review it.',
+      })
+    }
+
+    const resolved = resolvePortalApplicationSelection(store, {
+      preferredLandlordCompany: req.body?.preferredLandlordCompany,
+      preferredPropertyAddress: req.body?.preferredPropertyAddress,
+      preferredLeaseMonths: req.body?.preferredLeaseMonths,
+      inviteToken: req.body?.inviteToken,
+      connectionCode: req.body?.connectionCode,
+    })
+    if (resolved.error) {
+      return res.status(resolved.status ?? 400).json({ error: resolved.error })
+    }
+
+    const occupancyModeRaw = String(req.body?.preferredOccupancyMode ?? 'full_rent')
+      .trim()
+      .toLowerCase()
+    const preferredOccupancyMode =
+      occupancyModeRaw === 'roommates' ? 'roommates' : 'full_rent'
+
+    const occupancy = propertyOccupancyDetail(store, resolved.propertyAddress)
+    const maxRoommateInvites = Math.max(0, occupancy.availableSpots - 1)
+    let roommateInvitePhones = []
+    if (preferredOccupancyMode === 'roommates') {
+      roommateInvitePhones = normalizeRoommatePhones(req.body?.roommateInvitePhones)
+      if (roommateInvitePhones.length > maxRoommateInvites) {
+        return res.status(400).json({
+          error:
+            maxRoommateInvites === 0
+              ? 'This rental only has one open spot — you can’t invite roommates here.'
+              : `You can invite at most ${maxRoommateInvites} roommate${maxRoommateInvites === 1 ? '' : 's'} for this rental.`,
+        })
+      }
+    }
+
+    const preferredLeaseStartDate = resolved.invite?.leaseStartDate
+      ? String(resolved.invite.leaseStartDate).trim()
+      : computeLeaseStartDate()
+
+    const roommateInvites = []
+    if (preferredOccupancyMode === 'roommates' && roommateInvitePhones.length > 0) {
+      let inviteStore = { ...store, tenantInvites: [...(store.tenantInvites ?? [])] }
+      for (const phone of roommateInvitePhones) {
+        const created = createTenantInvite(inviteStore, {
+          landlordCompany: resolved.landlordCompany,
+          propertyAddress: resolved.propertyAddress,
+          leaseStartDate: preferredLeaseStartDate,
+          leaseLengthMonths: resolved.preferredLeaseMonths,
+          phone,
+          source: 'manual',
+        })
+        if (created.error || !created.invite) {
+          return res.status(400).json({
+            error: created.error || `Could not create an invite for ${phone}`,
+          })
+        }
+        const inviteUrl = buildTenantInviteUrl(created.invite.token)
+        const body = buildInviteSmsBody({
+          landlordCompany: resolved.landlordCompany,
+          inviteUrl,
+          connectionCode: created.invite.connectionCode,
+        })
+        const smsResult = await sendSms({ to: phone, body })
+        if (!smsResult.sent) {
+          return res.status(400).json({
+            error: smsResult.error || `Could not text the invite link to ${phone}.`,
+          })
+        }
+        inviteStore = {
+          ...inviteStore,
+          tenantInvites: [...inviteStore.tenantInvites, created.invite],
+        }
+        inviteStore = markTenantInviteDelivered(inviteStore, created.invite.id, {
+          method: 'sms',
+          destination: phone,
+        })
+        const delivered = inviteStore.tenantInvites.find((inv) => inv.id === created.invite.id)
+        if (delivered) roommateInvites.push(delivered)
+      }
+    }
+
+    let updatedUser = null
+    updateStore((s) => {
+      const users = s.users.map((u) => {
+        if (u.id !== user.id) return u
+        updatedUser = {
+          ...u,
+          preferredLandlordCompany: resolved.landlordCompany,
+          preferredPropertyAddress: resolved.propertyAddress,
+          preferredLeaseMonths: resolved.preferredLeaseMonths,
+          preferredOccupancyMode,
+          roommateInvitePhones,
+          registrationDismissed: false,
+          preferredLeaseStartDate,
+          applicationSubmittedAt: new Date().toISOString(),
+          ...(resolved.invite
+            ? {
+                inviteToken: resolved.invite.token,
+                inviteClaimed: true,
+                phone: resolved.invite.phone || u.phone || '',
+              }
+            : {}),
+        }
+        return updatedUser
+      })
+      let next = {
+        ...s,
+        users,
+        tenantInvites: [...(s.tenantInvites ?? []), ...roommateInvites],
+      }
+      if (resolved.invite) {
+        next = markTenantInviteUsed(next, resolved.invite.token, user.id)
+      }
+      return next
+    })
+
+    if (updatedUser) notifyAdminOfPortalApplication(updatedUser)
+
+    res.json(buildUnlinkedApplicationPayload(updatedUser ?? user))
+  } catch (err) {
+    console.error('portal application', err)
+    res.status(500).json({ error: 'Could not submit your application' })
+  }
+})
+
+/**
+ * Logged-in tenant claims an invite/code without creating a new account.
+ */
+router.post('/claim-invite', (req, res) => {
+  try {
+    if (req.user.clientId) {
+      return res.status(400).json({
+        error: 'Your account is already linked to a lease.',
+      })
+    }
+
+    const {
+      inviteToken,
+      connectionCode,
+      preferredPropertyAddress,
+      preferredLeaseStartDate,
+      preferredPaymentMethod,
+      preferredLeaseMonths,
+    } = req.body ?? {}
+
+    const store = readStore()
+    const user = store.users.find((u) => u.id === req.user.id)
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    if (hasSubmittedPortalApplication(user)) {
+      return res.status(409).json({
+        error: 'You already submitted an application. Wait for your landlord to review it.',
+      })
+    }
+
+    let invite = null
+    if (inviteToken) {
+      invite = findValidTenantInvite(store, String(inviteToken))
+      if (!invite) {
+        return res.status(400).json({ error: 'This invite link is invalid or has expired' })
+      }
+    } else if (connectionCode) {
+      invite = findValidTenantInviteByCode(store, String(connectionCode))
+      if (!invite) {
+        return res.status(400).json({
+          error: 'This connection code is invalid, already used, or has expired',
+        })
+      }
+    } else {
+      return res.status(400).json({ error: 'Invite token or connection code is required' })
+    }
+
+    let propertyAddress = String(preferredPropertyAddress ?? '').trim()
+    if (invite.propertyAddress) {
+      propertyAddress = invite.propertyAddress.trim()
+    }
+    if (!propertyAddress) {
+      return res.status(400).json({ error: 'Confirm the property for this invite' })
+    }
+
+    const agency = buildAgencyForInvite(store, invite)
+    const allowedProperties = agency?.properties ?? []
+    const invitePropertyOk =
+      Boolean(invite.propertyAddress) &&
+      invite.propertyAddress.trim().toLowerCase() === propertyAddress.toLowerCase()
+    if (
+      allowedProperties.length > 0 &&
+      !allowedProperties.includes(propertyAddress) &&
+      !invitePropertyOk
+    ) {
+      return res.status(400).json({ error: 'Select a property from the company’s list' })
+    }
+
+    const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
+    if (!capacity.available) {
+      return res.status(409).json({
+        error:
+          'That rental has no open occupancy right now. Ask your landlord for a new invite.',
+      })
+    }
+
+    const startDate = String(preferredLeaseStartDate ?? invite.leaseStartDate ?? '').trim()
+    if (startDate && !isFutureLeaseStartDate(startDate)) {
+      return res.status(400).json({ error: 'Lease start date must be a future date' })
+    }
+
+    const leaseLengthMonths = parseLeaseLengthMonths(
+      preferredLeaseMonths ?? invite.leaseLengthMonths,
+      DEFAULT_LEASE_LENGTH_MONTHS
+    )
+
+    let updatedUser = null
+    updateStore((s) => {
+      const users = s.users.map((u) => {
+        if (u.id !== user.id) return u
+        updatedUser = {
+          ...u,
+          preferredLandlordCompany: invite.landlordCompany,
+          preferredPropertyAddress: propertyAddress,
+          preferredLeaseMonths: leaseLengthMonths,
+          registrationDismissed: false,
+          inviteToken: invite.token,
+          inviteClaimed: true,
+          phone: invite.phone || u.phone || '',
+          applicationSubmittedAt: new Date().toISOString(),
+          ...(startDate ? { preferredLeaseStartDate: startDate } : {}),
+          ...(preferredPaymentMethod
+            ? { preferredPaymentMethod: String(preferredPaymentMethod) }
+            : {}),
+        }
+        return updatedUser
+      })
+      let next = { ...s, users }
+      next = markTenantInviteUsed(next, invite.token, user.id)
+      return next
+    })
+
+    if (updatedUser) notifyAdminOfPortalApplication(updatedUser)
+
+    res.json(buildUnlinkedApplicationPayload(updatedUser ?? user))
+  } catch (err) {
+    console.error('portal claim-invite', err)
+    res.status(500).json({ error: 'Could not submit invite details' })
+  }
 })
 
 /**
@@ -718,7 +1184,7 @@ router.get('/files', (req, res) => {
   if (!client) return res.status(404).json({ error: 'Client profile not found' })
   if (!isProjectActive(client)) {
     return res.status(403).json({
-      error: 'File sharing unlocks once your designer starts the project.',
+      error: 'File sharing unlocks once your landlord starts the project.',
     })
   }
 
@@ -735,7 +1201,7 @@ router.post('/files', (req, res, next) => {
   if (!client) return res.status(404).json({ error: 'Client profile not found' })
   if (!isProjectActive(client)) {
     return res.status(403).json({
-      error: 'File sharing unlocks once your designer starts the project.',
+      error: 'File sharing unlocks once your landlord starts the project.',
     })
   }
   req.portalClientId = client.id

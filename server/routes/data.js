@@ -38,8 +38,11 @@ import { ensureSamplePortalUsers } from '../lib/samplePortalUsers.js'
 import { permanentlyDeleteClientContract } from '../lib/deleteContract.js'
 import {
   buildMonthlyRentDeadlines,
+  computeLeaseEndDate,
   DEFAULT_LEASE_LENGTH_MONTHS,
   formatLeaseLengthLabel,
+  isFutureLeaseStartDate,
+  isPlainYmd,
   listMonthlyRentDueDates,
   parseLeaseLengthMonths,
   resolveDefaultLeaseDates,
@@ -51,6 +54,7 @@ import {
   isPendingPortalRegistration,
 } from '../lib/portalUsers.js'
 import {
+  buildInviteSmsBody,
   buildTenantInviteUrl,
   createTenantInvite,
   markTenantInviteDelivered,
@@ -76,7 +80,7 @@ import {
 import { applyDemoLeaseFixturesToStore } from '../lib/applyDemoLeaseFixtures.js'
 import { reconcileClientContractStatus } from '../lib/contractReview.js'
 import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
-import { sendOverdueRentSms } from '../lib/sms.js'
+import { sendOverdueRentSms, sendSms } from '../lib/sms.js'
 import { sendBugReportEmail } from '../lib/email.js'
 
 const router = Router()
@@ -231,7 +235,31 @@ router.put('/clients', (req, res) => {
 
       return merged
     })
-    return { ...s, clients: linkedClients, users, contracts, adminNotifications }
+
+    // Keep portal-linked clients created server-side (e.g. Accept & Draft Lease)
+    // when a stale admin PUT arrives without them yet.
+    const incomingIds = new Set(linkedClients.map((c) => c.id))
+    const preserved = (s.clients ?? []).filter((client) => {
+      if (!client?.id || incomingIds.has(client.id)) return false
+      if (client.accountUserId) return true
+      return users.some((u) => u.role === 'client' && u.clientId === client.id)
+    })
+    const nextClients = preserved.length > 0 ? [...linkedClients, ...preserved] : linkedClients
+
+    const nextClientIds = new Set(nextClients.map((c) => c.id))
+    const contractIds = new Set(contracts.map((c) => c.id))
+    const preservedContracts = (s.contracts ?? []).filter(
+      (c) =>
+        c?.id &&
+        !contractIds.has(c.id) &&
+        c.clientId &&
+        nextClientIds.has(c.clientId)
+    )
+    if (preservedContracts.length > 0) {
+      contracts = [...contracts, ...preservedContracts]
+    }
+
+    return { ...s, clients: nextClients, users, contracts, adminNotifications }
   })
   res.json({ ok: true })
 })
@@ -912,15 +940,29 @@ router.post('/accept-registration/:userId', (req, res) => {
   }
 
   const now = new Date().toISOString()
+  const asOf = resolveServerScheduleAsOf()
+  const draftLease = req.body?.draftLease !== false && req.body?.draftLater !== true
   const preferredLeaseMonths = parseLeaseLengthMonths(
     user.preferredLeaseMonths,
     DEFAULT_LEASE_LENGTH_MONTHS
   )
-  const {
-    leaseStartDate,
-    leaseEndDate,
-    leaseLengthMonths,
-  } = resolveDefaultLeaseDates(store.settings, preferredLeaseMonths, resolveServerScheduleAsOf())
+  const preferredStart = String(user.preferredLeaseStartDate ?? '')
+    .trim()
+    .slice(0, 10)
+  let leaseStartDate
+  let leaseEndDate
+  let leaseLengthMonths
+  if (isPlainYmd(preferredStart) && isFutureLeaseStartDate(preferredStart, asOf)) {
+    leaseLengthMonths = preferredLeaseMonths
+    leaseStartDate = preferredStart
+    leaseEndDate = computeLeaseEndDate(leaseStartDate, leaseLengthMonths)
+  } else {
+    ;({
+      leaseStartDate,
+      leaseEndDate,
+      leaseLengthMonths,
+    } = resolveDefaultLeaseDates(store.settings, preferredLeaseMonths, asOf))
+  }
   const rentDueDates = listMonthlyRentDueDates(leaseStartDate, leaseEndDate)
   const rentDeadlines = buildMonthlyRentDeadlines(rentDueDates, generateId)
   const propertyAddress = String(user.preferredPropertyAddress ?? '').trim()
@@ -928,16 +970,24 @@ router.post('/accept-registration/:userId', (req, res) => {
   const property = findPropertyForLease(store, propertyAddress)
   const reusableLease = findReusableLeaseAtAddress(store, propertyAddress)
   const reusedLease = Boolean(reusableLease)
+  const preferredPaymentMethod = ['paypal', 'stripe', 'square'].includes(
+    user.preferredPaymentMethod
+  )
+    ? user.preferredPaymentMethod
+    : null
   const registrationDetails = [
     landlordCompany ? `Landlord company: ${landlordCompany}` : null,
     propertyAddress ? `Property: ${propertyAddress}` : null,
     property?.propertyType ? `Rental type: ${property.propertyType}` : null,
     `Preferred lease: ${formatLeaseLengthLabel(leaseLengthMonths)}`,
     `Lease ${leaseStartDate} → ${leaseEndDate}`,
+    preferredPaymentMethod ? `Preferred payment: ${preferredPaymentMethod}` : null,
     'Monthly rent due on the 1st.',
     reusedLease
       ? 'Existing lease agreement found for this address — generating a copy for this tenant.'
-      : 'Generating residential lease agreement from applicant and rental details.',
+      : draftLease
+        ? 'Generating residential lease agreement from applicant and rental details.'
+        : 'Accepted without drafting a lease yet — draft when ready from Pending Tenants.',
   ]
     .filter(Boolean)
     .join('. ')
@@ -947,18 +997,19 @@ router.post('/accept-registration/:userId', (req, res) => {
     name: user.name,
     businessName: user.name,
     email: user.email,
-    phone: '',
+    phone: String(user.phone ?? '').trim(),
     projectType: property?.propertyType || 'Apartment',
     projectName: propertyAddress || `${user.name} Lease`,
     projectDescription: [
       landlordCompany ? `Registering under ${landlordCompany}.` : null,
       `Preferred lease length: ${formatLeaseLengthLabel(leaseLengthMonths)}.`,
       propertyAddress ? `Desired rental: ${propertyAddress}.` : null,
+      preferredStart ? `Requested lease start: ${preferredStart}.` : null,
     ]
       .filter(Boolean)
       .join(' '),
     projectStatus: 'Inquiry',
-    contractStatus: 'Draft in Progress',
+    contractStatus: draftLease ? 'Draft in Progress' : 'Not Started',
     paymentStatus: 'Unpaid',
     isOfficialClient: false,
     serviceTier: DEFAULT_SERVICE_TIER,
@@ -972,7 +1023,7 @@ router.post('/accept-registration/:userId', (req, res) => {
         createdAt: now,
       },
     ],
-    deadlines: rentDeadlines,
+    deadlines: draftLease ? rentDeadlines : [],
     createdAt: now,
   }
 
@@ -983,17 +1034,22 @@ router.post('/accept-registration/:userId', (req, res) => {
     paymentSchedule: 'Monthly rent due on the 1st of each month for the lease term.',
     leaseLengthMonths,
     property,
+    // Draft is reviewable immediately in Pending Tenants (Lease Drafted + Review & Send).
+    readyImmediately: true,
+    ...(preferredPaymentMethod ? { paymentProvider: preferredPaymentMethod } : {}),
   }
-  const contract = reusedLease
-    ? cloneLeaseForClient(reusableLease, client, leaseOptions)
-    : createDraftContract(client, store.settings, leaseOptions)
+  const contract = draftLease
+    ? reusedLease
+      ? cloneLeaseForClient(reusableLease, client, leaseOptions)
+      : createDraftContract(client, store.settings, leaseOptions)
+    : null
 
   updateStore((s) => {
     let next = {
       ...s,
       users: s.users.map((u) => (u.id === userId ? { ...u, clientId: client.id } : u)),
       clients: [...s.clients, client],
-      contracts: [...s.contracts, contract],
+      contracts: contract ? [...s.contracts, contract] : s.contracts,
       adminNotifications: (s.adminNotifications ?? []).map((n) =>
         n.type === 'registration' && n.userId === userId ? { ...n, read: true } : n
       ),
@@ -1001,9 +1057,11 @@ router.post('/accept-registration/:userId', (req, res) => {
     next = notifyClientByClientId(next, client.id, {
       type: 'registration_accepted',
       title: 'Welcome to your portal',
-      message: reusedLease
-        ? `Your registration has been accepted. Your landlord has a lease agreement for this property and will send it to you shortly.`
-        : `Your registration has been accepted. Your landlord is preparing your lease agreement — it will appear here when ready.`,
+      message: !draftLease
+        ? `Your registration has been accepted. Your landlord will prepare your lease agreement soon.`
+        : reusedLease
+          ? `Your registration has been accepted. Your landlord has a lease agreement for this property and will send it to you shortly.`
+          : `Your registration has been accepted. Your landlord is preparing your lease agreement — it will appear here when ready.`,
       actionUrl: '/portal',
       relatedId: `registration-accepted-${userId}`,
     })
@@ -1014,7 +1072,8 @@ router.post('/accept-registration/:userId', (req, res) => {
     client,
     contract,
     linked: true,
-    reusedLease,
+    reusedLease: draftLease ? reusedLease : false,
+    draftLease,
     leaseAction: resolveLeaseAgreementAction(client, contract),
   })
 })
@@ -1032,40 +1091,121 @@ router.get('/registrations', (_req, res) => {
       preferredLeaseMonths: u.preferredLeaseMonths,
       preferredLandlordCompany: u.preferredLandlordCompany,
       preferredPropertyAddress: u.preferredPropertyAddress,
+      preferredLeaseStartDate: u.preferredLeaseStartDate,
+      preferredPaymentMethod: u.preferredPaymentMethod,
+      phone: u.phone,
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ registrations, count: registrations.length })
 })
 
-/** Create a tenant invite link (pre-links signup to this landlord, optionally a property). */
-router.post('/tenant-invites', (req, res) => {
+/** Create a tenant invite link (property, lease term, custom code) and optionally text it. */
+router.post('/tenant-invites', async (req, res) => {
   try {
     const store = readStore()
     const propertyAddress =
       typeof req.body?.propertyAddress === 'string' ? req.body.propertyAddress.trim() : ''
     const clientId = typeof req.body?.clientId === 'string' ? req.body.clientId.trim() : ''
     const source = req.body?.source === 'lease-import' ? 'lease-import' : 'manual'
-    const invite = createTenantInvite(store, {
+    const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : ''
+    const connectionCode =
+      typeof req.body?.connectionCode === 'string' ? req.body.connectionCode.trim() : ''
+    const leaseStartDate =
+      typeof req.body?.leaseStartDate === 'string' ? req.body.leaseStartDate.trim() : ''
+    const leaseLengthMonths = req.body?.leaseLengthMonths
+    const sendText = req.body?.sendSms === true || req.body?.sendText === true
+
+    if (sendText && !phone) {
+      return res.status(400).json({ error: 'Phone number is required to text the invite link.' })
+    }
+    if (sendText && !propertyAddress) {
+      return res.status(400).json({ error: 'Choose a property before sending the invite.' })
+    }
+    if (sendText && !leaseStartDate) {
+      return res.status(400).json({ error: 'Choose a future lease start date before sending.' })
+    }
+    if (sendText && (leaseLengthMonths == null || leaseLengthMonths === '')) {
+      return res.status(400).json({ error: 'Choose a lease duration before sending.' })
+    }
+
+    const created = createTenantInvite(store, {
       ...(propertyAddress ? { propertyAddress } : {}),
       ...(clientId ? { clientId } : {}),
+      ...(phone ? { phone } : {}),
+      ...(connectionCode ? { connectionCode } : {}),
+      ...(leaseStartDate ? { leaseStartDate } : {}),
+      ...(leaseLengthMonths != null && leaseLengthMonths !== ''
+        ? { leaseLengthMonths }
+        : {}),
       source,
     })
-    updateStore((s) => ({
-      ...s,
-      tenantInvites: [...(s.tenantInvites ?? []), invite],
-    }))
+    if (created.error || !created.invite) {
+      return res.status(400).json({ error: created.error || 'Could not create invite link' })
+    }
+    const invite = created.invite
+    const inviteUrl = buildTenantInviteUrl(invite.token)
+
+    let smsResult = null
+    if (sendText) {
+      const body = buildInviteSmsBody({
+        landlordCompany: invite.landlordCompany,
+        inviteUrl,
+        connectionCode: invite.connectionCode,
+      })
+      smsResult = await sendSms({ to: phone, body })
+      if (!smsResult.sent) {
+        return res.status(400).json({
+          error: smsResult.error || 'Could not text the invite link.',
+        })
+      }
+    }
+
+    updateStore((s) => {
+      let next = {
+        ...s,
+        tenantInvites: [...(s.tenantInvites ?? []), invite],
+      }
+      if (sendText) {
+        next = markTenantInviteDelivered(next, invite.id, {
+          method: 'sms',
+          destination: phone,
+        })
+      }
+      return next
+    })
+
+    const deliveredInvite = sendText
+      ? {
+          ...invite,
+          deliveryMethod: 'sms',
+          deliveryDestination: phone,
+          deliveredAt: new Date().toISOString(),
+        }
+      : invite
+
     res.status(201).json({
       invite: {
-        id: invite.id,
-        landlordCompany: invite.landlordCompany,
-        propertyAddress: invite.propertyAddress ?? null,
-        connectionCode: invite.connectionCode ?? null,
-        expiresAt: invite.expiresAt,
-        source: invite.source,
-        status: invite.status ?? 'pending',
+        id: deliveredInvite.id,
+        landlordCompany: deliveredInvite.landlordCompany,
+        propertyAddress: deliveredInvite.propertyAddress ?? null,
+        leaseStartDate: deliveredInvite.leaseStartDate ?? null,
+        leaseLengthMonths: deliveredInvite.leaseLengthMonths ?? null,
+        connectionCode: deliveredInvite.connectionCode ?? null,
+        expiresAt: deliveredInvite.expiresAt,
+        source: deliveredInvite.source,
+        status: deliveredInvite.status ?? 'pending',
+        deliveryMethod: deliveredInvite.deliveryMethod ?? null,
+        deliveryDestination: deliveredInvite.deliveryDestination ?? null,
       },
-      inviteUrl: buildTenantInviteUrl(invite.token),
-      connectionCode: invite.connectionCode ?? null,
+      inviteUrl,
+      connectionCode: deliveredInvite.connectionCode ?? null,
+      sms: smsResult
+        ? {
+            sent: smsResult.sent,
+            devMode: Boolean(smsResult.devMode),
+            to: smsResult.to ?? null,
+          }
+        : null,
     })
   } catch (err) {
     console.error('tenant-invites', err)

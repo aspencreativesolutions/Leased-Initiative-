@@ -2286,6 +2286,49 @@
   }
 }
 
+@keyframes tenant-registers-demo-cue {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+  }
+
+  40% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 35%, transparent);
+  }
+}
+
+.tenant-action-registers--demo-cue {
+  transform-origin: center;
+  will-change: transform, box-shadow;
+  border-color: color-mix(in srgb, var(--brand) 55%, transparent) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tenant-action-registers--demo-cue {
+    animation: tenant-registers-demo-cue 1.35s ease-in-out infinite;
+  }
+
+  .demo-guide-target--pulse {
+    animation: tenant-registers-demo-cue 1.35s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tenant-action-registers--demo-cue,
+  .demo-guide-target--pulse {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 40%, transparent);
+  }
+}
+
+.pending-tenants-section--demo-highlight {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--ink) 15%);
+  background-color: color-mix(in srgb, var(--brand) 6%, var(--surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
 /* In-place status-box text swap (replaces floating tooltips on compact badges) */
 .in-place-hover {
   vertical-align: middle;
@@ -3522,6 +3565,62 @@ a.in-place-hover {
     box-shadow 200ms ease,
     border-color 200ms ease,
     background-color 200ms ease;
+}
+
+@keyframes waiting-connect-demo-highlight {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--ink) 15%);
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent),
+      0 2px 10px color-mix(in srgb, var(--brand) 10%, transparent);
+    background-color: color-mix(in srgb, var(--brand) 4%, var(--surface-paper));
+  }
+
+  50% {
+    border-color: color-mix(in srgb, var(--brand) 75%, var(--ink) 8%);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--brand) 26%, transparent),
+      0 8px 20px color-mix(in srgb, var(--brand) 20%, transparent);
+    background-color: color-mix(in srgb, var(--brand) 10%, var(--surface-paper));
+  }
+}
+
+.waiting-connect-tile--demo-highlight,
+.waiting-connect-row--demo-highlight {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--ink) 15%);
+  background-color: color-mix(in srgb, var(--brand) 6%, var(--surface-paper));
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .waiting-connect-tile--demo-breathe,
+  .waiting-connect-row--demo-breathe {
+    animation: waiting-connect-demo-highlight 4.5s ease-in-out 1;
+  }
+}
+
+@keyframes pending-tenant-demo-highlight {
+  0%,
+  100% {
+    background-color: color-mix(in srgb, var(--brand) 4%, transparent);
+    box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--brand) 35%, transparent);
+  }
+
+  50% {
+    background-color: color-mix(in srgb, var(--brand) 12%, transparent);
+    box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--brand) 70%, transparent);
+  }
+}
+
+.pending-tenant-row--demo-highlight > td {
+  background-color: color-mix(in srgb, var(--brand) 6%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pending-tenant-row--demo-highlight > td {
+    animation: pending-tenant-demo-highlight 4.5s ease-in-out 1;
+  }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {

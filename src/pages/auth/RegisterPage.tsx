@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -274,6 +274,13 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
     }
   }
 
+  if (mode === 'client' && inviteTokenFromUrl) {
+    return <Navigate to={`/invite/${encodeURIComponent(inviteTokenFromUrl)}`} replace />
+  }
+  if (mode === 'client' && codeFromUrl) {
+    return <Navigate to={`/invite?code=${encodeURIComponent(codeFromUrl)}`} replace />
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-surface">
       <div className="flex flex-1 items-center justify-center px-4 py-10">
@@ -289,8 +296,8 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             {mode === 'admin'
               ? 'Sign up with your company name and email to manage tenants and lease agreements.'
               : inviteLocked
-                ? `You’re joining ${landlordCompany}. Choose an available property, then finish creating your account.`
-                : 'Select your agency and property, or enter a landlord connection code. After approval, you can review and sign your lease agreement.'}
+                ? `You’re joining ${landlordCompany}. Choose an available property, then apply.`
+                : 'Select your agency and property, or enter a landlord connection code. After you Apply, your landlord reviews you under Waiting to Connect.'}
           </p>
         </div>
 
@@ -442,7 +449,13 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
             />
             <Button type="submit" className="w-full" disabled={submitting || Boolean(inviteError)}>
               <UserPlus className="h-4 w-4" />
-              {submitting ? 'Creating account…' : 'Create account'}
+              {submitting
+                ? mode === 'client'
+                  ? 'Submitting…'
+                  : 'Creating account…'
+                : mode === 'client'
+                  ? 'Apply'
+                  : 'Create account'}
             </Button>
           </form>
 

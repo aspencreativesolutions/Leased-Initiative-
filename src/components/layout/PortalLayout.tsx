@@ -137,14 +137,7 @@ export function PortalLayout() {
         <div className="mx-auto w-full min-w-0">
           {notifications.length > 0 ? (
             <PortalNotificationBanner notifications={notifications} onDismiss={refresh} />
-          ) : (
-            <div
-              data-onboarding="portal-notifications"
-              className="mb-6 rounded-sm border border-dashed border-line/80 px-3 py-2 text-xs text-ink-faint"
-            >
-              Project updates and reminders will appear here automatically.
-            </div>
-          )}
+          ) : null}
           <Outlet />
         </div>
       </main>

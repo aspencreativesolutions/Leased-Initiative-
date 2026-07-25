@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Rocket } from 'lucide-react'
+import { PortalApplicationPanel } from '@/components/portal/PortalApplicationPanel'
 import { PortalCurrentContracts } from '@/components/portal/PortalCurrentContracts'
 import { PortalInvoiceSection } from '@/components/portal/PortalInvoiceSection'
 import { PortalPayRentSection } from '@/components/portal/PortalPayRentSection'
@@ -7,7 +8,9 @@ import { PortalPaymentScheduleTimeline } from '@/components/portal/PortalPayment
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
 import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { useAuth } from '@/context/AuthContext'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
+import { DEMO_AVA_EMAIL, isPublicDemoSession } from '@/lib/publicDemo'
 import { cn, formatDate } from '@/lib/utils'
 
 const portalActionBtnClass =
@@ -22,7 +25,14 @@ function TenantPortalHeading() {
 }
 
 export function PortalDashboardPage() {
-  const { data, loading, error, refresh } = usePortalDashboard()
+  const { data, loading, error, refresh, setData } = usePortalDashboard()
+  const { user } = useAuth()
+  const showAvaStageNote =
+    isPublicDemoSession() &&
+    user?.email?.trim().toLowerCase() === DEMO_AVA_EMAIL &&
+    data &&
+    !data.linked &&
+    !data.applicationSubmitted
 
   if (loading) {
     return <div className="py-16 text-center text-ink-muted">Loading your dashboard…</div>
@@ -42,18 +52,28 @@ export function PortalDashboardPage() {
     return (
       <div className="w-full min-w-0">
         <TenantPortalHeading />
-        <div className="paper-box mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10">
-          <p className="text-base font-medium text-ink sm:text-lg">Hello there</p>
-          <p className="mt-6 text-sm text-ink-muted">
-            Your rent payment schedule will appear once your lease is set.
+        {showAvaStageNote ? (
+          <p className="mb-3 rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2 text-center text-sm text-ink">
+            <span className="font-semibold text-brand">Demo stage:</span> Ava Mitchell is at{' '}
+            <span className="font-semibold">Start Application</span> — choose a landlord or enter
+            an invite code, then Send.
           </p>
-        </div>
+        ) : null}
+        <PortalApplicationPanel
+          data={data}
+          onUpdated={(next) => {
+            setData(next)
+          }}
+        />
         <div className="mt-8">
           <PortalCurrentContracts
             contracts={[]}
-            emptyDescription="Your landlord will approve your registration and send a lease here when it's ready."
+            emptyDescription={
+              data.applicationSubmitted
+                ? 'Once accepted, lease agreement and payment timeline will appear here.'
+                : 'After you send an application and your landlord accepts you, lease agreement and payment timeline will appear here.'
+            }
           />
-          <p className="mt-4 text-sm text-ink-muted">{data.message}</p>
         </div>
       </div>
     )

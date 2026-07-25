@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeftRight, Loader2, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -6,15 +6,20 @@ import { Button } from '@/components/ui/Button'
 import { DemoPovSwitcherShell } from '@/components/auth/DemoPovSwitcherShell'
 import { findDemoTenantPov } from '@/lib/demoTenantPov'
 import {
+  DEMO_POV_ATTENTION_EVENT,
+  DEMO_POST_APPLY_TIP,
+  consumePendingDemoPovTip,
   exitPublicDemo,
   getPublicDemoRole,
   markDemoPovIntroPlayed,
+  peekWaitingConnectHighlightEmail,
+  type DemoPovAttentionDetail,
 } from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
 /**
  * Bottom-right demo control: open the POV picker (landlord or tenant scenarios)
- * or exit the demo session.
+ * or exit the demo session. After a tenant application, jumps straight to landlord.
  */
 export function PublicDemoPovFab() {
   const { user, logout, isPublicDemo } = useAuth()
@@ -22,6 +27,8 @@ export function PublicDemoPovFab() {
   const [busyAction, setBusyAction] = useState<'exit' | null>(null)
   const [error, setError] = useState('')
   const [collapseSignal, setCollapseSignal] = useState(0)
+  const [attentionSignal, setAttentionSignal] = useState(0)
+  const [attentionTip, setAttentionTip] = useState<string | null>(null)
 
   const show = Boolean(user && (user.publicDemo === true || isPublicDemo))
   const busy = busyAction !== null
@@ -30,14 +37,25 @@ export function PublicDemoPovFab() {
     getPublicDemoRole() ?? (user?.role === 'admin' ? 'landlord' : 'tenant')
   const tenantPov = currentRole === 'tenant' ? findDemoTenantPov(user?.email) : null
 
-  const switchLabel =
-    currentRole === 'landlord' ? 'Switch to Tenant' : 'Switch POV'
-  const switchPath =
-    currentRole === 'landlord' ? '/demo/pov?pick=tenant' : '/demo/pov'
+  const pendingLandlordSwitch =
+    currentRole === 'tenant' &&
+    Boolean(attentionTip || peekWaitingConnectHighlightEmail())
+
+  const switchLabel = pendingLandlordSwitch
+    ? 'Switch to Landlord POV'
+    : currentRole === 'landlord'
+      ? 'Switch to Tenant'
+      : 'Switch POV'
+  const switchPath = pendingLandlordSwitch
+    ? '/demo/pov?role=landlord'
+    : currentRole === 'landlord'
+      ? '/demo/pov?pick=tenant'
+      : '/demo/pov'
 
   const handleOpenPicker = useCallback(() => {
     if (busy) return
     setError('')
+    setAttentionTip(null)
     markDemoPovIntroPlayed()
     setCollapseSignal((n) => n + 1)
     navigate(switchPath)
@@ -59,24 +77,53 @@ export function PublicDemoPovFab() {
     }
   }, [busy, logout, navigate])
 
+  useEffect(() => {
+    if (!show) return
+
+    const pending = consumePendingDemoPovTip()
+    if (pending) {
+      setAttentionTip(pending)
+      setAttentionSignal((n) => n + 1)
+    }
+
+    const onAttention = (event: Event) => {
+      const detail = (event as CustomEvent<DemoPovAttentionDetail>).detail
+      // Prefer live event tip; drop any leftover pending so we don't double-play.
+      consumePendingDemoPovTip()
+      setAttentionTip(detail?.tip?.trim() || DEMO_POST_APPLY_TIP)
+      setAttentionSignal((n) => n + 1)
+    }
+    window.addEventListener(DEMO_POV_ATTENTION_EVENT, onAttention)
+    return () => window.removeEventListener(DEMO_POV_ATTENTION_EVENT, onAttention)
+  }, [show])
+
   if (!show) return null
 
   const viewingLabel = tenantPov
     ? `${tenantPov.name} · ${tenantPov.scenario}`
     : currentRole
 
+  const defaultSubtitle =
+    currentRole === 'landlord'
+      ? 'Switch to Tenant to pick a mock scenario, or exit demo.'
+      : 'Switch POV to choose another tenant or return to the landlord, or exit demo.'
+
   return (
     <DemoPovSwitcherShell
-      title="Demo point of view"
+      title={attentionTip ? 'Application sent' : 'Demo point of view'}
       subtitle={
-        <>
-          Now viewing as {viewingLabel}.{' '}
-          {currentRole === 'landlord'
-            ? 'Switch to Tenant to pick a mock scenario, or exit demo.'
-            : 'Switch POV to choose another tenant or return to the landlord, or exit demo.'}
-        </>
+        attentionTip ? (
+          <>
+            Now viewing as {viewingLabel}. {attentionTip}
+          </>
+        ) : (
+          <>
+            Now viewing as {viewingLabel}. {defaultSubtitle}
+          </>
+        )
       }
       collapseSignal={collapseSignal}
+      attentionSignal={attentionSignal}
       action={
         <div className="flex flex-col gap-2">
           <Button

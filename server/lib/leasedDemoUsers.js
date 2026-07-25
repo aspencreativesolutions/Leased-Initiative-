@@ -48,9 +48,9 @@ const OBSOLETE_LEASED_DEMO_EMAILS = new Set(['pending@leased.test'])
  * One mock login per Leased flow state, plus extra Waiting to Connect applicants
  * whose desired addresses match seeded Rentals:
  * 1. Landlord — approve tenants & send leases
- * 2–4. Tenants awaiting approval (realistic names + rental addresses)
- * 5. Tenant lease sent — approved, waiting to sign
- * 6. Tenant active — lease signed
+ * 2–5. Tenants awaiting approval (realistic names + rental addresses)
+ * 6. Tenant lease sent — approved, waiting to sign
+ * 7. Tenant active — lease signed
  */
 export const LEASED_DEMO_USERS = [
   {
@@ -60,6 +60,20 @@ export const LEASED_DEMO_USERS = [
     role: 'admin',
     label: 'Landlord',
     description: 'Approve tenants and send lease contracts',
+  },
+  {
+    key: 'pending-fresh',
+    email: 'ava.mitchell@example.com',
+    name: 'Ava Mitchell',
+    role: 'client',
+    label: 'Tenant — start application',
+    description:
+      'Portal starts at Start Application — pick a landlord + address or enter an invite code, then Send',
+    tenantState: 'pending_approval',
+    // Explicit nulls clear any prior prefs so the portal shows Start Application
+    preferredLeaseMonths: null,
+    preferredLandlordCompany: null,
+    preferredPropertyAddress: null,
   },
   {
     key: 'pending',
@@ -162,13 +176,20 @@ async function ensureUserRecord(users, demo, extras = {}) {
   const now = new Date().toISOString()
   let user = findUserByEmail(users, email)
   const passwordOk = user ? await verifyPassword(password, user.passwordHash) : false
-  const preferredLeaseMonths =
-    demo.preferredLeaseMonths ??
-    demo.client?.leaseLengthMonths ??
-    (demo.role === 'client' ? DEFAULT_LEASE_LENGTH_MONTHS : undefined)
-  const preferredPropertyAddress =
-    demo.preferredPropertyAddress ?? demo.client?.projectName
-  const preferredLandlordCompany = demo.preferredLandlordCompany
+  const clearLeaseMonths = demo.preferredLeaseMonths === null
+  const clearPropertyAddress = demo.preferredPropertyAddress === null
+  const clearLandlordCompany = demo.preferredLandlordCompany === null
+  const preferredLeaseMonths = clearLeaseMonths
+    ? undefined
+    : (demo.preferredLeaseMonths ??
+      demo.client?.leaseLengthMonths ??
+      (demo.role === 'client' ? DEFAULT_LEASE_LENGTH_MONTHS : undefined))
+  const preferredPropertyAddress = clearPropertyAddress
+    ? undefined
+    : (demo.preferredPropertyAddress ?? demo.client?.projectName)
+  const preferredLandlordCompany = clearLandlordCompany
+    ? undefined
+    : demo.preferredLandlordCompany
 
   if (!user) {
     user = {
@@ -190,12 +211,18 @@ async function ensureUserRecord(users, demo, extras = {}) {
     return { users: [...users, user], user, created: true }
   }
 
+  const needsClearPrefs =
+    (clearLeaseMonths && user.preferredLeaseMonths != null) ||
+    (clearPropertyAddress && user.preferredPropertyAddress) ||
+    (clearLandlordCompany && user.preferredLandlordCompany)
+
   const needsUpdate =
     user.role !== demo.role ||
     user.name !== demo.name ||
     !user.isLeasedDemoUser ||
     user.emailVerified !== true ||
     !passwordOk ||
+    needsClearPrefs ||
     (preferredLeaseMonths != null && user.preferredLeaseMonths !== preferredLeaseMonths) ||
     (preferredPropertyAddress != null &&
       user.preferredPropertyAddress !== preferredPropertyAddress) ||
@@ -221,6 +248,9 @@ async function ensureUserRecord(users, demo, extras = {}) {
     ...(!passwordOk ? { passwordHash: await hashPassword(password) } : {}),
     ...extras,
   }
+  if (clearLeaseMonths) delete next.preferredLeaseMonths
+  if (clearPropertyAddress) delete next.preferredPropertyAddress
+  if (clearLandlordCompany) delete next.preferredLandlordCompany
   if (demo.role === 'client' && !next.portalThemeId) {
     next.portalThemeId = DEFAULT_PORTAL_THEME_ID
   }

@@ -1,5 +1,12 @@
 import { Plus, UserPlus, Link2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import {
+  DEMO_GUIDE_CUE_EVENT,
+  isPublicDemoSession,
+  peekNewRegistrantsDemoCue,
+  type DemoGuideCueDetail,
+} from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 interface DashboardNavActionsProps {
@@ -27,6 +34,21 @@ export function DashboardNavActions({
   const navOutlineClass = isNav
     ? '!border-nav-fg/35 !text-nav-fg hover:!border-nav-fg hover:!bg-transparent hover:!text-nav-fg'
     : undefined
+  const [demoCueActive, setDemoCueActive] = useState(() =>
+    Boolean(isPublicDemoSession() && peekNewRegistrantsDemoCue())
+  )
+
+  useEffect(() => {
+    if (!isPublicDemoSession()) return
+    setDemoCueActive(Boolean(peekNewRegistrantsDemoCue()))
+    const onCue = (event: Event) => {
+      const detail = (event as CustomEvent<DemoGuideCueDetail>).detail
+      if (detail?.kind === 'new-registrants') setDemoCueActive(true)
+      if (detail?.kind === 'pending-tenant') setDemoCueActive(false)
+    }
+    window.addEventListener(DEMO_GUIDE_CUE_EVENT, onCue)
+    return () => window.removeEventListener(DEMO_GUIDE_CUE_EVENT, onCue)
+  }, [])
 
   return (
     <div
@@ -48,9 +70,13 @@ export function DashboardNavActions({
             iconBtnBase,
             'quick-tooltip quick-tooltip--below',
             isNav && 'tenant-action-registers--attention',
+            demoCueActive && 'tenant-action-registers--demo-cue',
             navOutlineClass
           )}
-          onClick={onOpenRegistrations}
+          onClick={() => {
+            setDemoCueActive(false)
+            onOpenRegistrations()
+          }}
           data-tooltip="View New Registers"
           aria-label={`View New Registers, ${registrationCount} waiting`}
         >

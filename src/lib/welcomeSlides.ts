@@ -33,7 +33,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your tenant portal',
     description:
-      'Sign up by selecting your agency and property, then wait for landlord approval. Your dashboard centers on the next rent due date — with Pay Rent, leases, and updates in one place.',
+      'Open an invite link or code from your landlord to confirm your rental on a pre-filled form. Or Start Application in your portal: choose a landlord company, pick an available address, choose Pay full rent or Live with roommates (invite friends up to open spots), and Send. After approval and lease signing, your dashboard centers on rent due dates, Pay Rent, leases, and updates.',
   },
   {
     id: 'tenant-contracts',
@@ -41,7 +41,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: FileText,
     title: 'Review and sign lease agreements',
     description:
-      'When your landlord sends a lease agreement, open it here, review the terms, and sign electronically.',
+      'When your landlord accepts you and sends a lease agreement, open it here, review the terms, and sign electronically. Once signed, you become an official tenant with a scheduled lease start.',
   },
   {
     id: 'tenant-payments',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants find you by agency name when Public Discovery is on, or join with a one-time connection link/code when you set Invite-Only in Settings. New sign-ups appear under Waiting to Connect on the Dashboard (invite-only joins require open occupancy). Accept them into Pending Tenants, or use Add Tenant to enter name, email, property, and January/August lease dates and generate a lease agreement. Lease Status shows Lease Sent once you send it; after they sign they move to Official Tenants. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
+      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status so you can Review & Send — drafts are never delivered until you click Send to Tenant (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants (Upcoming until the lease starts). Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',
@@ -143,7 +143,7 @@ const DEMO_SLIDE: WelcomeSlide = {
   icon: PlayCircle,
   title: 'Try the full product demo',
   description:
-    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — or open the invite link they sent. Confirm Start Demo, then choose landlord or a specific tenant scenario. Switch POV anytime from the bottom-right controls to try another mock user or return to the landlord — nothing you change is saved.',
+    'Have an access code or a company demo link from your host? On the homepage, open Quick Access (key icon, top right) and enter a code — or open the invite link they sent. Confirm Start Demo, then choose landlord or a specific tenant scenario. After a tenant application (try Ava Mitchell), Switch to Landlord POV goes straight to Waiting to Connect — no second role prompt. Switch POV anytime from the bottom-right controls to try another mock user — nothing you change is saved.',
 }
 
 const READY_SLIDE: WelcomeSlide = {

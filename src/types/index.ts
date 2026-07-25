@@ -158,13 +158,23 @@ export interface User {
   name: string
   role: UserRole
   clientId?: string | null
-  phone?: string
   /** Preferred lease term in months (tenants choose at registration) */
   preferredLeaseMonths?: number
+  /** Requested lease start (YYYY-MM-DD) from invite claim or registration */
+  preferredLeaseStartDate?: string
   /** Official landlord / agency name chosen at tenant registration */
   preferredLandlordCompany?: string
   /** Exact property address the tenant is registering for */
   preferredPropertyAddress?: string
+  /** Preferred checkout provider chosen on invite claim */
+  preferredPaymentMethod?: PaymentProvider
+  /** full_rent = solo / pay entire rent; roommates = share and invite friends */
+  preferredOccupancyMode?: 'full_rent' | 'roommates'
+  /** Phones invited as potential roommates at application */
+  roommateInvitePhones?: string[]
+  phone?: string
+  /** Claimed via streamlined invite link (no password signup) */
+  inviteClaimed?: boolean
   /** Hidden from new registration queue without deleting the account */
   registrationDismissed?: boolean
   /** Client portal style — persisted across sessions */
@@ -383,12 +393,18 @@ export interface PendingRegistration {
   name: string
   email: string
   createdAt: string
+  /** When the tenant submitted Start Application / invite claim (sort key for Waiting to Connect) */
+  applicationSubmittedAt?: string
   /** Preferred lease term chosen at registration */
   preferredLeaseMonths?: number
+  /** Requested lease start date (YYYY-MM-DD) */
+  preferredLeaseStartDate?: string
   /** Landlord / agency the tenant selected at registration */
   preferredLandlordCompany?: string
   /** Property address the tenant entered at registration */
   preferredPropertyAddress?: string
+  preferredPaymentMethod?: PaymentProvider
+  phone?: string
 }
 
 export interface PortalUserAccepted {
@@ -561,6 +577,20 @@ export interface PortalRentPaymentInfo {
 export interface PortalDashboard {
   linked: boolean
   isOfficialClient: boolean
+  /** Unlinked tenants: true after agency + property application is submitted */
+  applicationSubmitted?: boolean
+  /** Submitted application details (unlinked + applied only) */
+  application?: {
+    name: string
+    email: string
+    preferredLandlordCompany: string | null
+    preferredPropertyAddress: string | null
+    preferredLeaseMonths: number | null
+    preferredLeaseStartDate: string | null
+    preferredPaymentMethod?: PaymentProvider | null
+    preferredOccupancyMode?: 'full_rent' | 'roommates' | null
+    roommateInvitePhones?: string[]
+  } | null
   client: {
     id: string
     name: string
@@ -797,6 +827,12 @@ export interface BusinessSettings {
   defaultPaymentTerms: string
   defaultRevisionLimit: string
   defaultContractFooter: string
+  /**
+   * Optional convenience: when true, newly generated lease drafts are sent to the
+   * tenant automatically once generation finishes. Default is false — landlords
+   * review via Review & Send Lease before delivery.
+   */
+  autoSendLeaseDrafts?: boolean
   /**
    * When true, newly generated leases use defaultLeaseStartDate / defaultLeaseEndDate
    * instead of the seasonal January 1 / August 1 calendar defaults.

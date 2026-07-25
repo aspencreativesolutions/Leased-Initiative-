@@ -45,19 +45,24 @@ export function cloneLeaseForClient(sourceContract, client, leaseOptions = {}) {
     id: _id,
     clientId: _clientId,
     sentAt: _sentAt,
+    resentAt: _resentAt,
     viewedAt: _viewedAt,
     signedAt: _signedAt,
     confirmedByClient: _confirmed,
+    clientSignature: _clientSig,
+    clientSignDate: _clientSignDate,
     portalStatus: _portalStatus,
     createdAt: _createdAt,
     leaseGenerationStatus: _gen,
     leaseGenerationStartedAt: _genAt,
+    leaseGenerationCompletedAt: _genDone,
     versionHistory: _history,
     leaseVersion: _version,
     ...terms
   } = sourceContract
 
   const now = new Date().toISOString()
+  const readyImmediately = Boolean(leaseOptions.readyImmediately)
   return {
     ...terms,
     id: generateId(),
@@ -80,8 +85,9 @@ export function cloneLeaseForClient(sourceContract, client, leaseOptions = {}) {
     isPlaceholderDraft: false,
     confirmedByClient: false,
     pdfGenerated: Boolean(sourceContract.pdfGenerated),
-    leaseGenerationStatus: 'generating',
+    leaseGenerationStatus: readyImmediately ? 'ready' : 'generating',
     leaseGenerationStartedAt: now,
+    ...(readyImmediately ? { leaseGenerationCompletedAt: now } : {}),
     leaseVersion: 1,
     versionHistory: [],
     createdAt: now,
@@ -163,7 +169,12 @@ export function createDraftContract(client, settings, leaseOptions = {}) {
     depositAmount: leaseOptions.depositAmount || fields.depositAmount,
     remainingBalance: leaseOptions.remainingBalance || fields.remainingBalance,
     paymentSchedule: fields.paymentSchedule,
-    paymentProvider: 'paypal',
+    paymentProvider:
+      leaseOptions.paymentProvider === 'stripe' ||
+      leaseOptions.paymentProvider === 'square' ||
+      leaseOptions.paymentProvider === 'paypal'
+        ? leaseOptions.paymentProvider
+        : 'paypal',
     allowPrepaidRent: true,
     paymentMethods: fields.paymentMethods,
     latePaymentPolicy: fields.latePaymentPolicy,
@@ -177,7 +188,7 @@ export function createDraftContract(client, settings, leaseOptions = {}) {
     ownershipTerms: fields.ownershipTerms,
     portfolioRights: fields.portfolioRights,
     terminationTerms: fields.terminationTerms,
-    designerSignature: settings.ownerName || '',
+    designerSignature: settings.ownerName || settings.businessName || '',
     isPlaceholderDraft: false,
     leaseGenerationStatus: readyImmediately ? 'ready' : 'generating',
     leaseGenerationStartedAt: now,
@@ -188,7 +199,7 @@ export function createDraftContract(client, settings, leaseOptions = {}) {
   }
 }
 
-/** Complete lease generation — template is ready for View / Edit / Send. */
+/** Complete lease generation — template is ready for View / Edit / Send (or auto-send). */
 export function markLeaseGenerationReady(contract, now = new Date().toISOString()) {
   if (!contract || contract.leaseGenerationStatus === 'ready') return contract
   return {

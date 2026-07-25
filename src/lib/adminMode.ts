@@ -43,6 +43,17 @@ export const CORE_MOCK_USERS: AdminMockUser[] = [
     group: 'core',
   },
   {
+    key: 'pending-fresh',
+    email: 'ava.mitchell@example.com',
+    name: 'Ava Mitchell',
+    role: 'client',
+    label: 'Tenant — start application',
+    description:
+      'Portal starts at Start Application — landlord + address or invite code, then Send',
+    group: 'core',
+    journey: 'pending_approval',
+  },
+  {
     key: 'pending',
     email: 'emma.johnson@example.com',
     name: 'Emma Johnson',
@@ -160,7 +171,7 @@ export const FIRST_TIME_SCENARIOS: AdminScenario[] = [
   {
     id: 'first-time-tenant-register',
     label: 'Register as tenant',
-    description: 'New tenant account creation',
+    description: 'Select agency + property, fill tenant info, then Apply',
     path: '/register',
   },
   {
@@ -258,6 +269,15 @@ const landlordScenarios: AdminScenario[] = [
 ]
 
 const pendingScenarios: AdminScenario[] = [
+  {
+    id: 'pending-fresh-apply',
+    label: 'Start application',
+    description:
+      'Portal: Start Application or invite code → Send → Switch to Landlord POV (direct)',
+    email: 'ava.mitchell@example.com',
+    path: '/portal',
+    reseed: true,
+  },
   {
     id: 'pending-waiting',
     label: 'Waiting for approval',
@@ -408,6 +428,7 @@ export function scenariosForMockUser(user: AdminMockUser): AdminScenario[] {
     case 'landlord':
       return landlordScenarios
     case 'pending':
+    case 'pending-fresh':
       return pendingScenarios
     case 'awaiting':
       return awaitingScenarios

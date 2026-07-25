@@ -19,11 +19,34 @@ export type DemoTenantPovOption = {
   monthlyRent: string | null
   paymentMethod: string
   paymentStatus: string
+  /** Compact 2–3 status bullets shown before the full card expands */
+  statusPoints: string[]
   /** Extra facts shown in the card body */
   details: string[]
 }
 
 const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email' | 'name'>> = {
+  'pending-fresh': {
+    scenario: 'Start application',
+    summary:
+      'Portal starts at Start Application — pick a landlord + address or enter an invite code, then Send.',
+    address: 'Not selected yet',
+    leaseStart: '—',
+    leaseTerm: '—',
+    monthlyRent: null,
+    paymentMethod: 'Not set yet',
+    paymentStatus: 'No lease yet',
+    statusPoints: [
+      'Start Application ready',
+      'Pick landlord + address or invite code',
+      'Send to reach Waiting to Connect',
+    ],
+    details: [
+      'Demo flow: Start Application → landlord dropdown → address → Send',
+      'Or enter an invite code instead of public discovery',
+      'After Send: Application sent + Switch to Landlord POV (direct) → Accept & Draft Lease → Lease Drafted → Review & Send',
+    ],
+  },
   pending: {
     scenario: 'Awaiting approval',
     summary: 'Just registered — waiting for the landlord to accept the application.',
@@ -33,6 +56,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: null,
     paymentMethod: 'Not set yet',
     paymentStatus: 'No lease yet',
+    statusPoints: [
+      'Application submitted',
+      'Waiting for landlord approval',
+      'In Waiting to Connect queue',
+    ],
     details: [
       'Appears under Waiting to Connect for the landlord',
       'Portal shows pending-approval messaging',
@@ -47,6 +75,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: null,
     paymentMethod: 'Not set yet',
     paymentStatus: 'No lease yet',
+    statusPoints: [
+      'Application submitted',
+      'Waiting for landlord approval',
+      'Donnell Street request',
+    ],
     details: ['Second Waiting to Connect applicant for multi-signup demos'],
   },
   'pending-olivia': {
@@ -58,6 +91,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: null,
     paymentMethod: 'Not set yet',
     paymentStatus: 'No lease yet',
+    statusPoints: [
+      'Application submitted',
+      'Waiting for landlord approval',
+      'Prefers 6-month term',
+    ],
     details: ['Useful for testing shorter preferred lease lengths'],
   },
   awaiting: {
@@ -69,6 +107,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$1,450 / month',
     paymentMethod: 'PayPal (portal checkout)',
     paymentStatus: 'First month paid early · lease unsigned',
+    statusPoints: [
+      'Lease Agreement Sent',
+      'Move-In Pending',
+      'Sign Lease to Become Official',
+    ],
     details: [
       'Lease Agreements badge: Sent',
       'Move-in has not started yet',
@@ -84,6 +127,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$3,200 / month',
     paymentMethod: 'Stripe (portal checkout)',
     paymentStatus: 'Current · last paid July 1 on time · final due August 1',
+    statusPoints: [
+      'Lease Active',
+      'Official Tenant',
+      'Rent current · near term end',
+    ],
     details: [
       'Lease Agreements badge: Active',
       'Listed under Official Tenants',
@@ -99,6 +147,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$2,150 / month',
     paymentMethod: 'PayPal (portal checkout)',
     paymentStatus: 'Unpaid · awaiting signature',
+    statusPoints: [
+      'Lease Agreement Sent',
+      'Pending Tenants (unsigned)',
+      'Sign before rent schedule issues',
+    ],
     details: [
       'Lease Agreements badge: Sent',
       'Shows under Pending Tenants for the landlord',
@@ -115,6 +168,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$1,200 / month (share of $2,400)',
     paymentMethod: 'PayPal (portal checkout)',
     paymentStatus: 'July rent overdue',
+    statusPoints: [
+      'Lease Active',
+      'July rent overdue',
+      'Roommate share ($1,200 of $2,400)',
+    ],
     details: [
       'Lease Agreements badge: Active',
       'Shares the home with roommate Jordan Kim',
@@ -131,6 +189,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$1,200 / month (share of $2,400)',
     paymentMethod: 'PayPal (portal checkout)',
     paymentStatus: 'Partial · $400 remaining',
+    statusPoints: [
+      'Lease Active',
+      'Partial payment · $400 remaining',
+      'Roommate share with James',
+    ],
     details: [
       'Lease Agreements badge: Active',
       'Demonstrates equal rent split + partial balance',
@@ -145,6 +208,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$2,200 / month',
     paymentMethod: 'Square (portal checkout)',
     paymentStatus: 'Deposit paid · August rent paid early',
+    statusPoints: [
+      'Lease Signed',
+      'Move-In Upcoming (August 1)',
+      'First month paid early',
+    ],
     details: [
       'Lease Agreements badge: Signed (start date still ahead)',
       'Official tenant before move-in date',
@@ -160,6 +228,11 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     monthlyRent: '$1,850 / month',
     paymentMethod: 'Stripe (portal checkout)',
     paymentStatus: 'Paid through July',
+    statusPoints: [
+      'Lease Active',
+      'Rent paid through July',
+      'Next due August 1',
+    ],
     details: [
       'Lease Agreements badge: Active',
       'Listed under Official Tenants and Payments',
@@ -186,6 +259,7 @@ export const DEMO_TENANT_POV_OPTIONS: DemoTenantPovOption[] = ALL_MOCK_USERS.fil
       monthlyRent: null,
       paymentMethod: '—',
       paymentStatus: '—',
+      statusPoints: [user.description],
       details: [],
     }
   }
@@ -204,17 +278,25 @@ export function findDemoTenantPov(email: string | null | undefined): DemoTenantP
 }
 
 /** Grouped for scannable picker sections. */
-export const DEMO_TENANT_POV_SECTIONS: { title: string; keys: string[] }[] = [
+export const DEMO_TENANT_POV_SECTIONS: { id: string; title: string; keys: string[] }[] = [
   {
+    id: 'start-application',
+    title: 'Start Application',
+    keys: ['pending-fresh'],
+  },
+  {
+    id: 'waiting-to-connect',
     title: 'Waiting to Connect',
     keys: ['pending', 'pending-michael', 'pending-olivia'],
   },
   {
-    title: 'Lease stages (Sent → Signed)',
+    id: 'lease-stages',
+    title: 'Lease Stages',
     keys: ['awaiting', 'sample-emily', 'sample-marcus', 'active'],
   },
   {
-    title: 'Payments & edge cases',
+    id: 'payments-edge-cases',
+    title: 'Payments & Edge Cases',
     keys: ['sample-james', 'sample-jordan', 'sample-lisa'],
   },
 ]

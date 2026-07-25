@@ -1,5 +1,11 @@
 import crypto from 'crypto'
-import { availablePropertyAddresses } from './rentalOccupancy.js'
+import { availableApplicantSlotsAtAddress, availablePropertyAddresses } from './rentalOccupancy.js'
+import {
+  isFutureLeaseStartDate,
+  isLeaseLengthMonths,
+  isPlainYmd,
+  parseLeaseLengthMonths,
+} from './leaseSchedule.js'
 
 /** Sample agency always offered on tenant signup (demo / discovery). */
 export const SAMPLE_AGENCY_NAME = 'JMC Development'
@@ -11,6 +17,8 @@ export const SAMPLE_AGENCY_PROPERTIES = [
 ]
 
 const INVITE_EXPIRY_DAYS = 30
+const CUSTOM_CODE_MIN = 4
+const CUSTOM_CODE_MAX = 24
 
 export function getTenantDiscoveryMode(store) {
   const mode = store?.settings?.tenantDiscoveryMode
@@ -40,6 +48,38 @@ export function collectPropertyAddresses(store) {
 }
 
 /**
+ * Occupancy snapshot for a rental address (from landlord maxTenants metadata).
+ * Sample / unlisted addresses get a demo-friendly default capacity.
+ */
+export function propertyOccupancyDetail(store, address) {
+  const trimmed = String(address ?? '').trim()
+  if (!trimmed) {
+    return { address: '', maxTenants: 0, availableSpots: 0, occupied: 0 }
+  }
+  const { property, slots } = availableApplicantSlotsAtAddress(store, trimmed)
+  if (property) {
+    const maxTenants = Math.max(1, Number(property.maxTenants) || 1)
+    const availableSpots = Math.max(0, slots)
+    return {
+      address: property.address?.trim() || trimmed,
+      maxTenants,
+      availableSpots,
+      occupied: Math.max(0, maxTenants - availableSpots),
+    }
+  }
+  return {
+    address: trimmed,
+    maxTenants: 4,
+    availableSpots: 4,
+    occupied: 0,
+  }
+}
+
+function withPropertyDetails(store, addresses) {
+  return addresses.map((address) => propertyOccupancyDetail(store, address))
+}
+
+/**
  * Agencies available at tenant signup.
  * Invite-only landlords are omitted from the public discovery list.
  * When `availableOnly` is true, property lists are filtered to units with open capacity.
@@ -57,19 +97,24 @@ export function buildLandlordAgencies(store, options = {}) {
   const discoveryMode = getTenantDiscoveryMode(store)
   if (businessName && !(forPublicDiscovery && discoveryMode === 'invite_only')) {
     seen.add(businessName.toLowerCase())
+    const properties =
+      allProperties.length > 0 ? allProperties : [...SAMPLE_AGENCY_PROPERTIES]
     agencies.push({
       name: businessName,
-      properties: allProperties.length > 0 ? allProperties : [...SAMPLE_AGENCY_PROPERTIES],
+      properties,
+      propertyDetails: withPropertyDetails(store, properties),
       discoveryMode,
     })
   }
 
   if (!seen.has(SAMPLE_AGENCY_NAME.toLowerCase())) {
+    const properties = [...SAMPLE_AGENCY_PROPERTIES, ...allProperties].filter(
+      (address, index, list) => list.indexOf(address) === index
+    )
     agencies.push({
       name: SAMPLE_AGENCY_NAME,
-      properties: [...SAMPLE_AGENCY_PROPERTIES, ...allProperties].filter(
-        (address, index, list) => list.indexOf(address) === index
-      ),
+      properties,
+      propertyDetails: withPropertyDetails(store, properties),
       discoveryMode: 'public',
     })
   }
@@ -89,17 +134,20 @@ export function buildAgencyForInvite(store, invite) {
 
   if (invite.propertyAddress) {
     const locked = invite.propertyAddress.trim()
+    const list = locked ? [locked] : []
     return {
       name: company,
-      properties: locked ? [locked] : [],
+      properties: list,
+      propertyDetails: withPropertyDetails(store, list),
       discoveryMode,
     }
   }
 
+  const list = properties.length > 0 ? properties : [...SAMPLE_AGENCY_PROPERTIES]
   return {
     name: company,
-    properties:
-      properties.length > 0 ? properties : [...SAMPLE_AGENCY_PROPERTIES],
+    properties: list,
+    propertyDetails: withPropertyDetails(store, list),
     discoveryMode,
   }
 }
@@ -108,10 +156,36 @@ export function createTenantInviteToken() {
   return crypto.randomBytes(24).toString('hex')
 }
 
+export function normalizeConnectionCode(code) {
+  return String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
+}
+
+export function isValidCustomConnectionCode(code) {
+  const normalized = normalizeConnectionCode(code)
+  if (normalized.length < CUSTOM_CODE_MIN || normalized.length > CUSTOM_CODE_MAX) {
+    return false
+  }
+  return /^[A-Z0-9-]+$/.test(normalized)
+}
+
+export function connectionCodeTaken(store, code, exceptInviteId = null) {
+  const normalized = normalizeConnectionCode(code)
+  if (!normalized) return false
+  return (store.tenantInvites ?? []).some((invite) => {
+    if (exceptInviteId && invite.id === exceptInviteId) return false
+    if (invite.usedAt) return false
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return false
+    return normalizeConnectionCode(invite.connectionCode) === normalized
+  })
+}
+
 export function createConnectionCode(store) {
   const existing = new Set(
     (store.tenantInvites ?? [])
-      .map((invite) => String(invite.connectionCode ?? '').toUpperCase())
+      .map((invite) => normalizeConnectionCode(invite.connectionCode))
       .filter(Boolean)
   )
   for (let attempt = 0; attempt < 24; attempt += 1) {
@@ -123,18 +197,73 @@ export function createConnectionCode(store) {
 
 export function buildTenantInviteUrl(token) {
   const base = process.env.APP_URL || 'http://localhost:5173'
-  return `${base.replace(/\/$/, '')}/register?invite=${encodeURIComponent(token)}`
+  return `${base.replace(/\/$/, '')}/invite/${encodeURIComponent(token)}`
 }
 
+export function buildInviteSmsBody({ landlordCompany, inviteUrl, connectionCode }) {
+  const who = landlordCompany?.trim() || 'your landlord'
+  const codePart = connectionCode
+    ? ` Or enter code ${connectionCode} on the invite page.`
+    : ''
+  return `${who} invited you to join their rental portal. Open this link to confirm your lease details (no account signup needed): ${inviteUrl}${codePart}`
+}
+
+/**
+ * @param {object} store
+ * @param {object} [options]
+ * @returns {{ invite?: object, error?: string }}
+ */
 export function createTenantInvite(store, options = {}) {
   const landlordCompany =
-    store.settings?.businessName?.trim() || SAMPLE_AGENCY_NAME
+    (typeof options.landlordCompany === 'string' && options.landlordCompany.trim()) ||
+    store.settings?.businessName?.trim() ||
+    SAMPLE_AGENCY_NAME
   const propertyAddress =
     typeof options.propertyAddress === 'string' && options.propertyAddress.trim()
       ? options.propertyAddress.trim()
       : null
+
+  let leaseStartDate = null
+  if (typeof options.leaseStartDate === 'string' && options.leaseStartDate.trim()) {
+    const start = options.leaseStartDate.trim().slice(0, 10)
+    if (!isPlainYmd(start)) {
+      return { error: 'Lease start date must be a valid calendar date.' }
+    }
+    if (!isFutureLeaseStartDate(start)) {
+      return { error: 'Lease start date must be a future date.' }
+    }
+    leaseStartDate = start
+  }
+
+  let leaseLengthMonths = null
+  if (options.leaseLengthMonths != null && options.leaseLengthMonths !== '') {
+    if (!isLeaseLengthMonths(options.leaseLengthMonths)) {
+      return { error: 'Lease duration must be 6, 12, 18, or 24 months.' }
+    }
+    leaseLengthMonths = parseLeaseLengthMonths(options.leaseLengthMonths)
+  }
+
+  let connectionCode
+  const customCode =
+    typeof options.connectionCode === 'string' ? options.connectionCode.trim() : ''
+  if (customCode) {
+    if (!isValidCustomConnectionCode(customCode)) {
+      return {
+        error: `Invite code must be ${CUSTOM_CODE_MIN}–${CUSTOM_CODE_MAX} letters, numbers, or hyphens.`,
+      }
+    }
+    connectionCode = normalizeConnectionCode(customCode)
+    if (connectionCodeTaken(store, connectionCode)) {
+      return { error: 'That invite code is already in use. Choose another.' }
+    }
+  } else {
+    connectionCode = createConnectionCode(store)
+  }
+
+  const phone =
+    typeof options.phone === 'string' && options.phone.trim() ? options.phone.trim() : null
+
   const token = createTenantInviteToken()
-  const connectionCode = createConnectionCode(store)
   const now = new Date()
   const expiresAt = new Date(
     now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000
@@ -145,6 +274,9 @@ export function createTenantInvite(store, options = {}) {
     connectionCode,
     landlordCompany,
     propertyAddress,
+    leaseStartDate,
+    leaseLengthMonths,
+    phone,
     source: options.source === 'lease-import' ? 'lease-import' : 'manual',
     clientId: typeof options.clientId === 'string' ? options.clientId : null,
     deliveryMethod: null,
@@ -156,7 +288,7 @@ export function createTenantInvite(store, options = {}) {
     usedAt: null,
     usedByUserId: null,
   }
-  return invite
+  return { invite }
 }
 
 /** Clear lease-import invites (and their delivery state) on Admin Mode reseed. */
@@ -210,15 +342,27 @@ export function findValidTenantInvite(store, token) {
 }
 
 export function findValidTenantInviteByCode(store, code) {
-  const normalized = String(code ?? '')
-    .trim()
-    .toUpperCase()
+  const normalized = normalizeConnectionCode(code)
   if (!normalized) return null
   const invites = store.tenantInvites ?? []
   const invite = invites.find(
-    (entry) => String(entry.connectionCode ?? '').toUpperCase() === normalized
+    (entry) => normalizeConnectionCode(entry.connectionCode) === normalized
   )
   return inviteStillValid(invite) ? invite : null
+}
+
+export function publicInvitePayload(store, invite) {
+  const agency = buildAgencyForInvite(store, invite)
+  return {
+    inviteToken: invite.token,
+    landlordCompany: invite.landlordCompany,
+    propertyAddress: invite.propertyAddress ?? null,
+    leaseStartDate: invite.leaseStartDate ?? null,
+    leaseLengthMonths: invite.leaseLengthMonths ?? null,
+    connectionCode: invite.connectionCode ?? null,
+    agency,
+    discoveryMode: getTenantDiscoveryMode(store),
+  }
 }
 
 export function markTenantInviteUsed(store, token, userId) {

@@ -116,7 +116,7 @@ interface AppContextValue {
     clientId: string,
     tier: ServiceTier
   ) => Promise<{ requiresResend: boolean }>
-  refresh: () => void
+  refresh: () => Promise<void>
 }
 
 const AppContext = createContext<AppContextValue | null>(null)
@@ -513,9 +513,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSettings = useCallback(
     (updates: Partial<BusinessSettings>) => {
       const next = { ...settings, ...updates }
-      persist(clients, contracts, next)
+      void (async () => {
+        await persist(clients, contracts, next)
+        // Re-sync after settings-only saves so server-created tenants are not lost
+        // if the in-memory client list was briefly stale.
+        if (isAdmin) await refresh()
+      })()
     },
-    [clients, contracts, settings, persist]
+    [clients, contracts, settings, persist, isAdmin, refresh]
   )
 
   const markOfficialClient = useCallback(

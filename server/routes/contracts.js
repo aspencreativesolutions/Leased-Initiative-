@@ -3,7 +3,6 @@ import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { generateId } from '../lib/notifications.js'
-import { notifyClientByClientId } from '../lib/clientNotifications.js'
 import { buildDepositInvoice } from '../lib/invoice.js'
 import {
   clientCanSignContract,
@@ -12,6 +11,7 @@ import {
 } from '../lib/contractReview.js'
 import { attachPaymentLink } from '../lib/paymentLinks.js'
 import { permanentlyDeleteContract } from '../lib/deleteContract.js'
+import { applySendContract } from '../lib/sendContract.js'
 
 const router = Router()
 
@@ -29,75 +29,21 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
     return res.status(404).json({ error: 'Client not found' })
   }
 
-  const clientEmail = client.email.trim().toLowerCase()
-  let clientUser = store.users.find(
-    (u) => u.role === 'client' && u.clientId === client.id
-  )
-  if (!clientUser) {
-    clientUser = store.users.find(
-      (u) => u.role === 'client' && u.email === clientEmail
-    )
-    if (clientUser && !clientUser.clientId) {
-      updateStore((s) => ({
-        ...s,
-        users: s.users.map((u) =>
-          u.id === clientUser.id ? { ...u, clientId: client.id } : u
-        ),
-        clients: s.clients.map((c) =>
-          c.id === client.id ? { ...c, accountUserId: clientUser.id } : c
-        ),
-      }))
-    }
-  }
-  if (!clientUser) {
+  const result = applySendContract(store, contractId)
+  if (!result) {
     return res.status(400).json({
-      error: 'Client has no account yet. Ask them to register at the client portal using the same email.',
+      error:
+        'Client has no account yet. Ask them to register at the client portal using the same email.',
     })
   }
 
-  const now = new Date().toISOString()
-  const wasAlreadySent = Boolean(contract.sentAt)
-  let updatedContract = null
-
-  updateStore((s) => {
-    const contracts = s.contracts.map((c) => {
-      if (c.id !== contractId) return c
-      updatedContract = {
-        ...c,
-        sentAt: now,
-        ...(wasAlreadySent ? { resentAt: now } : { resentAt: undefined }),
-        viewedAt: undefined,
-        signedAt: undefined,
-        confirmedByClient: false,
-        clientSignature: undefined,
-        clientSignDate: undefined,
-      }
-      return updatedContract
-    })
-    let next = {
-      ...s,
-      contracts,
-      clients: s.clients.map((c) =>
-        c.id === client.id
-          ? { ...c, contractStatus: 'Sent', projectStatus: 'Contract Sent' }
-          : c
-      ),
-    }
-    next = notifyClientByClientId(next, client.id, {
-      type: 'contract_sent',
-      title: 'Lease ready to review',
-      message: `Your lease for "${contract.projectTitle}" is ready. Review and sign it in your portal.`,
-      actionUrl: `/portal/contracts/${contractId}`,
-      relatedId: `contract-sent-${contractId}`,
-    })
-    return next
-  })
+  updateStore(() => result.store)
 
   res.json({
     ok: true,
-    message: `Lease sent to ${clientUser.name} (${clientUser.email})`,
-    contract: updatedContract,
-    sentAt: now,
+    message: `Lease sent to ${result.clientUser.name} (${result.clientUser.email})`,
+    contract: result.contract,
+    sentAt: result.sentAt,
   })
 })
 

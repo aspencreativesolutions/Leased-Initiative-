@@ -24,7 +24,7 @@ const OPTIONS: {
     id: 'invite_only',
     title: 'Invite-Only',
     description:
-      'Tenants must use a connection link or code. They pick an available rental, then appear under Waiting to Connect. Each code works once.',
+      'Tenants must use an invite link or code. You pick the property, future lease start, and duration when you text the link. They confirm details on a pre-filled dashboard (no signup), then appear under Waiting to Connect. Each invite works once.',
     icon: Link2,
   },
 ]
@@ -69,9 +69,9 @@ export function TenantDiscoverySection({ value, onChange }: TenantDiscoverySecti
       </div>
       {mode === 'invite_only' ? (
         <p className="text-[11px] leading-snug text-ink-muted">
-          Use <strong className="font-semibold text-ink">Send Invite</strong> on the dashboard
-          (or Generate Invite from Upcoming Openings) to create a one-time connection link and
-          code.
+          Use <strong className="font-semibold text-ink">Send Invite Link</strong> on the dashboard
+          to choose a property, future lease start, duration, and optional custom code — then text
+          the link to the tenant’s phone.
         </p>
       ) : null}
     </div>

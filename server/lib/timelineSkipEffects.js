@@ -9,7 +9,7 @@ function isContractSigned(contract) {
   return Boolean(contract?.signedAt && contract?.confirmedByClient && !isSignatureStale(contract))
 }
 
-const PORTAL_SKIP_DETAIL = 'Advanced by your designer'
+const PORTAL_SKIP_DETAIL = 'Advanced by your landlord'
 
 function stepAlreadyReal(stepId, client, contract) {
   switch (stepId) {

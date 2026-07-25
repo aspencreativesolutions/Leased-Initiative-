@@ -37,7 +37,7 @@ describe('tenant discovery + invites', () => {
       settings: { businessName: 'Open Rentals' },
       tenantInvites: [],
     }
-    const invite = createTenantInvite(store)
+    const { invite } = createTenantInvite(store)
     expect(invite.connectionCode).toMatch(/^[A-F0-9]{8}$/)
     expect(findValidTenantInvite(store, invite.token)).toBeNull()
 
@@ -48,6 +48,40 @@ describe('tenant discovery + invites', () => {
     const used = markTenantInviteUsed(withInvite, invite.token, 'user-1')
     expect(findValidTenantInvite(used, invite.token)).toBeNull()
     expect(findValidTenantInviteByCode(used, invite.connectionCode)).toBeNull()
+  })
+
+  it('accepts a custom invite code and future lease start', () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const y = tomorrow.getFullYear()
+    const m = String(tomorrow.getMonth() + 1).padStart(2, '0')
+    const d = String(tomorrow.getDate()).padStart(2, '0')
+    const leaseStartDate = `${y}-${m}-${d}`
+
+    const store = {
+      settings: { businessName: 'Open Rentals' },
+      tenantInvites: [],
+      properties: [{ id: 'p1', address: '10 Main St', bedrooms: 1 }],
+    }
+    const { invite, error } = createTenantInvite(store, {
+      propertyAddress: '10 Main St',
+      leaseStartDate,
+      leaseLengthMonths: 12,
+      connectionCode: 'HOME-2026',
+      phone: '5551234567',
+    })
+    expect(error).toBeUndefined()
+    expect(invite.connectionCode).toBe('HOME-2026')
+    expect(invite.leaseStartDate).toBe(leaseStartDate)
+    expect(invite.leaseLengthMonths).toBe(12)
+    expect(invite.phone).toBe('5551234567')
+
+    const past = createTenantInvite(store, {
+      propertyAddress: '10 Main St',
+      leaseStartDate: '2000-01-01',
+      leaseLengthMonths: 12,
+    })
+    expect(past.error).toMatch(/future/i)
   })
 
   it('reports no occupancy when official tenants fill maxTenants', () => {

@@ -14,10 +14,10 @@ export function stepsRequireProjectContract(targetStepId) {
 }
 
 function clientExpectsSentContract(client) {
+  // Only statuses that mean the lease was actually delivered (or beyond).
+  // Do NOT include Draft in Progress / Generated — those are pre-send drafts.
   return (
-    ['Sent', 'Signed', 'Completed', 'Generated', 'Draft in Progress'].includes(
-      client.contractStatus
-    ) ||
+    ['Sent', 'Signed', 'Completed'].includes(client.contractStatus) ||
     ['Contract Sent', 'Contract Signed', 'In Progress', 'Completed'].includes(
       client.projectStatus
     )
@@ -34,6 +34,25 @@ function clientExpectsSignedContract(client) {
 
 function alignContractWithClientStatus(contract, client, now) {
   let next = contract
+
+  // Repair: drafts must not carry a portal sentAt (legacy bug auto-stamped Draft in Progress).
+  const isPreSendDraft = ['Not Started', 'Draft in Progress', 'Generated'].includes(
+    client?.contractStatus
+  )
+  if (
+    next.sentAt &&
+    isPreSendDraft &&
+    !clientExpectsSentContract(client) &&
+    !next.confirmedByClient &&
+    !next.signedAt
+  ) {
+    next = {
+      ...next,
+      sentAt: undefined,
+      resentAt: undefined,
+      viewedAt: undefined,
+    }
+  }
 
   if (clientExpectsSentContract(client) && !next.sentAt) {
     next = {

@@ -229,29 +229,30 @@ export function generateContractPdf(
     y += 6
   }
 
-  if (contract.designerSignature || contract.clientSignature) {
+  // Always show signature blocks — landlord name is prefilled; tenant waits for e-sign.
+  {
     y = ensureSpace(doc, y, 40)
     setStroke(doc, PDF.line)
     doc.setLineWidth(0.2)
     doc.line(MARGIN, y, PAGE_WIDTH - MARGIN, y)
     y += 10
 
-    if (contract.designerSignature) {
-      y = addSection(
-        doc,
-        '20. Landlord signature & date',
-        [contract.designerSignature, contract.designerSignDate].filter(Boolean).join('\n'),
-        y
-      )
-    }
-    if (contract.clientSignature) {
-      y = addSection(
-        doc,
-        '21–22. Tenant signature & date',
-        [contract.clientSignature, contract.clientSignDate].filter(Boolean).join('\n'),
-        y
-      )
-    }
+    const landlordName =
+      contract.designerSignature?.trim() ||
+      settings.ownerName?.trim() ||
+      settings.businessName?.trim() ||
+      'Landlord'
+    y = addSection(
+      doc,
+      '20. Landlord signature & date',
+      [landlordName, contract.designerSignDate || 'Signature line'].filter(Boolean).join('\n'),
+      y
+    )
+
+    const tenantBlock = contract.clientSignature?.trim()
+      ? [contract.clientSignature, contract.clientSignDate].filter(Boolean).join('\n')
+      : 'Electronic Signature Here\n[Send to Tenant to Sign]'
+    y = addSection(doc, '21–22. Tenant signature & date', tenantBlock, y)
   }
 
   const pageCount = doc.getNumberOfPages()

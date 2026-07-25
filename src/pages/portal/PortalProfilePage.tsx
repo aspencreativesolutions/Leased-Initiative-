@@ -271,7 +271,7 @@ export function PortalProfilePage() {
           {!profile.linked ? (
             <p className="text-sm text-ink-muted">
               Your landlord hasn&apos;t linked your account to a project yet. Once accepted,
-              your projects, service tier, and lease details will appear here.
+              lease agreement and payment timeline will appear here.
             </p>
           ) : profile.projects.length === 0 ? (
             <p className="text-sm text-ink-muted">

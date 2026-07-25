@@ -11,12 +11,14 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PortalLayout } from '@/components/layout/PortalLayout'
 import { AdminModeFab } from '@/components/admin/AdminModeFab'
 import { PublicDemoPovFab } from '@/components/auth/PublicDemoPovFab'
+import { DemoGuideCueHost } from '@/components/auth/DemoGuideCueHost'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 import { HomePage } from '@/pages/HomePage'
 import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
 import { DemoPovPage } from '@/pages/demo/DemoPovPage'
 import { CompanyDemoLinkPage } from '@/pages/demo/CompanyDemoLinkPage'
 import { RoleSelectPage } from '@/pages/auth/RoleSelectPage'
+import { InviteClaimPage } from '@/pages/auth/InviteClaimPage'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
 import { StudioLoginPage } from '@/pages/auth/StudioLoginPage'
@@ -54,6 +56,7 @@ export default function App() {
                 <PortalThemeSync />
                 <AdminModeFab />
                 <PublicDemoPovFab />
+                <DemoGuideCueHost />
                 {/* Main column fills the viewport so the in-flow footer stays below the fold. */}
                 <div className="flex min-h-dvh flex-col">
                   <div className="flex min-h-dvh flex-1 flex-col">
@@ -64,6 +67,8 @@ export default function App() {
                   <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
                   <Route path="/welcome" element={<RoleSelectPage />} />
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/invite/:token" element={<InviteClaimPage />} />
+                  <Route path="/invite" element={<InviteClaimPage />} />
                   <Route path="/register" element={<RegisterPage mode="client" />} />
                   <Route path="/check-email" element={<CheckEmailPage />} />
                   <Route path="/verify-email" element={<VerifyEmailPage />} />

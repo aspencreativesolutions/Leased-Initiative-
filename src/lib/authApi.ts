@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api'
-import type { AuthResponse, RegisterResponse } from '@/types'
+import type { AuthResponse, PaymentProvider, RegisterResponse, User } from '@/types'
 
 export async function verifyEmail(token: string) {
   return apiFetch<AuthResponse & { alreadyVerified?: boolean }>('/api/auth/verify-email', {
@@ -18,32 +18,63 @@ export async function resendVerificationEmail(email: string) {
   )
 }
 
+export type LandlordPropertyDetail = {
+  address: string
+  maxTenants: number
+  availableSpots: number
+  occupied: number
+}
+
 export async function fetchLandlordCompanies() {
   return apiFetch<{
     companies: string[]
-    agencies: { name: string; properties: string[] }[]
+    agencies: {
+      name: string
+      properties: string[]
+      propertyDetails?: LandlordPropertyDetail[]
+      discoveryMode?: string
+    }[]
   }>('/api/auth/landlord-companies')
 }
 
-export async function fetchTenantInvite(token: string) {
-  return apiFetch<{
-    landlordCompany: string
-    propertyAddress: string | null
-    connectionCode?: string | null
-    agency?: { name: string; properties: string[]; discoveryMode?: string } | null
+export type PublicTenantInvite = {
+  inviteToken?: string
+  landlordCompany: string
+  propertyAddress: string | null
+  leaseStartDate?: string | null
+  leaseLengthMonths?: number | null
+  connectionCode?: string | null
+  agency?: {
+    name: string
+    properties: string[]
+    propertyDetails?: LandlordPropertyDetail[]
     discoveryMode?: string
-  }>(`/api/auth/invite/${encodeURIComponent(token)}`)
+  } | null
+  discoveryMode?: string
+}
+
+export async function fetchTenantInvite(token: string) {
+  return apiFetch<PublicTenantInvite>(`/api/auth/invite/${encodeURIComponent(token)}`)
 }
 
 export async function fetchTenantInviteByCode(code: string) {
-  return apiFetch<{
-    inviteToken: string
-    landlordCompany: string
-    propertyAddress: string | null
-    connectionCode?: string | null
-    agency?: { name: string; properties: string[]; discoveryMode?: string } | null
-    discoveryMode?: string
-  }>(`/api/auth/invite-code/${encodeURIComponent(code)}`)
+  return apiFetch<PublicTenantInvite>(`/api/auth/invite-code/${encodeURIComponent(code)}`)
+}
+
+export async function claimTenantInvite(input: {
+  inviteToken?: string
+  connectionCode?: string
+  name: string
+  email: string
+  password: string
+  preferredPropertyAddress: string
+  preferredLeaseStartDate: string
+  preferredPaymentMethod: PaymentProvider
+}) {
+  return apiFetch<{ token: string; user: User }>('/api/auth/claim-invite', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }
 
 export async function registerAccount(payload: {

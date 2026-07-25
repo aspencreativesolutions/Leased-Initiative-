@@ -154,11 +154,11 @@ export function ClientsPage() {
               type="button"
               variant="outline"
               size="sm"
-              title="Sends a link so they can register. They’ll appear under Waiting to Connect, already linked to your company."
+              title="Choose a property, future lease start, duration, and optional invite code — then text the link to their phone. They confirm details without signup and appear under Waiting to Connect."
               onClick={() => setInviteOpen(true)}
             >
               <Link2 className="h-4 w-4" />
-              Send Invite
+              Send Invite Link
             </Button>
             <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" />
