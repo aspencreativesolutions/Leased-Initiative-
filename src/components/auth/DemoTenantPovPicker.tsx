@@ -151,8 +151,13 @@ function StartApplicationReadyRow({
       )}
     >
       <span className="min-w-0 flex-1">
-        <span className="heading-display block text-base font-semibold tracking-tight text-ink sm:text-lg">
-          {option.name}
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="heading-display text-base font-semibold tracking-tight text-ink sm:text-lg">
+            {option.name}
+          </span>
+          <span className="inline-flex shrink-0 items-center rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2 py-0.5 text-[11px] font-semibold text-brand">
+            Featured
+          </span>
         </span>
         <span className="mt-0.5 block text-sm font-medium text-brand">
           {busy ? (

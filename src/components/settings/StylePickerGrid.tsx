@@ -1,61 +1,79 @@
 import { Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { ReactNode } from 'react'
-import type { ThemeId, ThemeOption } from '@/themes/types'
+import { MobileStyleBrowser } from '@/components/settings/MobileStyleBrowser'
+import { cn } from '@/lib/utils'
+import type { ThemeAppearance, ThemeId, ThemeOption } from '@/themes/types'
 
 interface StylePickerGridProps {
   themeId: ThemeId
   themes: ThemeOption[]
   onSelect: (id: ThemeId) => void
+  /** Graphite light/dark — forwarded to mobile previews */
+  appearance?: ThemeAppearance
 }
 
-export function StylePickerGrid({ themeId, themes, onSelect }: StylePickerGridProps) {
+export function StylePickerGrid({
+  themeId,
+  themes,
+  onSelect,
+  appearance = 'light',
+}: StylePickerGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-      {themes.map((option) => {
-        const selected = themeId === option.id
-        return (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onSelect(option.id)}
-            className={cn(
-              'group relative flex flex-col rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-3 text-left transition-all',
-              selected
-                ? 'border-accent bg-accent-light shadow-lift'
-                : 'border-line bg-surface-paper hover:border-ink-muted hover:shadow-lift'
-            )}
-          >
-            {selected && (
-              <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-[var(--radius-sm)] bg-accent text-white">
-                <Check className="h-3 w-3" strokeWidth={3} />
-              </span>
-            )}
+    <>
+      <MobileStyleBrowser
+        themeId={themeId}
+        themes={themes}
+        onSelect={onSelect}
+        appearance={appearance}
+      />
 
-            <div className="mb-2 flex h-10 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line">
-              <ThemePreviewStrip themeId={option.id} swatches={option.swatches} />
-            </div>
+      {/* Desktop: existing compact 2×2 grid — unchanged layout */}
+      <div className="hidden grid-cols-2 gap-2 sm:gap-3 md:grid">
+        {themes.map((option) => {
+          const selected = themeId === option.id
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onSelect(option.id)}
+              className={cn(
+                'group relative flex flex-col rounded-[var(--radius-lg)] border-[length:var(--border-width)] p-3 text-left transition-all',
+                selected
+                  ? 'border-accent bg-accent-light shadow-lift'
+                  : 'border-line bg-surface-paper hover:border-ink-muted hover:shadow-lift'
+              )}
+            >
+              {selected && (
+                <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-[var(--radius-sm)] bg-accent text-white">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
+              )}
 
-            <p className="font-display text-sm font-semibold text-ink leading-tight pr-6">
-              {option.name}
-            </p>
-            <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent label-caps">
-              {option.tagline}
-            </p>
+              <div className="mb-2 flex h-10 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line">
+                <ThemePreviewStrip themeId={option.id} swatches={option.swatches} />
+              </div>
 
-            <div className="mt-2 flex gap-1">
-              {option.swatches.map((color) => (
-                <span
-                  key={color}
-                  className="h-3 w-3 rounded-[var(--radius-sm)] border border-line"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
-          </button>
-        )
-      })}
-    </div>
+              <p className="font-display text-sm font-semibold text-ink leading-tight pr-6">
+                {option.name}
+              </p>
+              <p className="mt-0.5 line-clamp-1 text-[10px] font-semibold text-accent label-caps">
+                {option.tagline}
+              </p>
+
+              <div className="mt-2 flex gap-1">
+                {option.swatches.map((color) => (
+                  <span
+                    key={color}
+                    className="h-3 w-3 rounded-[var(--radius-sm)] border border-line"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </>
   )
 }
 

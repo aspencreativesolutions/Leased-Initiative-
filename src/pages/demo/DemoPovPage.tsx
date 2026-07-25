@@ -212,8 +212,8 @@ export function DemoPovPage() {
                 Choose your point of view to start.
               </h1>
               <p className="mt-3 max-w-lg text-base leading-relaxed text-ink-muted sm:text-lg">
-                Pick landlord to manage the portfolio, or tenant to explore a specific mock
-                scenario. You can switch anytime from the demo controls at the bottom right.
+                Pick landlord to manage tenants, or tenant to explore mock scenarios.
+                Switch anytime from the demo controls at the bottom right.
               </p>
 
               <RoleSelectGrid className="mt-10 sm:mt-12">
@@ -273,8 +273,7 @@ export function DemoPovPage() {
                     Choose a tenant scenario.
                   </h1>
                   <p className="mt-3 text-base leading-relaxed text-ink-muted sm:text-lg">
-                    Click Ava Mitchell under Start Application to open her portal, or expand
-                    another scenario section to browse mock users and open their point of view.
+                    Browse mock users and open their point of view.
                   </p>
                 </div>
               </div>
