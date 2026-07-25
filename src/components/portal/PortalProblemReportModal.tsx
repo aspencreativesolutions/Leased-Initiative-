@@ -97,7 +97,7 @@ export function PortalProblemReportModal({ open, onClose }: PortalProblemReportM
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Log Repairs or Concerns" size="lg">
+    <Modal open={open} onClose={handleClose} title="Request Maintenance" size="lg">
       {success ? (
         <div className="space-y-4 py-2 text-center">
           <CheckCircle2 className="mx-auto h-10 w-10 text-brand" aria-hidden />

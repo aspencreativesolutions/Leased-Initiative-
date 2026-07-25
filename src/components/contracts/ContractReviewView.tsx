@@ -235,9 +235,18 @@ export function ContractReviewView({
                 label="21–22. Tenant signature"
                 hint="Signature & date"
               >
-                {contract.clientSignature?.trim() ? (
+                {contract.clientSignature?.trim() || contract.clientSignatureImage?.trim() ? (
                   <div className="space-y-2">
-                    <p>{contract.clientSignature}</p>
+                    {contract.clientSignatureImage?.trim() ? (
+                      <img
+                        src={contract.clientSignatureImage}
+                        alt="Tenant signature"
+                        className="max-h-24 max-w-full object-contain"
+                      />
+                    ) : null}
+                    {contract.clientSignature?.trim() ? (
+                      <p>{contract.clientSignature}</p>
+                    ) : null}
                     {contract.clientSignDate ? (
                       <p className="text-ink-muted">{formatDate(contract.clientSignDate)}</p>
                     ) : null}

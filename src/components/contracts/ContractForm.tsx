@@ -524,10 +524,19 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                       Signature & Date
                     </span>
                   </div>
-                  {contract.clientSignature?.trim() ? (
-                    <p className="border-b border-line/70 pb-2.5 text-center text-sm text-ink sm:text-left">
-                      {contract.clientSignature}
-                    </p>
+                  {contract.clientSignature?.trim() || contract.clientSignatureImage?.trim() ? (
+                    <div className="space-y-2 border-b border-line/70 pb-2.5 text-center sm:text-left">
+                      {contract.clientSignatureImage?.trim() ? (
+                        <img
+                          src={contract.clientSignatureImage}
+                          alt="Tenant signature"
+                          className="mx-auto max-h-20 max-w-full object-contain sm:mx-0"
+                        />
+                      ) : null}
+                      {contract.clientSignature?.trim() ? (
+                        <p className="text-sm text-ink">{contract.clientSignature}</p>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="space-y-2 border-b border-line/70 pb-2.5 text-center sm:text-left">
                       <p className="font-serif text-sm italic text-ink-faint">
@@ -551,7 +560,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                     type="date"
                     value={contract.clientSignDate || ''}
                     onChange={(e) => update('clientSignDate', e.target.value)}
-                    disabled={!contract.clientSignature}
+                    disabled={!contract.clientSignature && !contract.clientSignatureImage}
                   />
                 </div>
               </div>

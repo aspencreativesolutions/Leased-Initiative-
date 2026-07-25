@@ -3,6 +3,7 @@ import { readStore, updateStore } from '../db.js'
 import { authMiddleware, requireRole } from '../auth.js'
 import { pushAdminNotification } from '../lib/notifications.js'
 import { generateId } from '../lib/notifications.js'
+import { notifyClientByClientId } from '../lib/clientNotifications.js'
 import { buildDepositInvoice } from '../lib/invoice.js'
 import {
   clientCanSignContract,
@@ -50,9 +51,21 @@ router.post('/:contractId/send', authMiddleware, requireRole('admin'), (req, res
 /** Client confirms and signs contract */
 router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async (req, res) => {
   const { contractId } = req.params
-  const { signature } = req.body
+  const { signature, signatureImage } = req.body
   if (!signature?.trim()) {
     return res.status(400).json({ error: 'Signature is required' })
+  }
+
+  const trimmedImage =
+    typeof signatureImage === 'string' && signatureImage.startsWith('data:image/')
+      ? signatureImage.trim()
+      : ''
+  if (!trimmedImage) {
+    return res.status(400).json({ error: 'Please draw your signature to continue' })
+  }
+  // Rough cap (~750KB) so store JSON stays manageable
+  if (trimmedImage.length > 750_000) {
+    return res.status(400).json({ error: 'Signature image is too large — please try again' })
   }
 
   const store = readStore()
@@ -93,6 +106,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
       currency: invoiceDraft.currency,
       invoiceType: 'deposit',
       createdAt: now,
+      sentToPortalAt: now,
     }
 
     try {
@@ -103,10 +117,14 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
         returnPath: '/portal/payment/success',
         cancelPath: '/portal?payment=cancelled',
       })
+      generatedInvoice = { ...generatedInvoice, sentToPortalAt: now }
     } catch (err) {
       console.error('Payment link on contract sign', err)
     }
   }
+
+  const tenantName = clientRecord?.name ?? 'A tenant'
+  const projectLabel = contract.projectTitle || clientRecord?.projectName || 'their lease'
 
   updateStore((s) => {
     let next = {
@@ -116,6 +134,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
           ? {
               ...c,
               clientSignature: signature.trim(),
+              clientSignatureImage: trimmedImage,
               clientSignDate: now.slice(0, 10),
               signedAt: now,
               confirmedByClient: true,
@@ -129,15 +148,18 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
           ...(c.notes ?? []),
           {
             id: generateId(),
-            text: `Tenant signed lease electronically (${new Date(now).toLocaleDateString()}). Now an official client — portal file sharing is enabled.`,
+            text: `Tenant signed lease electronically (${new Date(now).toLocaleDateString()}). Now an official client — status Awaiting Deposit until payment is confirmed.`,
             category: 'Contract',
             createdAt: now,
           },
         ]
         if (generatedInvoice) {
+          const linkNote = generatedInvoice.paymentLink
+            ? ' Payment link (PayPal, Stripe, or Square) delivered to their portal.'
+            : ' Payment link could not be attached — check provider credentials and re-send from their profile.'
           notes.push({
             id: generateId(),
-            text: `Deposit invoice auto-generated: $${generatedInvoice.amount.toFixed(2)} USD. Click "Send Invoice Link" to deliver it to the client portal.`,
+            text: `Deposit invoice auto-generated and sent: $${generatedInvoice.amount.toFixed(2)} USD.${linkNote}`,
             category: 'Payment',
             createdAt: now,
           })
@@ -146,6 +168,10 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
           ...c,
           contractStatus: 'Signed',
           projectStatus: 'Contract Signed',
+          paymentStatus:
+            c.paymentStatus === 'Deposit Paid' || c.paymentStatus === 'Paid'
+              ? c.paymentStatus
+              : 'Unpaid',
           isOfficialClient: true,
           officialClientSince: c.officialClientSince ?? now,
           invoice: generatedInvoice ?? c.invoice,
@@ -158,8 +184,33 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
       clientId: contract.clientId,
       contractId,
       title: 'Lease signed',
-      message: `${clientRecord?.name ?? 'A tenant'} signed "${contract.projectTitle}". Deposit invoice is ready — send it from their profile.`,
+      message: generatedInvoice
+        ? `${tenantName} signed "${projectLabel}". Deposit invoice was sent automatically — confirm payment when received.`
+        : `${tenantName} signed "${projectLabel}".`,
     })
+    next = notifyClientByClientId(next, contract.clientId, {
+      type: 'contract_signed',
+      title: 'Lease signed',
+      message: `You signed "${projectLabel}". Your landlord has been notified.`,
+      actionUrl: '/portal',
+      relatedId: `contract-signed-${contractId}`,
+    })
+    if (generatedInvoice) {
+      next = notifyClientByClientId(next, contract.clientId, {
+        type: 'invoice_sent',
+        title: 'Deposit invoice ready',
+        message: `Your deposit invoice for ${projectLabel} is ready. Pay from your dashboard via PayPal, Stripe, or Square.`,
+        actionUrl: '/portal',
+        relatedId: `invoice-sent-${contract.clientId}-${now.slice(0, 10)}`,
+      })
+      next = pushAdminNotification(next, {
+        type: 'invoice_sent',
+        clientId: contract.clientId,
+        contractId,
+        title: 'Deposit invoice sent',
+        message: `Deposit invoice ($${generatedInvoice.amount.toFixed(2)}) was sent to ${tenantName}'s portal.`,
+      })
+    }
     return next
   })
 
@@ -167,6 +218,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
     ok: true,
     message: 'Lease confirmed successfully',
     invoiceGenerated: Boolean(generatedInvoice),
+    invoiceSent: Boolean(generatedInvoice?.sentToPortalAt),
   })
 })
 

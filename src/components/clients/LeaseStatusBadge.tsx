@@ -1,4 +1,4 @@
-import { Check, Clock } from 'lucide-react'
+import { Check, Clock, Wallet } from 'lucide-react'
 import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
 import { cn } from '@/lib/utils'
 import {
@@ -17,12 +17,22 @@ const stateStyles: Record<LeaseTimelineState, string> = {
   Expired: 'border-line bg-transparent text-ink-faint',
 }
 
+const awaitingDepositStyles =
+  'border-accent/35 bg-accent-light text-accent'
+
 interface LeaseStatusBadgeProps {
   details: LeaseStatusDetails
   className?: string
+  /** When awaiting deposit, activates Confirm Payment on hover/click. */
+  onConfirmPayment?: () => void
+  confirmingPayment?: boolean
 }
 
-function leaseStatusLeadingIcon(state: LeaseTimelineState) {
+function leaseStatusLeadingIcon(details: LeaseStatusDetails) {
+  if (details.awaitingDeposit) {
+    return <Wallet className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+  }
+  const state = details.state
   if (state === 'Active' || state === 'Ending Soon') {
     return <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={2.75} aria-hidden />
   }
@@ -33,12 +43,18 @@ function leaseStatusLeadingIcon(state: LeaseTimelineState) {
 }
 
 /** Compact lease timeline badge for Official Tenants (and mobile cards). */
-export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) {
+export function LeaseStatusBadge({
+  details,
+  className,
+  onConfirmPayment,
+  confirmingPayment = false,
+}: LeaseStatusBadgeProps) {
   const state = details.state
   const label = details.status
   const hoverDetail = getLeaseStatusHoverDetail(details)
+  const canConfirm = Boolean(details.awaitingDeposit && onConfirmPayment)
 
-  if (!state) {
+  if (!state && !details.awaitingDeposit) {
     return (
       <span
         className={cn(
@@ -60,13 +76,18 @@ export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) 
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
     'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
     hoverDetail && 'cursor-default',
-    stateStyles[state],
+    canConfirm && 'cursor-pointer',
+    details.awaitingDeposit
+      ? awaitingDepositStyles
+      : state
+        ? stateStyles[state]
+        : 'border-ink/15 bg-surface text-ink-muted',
     className
   )
 
   const tagLayerClass =
     'in-place-hover__lease-label text-center text-[10px] font-bold tracking-tight'
-  const leadingIcon = leaseStatusLeadingIcon(state)
+  const leadingIcon = leaseStatusLeadingIcon(details)
 
   if (!hoverDetail) {
     return (
@@ -87,11 +108,30 @@ export function LeaseStatusBadge({ details, className }: LeaseStatusBadgeProps) 
           {label}
         </span>
       }
-      secondary={<span className={tagLayerClass}>{hoverDetail.summaryLine}</span>}
-      ariaLabel={`${label}. ${hoverDetail.summaryLine}`}
+      secondary={
+        <span className={tagLayerClass}>
+          {canConfirm ? (
+            <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={2.75} aria-hidden />
+          ) : null}
+          {confirmingPayment && canConfirm ? 'Confirming…' : hoverDetail.summaryLine}
+        </span>
+      }
+      ariaLabel={
+        canConfirm
+          ? `${label}. Confirm Payment to mark the deposit complete and move this tenant to Upcoming.`
+          : `${label}. ${hoverDetail.summaryLine}`
+      }
       className={tagShell}
       expandOnReveal
       overlayExpand
+      onActivate={
+        canConfirm
+          ? () => {
+              if (!confirmingPayment) onConfirmPayment?.()
+            }
+          : undefined
+      }
+      disabled={confirmingPayment && canConfirm}
     />
   )
 }

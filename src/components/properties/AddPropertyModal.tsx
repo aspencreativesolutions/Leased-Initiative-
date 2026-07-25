@@ -49,11 +49,13 @@ interface FieldErrors {
   unitCount?: string
   monthlyRent?: string
   depositAmount?: string
+  utilitiesIncluded?: string
   layout?: string
 }
 
 type FurnishedChoice = '' | 'yes' | 'no'
 type DepositChoice = '' | 'yes' | 'no'
+type UtilitiesChoice = '' | 'yes' | 'no'
 
 function parseNonNegativeInt(raw: string): number | null {
   const trimmed = raw.trim()
@@ -125,6 +127,7 @@ export function AddPropertyModal({
   const [pricingStructure, setPricingStructure] = useState<PropertyPricingStructure | ''>('')
   const [hasDeposit, setHasDeposit] = useState<DepositChoice>('')
   const [depositAmount, setDepositAmount] = useState('')
+  const [utilitiesIncluded, setUtilitiesIncluded] = useState<UtilitiesChoice>('')
   const [bedrooms, setBedrooms] = useState('')
   const [layout, setLayout] = useState<PropertyBedroom[]>([])
   const [unitCount, setUnitCount] = useState('1')
@@ -166,6 +169,7 @@ export function AddPropertyModal({
       setHasDeposit('no')
       setDepositAmount('')
     }
+    setUtilitiesIncluded(p.utilitiesIncluded === true ? 'yes' : 'no')
     setBedrooms(String(p.bedrooms ?? p.bedroomsLayout?.length ?? 0))
     setLayout(
       p.bedroomsLayout?.length
@@ -218,6 +222,7 @@ export function AddPropertyModal({
     setPricingStructure('')
     setHasDeposit('')
     setDepositAmount('')
+    setUtilitiesIncluded('')
     setBedrooms('')
     setLayout([])
     setUnitCount('1')
@@ -322,6 +327,10 @@ export function AddPropertyModal({
       }
     }
 
+    if (!utilitiesIncluded) {
+      next.utilitiesIncluded = 'Choose whether utilities are included in rent'
+    }
+
     const beds = parseNonNegativeInt(bedrooms)
     if (bedrooms.trim() === '') {
       next.bedrooms = 'Enter the number of bedrooms'
@@ -385,6 +394,7 @@ export function AddPropertyModal({
     const beds = parseNonNegativeInt(bedrooms)
     const units = showUnitCount ? parseNonNegativeInt(unitCount) : 1
     if (beds === null || units === null || !propertyType || !furnished || !pricingStructure) return
+    if (!utilitiesIncluded) return
     const rent = parsePositiveMoney(monthlyRent)
     if (rent == null) return
     const deposit =
@@ -403,6 +413,7 @@ export function AddPropertyModal({
       pricingStructure:
         pricingStructure === 'bed' && furnished !== 'yes' ? 'person' : pricingStructure,
       depositAmount: hasDeposit === 'yes' ? deposit : null,
+      utilitiesIncluded: utilitiesIncluded === 'yes',
       addressConfirmed: true,
       addressDetails,
     }
@@ -441,8 +452,8 @@ export function AddPropertyModal({
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <p className="text-sm text-ink-muted">
           {isEdit
-            ? 'Update furnished status, pricing, deposit, bedrooms, and beds. Maximum occupancy comes from bed sizes.'
-            : 'Start with furnished or not, then pricing and deposit. Configure bedrooms and beds — maximum occupancy is calculated from bed sizes.'}
+            ? 'Update furnished status, pricing, deposit, utilities, bedrooms, and beds. Maximum occupancy comes from bed sizes.'
+            : 'Start with furnished or not, then pricing, deposit, and utilities. Configure bedrooms and beds — maximum occupancy is calculated from bed sizes.'}
         </p>
 
         {error && (
@@ -618,6 +629,56 @@ export function AddPropertyModal({
           </fieldset>
         ) : null}
 
+        {furnished ? (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-ink">
+              Are utilities included in rent? <span className="text-accent">*</span>
+            </legend>
+            <div role="group" className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    value: 'yes' as const,
+                    label: 'Yes — utilities included',
+                    hint: 'Shown to applicants as Utilities included',
+                  },
+                  {
+                    value: 'no' as const,
+                    label: 'No — tenant pays utilities',
+                    hint: 'Noted on the address dropdown as Utilities not included',
+                  },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={utilitiesIncluded === option.value}
+                  onClick={() => {
+                    setUtilitiesIncluded(option.value)
+                    if (fieldErrors.utilitiesIncluded) {
+                      setFieldErrors((prev) => ({ ...prev, utilitiesIncluded: undefined }))
+                    }
+                  }}
+                  className={cn(
+                    'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left transition-colors',
+                    utilitiesIncluded === option.value
+                      ? 'border-brand bg-brand/5 text-ink'
+                      : 'border-line bg-surface-paper text-ink hover:border-brand/40'
+                  )}
+                >
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+            {fieldErrors.utilitiesIncluded ? (
+              <p className="mt-1.5 text-xs text-accent" role="alert">
+                {fieldErrors.utilitiesIncluded}
+              </p>
+            ) : null}
+          </fieldset>
+        ) : null}
+
         <div ref={rentalTypeRef} className="relative">
           <FormLabel label="Rental Type" htmlFor={rentalTypeListId} required />
           <button
@@ -744,12 +805,34 @@ export function AddPropertyModal({
             required
             hint={
               costPerPersonAtMax != null
-                ? `Stored with max occupancy. At full occupancy: $${costPerPersonAtMax.toLocaleString('en-US', { maximumFractionDigits: 2 })}/person.`
-                : pricingHint(pricingStructure)
+                ? `Required for every rental (furnished or unfurnished). At full occupancy (${maxOccupancy}): $${costPerPersonAtMax.toLocaleString('en-US', { maximumFractionDigits: 2 })}/person.`
+                : 'Required for every rental. Cost at full occupancy appears once beds set max occupancy.'
             }
             error={fieldErrors.monthlyRent}
           />
         </div>
+
+        {costPerPersonAtMax != null ? (
+          <div className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface px-3 py-2.5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              Cost at full occupancy
+            </p>
+            <p className="mt-0.5 text-sm text-ink">
+              <span className="font-semibold">
+                ${costPerPersonAtMax.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+              </span>
+              /person when all {maxOccupancy}{' '}
+              {maxOccupancy === 1 ? 'spot is' : 'spots are'} filled — shown to applicants with total
+              rent
+              {utilitiesIncluded === 'yes'
+                ? ' and Utilities included'
+                : utilitiesIncluded === 'no'
+                  ? ' and Utilities not included'
+                  : ''}
+              .
+            </p>
+          </div>
+        ) : null}
 
         {showUnitCount ? (
           <Input

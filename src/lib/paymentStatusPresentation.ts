@@ -394,11 +394,15 @@ export function paymentToneTagClass(tone: PaymentStatusTone): string {
 }
 
 /** Status kinds for Official Tenants Payment Status column. */
-export type OfficialPaymentColumnKind = 'on_time' | 'overdue' | 'deposit_paid'
+export type OfficialPaymentColumnKind =
+  | 'on_time'
+  | 'overdue'
+  | 'deposit_paid'
+  | 'awaiting_deposit'
 
 export interface OfficialPaymentColumnPresentation {
   kind: OfficialPaymentColumnKind
-  /** Primary tag: On Time | Overdue | Deposit Paid */
+  /** Primary tag: On Time | Overdue | Deposit Paid | Awaiting Deposit */
   tagLabel: string
   /** In-tag hover/focus replacement */
   tagHoverLabel: string
@@ -417,7 +421,8 @@ function formatDaysLateLabel(daysLate: number): string {
 /**
  * Official Tenants grid payment labels:
  * - Overdue when scheduled rent is past due
- * - Deposit Paid when the lease has not started yet (Upcoming)
+ * - Awaiting Deposit when the lease has not started and deposit is unpaid
+ * - Deposit Paid when the lease has not started yet and deposit is confirmed
  * - On Time otherwise
  *
  * On Time / Deposit Paid hover confirms the last payment date and processor
@@ -431,8 +436,10 @@ export function buildOfficialPaymentColumnPresentation(input: {
   lastPaidOn?: string | null
   /** Processor used for that last payment */
   paymentProvider?: PaymentProvider
-  /** When true, show Deposit Paid instead of On Time (lease not started). */
+  /** When true, lease has not started yet (calendar Upcoming). */
   leaseUpcoming?: boolean
+  /** When true with leaseUpcoming, show Awaiting Deposit instead of Deposit Paid. */
+  awaitingDeposit?: boolean
 }): OfficialPaymentColumnPresentation {
   const { nextDueDate, daysUntilNextDue, overduePaymentCount } = input
 
@@ -479,6 +486,21 @@ export function buildOfficialPaymentColumnPresentation(input: {
   const paidMonthDay = input.lastPaidOn ? formatMonthDay(input.lastPaidOn) : null
   const longPaid = input.lastPaidOn ? formatLongDate(input.lastPaidOn) : null
   const longDue = nextDueDate ? formatLongDate(nextDueDate) : null
+
+  if (input.leaseUpcoming && input.awaitingDeposit) {
+    return {
+      kind: 'awaiting_deposit',
+      tagLabel: 'Awaiting Deposit',
+      tagHoverLabel: 'Confirm Payment',
+      tone: 'warning',
+      ariaLabel: longDue
+        ? `Awaiting deposit. Confirm payment when received. Lease begins ${longDue}.`
+        : 'Awaiting deposit. Confirm payment when received.',
+      daysUntilNextDue,
+      daysOverdue: null,
+      relevantDueDate: nextDueDate,
+    }
+  }
 
   if (input.leaseUpcoming) {
     const tagHoverLabel = paidMonthDay

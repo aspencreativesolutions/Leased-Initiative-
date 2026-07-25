@@ -52,7 +52,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-contracts"]',
     title: 'Start your application',
     description:
-      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, and cost per person at full occupancy), choose Pay full rent or Live with roommates (your share drops as you add friends up to open spots), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
+      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Pay full rent or Live with roommates (your share drops as you add friends up to open spots), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
@@ -70,7 +70,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-contracts"]',
     title: 'Review and sign your lease agreement',
     description:
-      'When your landlord sends your lease agreement, it appears under Lease Agreements. Open it, review the terms, and sign electronically.',
+      'When your landlord sends your lease agreement, it appears under Lease Agreements. Open it or tap Sign, review the terms, then draw your signature with a mouse or touchscreen — saved with your name to complete the agreement.',
     placement: 'top',
     when: (ctx) => ctx.linked === true,
   },
@@ -79,7 +79,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-invoice"]',
     title: 'Pay your deposit',
     description:
-      'After signing, your deposit invoice appears here. Click the payment link to pay securely via PayPal, Stripe, or Square.',
+      'After signing, your deposit invoice appears here automatically with a PayPal, Stripe, or Square payment link. Pay from your dashboard — your landlord confirms receipt and your status moves to Upcoming.',
     placement: 'top',
     when: (ctx) => ctx.linked === true && ctx.hasInvoice === true,
   },
@@ -95,18 +95,27 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'report-problem',
     target: '[data-onboarding="portal-report-problem"]',
-    title: 'Log Repairs or Concerns',
+    title: 'Request Maintenance',
     description:
-      'Beside Lease Active on your dashboard, tap Log Repairs. Pick a household problem, upload a required photo, and optionally add a note — your landlord is notified under Tenant Alerts.',
+      'Beside Lease Active on your dashboard, tap Request Maintenance. Pick a household problem, upload a required photo, and optionally add a note — your landlord is notified under Tenant Alerts.',
     placement: 'bottom',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'timeline',
-    target: '[data-onboarding="portal-timeline-nav"]',
+    target: '[data-onboarding="portal-dashboard-timeline"]',
     title: 'Follow your lease timeline',
     description:
-      'The Timeline page shows every milestone — approval, lease signing, payment, and more — so you always know what is next.',
+      'Your dashboard shows every milestone — lease signing, deposit invoice, payment, and more — so you always know what is next. The Timeline page offers the same view on its own.',
+    placement: 'top',
+    when: (ctx) => ctx.linked === true,
+  },
+  {
+    id: 'timeline-nav',
+    target: '[data-onboarding="portal-timeline-nav"]',
+    title: 'Timeline anytime',
+    description:
+      'Open Timeline from the nav for a focused view of the same project milestones shown on your dashboard.',
     placement: 'bottom',
     when: (ctx) => ctx.linked === true,
   },
@@ -155,7 +164,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants (Upcoming until the lease start date).',
+      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants as Awaiting Deposit (deposit invoice is auto-sent); Confirm Payment Complete moves them to Upcoming until the lease start date.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -165,7 +174,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. Active or Upcoming lease status sits under each name; payment tags (On Time / Overdue / Deposit Paid) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default — switch to Tile View to use the Tenant tile size slider, or Edit Columns in Spreadsheet View to rearrange, hide, or restore fields.',
+      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. After signing they show Awaiting Deposit under each name (hover for Confirm Payment, or use Confirm Payment Complete in the row); once you confirm, status becomes Upcoming until the lease starts, then Active. Payment tags (On Time / Overdue / Deposit Paid / Awaiting Deposit) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default — switch to Tile View to use the Tenant tile size slider, or Edit Columns in Spreadsheet View to rearrange, hide, or restore fields.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -175,7 +184,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, bedrooms, and bed sizes (occupancy is calculated from beds); total rent, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
+      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, whether utilities are included, bedrooms, and bed sizes (occupancy is calculated from beds); total rent, cost at full occupancy, utilities, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -215,7 +224,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-tenant-alerts"]',
     title: 'Tenant Alerts',
     description:
-      'When a tenant logs a repair or concern with a required photo, it appears here so you can assess the problem and dispatch maintenance.',
+      'When a tenant submits a maintenance request with a required photo, it appears here so you can assess the problem and dispatch maintenance.',
     placement: 'bottom',
     route: '/studio/alerts',
     section: 'alerts',

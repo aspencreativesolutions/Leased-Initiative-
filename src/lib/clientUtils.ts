@@ -86,10 +86,15 @@ export function getTenantAddress(client: Client, contract?: ContractData): strin
 }
 
 export interface LeaseStatusDetails {
-  /** Compact badge label: Active | Upcoming | Expired (or fallback text) */
+  /** Compact badge label: Active | Upcoming | Awaiting Deposit | Expired (or fallback text) */
   status: string
   /** Timeline state used for badge styling */
   state?: LeaseTimelineState
+  /**
+   * Signed official tenant whose lease has not started and deposit is unpaid.
+   * Badge shows “Awaiting Deposit” until the landlord confirms payment.
+   */
+  awaitingDeposit?: boolean
   /** Current month of occupancy (1…termMonths), when known */
   currentMonth?: number
   /** Total lease length in months, when known */
@@ -132,6 +137,10 @@ export function formatLeaseStatusHoverDate(dateStr?: string): string | null {
 export function getLeaseStatusHoverDetail(
   details: LeaseStatusDetails
 ): LeaseStatusHoverDetail | undefined {
+  if (details.awaitingDeposit) {
+    return { summaryLine: 'Confirm Payment' }
+  }
+
   const { startDate, endDate, termMonths } = details
   if (!startDate && !endDate && (termMonths == null || termMonths <= 0)) {
     return undefined
@@ -250,6 +259,10 @@ export function getLeaseStatusDetails(
   const termMonths = resolveLeaseTermMonths(client, contract)
   const end = resolveLeaseEndYmd(contract, start, termMonths)
   const state = resolveLeaseTimelineState(start, end, effectiveAsOf)
+  const awaitingDeposit =
+    Boolean(client.isOfficialClient) &&
+    state === 'Upcoming' &&
+    !isDepositInvoicePaid(client)
 
   if (start && termMonths && state) {
     const elapsed = monthsIntoLease(start, effectiveAsOf)
@@ -259,8 +272,9 @@ export function getLeaseStatusDetails(
         : Math.min(Math.max(elapsed, 1), termMonths)
 
     return {
-      status: formatLeaseStatusBadgeLabel(state),
+      status: awaitingDeposit ? 'Awaiting Deposit' : formatLeaseStatusBadgeLabel(state),
       state,
+      awaitingDeposit,
       currentMonth,
       termMonths,
       endDate: end,
@@ -278,7 +292,9 @@ export function getLeaseStatusDetails(
 
   if (termMonths) {
     return {
-      status: `${termMonths}-month lease`,
+      status: awaitingDeposit ? 'Awaiting Deposit' : `${termMonths}-month lease`,
+      state,
+      awaitingDeposit,
       termMonths,
       endDate: end,
       startDate: start,
@@ -286,7 +302,13 @@ export function getLeaseStatusDetails(
   }
 
   if (end) {
-    return { status: `Ends ${formatDate(end)}`, endDate: end, startDate: start }
+    return {
+      status: awaitingDeposit ? 'Awaiting Deposit' : `Ends ${formatDate(end)}`,
+      state,
+      awaitingDeposit,
+      endDate: end,
+      startDate: start,
+    }
   }
 
   const fallback: Record<ProjectStatus, string> = {
@@ -492,6 +514,7 @@ export function buildServiceTierChangeResult(
     signedAt: undefined,
     confirmedByClient: false,
     clientSignature: undefined,
+    clientSignatureImage: undefined,
     clientSignDate: undefined,
   }
 
@@ -867,6 +890,15 @@ export function isDepositInvoicePaid(client: Client): boolean {
     client.paymentStatus === 'Deposit Paid' ||
     client.paymentStatus === 'Paid'
   )
+}
+
+/** Official tenant, lease not started yet, deposit still unpaid / unconfirmed. */
+export function isAwaitingDeposit(
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): boolean {
+  return Boolean(getLeaseStatusDetails(client, contract, asOf).awaitingDeposit)
 }
 
 export function getClientAmountPaid(

@@ -185,6 +185,21 @@ describe('buildOfficialPaymentColumnPresentation', () => {
     expect(column.tone).toBe('neutral')
   })
 
+  it('shows Awaiting Deposit when lease is upcoming and deposit unpaid', () => {
+    const column = buildOfficialPaymentColumnPresentation({
+      nextDueDate: '2026-08-01',
+      daysUntilNextDue: 10,
+      overduePaymentCount: 0,
+      leaseUpcoming: true,
+      awaitingDeposit: true,
+    })
+    expect(column.kind).toBe('awaiting_deposit')
+    expect(column.tagLabel).toBe('Awaiting Deposit')
+    expect(column.tagHoverLabel).toBe('Confirm Payment')
+    expect(column.tone).toBe('warning')
+    expect(column.ariaLabel).toMatch(/Awaiting deposit/)
+  })
+
   it('shows Overdue with days-late hover from the oldest unpaid due', () => {
     const column = buildOfficialPaymentColumnPresentation({
       nextDueDate: '2026-07-01',

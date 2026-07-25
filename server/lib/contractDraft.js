@@ -50,6 +50,7 @@ export function cloneLeaseForClient(sourceContract, client, leaseOptions = {}) {
     signedAt: _signedAt,
     confirmedByClient: _confirmed,
     clientSignature: _clientSig,
+    clientSignatureImage: _clientSigImage,
     clientSignDate: _clientSignDate,
     portalStatus: _portalStatus,
     createdAt: _createdAt,

@@ -5,7 +5,7 @@ import type { ServiceTier } from '@/types'
 
 interface ProjectWorkspaceRowProps {
   files: ReactNode
-  /** Portal: Log Repairs panel. Admin: project checklist (default). */
+  /** Portal: Request Maintenance panel. Admin: project checklist (default). */
   sidePanel?: ReactNode
   serviceTier?: ServiceTier
   completedItemIds?: string[]

@@ -325,6 +325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         bedrooms: Math.max(0, Math.floor(input.bedrooms)),
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
+        utilitiesIncluded: input.utilitiesIncluded === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||
@@ -375,6 +376,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         bedrooms: Math.max(0, Math.floor(input.bedrooms)),
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
+        utilitiesIncluded: input.utilitiesIncluded === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||
@@ -454,6 +456,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             clientSignature: shouldResetDelivery
               ? undefined
               : baseContract.clientSignature ?? existing.clientSignature,
+            clientSignatureImage: shouldResetDelivery
+              ? undefined
+              : baseContract.clientSignatureImage ?? existing.clientSignatureImage,
             clientSignDate: shouldResetDelivery
               ? undefined
               : baseContract.clientSignDate ?? existing.clientSignDate,

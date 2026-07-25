@@ -59,6 +59,7 @@ export function SendContractModal({
         viewedAt: undefined,
         confirmedByClient: false,
         clientSignature: undefined,
+        clientSignatureImage: undefined,
         clientSignDate: undefined,
         signedAt: undefined,
       }

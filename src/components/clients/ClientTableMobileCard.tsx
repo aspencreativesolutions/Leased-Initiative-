@@ -1,7 +1,7 @@
-import { ChevronsUpDown, UserMinus, ArrowRight } from 'lucide-react'
+import { ChevronsUpDown, UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
-import { getLeaseStatusDetails, getTenantAddress } from '@/lib/clientUtils'
+import { getLeaseStatusDetails, getTenantAddress, isAwaitingDeposit } from '@/lib/clientUtils'
 import {
   getOfficialTenantContactDisplayValue,
   OFFICIAL_TENANT_CONTACT_DISPLAY_LABELS,
@@ -26,6 +26,8 @@ interface ClientTableMobileCardProps {
   dimmed?: boolean
   onRemove: () => void
   onOpenTenantDetails: (tenantId: string) => void
+  onConfirmPayment?: () => void
+  confirmingPayment?: boolean
 }
 
 function getFullPropertyAddress(
@@ -51,11 +53,14 @@ export function ClientTableMobileCard({
   dimmed = false,
   onRemove,
   onOpenTenantDetails,
+  onConfirmPayment,
+  confirmingPayment = false,
 }: ClientTableMobileCardProps) {
   const addressValue = getFullPropertyAddress(client, contract, properties)
   const contactValue = getOfficialTenantContactDisplayValue(client, contactDisplayMode)
   const contactLabel = OFFICIAL_TENANT_CONTACT_DISPLAY_LABELS[contactDisplayMode]
   const leaseStatus = getLeaseStatusDetails(client, contract)
+  const awaitingDeposit = isAwaitingDeposit(client, contract)
 
   return (
     <article
@@ -77,7 +82,13 @@ export function ClientTableMobileCard({
             {client.name}
           </button>
           <div className="mt-1">
-            <LeaseStatusBadge details={leaseStatus} />
+            <LeaseStatusBadge
+              details={leaseStatus}
+              onConfirmPayment={
+                awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
+              }
+              confirmingPayment={confirmingPayment}
+            />
           </div>
         </div>
         <button
@@ -137,10 +148,35 @@ export function ClientTableMobileCard({
       </button>
 
       <div className="mt-2 min-w-0">
-        <PaymentStatusDateTags client={client} contract={contract} className="mx-0" />
+        <PaymentStatusDateTags
+          client={client}
+          contract={contract}
+          className="mx-0"
+          onConfirmPayment={
+            awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
+          }
+          confirmingPayment={confirmingPayment}
+        />
       </div>
 
-      <div className="mt-auto flex justify-end pt-2">
+      <div className="mt-auto flex flex-col items-end gap-1 pt-2">
+        {awaitingDeposit && onConfirmPayment ? (
+          <button
+            type="button"
+            onClick={onConfirmPayment}
+            disabled={confirmingPayment}
+            className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
+            title={`Confirm deposit payment complete for ${client.name}`}
+            aria-label={`Confirm payment complete for ${client.name}`}
+          >
+            {confirmingPayment ? (
+              <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden />
+            ) : (
+              <CheckCircle2 className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+            )}
+            Confirm Payment Complete
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => onOpenTenantDetails(client.id)}

@@ -3761,7 +3761,49 @@ a.in-place-hover {
   }
 }
 
-/* Demo POV switcher — one-time entrance cue, then collapses to a compact tab */
+/* Demo POV switcher — soft expand/collapse + one-time entrance cue */
+@keyframes demo-pov-expand {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* Ease softens near the end so collapse settles without a hard stop */
+@keyframes demo-pov-collapse {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  55% {
+    opacity: 0.55;
+    transform: translate3d(0, 8px, 0) scale(0.96);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.9);
+  }
+}
+
+@keyframes demo-pov-tab-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes demo-pov-attention {
   0%,
   100% {
@@ -3816,18 +3858,48 @@ a.in-place-hover {
   }
 }
 
+.demo-pov-switcher {
+  transform-origin: bottom right;
+}
+
+.demo-pov-switcher--expanding,
+.demo-pov-switcher--collapsing,
 .demo-pov-switcher--attention {
   transform-origin: bottom right;
-  will-change: transform, box-shadow;
+  will-change: transform, opacity, box-shadow;
+}
+
+.demo-pov-switcher-tab {
+  transform-origin: bottom right;
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .demo-pov-switcher-tab--enter {
+    animation: demo-pov-tab-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
   .demo-pov-switcher--attention {
     animation: demo-pov-attention 2.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) both;
+  }
+
+  /* Expand/collapse win over attention when both classes are present */
+  .demo-pov-switcher--expanding {
+    animation: demo-pov-expand 0.56s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .demo-pov-switcher--collapsing {
+    animation: demo-pov-collapse 0.64s cubic-bezier(0.33, 0, 0.15, 1) both;
+    pointer-events: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .demo-pov-switcher--expanding,
+  .demo-pov-switcher--collapsing,
+  .demo-pov-switcher-tab--enter {
+    animation: none;
+  }
+
   .demo-pov-switcher--attention {
     animation: demo-pov-attention-static 0.85s ease both;
   }

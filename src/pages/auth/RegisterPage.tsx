@@ -8,17 +8,21 @@ import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { fetchLandlordCompanies, fetchTenantInvite, fetchTenantInviteByCode } from '@/lib/authApi'
+import type { LandlordPropertyDetail } from '@/lib/authApi'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   formatLeaseLengthLabel,
   LEASE_LENGTH_OPTIONS,
   type LeaseLengthMonths,
 } from '@/lib/leaseSchedule'
+import { formatPropertyListingDescription } from '@/lib/propertyListingDisplay'
 import { loadStoredPortalThemeId } from '@/themes/applyTheme'
+import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
 
 interface AgencyOption {
   name: string
   properties: string[]
+  propertyDetails?: LandlordPropertyDetail[]
 }
 
 interface RegisterPageProps {
@@ -79,7 +83,11 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const applyInvitePayload = (invite: {
     landlordCompany: string
     propertyAddress: string | null
-    agency?: { name: string; properties: string[] } | null
+    agency?: {
+      name: string
+      properties: string[]
+      propertyDetails?: LandlordPropertyDetail[]
+    } | null
     inviteToken?: string
   }) => {
     setLandlordCompany(invite.landlordCompany)
@@ -92,6 +100,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
           {
             name: invite.agency!.name,
             properties: invite.agency!.properties ?? [],
+            propertyDetails: invite.agency!.propertyDetails,
           },
           ...without,
         ]
@@ -197,6 +206,20 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
     }
     return [...all].sort((a, b) => a.localeCompare(b))
   }, [agencies, landlordCompany])
+
+  const propertySelectOptions = useMemo<SearchableSelectOption[]>(() => {
+    const selected = agencies.find(
+      (agency) => agency.name.toLowerCase() === landlordCompany.trim().toLowerCase()
+    )
+    const details = selected?.propertyDetails ?? []
+    return propertyOptions.map((address) => {
+      const detail =
+        details.find((d) => d.address.trim().toLowerCase() === address.trim().toLowerCase()) ??
+        null
+      if (!detail) return { value: address }
+      return { value: address, description: formatPropertyListingDescription(detail) }
+    })
+  }, [agencies, landlordCompany, propertyOptions])
 
   const handleAgencyChange = (value: string) => {
     if (inviteLocked) return
@@ -392,8 +415,12 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
                   value={propertyAddress}
                   options={
                     invitePropertyLocked && propertyAddress
-                      ? [propertyAddress, ...propertyOptions.filter((a) => a !== propertyAddress)]
-                      : propertyOptions
+                      ? [
+                          propertySelectOptions.find((o) => o.value === propertyAddress) ??
+                            propertyAddress,
+                          ...propertySelectOptions.filter((o) => o.value !== propertyAddress),
+                        ]
+                      : propertySelectOptions
                   }
                   onChange={setPropertyAddress}
                   required
@@ -407,8 +434,8 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
                     invitePropertyLocked
                       ? 'Pre-filled from your invite for this opening'
                       : inviteLocked
-                        ? 'Only rentals with open occupancy are listed'
-                        : 'All listed properties are shown — availability is confirmed after approval'
+                        ? 'Open rentals — each option shows furnished status, total rent, full occupancy cost, and utilities'
+                        : 'Each option shows furnished status, total rent, cost at full occupancy, and utilities'
                   }
                   emptyMessage="No available properties found for this agency"
                 />

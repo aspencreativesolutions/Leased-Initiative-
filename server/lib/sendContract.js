@@ -40,6 +40,7 @@ export function applySendContract(store, contractId, now = new Date().toISOStrin
         signedAt: undefined,
         confirmedByClient: false,
         clientSignature: undefined,
+        clientSignatureImage: undefined,
         clientSignDate: undefined,
       }
       return updatedContract

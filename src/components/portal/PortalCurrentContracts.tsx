@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Eye, FileText } from 'lucide-react'
+import { Eye, FileText, PenLine } from 'lucide-react'
 import { ContractStatusProgress } from '@/components/clients/ClientStatusOverview'
+import { PortalLeaseSignModal } from '@/components/portal/PortalLeaseSignModal'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -15,6 +17,10 @@ interface PortalCurrentContractsProps {
   /** Fallback property address when a contract summary has no address */
   propertyAddress?: string
   emptyDescription?: string
+  /** Prefill for the draw-to-sign modal */
+  tenantName?: string
+  /** Refresh dashboard after a successful signature */
+  onSigned?: () => void
 }
 
 export function PortalCurrentContracts({
@@ -23,7 +29,11 @@ export function PortalCurrentContracts({
   projectStarted = false,
   propertyAddress,
   emptyDescription = "Your landlord is preparing your agreement. Once it's sent, it will appear here right away.",
+  tenantName = '',
+  onSigned,
 }: PortalCurrentContractsProps) {
+  const [signingContract, setSigningContract] = useState<PortalContractSummary | null>(null)
+
   return (
     <section data-onboarding="portal-contracts">
       <h2 className="label-caps mb-3 flex items-center gap-2">
@@ -46,6 +56,7 @@ export function PortalCurrentContracts({
               contract.address?.trim() ||
               propertyAddress?.trim() ||
               contract.projectTitle
+            const awaitingSignature = contract.portalStatus !== 'Accepted'
 
             return (
               <li key={contract.id} className="transition-colors hover:bg-surface">
@@ -56,8 +67,19 @@ export function PortalCurrentContracts({
                       Sent {contract.sentAt ? formatDate(contract.sentAt) : '—'}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
                     <PortalContractStatusBadge status={contract.portalStatus} prominent />
+                    {awaitingSignature ? (
+                      <Button
+                        variant="primary"
+                        size="md"
+                        className="font-bold"
+                        onClick={() => setSigningContract(contract)}
+                      >
+                        <PenLine className="h-4 w-4" />
+                        Sign
+                      </Button>
+                    ) : null}
                     <Link to={`/portal/contracts/${contract.id}`}>
                       <Button variant="outline" size="md" className="font-bold">
                         <Eye className="h-4 w-4" />
@@ -81,6 +103,25 @@ export function PortalCurrentContracts({
           })}
         </ul>
       )}
+
+      {signingContract ? (
+        <PortalLeaseSignModal
+          open
+          onClose={() => setSigningContract(null)}
+          contractId={signingContract.id}
+          projectTitle={
+            signingContract.address?.trim() ||
+            propertyAddress?.trim() ||
+            signingContract.projectTitle
+          }
+          defaultName={tenantName}
+          needsReview={signingContract.portalStatus === 'Pending Review'}
+          onSigned={() => {
+            setSigningContract(null)
+            onSigned?.()
+          }}
+        />
+      ) : null}
     </section>
   )
 }

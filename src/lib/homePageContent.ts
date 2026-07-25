@@ -109,9 +109,9 @@ export const HOME_ACTION_TILES: HomeFeatureHighlight[] = [
   },
   {
     id: 'report-household-issues',
-    title: 'Log Repairs or Concerns',
+    title: 'Request Maintenance',
     description:
-      'Tenants submit repairs or concerns with a photo; landlords review in Alerts.',
+      'Tenants submit maintenance requests with a photo; landlords review in Alerts.',
     iconSrc: HOME_TILE_ICON_SRC.logRepairsConcerns,
     surfaces: ['/portal/report', '/studio/alerts'],
   },

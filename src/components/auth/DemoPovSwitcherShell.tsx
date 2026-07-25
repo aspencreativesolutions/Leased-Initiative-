@@ -18,6 +18,14 @@ const ATTENTION_REDUCED_MS = 900
 const REMINDER_INTERVAL_MS = 45_000
 const REMINDER_ATTENTION_MS = 2800
 const REMINDER_ATTENTION_REDUCED_MS = 900
+/** Soft expand into the full panel. */
+const EXPAND_MS = 560
+const EXPAND_REDUCED_MS = 1
+/** Gentle settle into the compact tab — slightly longer than expand. */
+const COLLAPSE_MS = 640
+const COLLAPSE_REDUCED_MS = 1
+
+type Phase = 'closed' | 'opening' | 'open' | 'closing'
 
 type DemoPovSwitcherShellProps = {
   title?: string
@@ -30,6 +38,13 @@ type DemoPovSwitcherShellProps = {
   collapseSignal?: number
   /** Increment to expand + replay the attention animation (e.g. post-apply tip). */
   attentionSignal?: number
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
 }
 
 /**
@@ -47,37 +62,79 @@ export function DemoPovSwitcherShell({
 }: DemoPovSwitcherShellProps) {
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
-  const [expanded, setExpanded] = useState(() => !hasPlayedDemoPovIntro())
+  const [phase, setPhase] = useState<Phase>(() =>
+    hasPlayedDemoPovIntro() ? 'closed' : 'open'
+  )
   const [attention, setAttention] = useState(() => !hasPlayedDemoPovIntro())
   const [reminderPulse, setReminderPulse] = useState(false)
+  const [tabEntering, setTabEntering] = useState(() => hasPlayedDemoPovIntro())
   const lastAttentionSignal = useRef(0)
+  const pendingAttention = useRef(false)
+  const phaseRef = useRef(phase)
+  phaseRef.current = phase
 
   const finishIntro = useCallback(() => {
     markDemoPovIntroPlayed()
     setAttention(false)
+    pendingAttention.current = false
   }, [])
 
   const collapse = useCallback(() => {
     finishIntro()
-    setExpanded(false)
     setReminderPulse(false)
+    setPhase((prev) => (prev === 'closed' || prev === 'closing' ? prev : 'closing'))
   }, [finishIntro])
 
   const expand = useCallback(() => {
     finishIntro()
-    setExpanded(true)
     setReminderPulse(false)
+    setPhase((prev) => (prev === 'open' || prev === 'opening' ? prev : 'opening'))
   }, [finishIntro])
 
   useEffect(() => {
+    if (phase !== 'opening' && phase !== 'closing') return
+    const reduced = prefersReducedMotion()
+    const ms =
+      phase === 'opening'
+        ? reduced
+          ? EXPAND_REDUCED_MS
+          : EXPAND_MS
+        : reduced
+          ? COLLAPSE_REDUCED_MS
+          : COLLAPSE_MS
+    const timer = window.setTimeout(() => {
+      if (phase === 'opening') {
+        setPhase('open')
+        return
+      }
+      setTabEntering(true)
+      setPhase('closed')
+    }, ms)
+    return () => window.clearTimeout(timer)
+  }, [phase])
+
+  /** Clear the one-shot tab settle class after it finishes. */
+  useEffect(() => {
+    if (phase !== 'closed' || !tabEntering) return
+    const reduced = prefersReducedMotion()
+    const timer = window.setTimeout(() => setTabEntering(false), reduced ? 1 : 420)
+    return () => window.clearTimeout(timer)
+  }, [phase, tabEntering])
+
+  /** Run the attention cue after expand settles so the two animations do not clash. */
+  useEffect(() => {
+    if (phase !== 'open' || !pendingAttention.current) return
+    pendingAttention.current = false
+    setAttention(true)
+  }, [phase])
+
+  useEffect(() => {
     if (!attention) return
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     const timer = window.setTimeout(
       () => {
         finishIntro()
-        setExpanded(false)
+        setPhase((prev) => (prev === 'closed' || prev === 'closing' ? prev : 'closing'))
       },
       reduced ? ATTENTION_REDUCED_MS : ATTENTION_MS
     )
@@ -87,9 +144,7 @@ export function DemoPovSwitcherShell({
   /** Periodic nudge so visitors remember they can switch landlord/tenant POV. */
   useEffect(() => {
     if (attention) return
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduced = prefersReducedMotion()
     let pulseTimer: number | undefined
     const interval = window.setInterval(() => {
       setReminderPulse(true)
@@ -113,12 +168,27 @@ export function DemoPovSwitcherShell({
     if (attentionSignal <= 0 || attentionSignal === lastAttentionSignal.current) return
     lastAttentionSignal.current = attentionSignal
     setReminderPulse(false)
-    setExpanded(true)
-    setAttention(true)
+
+    const current = phaseRef.current
+    if (current === 'closed' || current === 'closing') {
+      pendingAttention.current = true
+      setPhase('opening')
+      return
+    }
+    if (current === 'opening') {
+      pendingAttention.current = true
+      return
+    }
+
+    // Panel already open — restart the attention cue after a frame so the class re-applies.
+    setAttention(false)
+    window.requestAnimationFrame(() => setAttention(true))
   }, [attentionSignal])
 
+  const panelInteractive = phase === 'open' || phase === 'opening'
+
   useEffect(() => {
-    if (!expanded) return
+    if (!panelInteractive) return
     const onPointerDown = (event: PointerEvent) => {
       const root = rootRef.current
       if (!root || root.contains(event.target as Node)) return
@@ -133,9 +203,9 @@ export function DemoPovSwitcherShell({
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [expanded, collapse])
+  }, [panelInteractive, collapse])
 
-  if (!expanded) {
+  if (phase === 'closed') {
     return (
       <div
         ref={rootRef}
@@ -146,6 +216,7 @@ export function DemoPovSwitcherShell({
           onClick={expand}
           className={cn(
             'demo-pov-switcher-tab flex items-center gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-surface-paper px-3 py-2 text-xs font-semibold text-ink shadow-lift transition hover:border-brand hover:text-brand',
+            tabEntering && 'demo-pov-switcher-tab--enter',
             reminderPulse && 'demo-pov-switcher-tab--reminder'
           )}
           aria-expanded={false}
@@ -170,6 +241,8 @@ export function DemoPovSwitcherShell({
       aria-modal="false"
       className={cn(
         'demo-pov-switcher fixed bottom-4 right-4 z-[80] w-[min(calc(100vw-2rem),15.5rem)] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 shadow-lift sm:bottom-5 sm:right-5 sm:p-3.5',
+        phase === 'opening' && 'demo-pov-switcher--expanding',
+        phase === 'closing' && 'demo-pov-switcher--collapsing',
         attention && 'demo-pov-switcher--attention',
         reminderPulse && 'demo-pov-switcher--reminder',
         className
@@ -184,6 +257,7 @@ export function DemoPovSwitcherShell({
           onClick={collapse}
           className="shrink-0 rounded-[var(--radius-sm)] p-0.5 text-ink-muted transition-colors hover:text-ink"
           aria-label="Collapse point of view switcher"
+          disabled={phase === 'closing'}
         >
           <ChevronDown className="h-4 w-4" strokeWidth={2.25} aria-hidden />
         </button>

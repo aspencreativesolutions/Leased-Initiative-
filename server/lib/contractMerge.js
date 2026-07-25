@@ -14,6 +14,7 @@ const PORTAL_FIELDS = [
   'signedAt',
   'confirmedByClient',
   'clientSignature',
+  'clientSignatureImage',
   'clientSignDate',
   'signedContentFingerprint',
   'contentUpdatedAt',

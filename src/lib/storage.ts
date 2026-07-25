@@ -31,6 +31,7 @@ export function normalizeProperty(p: Property): Property {
         ? 'bed'
         : 'person'
   const deposit = Number(p.depositAmount)
+  const utilitiesIncluded = p.utilitiesIncluded === true
   const base: Property = {
     ...p,
     address: migrateSampleAddress(p.address) ?? p.address,
@@ -40,6 +41,7 @@ export function normalizeProperty(p: Property): Property {
     maxTenants: Math.max(1, Number(p.maxTenants) || unitCount),
     furnished,
     pricingStructure,
+    utilitiesIncluded,
     ...(Number.isFinite(baths) && baths > 0 ? { bathrooms: baths } : {}),
     ...(Number.isFinite(sqft) && sqft > 0 ? { squareFeet: Math.floor(sqft) } : {}),
     ...(Number.isFinite(deposit) && deposit > 0

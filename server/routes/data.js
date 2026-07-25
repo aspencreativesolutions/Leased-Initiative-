@@ -504,42 +504,48 @@ router.post('/clients/:clientId/confirm-payment', (req, res) => {
   if (client.depositPaymentConfirmedAt || client.invoice?.paidAt) {
     return res.status(400).json({ error: 'Deposit payment is already confirmed' })
   }
-  const payLinkSkipped = Boolean(client.timelineStepSkips?.pay_link_clicked)
-  if (
-    !client.invoice?.paymentLinkClickedAt &&
-    client.paymentStatus !== 'Pay Link Clicked' &&
-    !payLinkSkipped
-  ) {
+  if (!client.isOfficialClient) {
     return res.status(400).json({
-      error: 'Client must click the PayPal link before you can confirm payment.',
+      error: 'Tenant must sign the lease before you can confirm the deposit.',
     })
   }
 
   const now = new Date().toISOString()
-  updateStore((s) => ({
-    ...s,
-    clients: s.clients.map((c) =>
-      c.id === clientId
-        ? {
-            ...c,
-            paymentStatus: 'Deposit Paid',
-            depositPaymentConfirmedAt: now,
-            invoice: c.invoice
-              ? { ...c.invoice, paidAt: now, sentToPortalAt: c.invoice.sentToPortalAt ?? now }
-              : c.invoice,
-            notes: [
-              ...(c.notes ?? []),
-              {
-                id: generateId(),
-                text: `Deposit payment confirmed on ${new Date(now).toLocaleDateString()} after PayPal verification.`,
-                category: 'Payment',
-                createdAt: now,
-              },
-            ],
-          }
-        : c
-    ),
-  }))
+  const projectLabel = client.projectName || 'your lease'
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) =>
+        c.id === clientId
+          ? {
+              ...c,
+              paymentStatus: 'Deposit Paid',
+              depositPaymentConfirmedAt: now,
+              invoice: c.invoice
+                ? { ...c.invoice, paidAt: now, sentToPortalAt: c.invoice.sentToPortalAt ?? now }
+                : c.invoice,
+              notes: [
+                ...(c.notes ?? []),
+                {
+                  id: generateId(),
+                  text: `Deposit payment confirmed on ${new Date(now).toLocaleDateString()}. Tenant status moved to Upcoming.`,
+                  category: 'Payment',
+                  createdAt: now,
+                },
+              ],
+            }
+          : c
+      ),
+    }
+    next = notifyClientByClientId(next, clientId, {
+      type: 'status_update',
+      title: 'Deposit payment confirmed',
+      message: `Your landlord confirmed your deposit for ${projectLabel}. Your lease status is now Upcoming.`,
+      actionUrl: '/portal',
+      relatedId: `deposit-confirmed-${clientId}-${now.slice(0, 10)}`,
+    })
+    return next
+  })
 
   res.json({ ok: true, depositPaymentConfirmedAt: now })
 })

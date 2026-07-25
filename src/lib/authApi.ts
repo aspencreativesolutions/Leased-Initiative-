@@ -29,6 +29,8 @@ export type LandlordPropertyDetail = {
   costPerPersonAtMax?: number | null
   depositAmount?: number | null
   pricingStructure?: 'room' | 'person' | 'bed' | null
+  /** Whether utilities are included in the total monthly rent */
+  utilitiesIncluded?: boolean
 }
 
 export async function fetchLandlordCompanies() {

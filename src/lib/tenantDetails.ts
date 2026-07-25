@@ -172,6 +172,15 @@ function resolveTenantStatus(client: Client, leaseState?: string): string {
     if (client.contractStatus === 'Sent') return 'Pending — lease sent'
     return 'Pending'
   }
+  if (
+    leaseState === 'Upcoming' &&
+    !client.invoice?.paidAt &&
+    !client.depositPaymentConfirmedAt &&
+    client.paymentStatus !== 'Deposit Paid' &&
+    client.paymentStatus !== 'Paid'
+  ) {
+    return 'Official — awaiting deposit'
+  }
   if (leaseState === 'Upcoming') return 'Official — lease upcoming'
   if (leaseState === 'Ending Soon') return 'Official — ending soon'
   if (leaseState === 'Expired') return 'Former tenant'

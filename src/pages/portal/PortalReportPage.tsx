@@ -8,7 +8,7 @@ export function PortalReportPage() {
   return (
     <div className="mx-auto max-w-lg">
       <PageHeader
-        title="Log Repairs or Concerns"
+        title="Request Maintenance"
         subtitle="Attach a required photo of the issue so your landlord can review it under Tenant Alerts. A note is optional."
       />
       <PortalReportProblemSection

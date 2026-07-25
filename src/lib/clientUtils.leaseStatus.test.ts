@@ -92,10 +92,71 @@ describe('getLeaseStatusDetails badge labels', () => {
     const details = getLeaseStatusDetails(client, contract, new Date('2026-07-01T12:00:00'))
     expect(details.status).toBe('Upcoming')
     expect(details.state).toBe('Upcoming')
+    expect(details.awaitingDeposit).toBe(false)
+  })
+
+  it('shows Awaiting Deposit when signed and deposit is unpaid', () => {
+    const client = makeClient({
+      id: 't1',
+      name: 'Ada',
+      email: 'ada@example.com',
+      demoLeaseStartDate: '2026-08-01',
+      leaseLengthMonths: 12,
+      paymentStatus: 'Unpaid',
+      depositPaymentConfirmedAt: undefined,
+      invoice: {
+        amount: 500,
+        currency: 'USD',
+        description: 'Deposit',
+        invoiceType: 'deposit',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        sentToPortalAt: '2026-07-01T00:00:00.000Z',
+      },
+    })
+    const contract = makeContract({
+      startDate: '2026-08-01',
+      completionDate: '2027-07-31',
+    })
+    const details = getLeaseStatusDetails(client, contract, new Date('2026-07-01T12:00:00'))
+    expect(details.status).toBe('Awaiting Deposit')
+    expect(details.state).toBe('Upcoming')
+    expect(details.awaitingDeposit).toBe(true)
+  })
+
+  it('moves to Upcoming after deposit is confirmed', () => {
+    const client = makeClient({
+      id: 't1',
+      name: 'Ada',
+      email: 'ada@example.com',
+      demoLeaseStartDate: '2026-08-01',
+      leaseLengthMonths: 12,
+      paymentStatus: 'Deposit Paid',
+      depositPaymentConfirmedAt: '2026-07-02T00:00:00.000Z',
+    })
+    const contract = makeContract({
+      startDate: '2026-08-01',
+      completionDate: '2027-07-31',
+    })
+    const details = getLeaseStatusDetails(client, contract, new Date('2026-07-03T12:00:00'))
+    expect(details.status).toBe('Upcoming')
+    expect(details.awaitingDeposit).toBe(false)
   })
 })
 
 describe('getLeaseStatusHoverDetail', () => {
+  it('returns Confirm Payment while awaiting deposit', () => {
+    expect(
+      getLeaseStatusHoverDetail({
+        status: 'Awaiting Deposit',
+        state: 'Upcoming',
+        awaitingDeposit: true,
+        termMonths: 12,
+        startDate: '2026-08-01',
+        endDate: '2027-07-31',
+      })
+    ).toEqual({ summaryLine: 'Confirm Payment' })
+  })
+
   it('returns a single-line active lease hover summary', () => {
     const hover = getLeaseStatusHoverDetail({
       status: 'Active',

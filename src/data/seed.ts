@@ -129,6 +129,7 @@ export function seedProperties(): Property[] {
       furnished: true,
       pricingStructure: 'person',
       depositAmount: 2400,
+      utilitiesIncluded: true,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -147,6 +148,9 @@ export function seedProperties(): Property[] {
       bathrooms: 2,
       maxTenants: 4,
       monthlyRent: 2150,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: false,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -165,6 +169,9 @@ export function seedProperties(): Property[] {
       bathrooms: 2,
       maxTenants: 4,
       monthlyRent: 2200,
+      furnished: true,
+      pricingStructure: 'person',
+      utilitiesIncluded: true,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -183,6 +190,9 @@ export function seedProperties(): Property[] {
       bathrooms: 2.5,
       maxTenants: 5,
       monthlyRent: 2850,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: false,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -201,6 +211,9 @@ export function seedProperties(): Property[] {
       bathrooms: 3,
       maxTenants: 6,
       monthlyRent: 3200,
+      furnished: true,
+      pricingStructure: 'person',
+      utilitiesIncluded: true,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -219,6 +232,9 @@ export function seedProperties(): Property[] {
       bathrooms: 1.5,
       maxTenants: 3,
       monthlyRent: 1850,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: false,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -237,6 +253,9 @@ export function seedProperties(): Property[] {
       bathrooms: 1.5,
       maxTenants: 3,
       monthlyRent: 1750,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: true,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -255,6 +274,9 @@ export function seedProperties(): Property[] {
       bathrooms: 1,
       maxTenants: 3,
       monthlyRent: 1450,
+      furnished: true,
+      pricingStructure: 'person',
+      utilitiesIncluded: true,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -273,6 +295,9 @@ export function seedProperties(): Property[] {
       bathrooms: 1,
       maxTenants: 2,
       monthlyRent: 1350,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: false,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {
@@ -291,6 +316,9 @@ export function seedProperties(): Property[] {
       bathrooms: 1,
       maxTenants: 2,
       monthlyRent: 1400,
+      furnished: false,
+      pricingStructure: 'person',
+      utilitiesIncluded: false,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {

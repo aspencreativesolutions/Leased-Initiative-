@@ -59,6 +59,7 @@ export function stripPortalDeliveryFields(contract: ContractData): ContractData 
     signedAt: undefined,
     confirmedByClient: false,
     clientSignature: undefined,
+    clientSignatureImage: undefined,
     clientSignDate: undefined,
   }
 }

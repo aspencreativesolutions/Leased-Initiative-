@@ -143,7 +143,7 @@ export function PortalReportProblemSection({
       className={cn('min-w-0 scroll-mt-24', className)}
       data-onboarding="portal-report-problem"
       aria-labelledby={hideHeading ? undefined : 'report-issue-heading'}
-      aria-label={hideHeading ? 'Log Repairs or Concerns' : undefined}
+      aria-label={hideHeading ? 'Request Maintenance' : undefined}
     >
       {!hideHeading && (
         <div className="mb-4">
@@ -152,7 +152,7 @@ export function PortalReportProblemSection({
             className="flex items-center gap-2 text-lg font-bold tracking-tight text-ink sm:text-xl"
           >
             <AlertTriangle className="h-5 w-5 shrink-0 text-brand" aria-hidden />
-            Log Repairs or Concerns
+            Request Maintenance
           </h2>
           <p className="mt-1.5 text-sm text-ink-muted">
             Attach a photo of the issue so your landlord can review it under Tenant Alerts. A

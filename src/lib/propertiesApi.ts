@@ -19,6 +19,8 @@ export type PropertyWriteInput = {
   pricingStructure?: PropertyPricingStructure
   /** Security deposit; pass null to clear when editing. */
   depositAmount?: number | null
+  /** Whether utilities are included in total monthly rent. */
+  utilitiesIncluded?: boolean
   importedFromLeaseScan?: boolean
   addressConfirmed?: boolean
   addressDetails?: PropertyAddressDetails

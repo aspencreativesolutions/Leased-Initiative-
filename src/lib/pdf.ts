@@ -253,6 +253,18 @@ export function generateContractPdf(
       ? [contract.clientSignature, contract.clientSignDate].filter(Boolean).join('\n')
       : 'Electronic Signature Here\n[Send to Tenant to Sign]'
     y = addSection(doc, '21–22. Tenant signature & date', tenantBlock, y)
+
+    const signatureImage = contract.clientSignatureImage?.trim()
+    if (signatureImage?.startsWith('data:image/')) {
+      try {
+        y = ensureSpace(doc, y, 36)
+        const format = signatureImage.includes('image/jpeg') ? 'JPEG' : 'PNG'
+        doc.addImage(signatureImage, format, MARGIN, y, 70, 22)
+        y += 28
+      } catch {
+        /* ignore invalid signature images in PDF export */
+      }
+    }
   }
 
   const pageCount = doc.getNumberOfPages()

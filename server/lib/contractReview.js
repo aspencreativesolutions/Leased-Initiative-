@@ -173,6 +173,7 @@ export function clearContractClientSignature(contract) {
     signedAt: undefined,
     confirmedByClient: false,
     clientSignature: undefined,
+    clientSignatureImage: undefined,
     clientSignDate: undefined,
     signedContentFingerprint: undefined,
     viewedAt: undefined,

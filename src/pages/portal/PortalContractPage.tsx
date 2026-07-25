@@ -3,9 +3,10 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, Download, Eye, File, FileCheck, Loader2 } from 'lucide-react'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
+import { SignaturePad } from '@/components/portal/SignaturePad'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { ContractSignatureRow } from '@/components/contracts/ContractFormField'
+import { Input } from '@/components/ui/FormField'
 import { apiFetch, ApiError, getToken } from '@/lib/api'
 import { getFilePreviewKind } from '@/lib/filePreview'
 import { getPortalContractStatus } from '@/lib/portalContractStatus'
@@ -26,6 +27,7 @@ export function PortalContractPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [signature, setSignature] = useState('')
+  const [signatureImage, setSignatureImage] = useState<string | null>(null)
   const [agreed, setAgreed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
@@ -51,8 +53,10 @@ export function PortalContractPage() {
         setCanSign(Boolean(result.canSign))
         if (result.contract.clientSignature && status === 'Accepted') {
           setSignature(result.contract.clientSignature)
+          setSignatureImage(result.contract.clientSignatureImage?.trim() || null)
         } else {
-          setSignature('')
+          setSignature(result.contract.clientName?.trim() || '')
+          setSignatureImage(null)
           setAgreed(false)
         }
       } catch (err) {
@@ -178,14 +182,17 @@ export function PortalContractPage() {
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!contractId || !signature.trim() || !agreed || !canSign) return
+    if (!contractId || !signature.trim() || !signatureImage || !agreed || !canSign) return
 
     setSubmitting(true)
     setError('')
     try {
       await apiFetch(`/api/contracts/${contractId}/confirm`, {
         method: 'POST',
-        body: JSON.stringify({ signature: signature.trim() }),
+        body: JSON.stringify({
+          signature: signature.trim(),
+          signatureImage,
+        }),
       })
       setPortalStatus('Accepted')
       setCanSign(false)
@@ -353,7 +360,7 @@ export function PortalContractPage() {
                 Lease Agreement.
               </h2>
               <p className="mx-auto mt-4 max-w-sm font-serif text-sm italic leading-relaxed text-ink-muted">
-                By typing your full name below, you agree to the terms of this lease.
+                Draw your signature below. It will be saved with your name to complete this lease.
               </p>
             </header>
 
@@ -362,12 +369,15 @@ export function PortalContractPage() {
             )}
 
             <form onSubmit={handleConfirm} className="mt-10 space-y-8">
-              <ContractSignatureRow
-                label="Tenant"
-                hint="Signature & Date"
+              <SignaturePad onChange={setSignatureImage} disabled={submitting} />
+              <Input
+                label="Full legal name"
                 value={signature}
-                onChange={setSignature}
+                onChange={(e) => setSignature(e.target.value)}
                 placeholder={contract.clientName}
+                required
+                disabled={submitting}
+                hint="Printed under your drawn signature"
               />
               <label className="flex items-start gap-3 font-serif text-sm italic text-ink-muted">
                 <input
@@ -383,7 +393,10 @@ export function PortalContractPage() {
                 </span>
               </label>
               <div className="text-center">
-                <Button type="submit" disabled={submitting || !agreed || !signature.trim()}>
+                <Button
+                  type="submit"
+                  disabled={submitting || !agreed || !signature.trim() || !signatureImage}
+                >
                   <FileCheck className="h-4 w-4" />
                   {submitting ? 'Confirming…' : 'Accept lease'}
                 </Button>

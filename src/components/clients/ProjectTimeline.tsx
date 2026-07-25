@@ -139,7 +139,7 @@ export function ProjectTimeline({ client, aside }: ProjectTimelineProps) {
           ) : (
             <CheckCircle2 className="h-3.5 w-3.5" />
           )}
-          Confirm PayPal
+          Confirm Payment Complete
         </Button>
       )
     }

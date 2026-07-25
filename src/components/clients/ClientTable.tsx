@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { UserMinus, ArrowRight } from 'lucide-react'
+import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
@@ -13,6 +13,7 @@ import { columnArrangeOutlineClass } from '@/lib/columnArrangeOutline'
 import {
   getLeaseStatusDetails,
   getTenantAddress,
+  isAwaitingDeposit,
 } from '@/lib/clientUtils'
 import {
   cycleOfficialTenantContactDisplayMode,
@@ -44,6 +45,8 @@ import {
   type MobileTileColumns,
 } from '@/lib/mobileTileColumns'
 import { leaseTileScaleStyle } from '@/lib/tileScale'
+import { confirmClientPayment } from '@/lib/timelineApi'
+import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import { matchesDashboardFilter, type DashboardFilter } from '@/lib/dashboardFilters'
@@ -130,11 +133,14 @@ function renderCell(
   onCycleContactDisplay: () => void,
   onRemove: () => void,
   onOpenTenantDetails: (tenantId: string) => void,
+  onConfirmPayment: (clientId: string) => void,
+  confirmingPayment: boolean,
   arrangeClassName = ''
 ): ReactNode {
   const addressValue = getFullPropertyAddress(client, contract, properties)
   const contactValue = getOfficialTenantContactDisplayValue(client, contactDisplayMode)
   const leaseStatus = getLeaseStatusDetails(client, contract)
+  const awaitingDeposit = isAwaitingDeposit(client, contract)
 
   switch (columnId) {
     case 'tenant':
@@ -156,7 +162,13 @@ function renderCell(
               {client.name}
             </button>
             <div className="mt-1">
-              <LeaseStatusBadge details={leaseStatus} />
+              <LeaseStatusBadge
+                details={leaseStatus}
+                onConfirmPayment={
+                  awaitingDeposit ? () => onConfirmPayment(client.id) : undefined
+                }
+                confirmingPayment={confirmingPayment}
+              />
             </div>
           </div>
         </td>
@@ -219,7 +231,14 @@ function renderCell(
             arrangeClassName
           )}
         >
-          <PaymentStatusDateTags client={client} contract={contract} />
+          <PaymentStatusDateTags
+            client={client}
+            contract={contract}
+            onConfirmPayment={
+              awaitingDeposit ? () => onConfirmPayment(client.id) : undefined
+            }
+            confirmingPayment={confirmingPayment}
+          />
         </td>
       )
     case 'actions':
@@ -232,6 +251,26 @@ function renderCell(
           )}
         >
           <div className="flex flex-col items-end gap-0.5">
+            {awaitingDeposit ? (
+              <button
+                type="button"
+                onClick={() => onConfirmPayment(client.id)}
+                disabled={confirmingPayment}
+                className={cn(
+                  tableViewLinkSubtleClass,
+                  'text-accent hover:text-accent'
+                )}
+                title={`Confirm deposit payment complete for ${client.name}`}
+                aria-label={`Confirm payment complete for ${client.name}`}
+              >
+                {confirmingPayment ? (
+                  <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                )}
+                Confirm Payment Complete
+              </button>
+            ) : null}
             <button
               type="button"
               className={tableRemoveButtonClass}
@@ -273,6 +312,8 @@ export function ClientTable({
 }: ClientTableProps) {
   const { getContractForClient, refresh, properties } = useApp()
   const [removeTarget, setRemoveTarget] = useState<Client | null>(null)
+  const [confirmingClientId, setConfirmingClientId] = useState<string | null>(null)
+  const [confirmError, setConfirmError] = useState('')
   const [uncontrolledOrder, setUncontrolledOrder] = useState(loadTenantTableColumnOrder)
   const [uncontrolledContactMode, setUncontrolledContactMode] = useState(
     loadOfficialTenantContactDisplayMode
@@ -282,6 +323,22 @@ export function ClientTable({
   const columnOrder = controlledOrder ?? uncontrolledOrder
   const contactDisplayMode = controlledContactMode ?? uncontrolledContactMode
   const mobileTileColumns = controlledMobileColumns ?? uncontrolledMobileColumns
+
+  const handleConfirmPayment = async (clientId: string) => {
+    if (confirmingClientId) return
+    setConfirmingClientId(clientId)
+    setConfirmError('')
+    try {
+      await confirmClientPayment(clientId)
+      await refresh()
+    } catch (err) {
+      setConfirmError(
+        err instanceof ApiError ? err.message : 'Could not confirm deposit payment.'
+      )
+    } finally {
+      setConfirmingClientId(null)
+    }
+  }
 
   const setColumnOrder = (next: TenantTableColumnId[]) => {
     saveTenantTableColumnOrder(next)
@@ -373,6 +430,8 @@ export function ClientTable({
             dimmed={dimmed}
             onRemove={() => setRemoveTarget(client)}
             onOpenTenantDetails={onOpenTenantDetails}
+            onConfirmPayment={() => handleConfirmPayment(client.id)}
+            confirmingPayment={confirmingClientId === client.id}
           />
         )
       })}
@@ -381,6 +440,11 @@ export function ClientTable({
 
   return (
     <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+      {confirmError ? (
+        <p className="mb-2 text-sm text-accent" role="alert">
+          {confirmError}
+        </p>
+      ) : null}
       {tileScaleFactor != null ? (
         <div
           className={cn('tile-scale-root', tilesHiddenClass)}
@@ -511,6 +575,8 @@ export function ClientTable({
                         cycleContactDisplay,
                         () => setRemoveTarget(client),
                         onOpenTenantDetails,
+                        handleConfirmPayment,
+                        confirmingClientId === client.id,
                         columnArrangeOutlineClass(
                           columnId,
                           selectedColumnId,

@@ -337,6 +337,8 @@ export interface ContractData {
   portfolioRights: string
   terminationTerms: string
   clientSignature?: string
+  /** Drawn signature image (PNG data URL) from portal sign pad */
+  clientSignatureImage?: string
   designerSignature?: string
   clientSignDate?: string
   designerSignDate?: string
@@ -650,6 +652,7 @@ export interface OnboardingProgress {
 export type ClientNotificationType =
   | 'registration_accepted'
   | 'contract_sent'
+  | 'contract_signed'
   | 'invoice_sent'
   | 'final_invoice_sent'
   | 'project_started'
@@ -828,6 +831,11 @@ export interface Property {
   pricingStructure?: PropertyPricingStructure
   /** Security deposit amount when the landlord requires one (omit when none). */
   depositAmount?: number
+  /**
+   * Whether utilities are included in the total monthly rent.
+   * Shown to tenants in the address dropdown (and noted when not included).
+   */
+  utilitiesIncluded?: boolean
   /**
    * Bedroom → bed inventory. Required for new/edited rentals.
    * Sleeping capacity and rentable bed spaces derive from this layout.

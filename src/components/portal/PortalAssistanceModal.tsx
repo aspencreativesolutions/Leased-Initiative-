@@ -28,7 +28,10 @@ export function PortalAssistanceModal({
             Project steps
           </h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-ink-muted">
-            <li>Review and sign your lease agreement when it appears under Lease Agreements.</li>
+            <li>
+              Review and sign your lease agreement when it appears under Lease Agreements — draw
+              your signature with a mouse or touchscreen.
+            </li>
             <li>Open the invoice payment link to pay your deposit.</li>
             <li>
               Once your landlord activates your lease, upload files and add notes here in the

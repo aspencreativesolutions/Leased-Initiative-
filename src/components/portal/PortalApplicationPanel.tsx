@@ -24,6 +24,10 @@ import { claimPortalInvite, submitPortalApplication } from '@/lib/portalApplicat
 import { DEMO_AVA_EMAIL, isPublicDemoSession, requestPostApplyDemoTip } from '@/lib/publicDemo'
 import { paymentProviderLabel } from '@/lib/paymentProvider'
 import { formatUsd } from '@/lib/rentalRent'
+import {
+  formatPropertyListingDescription,
+  utilitiesIncludedLabel,
+} from '@/lib/propertyListingDisplay'
 import { cn } from '@/lib/utils'
 import type { PaymentProvider, PortalDashboard } from '@/types'
 import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
@@ -135,14 +139,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         details.find((d) => d.address.trim().toLowerCase() === address.trim().toLowerCase()) ??
         null
       if (!detail) return { value: address }
-      const parts: string[] = [detail.furnished ? 'Furnished' : 'Unfurnished']
-      if (detail.monthlyRent != null) {
-        parts.push(`${formatUsd(detail.monthlyRent)} total`)
+      return {
+        value: address,
+        description: formatPropertyListingDescription(detail),
       }
-      if (detail.costPerPersonAtMax != null && detail.maxTenants > 1) {
-        parts.push(`${formatUsd(detail.costPerPersonAtMax)}/person at full occupancy`)
-      }
-      return { value: address, description: parts.join(' · ') }
     })
   }, [propertyOptions, selectedAgency])
 
@@ -176,6 +176,17 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     }
     return fromAgency
   }, [invite])
+
+  const invitePropertySelectOptions = useMemo<SearchableSelectOption[]>(() => {
+    const details = invite?.agency?.propertyDetails ?? []
+    return invitePropertyOptions.map((address) => {
+      const detail =
+        details.find((d) => d.address.trim().toLowerCase() === address.trim().toLowerCase()) ??
+        null
+      if (!detail) return { value: address }
+      return { value: address, description: formatPropertyListingDescription(detail) }
+    })
+  }, [invite, invitePropertyOptions])
 
   const resetApplyForm = () => {
     setLandlordCompany('')
@@ -551,15 +562,19 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               options={
                 invite.propertyAddress
                   ? [
-                      invite.propertyAddress,
-                      ...invitePropertyOptions.filter((a) => a !== invite.propertyAddress),
+                      invitePropertySelectOptions.find((o) => o.value === invite.propertyAddress) ??
+                        invite.propertyAddress,
+                      ...invitePropertySelectOptions.filter(
+                        (o) => o.value !== invite.propertyAddress
+                      ),
                     ]
-                  : invitePropertyOptions
+                  : invitePropertySelectOptions
               }
               onChange={setPropertyAddress}
               required
               disabled={Boolean(invite.propertyAddress)}
               placeholder="Select a property"
+              hint="Furnished status, total rent, cost at full occupancy, and utilities"
               emptyMessage="No available properties for this invite"
             />
             <Select
@@ -652,7 +667,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               <span className="font-semibold text-brand">Choose an address</span>
               {' — '}
               open the list and pick a property. Each option shows furnished or unfurnished
-              status, total rent, and cost per person when available.
+              status, total rent, cost at full occupancy, and whether utilities are included.
             </p>
           ) : null}
           <SearchableSelect
@@ -668,7 +683,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 ? 'Start typing a property address…'
                 : 'Select a landlord first'
             }
-            hint="Addresses listed for the selected landlord — furnished status, total rent, and per-person cost at full occupancy"
+            hint="Addresses listed for the selected landlord — furnished status, total rent, cost at full occupancy, and utilities"
             emptyMessage="No available properties found for this company"
             controlClassName={guideAddress ? 'portal-address-field--guide' : undefined}
             openOnMount={guideAddress}
@@ -706,7 +721,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                       /month
                     </>
                   ) : null}
-                  {shareAtMax != null && selectedOccupancy.maxTenants > 1 ? (
+                  {shareAtMax != null ? (
                     <>
                       {' '}
                       ·{' '}
@@ -714,6 +729,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                       /person at full occupancy ({selectedOccupancy.maxTenants})
                     </>
                   ) : null}
+                  {' · '}
+                  <span className="font-semibold text-ink">
+                    {utilitiesIncludedLabel(selectedOccupancy.utilitiesIncluded)}
+                  </span>
                 </p>
                 <p>
                   This rental accommodates up to{' '}

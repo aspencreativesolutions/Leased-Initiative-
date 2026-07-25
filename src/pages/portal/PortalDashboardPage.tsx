@@ -7,9 +7,11 @@ import { PortalPayRentSection } from '@/components/portal/PortalPayRentSection'
 import { PortalPaymentScheduleTimeline } from '@/components/portal/PortalPaymentScheduleTimeline'
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
 import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
+import { PortalTimelineView } from '@/components/portal/PortalTimelineView'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/context/AuthContext'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
+import { usePortalTimeline } from '@/hooks/usePortalTimeline'
 import { DEMO_AVA_EMAIL, isPublicDemoSession } from '@/lib/publicDemo'
 import { cn, formatDate } from '@/lib/utils'
 
@@ -26,6 +28,12 @@ function TenantPortalHeading() {
 
 export function PortalDashboardPage() {
   const { data, loading, error, refresh, setData } = usePortalDashboard()
+  const {
+    linked: timelineLinked,
+    projectName: timelineProjectName,
+    steps: timelineSteps,
+    loading: timelineLoading,
+  } = usePortalTimeline()
   const { user } = useAuth()
   const showAvaStageNote =
     isPublicDemoSession() &&
@@ -56,7 +64,7 @@ export function PortalDashboardPage() {
           <p className="mb-3 rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2 text-center text-sm text-ink">
             <span className="font-semibold text-brand">Demo stage:</span> Ava Mitchell is at{' '}
             <span className="font-semibold">Start Application</span> — pick a landlord company,
-            then choose an address (furnished or unfurnished), and Send.
+            then choose an address (furnished or unfurnished, with total rent, full occupancy cost, and utilities), and Send.
           </p>
         ) : null}
         <PortalApplicationPanel
@@ -122,13 +130,13 @@ export function PortalDashboardPage() {
         to="/portal/report"
         data-onboarding="portal-report-problem"
         className={portalActionBtnClass}
-        aria-label="Log repairs or concerns"
+        aria-label="Request maintenance"
       >
         <AlertTriangle
           className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110"
           aria-hidden
         />
-        Log Repairs
+        Request Maintenance
       </Link>
     </div>
   )
@@ -174,12 +182,31 @@ export function PortalDashboardPage() {
         )}
       </section>
 
+      <div className="mb-8" data-onboarding="portal-dashboard-timeline">
+        {timelineLoading ? (
+          <p className="py-4 text-center text-sm text-ink-muted">Loading your project timeline…</p>
+        ) : timelineLinked && timelineSteps.length > 0 ? (
+          <PortalTimelineView
+            steps={timelineSteps}
+            projectName={timelineProjectName || address || data.client?.projectName}
+          />
+        ) : (
+          <p className="py-4 text-center text-sm text-ink-muted">
+            Your project timeline will appear here as lease milestones unlock.
+          </p>
+        )}
+      </div>
+
       <div className="mb-8 text-center">
         <PortalCurrentContracts
           contracts={data.contracts}
           contractStatus={data.client?.contractStatus}
           projectStarted={data.projectStarted}
           propertyAddress={address}
+          tenantName={tenantName === 'there' ? '' : tenantName}
+          onSigned={() => {
+            void refresh()
+          }}
         />
       </div>
 

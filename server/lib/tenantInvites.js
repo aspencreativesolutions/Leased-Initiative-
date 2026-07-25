@@ -64,6 +64,7 @@ export function propertyOccupancyDetail(store, address) {
       costPerPersonAtMax: null,
       depositAmount: null,
       pricingStructure: null,
+      utilitiesIncluded: false,
     }
   }
   const { property, slots } = availableApplicantSlotsAtAddress(store, trimmed)
@@ -79,6 +80,7 @@ export function propertyOccupancyDetail(store, address) {
         ? Math.round(Number(property.depositAmount))
         : null
     const furnished = property.furnished === true
+    const utilitiesIncluded = property.utilitiesIncluded === true
     return {
       address: property.address?.trim() || trimmed,
       maxTenants,
@@ -90,6 +92,7 @@ export function propertyOccupancyDetail(store, address) {
         monthlyRent != null ? Math.round((monthlyRent / maxTenants) * 100) / 100 : null,
       depositAmount,
       pricingStructure: property.pricingStructure ?? (furnished ? 'bed' : 'person'),
+      utilitiesIncluded,
     }
   }
   return {
@@ -102,6 +105,7 @@ export function propertyOccupancyDetail(store, address) {
     costPerPersonAtMax: null,
     depositAmount: null,
     pricingStructure: 'person',
+    utilitiesIncluded: false,
   }
 }
 

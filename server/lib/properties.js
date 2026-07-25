@@ -52,6 +52,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: true,
     pricingStructure: 'person',
     depositAmount: 2400,
+    utilitiesIncluded: true,
     addressDetails: {
       street: '523 Juanita Street',
       city: 'Steubenville',
@@ -70,6 +71,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'room',
     depositAmount: 2150,
+    utilitiesIncluded: false,
     addressDetails: {
       street: '201 Heights Street',
       city: 'Weirton',
@@ -88,6 +90,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: true,
     pricingStructure: 'bed',
     depositAmount: 2200,
+    utilitiesIncluded: true,
     addressDetails: {
       street: '77 Maryland Street',
       city: 'Wheeling',
@@ -106,6 +109,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'person',
     depositAmount: 1425,
+    utilitiesIncluded: false,
     addressDetails: {
       street: '211 Donnell Street',
       city: 'Weirton',
@@ -124,6 +128,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: true,
     pricingStructure: 'bed',
     depositAmount: 3200,
+    utilitiesIncluded: true,
     addressDetails: {
       street: '107 Broad Street',
       city: 'St. Clairsville',
@@ -142,6 +147,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'person',
     depositAmount: 1850,
+    utilitiesIncluded: false,
     addressDetails: {
       street: '285 Bethany Pike',
       city: 'Wellsburg',
@@ -160,6 +166,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'person',
     depositAmount: 875,
+    utilitiesIncluded: true,
     addressDetails: {
       street: '4610 Scioto Drive, Unit A',
       city: 'Steubenville',
@@ -178,6 +185,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: true,
     pricingStructure: 'person',
     depositAmount: 1450,
+    utilitiesIncluded: true,
     addressDetails: {
       street: '430 Canton Road, Unit 11',
       city: 'Wintersville',
@@ -196,6 +204,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'person',
     depositAmount: 1350,
+    utilitiesIncluded: false,
     addressDetails: {
       street: '1430 Ridge Avenue, Unit A',
       city: 'Steubenville',
@@ -215,6 +224,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     furnished: false,
     pricingStructure: 'person',
     depositAmount: 1400,
+    utilitiesIncluded: false,
     addressDetails: {
       street: '1430 Ridge Avenue, Unit B',
       city: 'Steubenville',
@@ -325,6 +335,7 @@ export function createPropertyRecord({
   furnished,
   pricingStructure,
   depositAmount,
+  utilitiesIncluded,
   bedroomsLayout,
   createdAt,
   importedFromLeaseScan,
@@ -352,6 +363,7 @@ export function createPropertyRecord({
     maxTenants: derivedMax,
     furnished: isFurnished,
     pricingStructure: pricing,
+    utilitiesIncluded: utilitiesIncluded === true,
     createdAt: createdAt || new Date().toISOString(),
   }
   const baths = normalizeOptionalPositiveNumber(bathrooms)
@@ -400,6 +412,7 @@ export function normalizeStoredProperty(property) {
     maxTenants: normalizeMaxTenants(property.maxTenants, units),
     furnished,
     pricingStructure: normalizePricingStructure(property.pricingStructure, furnished),
+    utilitiesIncluded: property.utilitiesIncluded === true,
   }
   const baths = normalizeOptionalPositiveNumber(property.bathrooms)
   if (baths != null) next.bathrooms = baths
@@ -462,6 +475,9 @@ export function updatePropertyRecord(existing, updates) {
       else delete merged.depositAmount
     }
   }
+  if (updates.utilitiesIncluded !== undefined) {
+    merged.utilitiesIncluded = updates.utilitiesIncluded === true
+  }
   if (updates.addressDetails !== undefined) {
     const details = normalizeAddressDetails(updates.addressDetails)
     if (details) merged.addressDetails = details
@@ -499,6 +515,9 @@ function applySeedFields(property, seedEntry) {
   }
   const seedDeposit = normalizeOptionalPositiveNumber(seedEntry.depositAmount)
   if (seedDeposit != null) next.depositAmount = Math.round(seedDeposit)
+  if (seedEntry.utilitiesIncluded === true || seedEntry.utilitiesIncluded === false) {
+    next.utilitiesIncluded = seedEntry.utilitiesIncluded === true
+  }
   if (seedDetails) next.addressDetails = seedDetails
   if (property.addressConfirmed !== true) next.addressConfirmed = true
   return next
@@ -542,6 +561,8 @@ export function ensureStoreProperties(store) {
       withSeed.unitCount !== base.unitCount ||
       withSeed.bedrooms !== base.bedrooms ||
       withSeed.monthlyRent !== base.monthlyRent ||
+      withSeed.furnished !== base.furnished ||
+      withSeed.utilitiesIncluded !== base.utilitiesIncluded ||
       withSeed.bathrooms !== base.bathrooms ||
       withSeed.addressDetails !== base.addressDetails ||
       withSeed.addressConfirmed !== base.addressConfirmed
@@ -688,6 +709,9 @@ export function validatePropertyInput(body) {
     Number.isFinite(monthlyRentRaw) && monthlyRentRaw > 0
       ? Math.round(monthlyRentRaw)
       : undefined
+  if (!importedFromLeaseScan && monthlyRent == null) {
+    return { error: 'Enter the total monthly rent' }
+  }
 
   const furnished = body?.furnished === true
   let pricingStructure = normalizePricingStructure(body?.pricingStructure, furnished)
@@ -706,6 +730,15 @@ export function validatePropertyInput(body) {
     depositAmount = Math.round(depositRaw)
   }
 
+  if (
+    !importedFromLeaseScan &&
+    body?.utilitiesIncluded !== true &&
+    body?.utilitiesIncluded !== false
+  ) {
+    return { error: 'Choose whether utilities are included in rent' }
+  }
+  const utilitiesIncluded = body?.utilitiesIncluded === true
+
   return {
     address,
     propertyType,
@@ -714,6 +747,7 @@ export function validatePropertyInput(body) {
     maxTenants: Math.floor(maxTenants),
     furnished,
     pricingStructure,
+    utilitiesIncluded,
     ...(bedroomsLayout ? { bedroomsLayout } : {}),
     ...(monthlyRent != null ? { monthlyRent } : {}),
     ...(depositAmount !== undefined ? { depositAmount } : {}),
