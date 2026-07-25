@@ -21,6 +21,8 @@ export type PropertyWriteInput = {
   depositAmount?: number | null
   /** Whether utilities are included in total monthly rent. */
   utilitiesIncluded?: boolean
+  /** When true, applicants may only rent the entire home. */
+  entireHomeOnly?: boolean
   importedFromLeaseScan?: boolean
   addressConfirmed?: boolean
   addressDetails?: PropertyAddressDetails

@@ -718,7 +718,7 @@ export function ContractsPage() {
     ) : undefined
 
   return (
-    <>
+    <div className="w-full min-w-0" data-onboarding="admin-contracts">
       <PageHeader
         title="Lease Agreements"
         help={LEASE_AGREEMENTS_HELP}
@@ -866,6 +866,6 @@ export function ContractsPage() {
         address={mapTarget?.address ?? null}
         tenantName={mapTarget?.tenantName}
       />
-    </>
+    </div>
   )
 }

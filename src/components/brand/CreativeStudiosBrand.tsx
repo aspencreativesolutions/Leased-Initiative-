@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { BrandMark } from '@/components/brand/BrandMark'
 import { BRAND_NAME } from '@/lib/brand'
 import { cn } from '@/lib/utils'
@@ -8,6 +9,9 @@ type CreativeStudiosBrandProps = {
   nameClassName?: string
   subtitleClassName?: string
   subtitle?: string
+  /** Shown under the title below the `md` breakpoint (e.g. today’s date). */
+  mobileSubtitle?: ReactNode
+  mobileSubtitleClassName?: string
 }
 
 export function CreativeStudiosBrand({
@@ -16,12 +20,14 @@ export function CreativeStudiosBrand({
   nameClassName,
   subtitleClassName,
   subtitle = 'Landlord Portal',
+  mobileSubtitle,
+  mobileSubtitleClassName,
 }: CreativeStudiosBrandProps) {
   return (
-    <div className={cn('flex items-center gap-2.5 sm:gap-3', className)}>
+    <div className={cn('flex min-w-0 items-center gap-2.5 sm:gap-3', className)}>
       <BrandMark
         className={cn(
-          'h-9 w-9 text-nav-fg group-hover:opacity-90 sm:h-10 sm:w-10',
+          'h-9 w-9 shrink-0 text-nav-fg group-hover:opacity-90 sm:h-10 sm:w-10',
           markClassName
         )}
       />
@@ -34,9 +40,19 @@ export function CreativeStudiosBrand({
         >
           {BRAND_NAME}
         </span>
+        {mobileSubtitle ? (
+          <span
+            className={cn(
+              'mt-0.5 block truncate text-[10px] font-medium tracking-wide text-nav-fg-muted/85 md:hidden',
+              mobileSubtitleClassName
+            )}
+          >
+            {mobileSubtitle}
+          </span>
+        ) : null}
         <span
           className={cn(
-            'mt-0.5 hidden whitespace-nowrap text-[10px] font-semibold tracking-wide text-nav-fg-muted sm:mt-1 sm:block',
+            'mt-0.5 hidden whitespace-nowrap text-[10px] font-semibold tracking-wide text-nav-fg-muted md:mt-1 md:block',
             subtitleClassName
           )}
         >

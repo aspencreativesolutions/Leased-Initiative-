@@ -303,7 +303,7 @@ export function PaymentsPage() {
     ) : undefined
 
   return (
-    <>
+    <div className="w-full min-w-0" data-onboarding="admin-payments">
       <PageHeader
         title="Payments"
         subtitle={summarySubtitle}
@@ -538,6 +538,6 @@ export function PaymentsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

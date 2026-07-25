@@ -774,7 +774,7 @@ export function PropertiesPage() {
     ) : undefined
 
   return (
-    <div className="w-full min-w-0">
+    <div className="w-full min-w-0" data-onboarding="admin-properties">
       <PageHeader
         title="Rentals"
         help={rentalsHelp}

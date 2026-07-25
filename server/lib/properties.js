@@ -68,7 +68,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 2,
     maxTenants: 4,
     monthlyRent: 2150,
-    furnished: false,
+    furnished: true,
     pricingStructure: 'room',
     depositAmount: 2150,
     utilitiesIncluded: false,
@@ -123,7 +123,7 @@ export const DEFAULT_SEED_PROPERTIES = [
     unitCount: 1,
     bedrooms: 5,
     bathrooms: 3,
-    maxTenants: 6,
+    maxTenants: 10,
     monthlyRent: 3200,
     furnished: true,
     pricingStructure: 'bed',
@@ -144,8 +144,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 1.5,
     maxTenants: 3,
     monthlyRent: 1850,
-    furnished: false,
+    furnished: true,
     pricingStructure: 'person',
+    entireHomeOnly: true,
     depositAmount: 1850,
     utilitiesIncluded: false,
     addressDetails: {
@@ -336,6 +337,7 @@ export function createPropertyRecord({
   pricingStructure,
   depositAmount,
   utilitiesIncluded,
+  entireHomeOnly,
   bedroomsLayout,
   createdAt,
   importedFromLeaseScan,
@@ -364,6 +366,7 @@ export function createPropertyRecord({
     furnished: isFurnished,
     pricingStructure: pricing,
     utilitiesIncluded: utilitiesIncluded === true,
+    entireHomeOnly: entireHomeOnly === true,
     createdAt: createdAt || new Date().toISOString(),
   }
   const baths = normalizeOptionalPositiveNumber(bathrooms)
@@ -413,6 +416,7 @@ export function normalizeStoredProperty(property) {
     furnished,
     pricingStructure: normalizePricingStructure(property.pricingStructure, furnished),
     utilitiesIncluded: property.utilitiesIncluded === true,
+    entireHomeOnly: property.entireHomeOnly === true,
   }
   const baths = normalizeOptionalPositiveNumber(property.bathrooms)
   if (baths != null) next.bathrooms = baths
@@ -478,6 +482,9 @@ export function updatePropertyRecord(existing, updates) {
   if (updates.utilitiesIncluded !== undefined) {
     merged.utilitiesIncluded = updates.utilitiesIncluded === true
   }
+  if (updates.entireHomeOnly !== undefined) {
+    merged.entireHomeOnly = updates.entireHomeOnly === true
+  }
   if (updates.addressDetails !== undefined) {
     const details = normalizeAddressDetails(updates.addressDetails)
     if (details) merged.addressDetails = details
@@ -517,6 +524,12 @@ function applySeedFields(property, seedEntry) {
   if (seedDeposit != null) next.depositAmount = Math.round(seedDeposit)
   if (seedEntry.utilitiesIncluded === true || seedEntry.utilitiesIncluded === false) {
     next.utilitiesIncluded = seedEntry.utilitiesIncluded === true
+  }
+  if (seedEntry.entireHomeOnly === true || seedEntry.entireHomeOnly === false) {
+    next.entireHomeOnly = seedEntry.entireHomeOnly === true
+  }
+  if (Array.isArray(seedEntry.bedroomsLayout) && seedEntry.bedroomsLayout.length > 0) {
+    next.bedroomsLayout = seedEntry.bedroomsLayout
   }
   if (seedDetails) next.addressDetails = seedDetails
   if (property.addressConfirmed !== true) next.addressConfirmed = true
@@ -738,6 +751,7 @@ export function validatePropertyInput(body) {
     return { error: 'Choose whether utilities are included in rent' }
   }
   const utilitiesIncluded = body?.utilitiesIncluded === true
+  const entireHomeOnly = body?.entireHomeOnly === true
 
   return {
     address,
@@ -748,6 +762,7 @@ export function validatePropertyInput(body) {
     furnished,
     pricingStructure,
     utilitiesIncluded,
+    entireHomeOnly,
     ...(bedroomsLayout ? { bedroomsLayout } : {}),
     ...(monthlyRent != null ? { monthlyRent } : {}),
     ...(depositAmount !== undefined ? { depositAmount } : {}),

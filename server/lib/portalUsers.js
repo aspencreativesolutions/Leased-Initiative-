@@ -120,6 +120,8 @@ export function buildPortalUsersOverview(store) {
         preferredPaymentMethod: u.preferredPaymentMethod,
         phone: u.phone,
         preferredOccupancyMode: u.preferredOccupancyMode,
+        preferredBedroomId: u.preferredBedroomId,
+        preferredBedId: u.preferredBedId,
         roommateInvitePhones: phones,
         roommateInviteCount: phones.length,
       }
@@ -209,6 +211,11 @@ export function buildPortalUsersOverview(store) {
         isOfficialClient: Boolean(client.isOfficialClient) || leaseFullySigned,
         timelineStageId: alignedStage.id,
         timelineStageLabel: alignedStage.label,
+        preferredOccupancyMode:
+          u.preferredOccupancyMode ?? client.preferredOccupancyMode ?? undefined,
+        preferredBedroomId: u.preferredBedroomId ?? client.bedroomId ?? undefined,
+        preferredBedId: u.preferredBedId ?? client.bedId ?? undefined,
+        occupancyArrangement: client.occupancyArrangement,
         acceptedAt: client.createdAt,
         handlerName,
         handlerEmail,

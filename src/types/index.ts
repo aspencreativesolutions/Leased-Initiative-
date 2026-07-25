@@ -44,6 +44,18 @@ export type OccupancyArrangement =
   | 'shared_apartment'
   | 'room_rental'
 
+/**
+ * Applicant occupancy preference (Start Application + landlord pipeline tags).
+ * Legacy stored values `full_rent` / `roommates` are normalized on read.
+ */
+export type PreferredOccupancyMode =
+  | 'entire_home'
+  | 'open_to_roommates'
+  | 'private_room'
+  | 'shared_room'
+  | 'full_rent'
+  | 'roommates'
+
 export type LeaseRenewalStatus =
   | 'renewal_offered'
   | 're_sign_pending'
@@ -168,8 +180,15 @@ export interface User {
   preferredPropertyAddress?: string
   /** Preferred checkout provider chosen on invite claim */
   preferredPaymentMethod?: PaymentProvider
-  /** full_rent = solo / pay entire rent; roommates = share and invite friends */
-  preferredOccupancyMode?: 'full_rent' | 'roommates'
+  /**
+   * Occupancy preference from Start Application.
+   * Legacy aliases: `full_rent` → entire home, `roommates` → open to roommates.
+   */
+  preferredOccupancyMode?: PreferredOccupancyMode
+  /** Specific bedroom the applicant selected (furnished placements) */
+  preferredBedroomId?: string
+  /** Specific bed the applicant selected (per-bed furnished placements) */
+  preferredBedId?: string
   /** Phones invited as potential roommates at application */
   roommateInvitePhones?: string[]
   phone?: string
@@ -260,6 +279,11 @@ export interface Client {
    * When omitted, Tenant Details derives a default from roommates + rental type.
    */
   occupancyArrangement?: OccupancyArrangement
+  /**
+   * Applicant preference preserved after acceptance (dashboard status tags).
+   * Prefer this for tags when set; otherwise derive from occupancyArrangement.
+   */
+  preferredOccupancyMode?: PreferredOccupancyMode
   /**
    * Tenants with the same leaseGroupId share one lease agreement.
    * Distinct ids at the same address mean separate leases.
@@ -415,7 +439,11 @@ export interface PendingRegistration {
   preferredPaymentMethod?: PaymentProvider
   phone?: string
   /** Occupancy preference from Start Application */
-  preferredOccupancyMode?: 'full_rent' | 'roommates'
+  preferredOccupancyMode?: PreferredOccupancyMode
+  /** Specific bedroom selected on a furnished application */
+  preferredBedroomId?: string
+  /** Specific bed selected on a furnished application */
+  preferredBedId?: string
   /** Friend phones the applicant invited to share the rental */
   roommateInvitePhones?: string[]
   /** Count of roommate invite phones with digits (friends invited) */
@@ -441,6 +469,10 @@ export interface PortalUserAccepted {
   isOfficialClient: boolean
   timelineStageId: string
   timelineStageLabel: string
+  preferredOccupancyMode?: PreferredOccupancyMode
+  preferredBedroomId?: string
+  preferredBedId?: string
+  occupancyArrangement?: OccupancyArrangement
   acceptedAt: string
   handlerName: string
   handlerEmail: string
@@ -603,7 +635,9 @@ export interface PortalDashboard {
     preferredLeaseMonths: number | null
     preferredLeaseStartDate: string | null
     preferredPaymentMethod?: PaymentProvider | null
-    preferredOccupancyMode?: 'full_rent' | 'roommates' | null
+    preferredOccupancyMode?: PreferredOccupancyMode | null
+    preferredBedroomId?: string | null
+    preferredBedId?: string | null
     roommateInvitePhones?: string[]
   } | null
   client: {
@@ -780,11 +814,19 @@ export interface PropertyBed {
   monthlyRent?: number
 }
 
+/** Whether a bedroom is offered as a private room or shared among tenants. */
+export type BedroomPrivacy = 'private' | 'shared'
+
 /** One bedroom with one or more physical beds. */
 export interface PropertyBedroom {
   id: string
   /** Display label, e.g. "Bedroom 1" */
   label: string
+  /**
+   * Landlord-set privacy for this room.
+   * Defaults to `shared` when omitted (multiple placements / roommates possible).
+   */
+  privacy?: BedroomPrivacy
   beds: PropertyBed[]
 }
 
@@ -836,6 +878,11 @@ export interface Property {
    * Shown to tenants in the address dropdown (and noted when not included).
    */
   utilitiesIncluded?: boolean
+  /**
+   * When true, this rental is offered only as an entire-home placement
+   * (no roommate / per-bed / per-room applicant selection).
+   */
+  entireHomeOnly?: boolean
   /**
    * Bedroom → bed inventory. Required for new/edited rentals.
    * Sleeping capacity and rentable bed spaces derive from this layout.

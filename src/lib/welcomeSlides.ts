@@ -33,7 +33,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your tenant portal',
     description:
-      'Open an invite link or code from your landlord to confirm your rental on a pre-filled form. Or Start Application in your portal: choose a landlord company, pick an available address (see furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Pay full rent or Live with roommates (your share drops as you invite friends), and Send. After approval and lease signing, your dashboard shows the project timeline, rent due dates, Pay Rent, leases, and deposit invoices.',
+      'Open an invite link or code from your landlord to confirm your rental on a pre-filled form. Or Start Application in your portal: choose a landlord company, pick an available address (see furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Renting the entire home or Open to roommates, and for furnished homes open the Furnished tag to pick an available bed or room. After approval and lease signing, your dashboard shows the project timeline, rent due dates, Pay Rent, leases, and deposit invoices.',
   },
   {
     id: 'tenant-contracts',
@@ -92,7 +92,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Building2,
     title: 'Rentals and lease import',
     description:
-      'Open Rentals to add addresses — first choose furnished or not, then pricing by room or person (and by bed when furnished), optional deposit, whether utilities are included, bedrooms, bed sizes, and total monthly rent (cost at full occupancy is calculated from max occupancy). Maximum occupancy is calculated from beds; total rent, utilities, deposit, and occupancy are stored for tenant applications. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, bed availability, and an occupancy box (people count); hover for “Click to see occupants,” expand the list, and open Tenant Details from a name. Color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Rental tile size slider in Tile View; Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
+      'Open Rentals to add addresses — first choose furnished or not, then pricing by room or person (and by bed when furnished), optional deposit, whether utilities are included, whether the home is entire-home only, bedrooms with private/shared privacy, bed sizes, and total monthly rent (cost at full occupancy is calculated from max occupancy). Maximum occupancy is calculated from beds; total rent, utilities, deposit, and occupancy are stored for tenant applications. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, bed availability, and an occupancy box (people count); hover for “Click to see occupants,” expand the list, and open Tenant Details from a name. Color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Rental tile size slider in Tile View; Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
   },
   {
     id: 'landlord-users',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect — including how many friends they invited to share. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status and opens Lease Agreement Preview — Download the draft, Upload Replacement for a signed or custom lease, then Send from the preview banner when ready (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants as Awaiting Deposit (deposit invoice auto-sent with a payment link); Confirm Payment Complete moves them to Upcoming until the lease starts. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
+      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect — including occupancy preference tags (Renting Entire Home, Open to Roommates, Private Room, Shared Room) and how many friends they invited to share. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status and opens Lease Agreement Preview — Download the draft, Upload Replacement for a signed or custom lease, then Send from the preview banner when ready (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants as Awaiting Deposit (deposit invoice auto-sent with a payment link); Confirm Payment Complete moves them to Upcoming until the lease starts. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',
@@ -124,7 +124,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Bell,
     title: 'Tenant Alerts',
     description:
-      'When a tenant submits a maintenance request with a required photo, it lands in Tenant Alerts in the top navigation so you can assess and dispatch maintenance.',
+      'When a tenant submits a maintenance request with a required photo, it lands in Tenant Alerts (top navigation on desktop, or Menu on mobile) so you can assess and dispatch maintenance.',
   },
 ]
 
@@ -134,7 +134,7 @@ const TOUR_SLIDE: WelcomeSlide = {
   icon: Compass,
   title: 'Revisit the tour anytime',
   description:
-    'Once you are signed in, use the Tour button in the top toolbar to walk through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report beside Settings to flag unexpected behavior to Aspen Creative Solutions.',
+    'Once you are signed in, use Tour from the top toolbar (or Menu on mobile) to walk through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report beside Settings — or under Menu on mobile — to flag unexpected behavior to Aspen Creative Solutions.',
 }
 
 const DEMO_SLIDE: WelcomeSlide = {

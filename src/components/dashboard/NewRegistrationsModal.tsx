@@ -10,6 +10,7 @@ import {
   UserX,
   Users,
 } from 'lucide-react'
+import { OccupancyPreferenceTag } from '@/components/clients/OccupancyPreferenceTag'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -296,20 +297,27 @@ export function NewRegistrationsModal({
                         </>
                       )}
                     </p>
-                    {registration.preferredOccupancyMode === 'roommates' ? (
-                      <p className="text-xs font-medium text-brand">
-                        {(registration.roommateInviteCount ??
+                    {registration.preferredOccupancyMode ? (
+                      <div className="space-y-1">
+                        <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
+                        {(registration.preferredOccupancyMode === 'roommates' ||
+                          registration.preferredOccupancyMode === 'open_to_roommates' ||
+                          registration.preferredOccupancyMode === 'private_room' ||
+                          registration.preferredOccupancyMode === 'shared_room') &&
+                        (registration.roommateInviteCount ??
                           registration.roommateInvitePhones?.length ??
-                          0) > 0
-                          ? `Invited ${registration.roommateInviteCount ?? registration.roommateInvitePhones?.length} friend${
+                          0) > 0 ? (
+                          <p className="text-xs font-medium text-brand">
+                            {`Invited ${registration.roommateInviteCount ?? registration.roommateInvitePhones?.length} friend${
                               (registration.roommateInviteCount ??
                                 registration.roommateInvitePhones?.length ??
                                 0) === 1
                                 ? ''
                                 : 's'
-                            } to share`
-                          : 'Wants roommates · no friend invites sent yet'}
-                      </p>
+                            } to share`}
+                          </p>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col gap-2 sm:items-stretch">

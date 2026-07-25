@@ -31,6 +31,34 @@ export type LandlordPropertyDetail = {
   pricingStructure?: 'room' | 'person' | 'bed' | null
   /** Whether utilities are included in the total monthly rent */
   utilitiesIncluded?: boolean
+  /** Landlord offers only entire-home placements */
+  entireHomeOnly?: boolean
+  /** Furnished sleeping inventory for the applicant panel */
+  placementInventory?: {
+    pricingStructure: 'room' | 'person' | 'bed'
+    entireHomeOnly: boolean
+    bedrooms: {
+      id: string
+      label: string
+      privacy: 'private' | 'shared'
+      placements: {
+        id: string
+        kind: 'bed' | 'room'
+        bedroomId: string
+        bedroomLabel: string
+        bedId?: string
+        bedLabel?: string
+        bedSizeLabel?: string
+        capacity: 1 | 2
+        privacy: 'private' | 'shared'
+        monthlyRent: number | null
+        occupied: boolean
+        openSlots: number
+        assignedCount: number
+        possibleRoommates: number
+      }[]
+    }[]
+  } | null
 }
 
 export async function fetchLandlordCompanies() {

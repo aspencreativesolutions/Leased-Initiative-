@@ -90,8 +90,28 @@ function writeLocalDismissed(
 const NAV_ARROW_CLASS =
   'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border-[length:var(--border-width)] border-brand bg-brand text-white transition-colors hover:bg-brand-light hover:border-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-35'
 
+function isElementVisible(el: Element): boolean {
+  if (!(el instanceof HTMLElement)) return false
+  if (el.closest('[aria-hidden="true"]')) return false
+  const style = window.getComputedStyle(el)
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+    return false
+  }
+  const rect = el.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0
+}
+
+/** Prefer a visible match when the same tour hook exists in mobile + desktop chrome. */
+function queryTourTarget(selector: string): Element | null {
+  const matches = document.querySelectorAll(selector)
+  for (const el of matches) {
+    if (isElementVisible(el)) return el
+  }
+  return matches[0] ?? null
+}
+
 function getSpotlightRect(selector: string): SpotlightRect | null {
-  const el = document.querySelector(selector)
+  const el = queryTourTarget(selector)
   if (!el) return null
   const rect = el.getBoundingClientRect()
   const pad = 8
@@ -298,7 +318,7 @@ export function OnboardingTour({
     const rect = getSpotlightRect(currentStep.target)
     setSpotlight(rect)
     if (rect) {
-      const el = document.querySelector(currentStep.target)
+      const el = queryTourTarget(currentStep.target)
       el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
     }
   }, [currentStep])
@@ -804,6 +824,20 @@ export function OnboardingTour({
   )
 }
 
+/** Clear dismiss latches and restart the guided tour from the first step. */
+export async function restartOnboardingTour(
+  role: 'admin' | 'client',
+  userId: string | null | undefined,
+  onStart: () => void
+) {
+  // Clear both legacy role-only and per-user dismiss latches.
+  writeLocalDismissed(role, false, null)
+  writeLocalDismissed(role, false, userId ?? null)
+  await updateOnboardingProgress(role, { reset: true })
+  rememberStepId(null)
+  onStart()
+}
+
 /** Icon button matching Settings — restarts the guided tour */
 export function OnboardingRestartButton({
   role,
@@ -816,19 +850,12 @@ export function OnboardingRestartButton({
 }) {
   const { user } = useAuth()
 
-  const handleClick = async () => {
-    // Clear both legacy role-only and per-user dismiss latches.
-    writeLocalDismissed(role, false, null)
-    writeLocalDismissed(role, false, user?.id ?? null)
-    await updateOnboardingProgress(role, { reset: true })
-    rememberStepId(null)
-    onStart()
-  }
-
   return (
     <button
       type="button"
-      onClick={handleClick}
+      onClick={() => {
+        void restartOnboardingTour(role, user?.id, onStart)
+      }}
       className={cn(NAV_TOOLBAR_ICON_BUTTON_CLASS, className)}
       data-tooltip="Take the tour"
       aria-label="Take the tour"

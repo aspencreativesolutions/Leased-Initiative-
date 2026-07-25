@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
+import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { RemoveClientModal } from './RemoveClientModal'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
@@ -161,6 +162,14 @@ function renderCell(
             >
               {client.name}
             </button>
+            <div className="mt-1">
+              <OccupancyPreferenceTag
+                {...clientOccupancyTagProps(
+                  client,
+                  getTenantAssignedProperty(client, contract, properties)
+                )}
+              />
+            </div>
             <div className="mt-1">
               <LeaseStatusBadge
                 details={leaseStatus}

@@ -52,7 +52,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-contracts"]',
     title: 'Start your application',
     description:
-      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Pay full rent or Live with roommates (your share drops as you add friends up to open spots), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
+      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, cost at full occupancy, and whether utilities are included), choose Renting the entire home or Open to roommates, and for furnished homes tap Furnished to select an available bed or room. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
@@ -184,7 +184,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, whether utilities are included, bedrooms, and bed sizes (occupancy is calculated from beds); total rent, cost at full occupancy, utilities, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
+      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, whether utilities are included, entire-home-only when needed, bedrooms with private/shared privacy, and bed sizes (occupancy is calculated from beds); total rent, cost at full occupancy, utilities, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -234,7 +234,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-tenant-actions]',
     title: 'Tenant shortcuts',
     description:
-      'These compact icons let you Send Invite Link or Add Tenant without leaving the page. Send Invite Link texts a one-time link with property, future lease start, duration, and optional custom code. View New Registers appears only when someone is waiting under Waiting to Connect.',
+      'Use Link to text a one-time invite with property, future lease start, duration, and optional custom code. Use Add to create a tenant yourself. On phones, these live in the Waiting to Connect header; on larger screens they stay in the top navigation. New Registers appears in the top bar only when someone is waiting.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -264,7 +264,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-tabs"]',
     title: 'Settings',
     description:
-      'Open Settings anytime from the gear icon in the toolbar. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
+      'Open Settings anytime from the gear icon in the toolbar, or from Menu on mobile. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
     placement: 'bottom',
     route: '/studio/settings',
     section: 'settings',
@@ -314,7 +314,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-style"]',
     title: 'Tour complete',
     description:
-      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime with the Tour button beside Settings.",
+      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime with Tour beside Settings (or under Menu on mobile).",
     placement: 'bottom',
     route: '/studio/settings?tab=style',
     section: 'settings',

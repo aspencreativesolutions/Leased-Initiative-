@@ -1,11 +1,13 @@
 import { apiFetch } from '@/lib/api'
-import type { PaymentProvider, PortalDashboard } from '@/types'
+import type { PaymentProvider, PortalDashboard, PreferredOccupancyMode } from '@/types'
 
 export async function submitPortalApplication(input: {
   preferredLandlordCompany: string
   preferredPropertyAddress: string
   preferredLeaseMonths: number
-  preferredOccupancyMode?: 'full_rent' | 'roommates'
+  preferredOccupancyMode?: PreferredOccupancyMode
+  preferredBedroomId?: string
+  preferredBedId?: string
   roommateInvitePhones?: string[]
   inviteToken?: string
   connectionCode?: string

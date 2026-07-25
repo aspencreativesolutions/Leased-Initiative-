@@ -39,10 +39,15 @@ export function createBed(size: BedSize = 'queen', index = 1): PropertyBed {
   }
 }
 
-export function createBedroom(index: number, beds?: PropertyBed[]): PropertyBedroom {
+export function createBedroom(
+  index: number,
+  beds?: PropertyBed[],
+  privacy: 'private' | 'shared' = 'private'
+): PropertyBedroom {
   return {
     id: createBedroomId(),
     label: `Bedroom ${index}`,
+    privacy,
     beds: beds ?? [createBed('queen', 1)],
   }
 }
@@ -113,6 +118,12 @@ export function ensurePropertyBedLayout(property: Property): Property {
       ...room,
       id: room.id || createBedroomId(),
       label: room.label?.trim() || `Bedroom ${roomIndex + 1}`,
+      privacy:
+        room.privacy === 'private' || room.privacy === 'shared'
+          ? room.privacy
+          : room.beds && room.beds.length > 1
+            ? 'shared'
+            : 'private',
       beds: (room.beds?.length ? room.beds : [createBed('queen', 1)]).map(
         (bed, bedIndex) => {
           const size = isBedSize(bed.size) ? bed.size : 'queen'

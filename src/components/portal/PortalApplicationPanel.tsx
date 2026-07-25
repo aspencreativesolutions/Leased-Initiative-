@@ -3,6 +3,7 @@ import { ArrowLeft, Bell, Eye, KeyRound, Plus, Send, FileText, Trash2, Users, Ho
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/FormField'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
+import { FurnishedPlacementPanel } from '@/components/portal/FurnishedPlacementPanel'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import {
@@ -11,6 +12,14 @@ import {
   type LandlordPropertyDetail,
   type PublicTenantInvite,
 } from '@/lib/authApi'
+import {
+  buildOccupancyPlacementCopy,
+  modeFromPlacement,
+  occupancyPreferenceLabel,
+  placementConfirmationSummary,
+  type CanonicalOccupancyMode,
+  type FurnishedPlacement,
+} from '@/lib/furnishedOccupancy'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   earliestFutureLeaseStartDate,
@@ -37,8 +46,6 @@ type AgencyOption = {
   properties: string[]
   propertyDetails?: LandlordPropertyDetail[]
 }
-
-type OccupancyMode = 'full_rent' | 'roommates'
 
 type PanelMode = 'choice' | 'apply' | 'invite' | 'sent'
 
@@ -67,8 +74,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   const [preferredLeaseMonths, setPreferredLeaseMonths] = useState<LeaseLengthMonths>(
     DEFAULT_LEASE_LENGTH_MONTHS
   )
-  const [occupancyMode, setOccupancyMode] = useState<OccupancyMode>('full_rent')
+  const [occupancyMode, setOccupancyMode] = useState<CanonicalOccupancyMode>('entire_home')
   const [roommatePhones, setRoommatePhones] = useState<string[]>([''])
+  const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
+  const [furnishedPanelOpen, setFurnishedPanelOpen] = useState(false)
 
   const [inviteCode, setInviteCode] = useState('')
   const [invite, setInvite] = useState<PublicTenantInvite | null>(null)
@@ -131,6 +140,42 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     )
   }, [propertyAddress, selectedAgency])
   const maxRoommateInvites = Math.max(0, (selectedOccupancy?.availableSpots ?? 0) - 1)
+  const entireHomeOnly = selectedOccupancy?.entireHomeOnly === true
+  const isRoommateStyle =
+    occupancyMode === 'open_to_roommates' ||
+    occupancyMode === 'private_room' ||
+    occupancyMode === 'shared_room'
+
+  const placementInventory = selectedOccupancy?.placementInventory ?? null
+  const flatPlacements = useMemo(() => {
+    if (!placementInventory?.bedrooms) return [] as FurnishedPlacement[]
+    return placementInventory.bedrooms.flatMap((room) => room.placements)
+  }, [placementInventory])
+  const selectedPlacement =
+    flatPlacements.find((p) => p.id === selectedPlacementId && !p.occupied) ?? null
+
+  const occupancyCopy = useMemo(() => {
+    if (!selectedOccupancy) return null
+    return buildOccupancyPlacementCopy({
+      occupied: selectedOccupancy.occupied,
+      availableSpots: selectedOccupancy.availableSpots,
+      entireHome: occupancyMode === 'entire_home' || entireHomeOnly,
+    })
+  }, [selectedOccupancy, occupancyMode, entireHomeOnly])
+
+  useEffect(() => {
+    if (!selectedOccupancy) return
+    if (entireHomeOnly && occupancyMode !== 'entire_home') {
+      setOccupancyMode('entire_home')
+      setSelectedPlacementId(null)
+      setRoommatePhones([''])
+    }
+  }, [selectedOccupancy, entireHomeOnly, occupancyMode])
+
+  useEffect(() => {
+    setSelectedPlacementId(null)
+    setFurnishedPanelOpen(false)
+  }, [propertyAddress])
 
   const propertySelectOptions = useMemo<SearchableSelectOption[]>(() => {
     const details = selectedAgency?.propertyDetails ?? []
@@ -146,28 +191,32 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     })
   }, [propertyOptions, selectedAgency])
 
-  const roommateSlotCount = occupancyMode === 'roommates' ? Math.max(0, roommatePhones.length) : 0
-  const householdSize = occupancyMode === 'roommates' ? 1 + roommateSlotCount : 1
+  const roommateSlotCount = isRoommateStyle ? Math.max(0, roommatePhones.length) : 0
+  const householdSize = isRoommateStyle ? 1 + roommateSlotCount : 1
   const totalRent = selectedOccupancy?.monthlyRent ?? null
+  const placementRent = selectedPlacement?.monthlyRent ?? null
   const shareNow =
-    totalRent != null && householdSize > 0
-      ? Math.round((totalRent / householdSize) * 100) / 100
-      : null
+    occupancyMode === 'entire_home'
+      ? totalRent
+      : placementRent != null
+        ? placementRent
+        : totalRent != null && householdSize > 0
+          ? Math.round((totalRent / householdSize) * 100) / 100
+          : null
   const shareAtMax = selectedOccupancy?.costPerPersonAtMax ?? null
-  const openSpotsLeft =
-    occupancyMode === 'roommates'
-      ? Math.max(0, (selectedOccupancy?.availableSpots ?? 0) - householdSize)
-      : 0
+  const openSpotsLeft = isRoommateStyle
+    ? Math.max(0, (selectedOccupancy?.availableSpots ?? 0) - householdSize)
+    : 0
 
   useEffect(() => {
-    if (occupancyMode !== 'roommates') return
+    if (!isRoommateStyle) return
     setRoommatePhones((prev) => {
       if (maxRoommateInvites <= 0) return []
       if (prev.length === 0) return ['']
       if (prev.length > maxRoommateInvites) return prev.slice(0, maxRoommateInvites)
       return prev
     })
-  }, [occupancyMode, maxRoommateInvites])
+  }, [isRoommateStyle, maxRoommateInvites])
 
   const invitePropertyOptions = useMemo(() => {
     const fromAgency = invite?.agency?.properties ?? []
@@ -192,8 +241,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setLandlordCompany('')
     setPropertyAddress('')
     setPreferredLeaseMonths(DEFAULT_LEASE_LENGTH_MONTHS)
-    setOccupancyMode('full_rent')
+    setOccupancyMode('entire_home')
     setRoommatePhones([''])
+    setSelectedPlacementId(null)
+    setFurnishedPanelOpen(false)
     setError('')
   }
 
@@ -210,14 +261,18 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   const handleAgencyChange = (name: string) => {
     setLandlordCompany(name)
     setPropertyAddress('')
-    setOccupancyMode('full_rent')
+    setOccupancyMode('entire_home')
     setRoommatePhones([''])
+    setSelectedPlacementId(null)
+    setFurnishedPanelOpen(false)
   }
 
   const handlePropertyChange = (address: string) => {
     setPropertyAddress(address)
-    setOccupancyMode('full_rent')
+    setOccupancyMode('entire_home')
     setRoommatePhones([''])
+    setSelectedPlacementId(null)
+    setFurnishedPanelOpen(false)
   }
 
   const handleLookupInvite = async () => {
@@ -283,16 +338,25 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
       setError('Select a landlord and property address.')
       return
     }
-    const phones =
-      occupancyMode === 'roommates'
-        ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
-        : []
-    if (occupancyMode === 'roommates' && phones.length > maxRoommateInvites) {
+    const phones = isRoommateStyle
+      ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
+      : []
+    if (isRoommateStyle && phones.length > maxRoommateInvites) {
       setError(
         maxRoommateInvites === 0
-          ? 'This rental only has one open spot — choose Pay full rent instead.'
+          ? 'This rental only has one open spot — choose Renting the entire home instead.'
           : `You can invite at most ${maxRoommateInvites} roommate${maxRoommateInvites === 1 ? '' : 's'}.`
       )
+      return
+    }
+    if (
+      isRoommateStyle &&
+      selectedOccupancy?.furnished &&
+      selectedOccupancy.placementInventory &&
+      !selectedPlacement
+    ) {
+      setError('Select an available room or bed from the Furnished panel.')
+      setFurnishedPanelOpen(true)
       return
     }
     for (const phone of phones) {
@@ -309,6 +373,8 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         preferredPropertyAddress: propertyAddress.trim(),
         preferredLeaseMonths,
         preferredOccupancyMode: occupancyMode,
+        preferredBedroomId: selectedPlacement?.bedroomId,
+        preferredBedId: selectedPlacement?.bedId,
         roommateInvitePhones: phones,
       })
       finishSubmit(next)
@@ -432,9 +498,8 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                   Occupancy
                 </dt>
                 <dd className="mt-0.5 text-ink">
-                  {data.application.preferredOccupancyMode === 'roommates'
-                    ? 'Live with roommates'
-                    : 'Pay full rent'}
+                  {occupancyPreferenceLabel(data.application.preferredOccupancyMode) ??
+                    data.application.preferredOccupancyMode}
                 </dd>
               </div>
             ) : null}
@@ -710,51 +775,89 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               How will you occupy this rental?
             </p>
             {selectedOccupancy ? (
-              <div className="space-y-2 text-sm text-ink-muted">
-                <p>
-                  {selectedOccupancy.furnished ? 'Furnished' : 'Unfurnished'}
+              <div className="space-y-3 text-sm text-ink-muted">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedOccupancy.furnished && placementInventory ? (
+                    <FurnishedPlacementPanel
+                      open={furnishedPanelOpen}
+                      onOpenChange={setFurnishedPanelOpen}
+                      inventory={placementInventory}
+                      selectedPlacementId={selectedPlacementId}
+                      selectionDisabled={occupancyMode === 'entire_home' || entireHomeOnly}
+                      onSelectPlacement={(placement) => {
+                        setSelectedPlacementId(placement.id)
+                        const nextMode = modeFromPlacement(placement, 'open_to_roommates')
+                        setOccupancyMode(nextMode)
+                        setFurnishedPanelOpen(true)
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className={cn(
+                        'inline-flex rounded-[var(--radius-sm)] border px-2 py-1 text-xs font-semibold uppercase tracking-caps',
+                        selectedOccupancy.furnished
+                          ? 'border-brand/40 bg-brand/5 text-brand'
+                          : 'border-line bg-surface-paper text-ink-muted'
+                      )}
+                    >
+                      {selectedOccupancy.furnished ? 'Furnished' : 'Unfurnished'}
+                    </span>
+                  )}
+                  {selectedOccupancy.pricingStructure ? (
+                    <span className="text-xs font-medium text-ink">
+                      {selectedOccupancy.pricingStructure === 'bed'
+                        ? 'Per bed'
+                        : selectedOccupancy.pricingStructure === 'room'
+                          ? 'Per room'
+                          : 'Per person'}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="space-y-1.5">
                   {totalRent != null ? (
-                    <>
-                      {' '}
-                      · Total rent{' '}
+                    <p>
+                      Total rent{' '}
                       <span className="font-semibold text-ink">{formatUsd(totalRent)}</span>
                       /month
-                    </>
+                      {occupancyMode !== 'entire_home' && shareAtMax != null ? (
+                        <>
+                          {' '}
+                          ·{' '}
+                          <span className="font-semibold text-ink">{formatUsd(shareAtMax)}</span>
+                          /person at full occupancy
+                        </>
+                      ) : null}
+                    </p>
                   ) : null}
-                  {shareAtMax != null ? (
-                    <>
-                      {' '}
-                      ·{' '}
-                      <span className="font-semibold text-ink">{formatUsd(shareAtMax)}</span>
-                      /person at full occupancy ({selectedOccupancy.maxTenants})
-                    </>
-                  ) : null}
-                  {' · '}
-                  <span className="font-semibold text-ink">
-                    {utilitiesIncludedLabel(selectedOccupancy.utilitiesIncluded)}
-                  </span>
-                </p>
-                <p>
-                  This rental accommodates up to{' '}
-                  <span className="font-semibold text-ink">{selectedOccupancy.maxTenants}</span>{' '}
-                  {selectedOccupancy.maxTenants === 1 ? 'person' : 'people'}
-                  {selectedOccupancy.occupied > 0
-                    ? ` · ${selectedOccupancy.occupied} already placed`
-                    : null}
-                  {' · '}
-                  <span className="font-semibold text-ink">
-                    {selectedOccupancy.availableSpots}{' '}
-                    {selectedOccupancy.availableSpots === 1 ? 'spot' : 'spots'} open
-                  </span>
-                </p>
-                {selectedOccupancy.depositAmount != null ? (
                   <p>
-                    Deposit{' '}
                     <span className="font-semibold text-ink">
-                      {formatUsd(selectedOccupancy.depositAmount)}
+                      {utilitiesIncludedLabel(selectedOccupancy.utilitiesIncluded)}
                     </span>
+                    {' · '}
+                    Accommodates up to{' '}
+                    <span className="font-semibold text-ink">{selectedOccupancy.maxTenants}</span>{' '}
+                    {selectedOccupancy.maxTenants === 1 ? 'person' : 'people'}
                   </p>
-                ) : null}
+                  {occupancyCopy ? (
+                    <div className="space-y-1">
+                      <p className="text-ink">{occupancyCopy.placementLine}</p>
+                      {occupancyCopy.spotsOpenLabel && occupancyMode !== 'entire_home' ? (
+                        <p className="font-semibold text-emerald-700">
+                          {occupancyCopy.spotsOpenLabel}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {selectedOccupancy.depositAmount != null ? (
+                    <p>
+                      Deposit{' '}
+                      <span className="font-semibold text-ink">
+                        {formatUsd(selectedOccupancy.depositAmount)}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-ink-muted">
@@ -762,77 +865,120 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 selected.
               </p>
             )}
+
             <div
               role="group"
               aria-label="Occupancy preference"
-              className="grid gap-2 sm:grid-cols-2"
+              className={cn(
+                'grid gap-2',
+                entireHomeOnly ? 'sm:grid-cols-1' : 'sm:grid-cols-2'
+              )}
             >
               <button
                 type="button"
-                aria-pressed={occupancyMode === 'full_rent'}
+                aria-pressed={occupancyMode === 'entire_home'}
                 onClick={() => {
-                  setOccupancyMode('full_rent')
+                  setOccupancyMode('entire_home')
+                  setSelectedPlacementId(null)
                   setRoommatePhones([''])
                 }}
                 className={
-                  occupancyMode === 'full_rent'
+                  occupancyMode === 'entire_home'
                     ? 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-3 text-left'
                     : 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-3 text-left hover:border-brand/40'
                 }
               >
                 <Home className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
                 <span>
-                  <span className="block text-sm font-semibold text-ink">Pay full rent</span>
+                  <span className="block text-sm font-semibold text-ink">
+                    Renting the entire home
+                  </span>
                   <span className="mt-0.5 block text-xs text-ink-muted">
                     {totalRent != null
-                      ? `You’ll cover ${formatUsd(totalRent)}/month for this rental.`
+                      ? `You’ll cover ${formatUsd(totalRent)}/month for the whole home.`
                       : 'You’ll cover the full rent for this rental.'}
                   </span>
                 </span>
               </button>
-              <button
-                type="button"
-                aria-pressed={occupancyMode === 'roommates'}
-                disabled={(selectedOccupancy?.availableSpots ?? 0) < 2}
-                onClick={() => setOccupancyMode('roommates')}
-                className={
-                  occupancyMode === 'roommates'
-                    ? 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-3 text-left disabled:opacity-50'
-                    : 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-3 text-left hover:border-brand/40 disabled:cursor-not-allowed disabled:opacity-50'
-                }
-              >
-                <Users className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
-                <span>
-                  <span className="block text-sm font-semibold text-ink">Live with roommates</span>
-                  <span className="mt-0.5 block text-xs text-ink-muted">
-                    {(selectedOccupancy?.availableSpots ?? 0) < 2
-                      ? 'Needs at least 2 open spots.'
-                      : `Invite up to ${maxRoommateInvites} friend${maxRoommateInvites === 1 ? '' : 's'}.`}
+              {!entireHomeOnly ? (
+                <button
+                  type="button"
+                  aria-pressed={isRoommateStyle}
+                  disabled={(selectedOccupancy?.availableSpots ?? 0) < 1}
+                  onClick={() => {
+                    setOccupancyMode('open_to_roommates')
+                    if (selectedOccupancy?.furnished && placementInventory) {
+                      setFurnishedPanelOpen(true)
+                    }
+                  }}
+                  className={
+                    isRoommateStyle
+                      ? 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-3 text-left disabled:opacity-50'
+                      : 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-3 text-left hover:border-brand/40 disabled:cursor-not-allowed disabled:opacity-50'
+                  }
+                >
+                  <Users className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">Open to roommates</span>
+                    <span className="mt-0.5 block text-xs text-ink-muted">
+                      {(selectedOccupancy?.availableSpots ?? 0) < 1
+                        ? 'No open spots right now.'
+                        : selectedOccupancy?.furnished
+                          ? 'Choose an available room or bed below.'
+                          : `Invite up to ${maxRoommateInvites} friend${maxRoommateInvites === 1 ? '' : 's'}.`}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+              ) : null}
             </div>
 
-            {occupancyMode === 'roommates' ? (
+            {selectedPlacement && isRoommateStyle ? (
+              <div className="rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2.5 text-sm text-ink">
+                {(() => {
+                  const summary = placementConfirmationSummary({
+                    placement: selectedPlacement,
+                    utilitiesIncluded: selectedOccupancy?.utilitiesIncluded === true,
+                    mode: occupancyMode,
+                  })
+                  return (
+                    <ul className="space-y-1">
+                      <li>
+                        <span className="font-semibold">Selected:</span> {summary.bedroom}
+                        {summary.bed ? ` · ${summary.bed}` : ''}
+                      </li>
+                      <li>
+                        <span className="font-semibold">Monthly rent:</span>{' '}
+                        {summary.monthlyRentLabel}
+                      </li>
+                      <li>
+                        <span className="font-semibold">Room:</span> {summary.roomPrivacy}
+                      </li>
+                      <li>{summary.roommateLine}</li>
+                      <li>{summary.utilitiesLabel}</li>
+                    </ul>
+                  )
+                })()}
+              </div>
+            ) : null}
+
+            {isRoommateStyle ? (
               <div className="space-y-3 border-t border-line pt-3">
                 {shareNow != null && totalRent != null ? (
                   <div className="rounded-[var(--radius-sm)] border border-brand/20 bg-brand/5 px-3 py-2.5 text-sm text-ink">
                     <p>
-                      Your share with{' '}
-                      <span className="font-semibold">
-                        {householdSize} {householdSize === 1 ? 'person' : 'people'}
-                      </span>
-                      :{' '}
+                      Your monthly rent
+                      {selectedPlacement ? ' for this placement' : ''}:{' '}
                       <span className="font-semibold tabular-nums">{formatUsd(shareNow)}</span>
-                      /month
-                      {householdSize > 1 ? (
+                      {occupancyMode === 'open_to_roommates' &&
+                      !selectedPlacement &&
+                      householdSize > 1 ? (
                         <span className="text-ink-muted">
                           {' '}
-                          (down from {formatUsd(totalRent)} alone)
+                          with {householdSize} people (down from {formatUsd(totalRent)} alone)
                         </span>
                       ) : null}
                     </p>
-                    {openSpotsLeft > 0 ? (
+                    {openSpotsLeft > 0 && !selectedOccupancy?.furnished ? (
                       <p className="mt-1 text-xs text-ink-muted">
                         Invite {openSpotsLeft} more friend
                         {openSpotsLeft === 1 ? '' : 's'} to lower your share
@@ -841,21 +987,19 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                           : ''}
                         .
                       </p>
-                    ) : shareAtMax != null && householdSize >= (selectedOccupancy?.availableSpots ?? 0) ? (
-                      <p className="mt-1 text-xs text-ink-muted">
-                        You’ve filled the open spots for this rental.
-                      </p>
                     ) : null}
                   </div>
                 ) : null}
-                <p className="text-sm text-ink">
-                  <span className="font-semibold">{selectedOccupancy?.availableSpots ?? 0}</span>{' '}
-                  {(selectedOccupancy?.availableSpots ?? 0) === 1 ? 'spot' : 'spots'} available
-                  (including you). Text invite links to friends for the remaining openings.
-                </p>
+                {!selectedOccupancy?.furnished ? (
+                  <p className="text-sm text-ink">
+                    <span className="font-semibold">{selectedOccupancy?.availableSpots ?? 0}</span>{' '}
+                    {(selectedOccupancy?.availableSpots ?? 0) === 1 ? 'spot' : 'spots'} available
+                    (including you). Text invite links to friends for the remaining openings.
+                  </p>
+                ) : null}
                 {maxRoommateInvites === 0 ? (
                   <p className="text-sm text-accent">
-                    Only one open spot — you can’t invite roommates for this rental.
+                    Only one open spot — you can’t invite additional roommates for this rental.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -903,8 +1047,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                     ) : null}
                     <p className="text-[11px] text-ink-muted">
                       Phone numbers are optional — leave blank if you’ll invite later. Each filled
-                      number gets a one-time invite link by text. Your share updates as you add
-                      roommates.
+                      number gets a one-time invite link by text.
                     </p>
                   </div>
                 )}

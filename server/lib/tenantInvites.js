@@ -1,5 +1,13 @@
 import crypto from 'crypto'
-import { availableApplicantSlotsAtAddress, availablePropertyAddresses } from './rentalOccupancy.js'
+import {
+  addressesMatch,
+  availableApplicantSlotsAtAddress,
+  availablePropertyAddresses,
+} from './rentalOccupancy.js'
+import {
+  buildFurnishedPlacementInventory,
+  serializePlacementInventory,
+} from './furnishedOccupancy.js'
 import {
   isFutureLeaseStartDate,
   isLeaseLengthMonths,
@@ -65,6 +73,8 @@ export function propertyOccupancyDetail(store, address) {
       depositAmount: null,
       pricingStructure: null,
       utilitiesIncluded: false,
+      entireHomeOnly: false,
+      placementInventory: null,
     }
   }
   const { property, slots } = availableApplicantSlotsAtAddress(store, trimmed)
@@ -81,11 +91,21 @@ export function propertyOccupancyDetail(store, address) {
         : null
     const furnished = property.furnished === true
     const utilitiesIncluded = property.utilitiesIncluded === true
+    const entireHomeOnly = property.entireHomeOnly === true
+    const occupants = (store.clients ?? []).filter(
+      (client) =>
+        client?.isOfficialClient &&
+        addressesMatch(client.projectName, property.address ?? trimmed)
+    )
+    const inventory = furnished
+      ? buildFurnishedPlacementInventory(property, occupants)
+      : null
+    const occupiedPeople = occupants.length
     return {
       address: property.address?.trim() || trimmed,
       maxTenants,
       availableSpots,
-      occupied: Math.max(0, maxTenants - availableSpots),
+      occupied: occupiedPeople,
       furnished,
       monthlyRent,
       costPerPersonAtMax:
@@ -93,6 +113,8 @@ export function propertyOccupancyDetail(store, address) {
       depositAmount,
       pricingStructure: property.pricingStructure ?? (furnished ? 'bed' : 'person'),
       utilitiesIncluded,
+      entireHomeOnly,
+      placementInventory: inventory ? serializePlacementInventory(inventory) : null,
     }
   }
   return {
@@ -106,6 +128,8 @@ export function propertyOccupancyDetail(store, address) {
     depositAmount: null,
     pricingStructure: 'person',
     utilitiesIncluded: false,
+    entireHomeOnly: false,
+    placementInventory: null,
   }
 }
 

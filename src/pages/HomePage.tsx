@@ -447,20 +447,21 @@ export function HomePage() {
             }
           }}
         >
-          <div className="home-quick-access__menu max-h-[min(70vh,36rem)] overflow-x-hidden overflow-y-auto overscroll-contain">
-            <div className="home-quick-access__panel-inner flex w-full flex-col items-stretch gap-3">
-              <div className="relative flex flex-col items-stretch gap-3">
-                <Button size="lg" className="w-full" onClick={() => setAuthIntent('signin')}>
-                  Sign In
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => setAuthIntent('register')}
-                >
-                  Create Account
-                </Button>
+          <div className="home-quick-access__menu bg-surface-paper">
+            <div className="home-quick-access__menu-scroll">
+              <div className="home-quick-access__panel-inner flex w-full flex-col items-stretch gap-3">
+                <div className="relative flex flex-col items-stretch gap-3">
+                  <Button size="lg" className="w-full" onClick={() => setAuthIntent('signin')}>
+                    Sign In
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full bg-surface-paper"
+                    onClick={() => setAuthIntent('register')}
+                  >
+                    Create Account
+                  </Button>
 
                 {authIntent && (
                   <div
@@ -519,7 +520,7 @@ export function HomePage() {
                     closeQuickAccess()
                     setStyleChooserOpen(true)
                   }}
-                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
                 >
                   <Palette className="h-4 w-4 shrink-0 text-brand" aria-hidden />
                   <span className="text-sm font-semibold text-ink">Style Chooser</span>
@@ -530,7 +531,7 @@ export function HomePage() {
                     closeQuickAccess()
                     setTermsOpen(true)
                   }}
-                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
+                  className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-3 py-2.5 text-left transition-colors hover:border-brand hover:bg-brand/5"
                   title="View Terms of Service"
                 >
                   <span
@@ -598,6 +599,7 @@ export function HomePage() {
                   </p>
                 )}
               </form>
+              </div>
             </div>
           </div>
         </div>

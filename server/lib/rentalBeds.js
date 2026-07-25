@@ -55,12 +55,19 @@ export function normalizeBedroomsLayout(raw, bedroomCount) {
 
   return raw.map((room, roomIndex) => {
     const bedsRaw = Array.isArray(room?.beds) && room.beds.length > 0 ? room.beds : [createBed('queen', 1)]
+    const privacy =
+      room?.privacy === 'private' || room?.privacy === 'shared'
+        ? room.privacy
+        : bedsRaw.length > 1
+          ? 'shared'
+          : 'private'
     return {
       id: typeof room?.id === 'string' && room.id ? room.id : createId('br'),
       label:
         typeof room?.label === 'string' && room.label.trim()
           ? room.label.trim()
           : `Bedroom ${roomIndex + 1}`,
+      privacy,
       beds: bedsRaw.map((bed, bedIndex) => {
         const size = isBedSize(bed?.size) ? bed.size : 'queen'
         const customRent = Number(bed?.monthlyRent)

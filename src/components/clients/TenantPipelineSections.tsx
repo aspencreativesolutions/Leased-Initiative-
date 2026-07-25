@@ -5,15 +5,20 @@ import {
   FileSignature,
   LayoutGrid,
   LayoutList,
+  Link2,
   Loader2,
   Pencil,
+  Plus,
   Send,
   UserCheck,
   UserPlus,
   UserX,
   Users,
 } from 'lucide-react'
+import { AddClientModal } from '@/components/clients/AddClientModal'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
+import { SendInviteModal } from '@/components/clients/SendInviteModal'
+import { OccupancyPreferenceTag } from '@/components/clients/OccupancyPreferenceTag'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
 import {
   clientNameMarkersClass,
@@ -63,7 +68,13 @@ const WAITING_CONNECT_HIGHLIGHT_MS = 4500
 const PENDING_TENANT_HIGHLIGHT_MS = 4500
 
 function roommateInviteNote(registration: PendingRegistration): string | null {
-  if (registration.preferredOccupancyMode !== 'roommates') return null
+  const mode = String(registration.preferredOccupancyMode ?? '').toLowerCase()
+  const isRoommate =
+    mode === 'roommates' ||
+    mode === 'open_to_roommates' ||
+    mode === 'private_room' ||
+    mode === 'shared_room'
+  if (!isRoommate) return null
   const count =
     registration.roommateInviteCount ??
     registration.roommateInvitePhones?.length ??
@@ -198,6 +209,8 @@ export function TenantPipelineSections({
   const [pendingPreviewClientId, setPendingPreviewClientId] = useState<string | null>(() =>
     peekLeaseAgreementPreviewRequest()
   )
+  const [waitingAddOpen, setWaitingAddOpen] = useState(false)
+  const [waitingInviteOpen, setWaitingInviteOpen] = useState(false)
 
   const previewClient = previewClientId
     ? clients.find((c) => c.id === previewClientId) ?? null
@@ -545,14 +558,47 @@ export function TenantPipelineSections({
       className="min-w-0 scroll-mt-28 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <UserPlus className="h-4 w-4 shrink-0 text-ink-muted" />
-          <h2 className="heading-display text-lg">Waiting to Connect</h2>
-          {!loading && pending.length > 0 && (
-            <span className="waiting-connect-count--attention rounded-full bg-accent-light px-2 py-0.5 text-xs font-semibold text-accent">
-              {pending.length}
-            </span>
-          )}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <UserPlus className="h-4 w-4 shrink-0 text-ink-muted" />
+            <h2 className="heading-display text-lg">Waiting to Connect</h2>
+            {!loading && pending.length > 0 && (
+              <span className="waiting-connect-count--attention rounded-full bg-accent-light px-2 py-0.5 text-xs font-semibold text-accent">
+                {pending.length}
+              </span>
+            )}
+          </div>
+          {/* Mobile: Link / Add live with this section (removed from global header) */}
+          <div
+            className="flex items-center gap-1.5 md:hidden"
+            data-tenant-actions
+            aria-label="Tenant action buttons"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-onboarding="dashboard-send-invite"
+              className="h-8 !gap-1 !px-2.5 !py-0 text-[11px] font-semibold"
+              aria-label="Send Invite Link"
+              onClick={() => setWaitingInviteOpen(true)}
+            >
+              <Link2 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              Link
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              data-onboarding="dashboard-add-client"
+              className="h-8 !gap-1 !px-2.5 !py-0 text-[11px] font-semibold"
+              aria-label="Add Tenant"
+              onClick={() => setWaitingAddOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+              Add
+            </Button>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <div
@@ -837,6 +883,9 @@ export function TenantPipelineSections({
           }}
         />
       )}
+
+      <AddClientModal open={waitingAddOpen} onClose={() => setWaitingAddOpen(false)} />
+      <SendInviteModal open={waitingInviteOpen} onClose={() => setWaitingInviteOpen(false)} />
     </div>
   )
 }
@@ -967,6 +1016,7 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
           <p className="min-w-0 truncate font-semibold text-ink">{registration.name}</p>
           <PendingClientBadge />
         </div>
+        <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
         <p className="truncate text-sm text-ink-muted">{registration.email}</p>
       </div>
 
@@ -1055,6 +1105,7 @@ function WaitingConnectListRow(props: WaitingConnectItemProps) {
             <p className="min-w-0 truncate font-semibold text-ink">{registration.name}</p>
             <p className="min-w-0 truncate text-sm text-ink-muted">{registration.email}</p>
           </div>
+          <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <p className="min-w-0 truncate text-sm font-medium text-ink" title={displayAddress}>
               {displayAddress}
@@ -1203,6 +1254,11 @@ function ProspectiveApplicantRow({
     >
       <td className="px-3 py-4 sm:px-4">
         <p className="min-w-0 truncate font-semibold text-ink">{user.name}</p>
+        <OccupancyPreferenceTag
+          className="mt-1"
+          mode={user.preferredOccupancyMode}
+          arrangement={user.occupancyArrangement}
+        />
         <p className="text-xs text-ink-muted">{user.email}</p>
         <p className="mt-0.5 text-xs text-ink-muted sm:hidden">
           {user.propertyAddress || user.projectName}

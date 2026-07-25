@@ -998,6 +998,18 @@ router.post('/accept-registration/:userId', (req, res) => {
     .filter(Boolean)
     .join('. ')
 
+  const occupancyMode = String(user.preferredOccupancyMode ?? '').trim().toLowerCase()
+  const occupancyArrangement =
+    occupancyMode === 'entire_home' || occupancyMode === 'full_rent'
+      ? 'entire_home'
+      : occupancyMode === 'private_room'
+        ? 'room_rental'
+        : occupancyMode === 'shared_room' ||
+            occupancyMode === 'open_to_roommates' ||
+            occupancyMode === 'roommates'
+          ? 'shared_home'
+          : undefined
+
   const client = {
     id: generateId(),
     name: user.name,
@@ -1021,6 +1033,19 @@ router.post('/accept-registration/:userId', (req, res) => {
     serviceTier: DEFAULT_SERVICE_TIER,
     leaseLengthMonths,
     accountUserId: user.id,
+    ...(occupancyMode
+      ? {
+          preferredOccupancyMode:
+            occupancyMode === 'full_rent'
+              ? 'entire_home'
+              : occupancyMode === 'roommates'
+                ? 'open_to_roommates'
+                : occupancyMode,
+        }
+      : {}),
+    ...(occupancyArrangement ? { occupancyArrangement } : {}),
+    ...(user.preferredBedroomId ? { bedroomId: user.preferredBedroomId } : {}),
+    ...(user.preferredBedId ? { bedId: user.preferredBedId } : {}),
     notes: [
       {
         id: generateId(),

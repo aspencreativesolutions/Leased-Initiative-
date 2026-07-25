@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LayoutDashboard, FileText, Settings, DollarSign, LogOut, UserCircle, Bell, Building2, Bug } from 'lucide-react'
+import {
+  LayoutDashboard,
+  FileText,
+  Settings,
+  DollarSign,
+  LogOut,
+  UserCircle,
+  Bell,
+  Building2,
+  Bug,
+  Compass,
+} from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useApp } from '@/context/AppContext'
@@ -7,9 +18,16 @@ import { AddClientModal } from '@/components/clients/AddClientModal'
 import { SendInviteModal } from '@/components/clients/SendInviteModal'
 import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
 import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
-import { OnboardingRestartButton } from '@/components/onboarding/OnboardingTour'
+import {
+  OnboardingRestartButton,
+  restartOnboardingTour,
+} from '@/components/onboarding/OnboardingTour'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { BugReportModal } from '@/components/support/BugReportModal'
+import {
+  NavActionsMenu,
+  type NavActionsMenuSection,
+} from '@/components/layout/NavActionsMenu'
 import { Button } from '@/components/ui/Button'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
@@ -26,6 +44,16 @@ function formatNavToday(date: Date): string {
   return date.toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Compact date for the mobile branding stack (avoids colliding with Menu). */
+function formatNavTodayCompact(date: Date): string {
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
     year: 'numeric',
   })
@@ -76,7 +104,11 @@ function useLocalTodayLabel() {
     }
   }, [])
 
-  return { label: formatNavToday(today), dateValue: toLocalDateValue(today) }
+  return {
+    label: formatNavToday(today),
+    compactLabel: formatNavTodayCompact(today),
+    dateValue: toLocalDateValue(today),
+  }
 }
 
 const links = [
@@ -106,7 +138,8 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const { count: registrationCount, registrations, refresh: refreshRegistrations } =
     usePendingRegistrations()
   const { markRead, refresh: refreshNotifications } = useAdminNotifications()
-  const { label: todayLabel, dateValue: todayDateValue } = useLocalTodayLabel()
+  const { label: todayLabel, compactLabel: todayCompactLabel, dateValue: todayDateValue } =
+    useLocalTodayLabel()
   const [addOpen, setAddOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [registrationsOpen, setRegistrationsOpen] = useState(false)
@@ -126,15 +159,127 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
     refresh()
   }, [refreshRegistrations, refreshNotifications, refresh])
 
+  const handleSignOut = useCallback(() => {
+    if (isPublicDemo) {
+      void (async () => {
+        logout()
+        await exitPublicDemo()
+        navigate('/', { replace: true })
+      })()
+      return
+    }
+    logout()
+  }, [isPublicDemo, logout, navigate])
+
+  const mobileMenuSections = useMemo((): NavActionsMenuSection[] => {
+    const navigationItems = links.map(({ to, label, icon, onboarding }) => ({
+      id: to,
+      label,
+      icon,
+      dataOnboarding: onboarding,
+      onSelect: () => navigate(to),
+      trailing:
+        to === '/studio/alerts' && unreadAlertCount > 0 ? (
+          <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+            {unreadAlertCount}
+          </span>
+        ) : to === '/studio/properties' && hasAvailableRentals ? (
+          <span
+            className="h-2 w-2 shrink-0 rounded-full bg-accent"
+            aria-hidden
+          />
+        ) : undefined,
+      ariaLabel:
+        to === '/studio/properties' && hasAvailableRentals
+          ? `${label}, available rentals`
+          : to === '/studio/alerts' && unreadAlertCount > 0
+            ? `${label}, ${unreadAlertCount} unread`
+            : undefined,
+    }))
+
+    const accountItems = [
+      ...(user
+        ? [
+            {
+              id: 'profile',
+              label: 'Company Profile',
+              icon: UserCircle,
+              dataOnboarding: 'admin-profile',
+              onSelect: () => navigate('/studio/profile'),
+            },
+          ]
+        : []),
+      {
+        id: 'tour',
+        label: 'Take the tour',
+        icon: Compass,
+        onSelect: () => {
+          void restartOnboardingTour('admin', user?.id, () => onStartTour?.())
+        },
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        icon: Settings,
+        dataOnboarding: 'admin-settings',
+        onSelect: () => navigate('/studio/settings'),
+      },
+      {
+        id: 'bug',
+        label: 'Bug Report',
+        icon: Bug,
+        onSelect: () => setBugReportOpen(true),
+      },
+      {
+        id: 'sign-out',
+        label: 'Sign out',
+        icon: LogOut,
+        onSelect: handleSignOut,
+      },
+    ]
+
+    return [
+      { id: 'navigation', label: 'Navigation', items: navigationItems },
+      { id: 'tools', label: 'Tools and Account', items: accountItems },
+    ]
+  }, [
+    handleSignOut,
+    hasAvailableRentals,
+    navigate,
+    onStartTour,
+    unreadAlertCount,
+    user,
+  ])
+
   return (
     <>
       <div className="w-full max-w-full border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg">
-        <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:h-[4.25rem] sm:px-6 lg:px-10 xl:px-12">
-          <NavLink to="/studio" className="group flex shrink-0 items-center gap-2.5 sm:gap-3">
-            <CreativeStudiosBrand />
+        <div
+          className={cn(
+            'flex w-full items-center justify-between gap-3',
+            'min-h-[3.75rem] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]',
+            'pt-[max(0.5rem,env(safe-area-inset-top))] pb-2.5',
+            'md:h-[4.25rem] md:min-h-0 md:items-center md:px-6 md:py-0 lg:px-10 xl:px-12'
+          )}
+        >
+          <NavLink to="/studio" className="group flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+            <CreativeStudiosBrand
+              mobileSubtitle={
+                <time dateTime={todayDateValue} aria-label={`Today, ${todayLabel}`}>
+                  {todayCompactLabel}
+                </time>
+              }
+            />
           </NavLink>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Mobile: single Menu with navigation + tools */}
+          <NavActionsMenu
+            sections={mobileMenuSections}
+            triggerOnboarding="admin-mobile-menu"
+          />
+
+          {/* Desktop / tablet: original icon buttons */}
+          <div className="hidden shrink-0 items-center gap-1.5 sm:gap-2 md:flex">
             {user && (
               <NavLink
                 to="/studio/profile"
@@ -178,17 +323,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                if (isPublicDemo) {
-                  void (async () => {
-                    logout()
-                    await exitPublicDemo()
-                    navigate('/', { replace: true })
-                  })()
-                  return
-                }
-                logout()
-              }}
+              onClick={handleSignOut}
               className="quick-tooltip quick-tooltip--below !border-nav-fg/30 !bg-transparent !text-nav-fg-muted hover:!border-nav-fg hover:!bg-transparent hover:!text-nav-fg"
               data-tooltip="Sign out"
               aria-label="Sign out"
@@ -199,8 +334,9 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
         </div>
       </div>
 
+      {/* Desktop / tablet secondary nav — hidden on mobile */}
       <nav
-        className="sticky top-0 z-50 flex w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex-row md:items-stretch md:justify-between md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
+        className="sticky top-0 z-50 hidden w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex md:flex-row md:items-stretch md:justify-between md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
         <div className="flex w-full min-w-0 flex-col md:flex-1 md:flex-row md:items-stretch">

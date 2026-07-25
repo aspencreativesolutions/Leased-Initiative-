@@ -363,6 +363,8 @@ function buildUnlinkedApplicationPayload(user) {
           preferredLeaseStartDate: user.preferredLeaseStartDate ?? null,
           preferredPaymentMethod: user.preferredPaymentMethod ?? null,
           preferredOccupancyMode: user.preferredOccupancyMode ?? null,
+          preferredBedroomId: user.preferredBedroomId ?? null,
+          preferredBedId: user.preferredBedId ?? null,
           roommateInvitePhones: user.roommateInvitePhones ?? [],
         }
       : null,
@@ -397,14 +399,24 @@ function notifyAdminOfPortalApplication(user) {
   const details = [
     company ? `Landlord: ${company}` : null,
     address ? `Property: ${address}` : null,
-    user.preferredOccupancyMode === 'roommates'
-      ? `Occupancy: roommates${
+    user.preferredOccupancyMode === 'roommates' ||
+    user.preferredOccupancyMode === 'open_to_roommates' ||
+    user.preferredOccupancyMode === 'private_room' ||
+    user.preferredOccupancyMode === 'shared_room'
+      ? `Occupancy: ${
+          user.preferredOccupancyMode === 'private_room'
+            ? 'private room'
+            : user.preferredOccupancyMode === 'shared_room'
+              ? 'shared room'
+              : 'open to roommates'
+        }${
           Array.isArray(user.roommateInvitePhones) && user.roommateInvitePhones.length
             ? ` (${user.roommateInvitePhones.length} invite${user.roommateInvitePhones.length === 1 ? '' : 's'} sent)`
             : ''
         }`
-      : user.preferredOccupancyMode === 'full_rent'
-        ? 'Occupancy: full rent'
+      : user.preferredOccupancyMode === 'full_rent' ||
+          user.preferredOccupancyMode === 'entire_home'
+        ? 'Occupancy: entire home'
         : null,
   ]
     .filter(Boolean)
@@ -663,16 +675,45 @@ router.post('/application', async (req, res) => {
       return res.status(resolved.status ?? 400).json({ error: resolved.error })
     }
 
-    const occupancyModeRaw = String(req.body?.preferredOccupancyMode ?? 'full_rent')
+    const occupancyModeRaw = String(req.body?.preferredOccupancyMode ?? 'entire_home')
       .trim()
       .toLowerCase()
     const preferredOccupancyMode =
-      occupancyModeRaw === 'roommates' ? 'roommates' : 'full_rent'
+      occupancyModeRaw === 'roommates' || occupancyModeRaw === 'open_to_roommates'
+        ? 'open_to_roommates'
+        : occupancyModeRaw === 'private_room'
+          ? 'private_room'
+          : occupancyModeRaw === 'shared_room'
+            ? 'shared_room'
+            : occupancyModeRaw === 'full_rent' || occupancyModeRaw === 'entire_home'
+              ? 'entire_home'
+              : 'entire_home'
+
+    const preferredBedroomId =
+      typeof req.body?.preferredBedroomId === 'string' && req.body.preferredBedroomId.trim()
+        ? req.body.preferredBedroomId.trim()
+        : undefined
+    const preferredBedId =
+      typeof req.body?.preferredBedId === 'string' && req.body.preferredBedId.trim()
+        ? req.body.preferredBedId.trim()
+        : undefined
 
     const occupancy = propertyOccupancyDetail(store, resolved.propertyAddress)
-    const maxRoommateInvites = Math.max(0, occupancy.availableSpots - 1)
+    if (occupancy.entireHomeOnly && preferredOccupancyMode !== 'entire_home') {
+      return res.status(400).json({
+        error: 'This rental is only available as an entire-home placement.',
+      })
+    }
+
+    const isRoommateMode =
+      preferredOccupancyMode === 'open_to_roommates' ||
+      preferredOccupancyMode === 'private_room' ||
+      preferredOccupancyMode === 'shared_room'
+    const maxRoommateInvites = isRoommateMode
+      ? Math.max(0, occupancy.availableSpots - 1)
+      : 0
     let roommateInvitePhones = []
-    if (preferredOccupancyMode === 'roommates') {
+    if (isRoommateMode) {
       roommateInvitePhones = normalizeRoommatePhones(req.body?.roommateInvitePhones)
       if (roommateInvitePhones.length > maxRoommateInvites) {
         return res.status(400).json({
@@ -684,12 +725,23 @@ router.post('/application', async (req, res) => {
       }
     }
 
+    if (
+      preferredOccupancyMode !== 'entire_home' &&
+      occupancy.furnished &&
+      occupancy.placementInventory &&
+      !preferredBedroomId
+    ) {
+      return res.status(400).json({
+        error: 'Select an available room or bed for this furnished rental.',
+      })
+    }
+
     const preferredLeaseStartDate = resolved.invite?.leaseStartDate
       ? String(resolved.invite.leaseStartDate).trim()
       : computeLeaseStartDate()
 
     const roommateInvites = []
-    if (preferredOccupancyMode === 'roommates' && roommateInvitePhones.length > 0) {
+    if (isRoommateMode && roommateInvitePhones.length > 0) {
       let inviteStore = { ...store, tenantInvites: [...(store.tenantInvites ?? [])] }
       for (const phone of roommateInvitePhones) {
         const created = createTenantInvite(inviteStore, {
@@ -740,6 +792,8 @@ router.post('/application', async (req, res) => {
           preferredPropertyAddress: resolved.propertyAddress,
           preferredLeaseMonths: resolved.preferredLeaseMonths,
           preferredOccupancyMode,
+          preferredBedroomId,
+          preferredBedId,
           roommateInvitePhones,
           registrationDismissed: false,
           preferredLeaseStartDate,

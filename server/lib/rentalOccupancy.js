@@ -3,6 +3,7 @@
  * Mirrors applicant-slot logic used by Waiting to Connect badges.
  */
 import { ensurePropertyBedLayout } from './rentalBeds.js'
+import { hasEntireHomeTenant } from './furnishedOccupancy.js'
 
 export function normalizePropertyAddress(address) {
   return String(address ?? '')
@@ -35,6 +36,7 @@ export function findPropertyByAddress(store, address) {
 
 /**
  * Available applicant slots at an address (maxTenants − official tenants).
+ * Entire-home tenants close the rental to additional applicants.
  * Returns null property when the address is not in the portfolio.
  */
 export function availableApplicantSlotsAtAddress(store, address) {
@@ -43,6 +45,9 @@ export function availableApplicantSlotsAtAddress(store, address) {
     return { property: null, slots: 0, available: false }
   }
   const ensured = ensurePropertyBedLayout(property)
+  if (hasEntireHomeTenant(store, address, addressesMatch)) {
+    return { property: ensured, slots: 0, available: false }
+  }
   const current = officialTenantsAtAddress(store, address).length
   const slots = Math.max(0, (ensured.maxTenants ?? 1) - current)
   return { property: ensured, slots, available: slots > 0 }

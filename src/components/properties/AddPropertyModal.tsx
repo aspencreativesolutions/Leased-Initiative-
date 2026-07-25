@@ -128,6 +128,7 @@ export function AddPropertyModal({
   const [hasDeposit, setHasDeposit] = useState<DepositChoice>('')
   const [depositAmount, setDepositAmount] = useState('')
   const [utilitiesIncluded, setUtilitiesIncluded] = useState<UtilitiesChoice>('')
+  const [entireHomeOnly, setEntireHomeOnly] = useState(false)
   const [bedrooms, setBedrooms] = useState('')
   const [layout, setLayout] = useState<PropertyBedroom[]>([])
   const [unitCount, setUnitCount] = useState('1')
@@ -170,12 +171,19 @@ export function AddPropertyModal({
       setDepositAmount('')
     }
     setUtilitiesIncluded(p.utilitiesIncluded === true ? 'yes' : 'no')
+    setEntireHomeOnly(p.entireHomeOnly === true)
     setBedrooms(String(p.bedrooms ?? p.bedroomsLayout?.length ?? 0))
     setLayout(
       p.bedroomsLayout?.length
         ? p.bedroomsLayout.map((room, i) => ({
             ...room,
             label: room.label || `Bedroom ${i + 1}`,
+            privacy:
+              room.privacy === 'private' || room.privacy === 'shared'
+                ? room.privacy
+                : room.beds.length > 1
+                  ? 'shared'
+                  : 'private',
             beds: room.beds.map((bed, j) => ({
               ...bed,
               label: bed.label || `Bed ${j + 1}`,
@@ -223,6 +231,7 @@ export function AddPropertyModal({
     setHasDeposit('')
     setDepositAmount('')
     setUtilitiesIncluded('')
+    setEntireHomeOnly(false)
     setBedrooms('')
     setLayout([])
     setUnitCount('1')
@@ -272,9 +281,16 @@ export function AddPropertyModal({
           ? room
           : {
               ...room,
+              privacy: 'shared',
               beds: [...room.beds, createBed('twin', room.beds.length + 1)],
             }
       )
+    )
+  }
+
+  const updateRoomPrivacy = (bedroomId: string, privacy: 'private' | 'shared') => {
+    setLayout((prev) =>
+      prev.map((room) => (room.id !== bedroomId ? room : { ...room, privacy }))
     )
   }
 
@@ -414,6 +430,7 @@ export function AddPropertyModal({
         pricingStructure === 'bed' && furnished !== 'yes' ? 'person' : pricingStructure,
       depositAmount: hasDeposit === 'yes' ? deposit : null,
       utilitiesIncluded: utilitiesIncluded === 'yes',
+      entireHomeOnly: furnished === 'yes' && entireHomeOnly,
       addressConfirmed: true,
       addressDetails,
     }
@@ -679,6 +696,46 @@ export function AddPropertyModal({
           </fieldset>
         ) : null}
 
+        {isFurnished ? (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-ink">
+              Entire-home rental only?
+            </legend>
+            <div role="group" className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    value: false,
+                    label: 'Allow roommates',
+                    hint: 'Applicants can choose beds or rooms',
+                  },
+                  {
+                    value: true,
+                    label: 'Entire home only',
+                    hint: 'No roommate or per-bed placements',
+                  },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={String(option.value)}
+                  type="button"
+                  aria-pressed={entireHomeOnly === option.value}
+                  onClick={() => setEntireHomeOnly(option.value)}
+                  className={cn(
+                    'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left transition-colors',
+                    entireHomeOnly === option.value
+                      ? 'border-brand bg-brand/5'
+                      : 'border-line bg-surface-paper hover:border-brand/40'
+                  )}
+                >
+                  <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
         <div ref={rentalTypeRef} className="relative">
           <FormLabel label="Rental Type" htmlFor={rentalTypeListId} required />
           <button
@@ -888,17 +945,33 @@ export function AddPropertyModal({
                   key={room.id}
                   className="rounded-[var(--radius-sm)] border border-line bg-surface-paper px-3 py-3"
                 >
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <h4 className="text-sm font-semibold text-ink">{room.label}</h4>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addBedToRoom(room.id)}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden />
-                      Add bed
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="rounded-[var(--radius-sm)] border border-line bg-surface px-2 py-1.5 text-xs text-ink"
+                        value={room.privacy === 'shared' ? 'shared' : 'private'}
+                        aria-label={`${room.label} privacy`}
+                        onChange={(e) =>
+                          updateRoomPrivacy(
+                            room.id,
+                            e.target.value === 'shared' ? 'shared' : 'private'
+                          )
+                        }
+                      >
+                        <option value="private">Private room</option>
+                        <option value="shared">Shared room</option>
+                      </select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addBedToRoom(room.id)}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                        Add bed
+                      </Button>
+                    </div>
                   </div>
                   <ul className="space-y-2">
                     {room.beds.map((bed) => (

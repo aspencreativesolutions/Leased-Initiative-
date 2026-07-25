@@ -90,55 +90,68 @@ export const SAMPLE_LEASE_AMOUNTS = {
 export const SAMPLE_HOUSEHOLD_FIELDS = {
   'james@chenarch.com': {
     occupancyArrangement: 'shared_home',
+    preferredOccupancyMode: 'open_to_roommates',
     leaseGroupId: 'lease-juanita-523',
     unitOrRoomLabel: 'Main floor',
   },
   'jordan.kim@example.com': {
     occupancyArrangement: 'shared_home',
+    preferredOccupancyMode: 'shared_room',
     leaseGroupId: 'lease-juanita-523',
     unitOrRoomLabel: 'Upper floor',
   },
   'emily@rodriguezwellness.com': {
     occupancyArrangement: 'entire_home',
+    preferredOccupancyMode: 'entire_home',
   },
   'marcus@webblegal.com': {
-    occupancyArrangement: 'entire_home',
+    occupancyArrangement: 'room_rental',
+    preferredOccupancyMode: 'private_room',
+    unitOrRoomLabel: 'Bedroom 1',
   },
   'lisa@parkphoto.com': {
     occupancyArrangement: 'entire_home',
+    preferredOccupancyMode: 'entire_home',
   },
   'ava.torres@example.com': {
     occupancyArrangement: 'shared_apartment',
+    preferredOccupancyMode: 'open_to_roommates',
     leaseGroupId: 'lease-canton-11',
     unitOrRoomLabel: 'Unit 11 · Bedroom A',
   },
   'noah.patel@example.com': {
     occupancyArrangement: 'shared_apartment',
+    preferredOccupancyMode: 'shared_room',
     leaseGroupId: 'lease-canton-11',
     unitOrRoomLabel: 'Unit 11 · Bedroom B',
   },
   'priya.shah@example.com': {
     occupancyArrangement: 'shared_home',
+    preferredOccupancyMode: 'open_to_roommates',
     leaseGroupId: 'lease-donnell-211',
     unitOrRoomLabel: 'Room 1',
   },
   'ethan.brooks@example.com': {
     occupancyArrangement: 'shared_home',
+    preferredOccupancyMode: 'shared_room',
     leaseGroupId: 'lease-donnell-211',
     unitOrRoomLabel: 'Room 2',
   },
   'maya.lopez@example.com': {
     occupancyArrangement: 'shared_home',
+    preferredOccupancyMode: 'private_room',
     leaseGroupId: 'lease-donnell-211',
     unitOrRoomLabel: 'Room 3',
   },
   'chris.nguyen@example.com': {
     occupancyArrangement: 'room_rental',
+    preferredOccupancyMode: 'private_room',
     leaseGroupId: 'lease-scioto-chris',
     unitOrRoomLabel: 'Room A',
   },
   'sam.rivera@example.com': {
     occupancyArrangement: 'room_rental',
+    preferredOccupancyMode: 'private_room',
     leaseGroupId: 'lease-scioto-sam',
     unitOrRoomLabel: 'Room B',
   },

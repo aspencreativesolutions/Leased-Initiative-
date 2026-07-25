@@ -326,6 +326,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
         utilitiesIncluded: input.utilitiesIncluded === true,
+        entireHomeOnly: furnished && input.entireHomeOnly === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||
@@ -377,6 +378,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
         utilitiesIncluded: input.utilitiesIncluded === true,
+        entireHomeOnly: furnished && input.entireHomeOnly === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||

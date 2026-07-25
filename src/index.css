@@ -1498,21 +1498,31 @@
   /* Dedicated solid shell so menu items stay contained over page content */
   .home-quick-access__menu {
     position: relative;
-    z-index: 1;
+    z-index: 20;
     isolation: isolate;
     width: 100%;
     border-radius: var(--radius-lg);
     border: var(--border-width) solid var(--ink);
-    background-color: var(--surface-paper);
+    /* Explicit fallback — never rely on a missing/transparent theme token */
+    background-color: #ffffff;
+    background-color: var(--surface-paper, #ffffff);
     background-image: none;
     box-shadow:
-      0 16px 48px -28px rgb(0 0 0 / 0.45),
-      0 4px 12px -6px rgb(0 0 0 / 0.18);
+      0 16px 48px -20px rgb(0 0 0 / 0.5),
+      0 4px 14px -4px rgb(0 0 0 / 0.22);
     padding: 0.85rem 0.9rem;
+  }
+
+  .home-quick-access__menu-scroll {
+    max-height: min(70vh, 36rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .home-quick-access {
     isolation: isolate;
+    z-index: 100;
   }
 
   .home-quick-access__panel[data-state='opening'],

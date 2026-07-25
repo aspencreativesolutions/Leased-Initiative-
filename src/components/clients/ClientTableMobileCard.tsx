@@ -1,5 +1,6 @@
 import { ChevronsUpDown, UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
+import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { getLeaseStatusDetails, getTenantAddress, isAwaitingDeposit } from '@/lib/clientUtils'
 import {
@@ -81,6 +82,14 @@ export function ClientTableMobileCard({
           >
             {client.name}
           </button>
+          <div className="mt-1">
+            <OccupancyPreferenceTag
+              {...clientOccupancyTagProps(
+                client,
+                getTenantAssignedProperty(client, contract, properties)
+              )}
+            />
+          </div>
           <div className="mt-1">
             <LeaseStatusBadge
               details={leaseStatus}
