@@ -101,19 +101,29 @@ export function buildPortalUsersOverview(store) {
 
   const pending = store.users
     .filter(isPendingPortalRegistration)
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      createdAt: u.createdAt,
-      applicationSubmittedAt: u.applicationSubmittedAt || u.createdAt,
-      preferredLeaseMonths: u.preferredLeaseMonths,
-      preferredLandlordCompany: u.preferredLandlordCompany,
-      preferredPropertyAddress: u.preferredPropertyAddress,
-      preferredLeaseStartDate: u.preferredLeaseStartDate,
-      preferredPaymentMethod: u.preferredPaymentMethod,
-      phone: u.phone,
-    }))
+    .map((u) => {
+      const phones = Array.isArray(u.roommateInvitePhones)
+        ? u.roommateInvitePhones
+            .map((phone) => String(phone ?? '').replace(/\D/g, ''))
+            .filter((digits) => digits.length >= 10)
+        : []
+      return {
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        createdAt: u.createdAt,
+        applicationSubmittedAt: u.applicationSubmittedAt || u.createdAt,
+        preferredLeaseMonths: u.preferredLeaseMonths,
+        preferredLandlordCompany: u.preferredLandlordCompany,
+        preferredPropertyAddress: u.preferredPropertyAddress,
+        preferredLeaseStartDate: u.preferredLeaseStartDate,
+        preferredPaymentMethod: u.preferredPaymentMethod,
+        phone: u.phone,
+        preferredOccupancyMode: u.preferredOccupancyMode,
+        roommateInvitePhones: phones,
+        roommateInviteCount: phones.length,
+      }
+    })
     .sort((a, b) => {
       const aAt = new Date(a.applicationSubmittedAt || a.createdAt).getTime()
       const bAt = new Date(b.applicationSubmittedAt || b.createdAt).getTime()

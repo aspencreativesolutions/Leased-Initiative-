@@ -43,14 +43,22 @@ import {
   useMobileTileColumns,
   type MobileTileColumns,
 } from '@/lib/mobileTileColumns'
+import { leaseTileScaleStyle } from '@/lib/tileScale'
 import { cn } from '@/lib/utils'
 import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import { matchesDashboardFilter, type DashboardFilter } from '@/lib/dashboardFilters'
 import type { Client, ContractData, Property } from '@/types'
 
+export type ClientTableViewMode = 'tile' | 'spreadsheet'
+
 interface ClientTableProps {
   clients: Client[]
   highlightFilter?: DashboardFilter | null
+  /**
+   * When set, shows only tiles or only the spreadsheet (same tenant data).
+   * When omitted, tiles show below `md` and the spreadsheet at `md+`.
+   */
+  viewMode?: ClientTableViewMode
   /** When true, column headers select and drag whole columns to edit the layout. */
   arrangeColumns?: boolean
   /** Exit Edit Columns mode — shown next to Reset in the edit banner. */
@@ -62,6 +70,11 @@ interface ClientTableProps {
   /** Mobile tiles per row (1 or 2). Defaults to the shared persisted preference. */
   mobileTileColumns?: MobileTileColumns
   onMobileTileColumnsChange?: (columns: MobileTileColumns) => void
+  /**
+   * When set (Tile View on desktop), scales Official Tenants tiles like Lease Agreements.
+   * Pass `useTileScale(...).factor` from the page.
+   */
+  tileScaleFactor?: number
   /** Opens Tenant Details for the selected official tenant. */
   onOpenTenantDetails: (tenantId: string) => void
 }
@@ -78,7 +91,7 @@ function headerVisibilityClass(columnId: TenantTableColumnId): string {
 function headerAlignClass(columnId: TenantTableColumnId): string {
   switch (columnId) {
     case 'paymentStatus':
-      return 'text-center'
+      return 'text-right'
     case 'actions':
       return 'text-right'
     default:
@@ -202,7 +215,7 @@ function renderCell(
         <td
           key={columnId}
           className={cn(
-            'overflow-visible px-3 py-2.5 text-center align-middle transition-[background-color,box-shadow,opacity] sm:px-4',
+            'overflow-visible px-3 py-2.5 text-right align-middle transition-[background-color,box-shadow,opacity] sm:px-4',
             arrangeClassName
           )}
         >
@@ -246,6 +259,7 @@ function renderCell(
 export function ClientTable({
   clients,
   highlightFilter = null,
+  viewMode,
   arrangeColumns = false,
   onArrangeDone,
   columnOrder: controlledOrder,
@@ -254,6 +268,7 @@ export function ClientTable({
   onContactDisplayModeChange,
   mobileTileColumns: controlledMobileColumns,
   onMobileTileColumnsChange: _onMobileTileColumnsChange,
+  tileScaleFactor,
   onOpenTenantDetails,
 }: ClientTableProps) {
   const { getContractForClient, refresh, properties } = useApp()
@@ -335,37 +350,56 @@ export function ClientTable({
   const canRemoveSelected = visibleDataColumnCount > 1
   const columnWidths = tenantTableColumnWidths(columnOrder)
 
+  const showTiles = viewMode ? viewMode === 'tile' : null
+  const showSpreadsheet = viewMode ? viewMode === 'spreadsheet' : null
+  const tilesHiddenClass =
+    showTiles === false ? 'hidden' : showTiles === null ? 'md:hidden' : undefined
+  const tileGrid = (
+    <div className={cn('min-w-0', sectionTileGridClassName(mobileTileColumns))}>
+      {clients.map((client) => {
+        const highlighted =
+          highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
+        const dimmed = highlightFilter !== null && !highlighted
+
+        return (
+          <ClientTableMobileCard
+            key={client.id}
+            client={client}
+            contract={getContractForClient(client.id)}
+            properties={properties}
+            contactDisplayMode={contactDisplayMode}
+            onCycleContactDisplay={cycleContactDisplay}
+            highlighted={highlighted}
+            dimmed={dimmed}
+            onRemove={() => setRemoveTarget(client)}
+            onOpenTenantDetails={onOpenTenantDetails}
+          />
+        )
+      })}
+    </div>
+  )
+
   return (
     <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)]">
+      {tileScaleFactor != null ? (
+        <div
+          className={cn('tile-scale-root', tilesHiddenClass)}
+          style={leaseTileScaleStyle(tileScaleFactor)}
+        >
+          {tileGrid}
+        </div>
+      ) : (
+        <div className={tilesHiddenClass}>{tileGrid}</div>
+      )}
+
       <div
         className={cn(
-          'md:hidden min-w-0',
-          sectionTileGridClassName(mobileTileColumns)
+          'min-w-0 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
+          showSpreadsheet === false && 'hidden',
+          showSpreadsheet === null && 'hidden md:block',
+          showSpreadsheet === true && 'block'
         )}
       >
-        {clients.map((client) => {
-          const highlighted =
-            highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
-          const dimmed = highlightFilter !== null && !highlighted
-
-          return (
-            <ClientTableMobileCard
-              key={client.id}
-              client={client}
-              contract={getContractForClient(client.id)}
-              properties={properties}
-              contactDisplayMode={contactDisplayMode}
-              onCycleContactDisplay={cycleContactDisplay}
-              highlighted={highlighted}
-              dimmed={dimmed}
-              onRemove={() => setRemoveTarget(client)}
-              onOpenTenantDetails={onOpenTenantDetails}
-            />
-          )
-        })}
-      </div>
-
-      <div className="hidden min-w-0 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper md:block">
         {arrangeColumns ? (
           <EditColumnsArrangeBanner
             removedColumns={removedColumns}

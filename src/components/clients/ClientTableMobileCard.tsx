@@ -60,7 +60,7 @@ export function ClientTableMobileCard({
   return (
     <article
       className={cn(
-        'flex h-full min-w-0 flex-col rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper p-2.5',
+        'official-tenant-tile flex h-full min-w-0 flex-col rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
         'transition-[background-color,opacity,box-shadow]',
         highlighted && 'bg-brand/10 ring-1 ring-inset ring-brand/40',
         dimmed && 'opacity-40'

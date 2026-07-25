@@ -359,6 +359,13 @@ export interface ContractData {
   leaseGenerationStatus?: 'generating' | 'ready'
   leaseGenerationStartedAt?: string
   leaseGenerationCompletedAt?: string
+  /**
+   * Uploaded signed or custom lease that replaces the generated draft in
+   * Lease Agreement Preview (and portal review when present).
+   */
+  replacementDocumentFileId?: string
+  replacementDocumentName?: string
+  replacementDocumentMimeType?: string
   /** Monotonic lease version; increments when a sent lease is revised */
   leaseVersion?: number
   /** Prior delivered versions superseded by edits after send */
@@ -405,6 +412,12 @@ export interface PendingRegistration {
   preferredPropertyAddress?: string
   preferredPaymentMethod?: PaymentProvider
   phone?: string
+  /** Occupancy preference from Start Application */
+  preferredOccupancyMode?: 'full_rent' | 'roommates'
+  /** Friend phones the applicant invited to share the rental */
+  roommateInvitePhones?: string[]
+  /** Count of roommate invite phones with digits (friends invited) */
+  roommateInviteCount?: number
 }
 
 export interface PortalUserAccepted {
@@ -772,6 +785,18 @@ export interface PropertyBedroom {
   beds: PropertyBed[]
 }
 
+/**
+ * How total monthly rent is allocated for a rental.
+ * Room and person are always available; bed is only offered when furnished.
+ */
+export type PropertyPricingStructure = 'room' | 'person' | 'bed'
+
+export const PROPERTY_PRICING_STRUCTURES: PropertyPricingStructure[] = [
+  'room',
+  'person',
+  'bed',
+]
+
 /** Landlord-owned rental (building or single address). */
 export interface Property {
   id: string
@@ -795,6 +820,14 @@ export interface Property {
    * Independent of bed sizes — changing Twin→Queen does not rewrite this.
    */
   monthlyRent?: number
+  /** Whether the rental includes furniture (asked first when setting up). */
+  furnished?: boolean
+  /**
+   * Pricing structure chosen at setup: by room, by person, or by bed (furnished only).
+   */
+  pricingStructure?: PropertyPricingStructure
+  /** Security deposit amount when the landlord requires one (omit when none). */
+  depositAmount?: number
   /**
    * Bedroom → bed inventory. Required for new/edited rentals.
    * Sleeping capacity and rentable bed spaces derive from this layout.

@@ -1139,6 +1139,40 @@ router.get('/contracts/:contractId', (req, res) => {
   })
 })
 
+/** Download landlord-uploaded replacement lease document for this contract. */
+router.get('/contracts/:contractId/document', (req, res) => {
+  const store = readStore()
+  const contract = store.contracts.find((c) => c.id === req.params.contractId)
+
+  if (!contract) {
+    return res.status(404).json({ error: 'Lease not found' })
+  }
+
+  if (contract.clientId !== req.user.clientId) {
+    return res.status(403).json({ error: 'Access denied' })
+  }
+
+  if (!contract.sentAt) {
+    return res.status(403).json({ error: 'This contract is not available yet' })
+  }
+
+  const fileId = String(contract.replacementDocumentFileId ?? '').trim()
+  if (!fileId) {
+    return res.status(404).json({ error: 'No uploaded lease document on this agreement' })
+  }
+
+  const result = getFileDownloadPath(fileId)
+  if (!result) {
+    return res.status(404).json({ error: 'Document not found' })
+  }
+
+  if (result.file.clientId !== contract.clientId) {
+    return res.status(403).json({ error: 'Access denied' })
+  }
+
+  res.download(result.filePath, result.file.originalName)
+})
+
 /** Client confirms they have read the current version of the contract */
 router.post('/contracts/:contractId/review', (req, res) => {
   const store = readStore()

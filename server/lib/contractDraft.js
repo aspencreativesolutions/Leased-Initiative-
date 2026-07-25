@@ -58,6 +58,9 @@ export function cloneLeaseForClient(sourceContract, client, leaseOptions = {}) {
     leaseGenerationCompletedAt: _genDone,
     versionHistory: _history,
     leaseVersion: _version,
+    replacementDocumentFileId: _replacementFileId,
+    replacementDocumentName: _replacementName,
+    replacementDocumentMimeType: _replacementMime,
     ...terms
   } = sourceContract
 

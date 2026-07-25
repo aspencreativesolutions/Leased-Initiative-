@@ -33,6 +33,7 @@ const CONTRACT_CONTENT_FIELDS: (keyof ContractData)[] = [
   'terminationTerms',
   'designerSignature',
   'designerSignDate',
+  'replacementDocumentFileId',
 ]
 
 export function contractContentFingerprint(contract: ContractData): string {

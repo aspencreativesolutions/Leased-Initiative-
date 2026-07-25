@@ -126,6 +126,9 @@ export function seedProperties(): Property[] {
       bathrooms: 2,
       maxTenants: 4,
       monthlyRent: 2400,
+      furnished: true,
+      pricingStructure: 'person',
+      depositAmount: 2400,
       createdAt: now,
       addressConfirmed: true,
       addressDetails: {

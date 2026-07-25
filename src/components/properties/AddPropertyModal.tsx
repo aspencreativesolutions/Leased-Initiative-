@@ -28,6 +28,7 @@ import type {
   PropertyAddressDetails,
   PropertyBedroom,
   PropertyHousingType,
+  PropertyPricingStructure,
 } from '@/types'
 import { BED_SIZES } from '@/types'
 
@@ -42,11 +43,17 @@ interface RentalFormModalProps {
 interface FieldErrors {
   address?: string
   propertyType?: string
+  furnished?: string
+  pricingStructure?: string
   bedrooms?: string
   unitCount?: string
   monthlyRent?: string
+  depositAmount?: string
   layout?: string
 }
+
+type FurnishedChoice = '' | 'yes' | 'no'
+type DepositChoice = '' | 'yes' | 'no'
 
 function parseNonNegativeInt(raw: string): number | null {
   const trimmed = raw.trim()
@@ -85,6 +92,19 @@ function layoutFromBedroomCount(count: number, previous?: PropertyBedroom[]): Pr
   return next
 }
 
+function pricingHint(structure: PropertyPricingStructure | ''): string {
+  if (structure === 'room') {
+    return 'Total rent is shared across bedrooms. Tenants see cost per person at full occupancy.'
+  }
+  if (structure === 'bed') {
+    return 'Total rent is allocated by physical beds. Changing bed size does not rewrite total rent.'
+  }
+  if (structure === 'person') {
+    return 'Total rent splits evenly by headcount. Applicants see cost per person as they add roommates.'
+  }
+  return 'Choose how total rent is structured for applicants and leases.'
+}
+
 export function AddPropertyModal({
   open,
   onClose,
@@ -101,6 +121,10 @@ export function AddPropertyModal({
   const [propertyType, setPropertyType] = useState<PropertyHousingType | ''>('')
   const [rentalTypeOpen, setRentalTypeOpen] = useState(false)
   const [rentalTypeHighlight, setRentalTypeHighlight] = useState(0)
+  const [furnished, setFurnished] = useState<FurnishedChoice>('')
+  const [pricingStructure, setPricingStructure] = useState<PropertyPricingStructure | ''>('')
+  const [hasDeposit, setHasDeposit] = useState<DepositChoice>('')
+  const [depositAmount, setDepositAmount] = useState('')
   const [bedrooms, setBedrooms] = useState('')
   const [layout, setLayout] = useState<PropertyBedroom[]>([])
   const [unitCount, setUnitCount] = useState('1')
@@ -110,15 +134,38 @@ export function AddPropertyModal({
   const [error, setError] = useState('')
 
   const showUnitCount = propertyType ? rentalTypeShowsUnitCount(propertyType) : false
+  const isFurnished = furnished === 'yes'
 
   const maxOccupancy = useMemo(() => maxOccupancyFromLayout(layout), [layout])
   const bedCount = useMemo(() => totalBedCount({ bedroomsLayout: layout }), [layout])
+  const rentPreview = useMemo(() => parsePositiveMoney(monthlyRent), [monthlyRent])
+  const costPerPersonAtMax =
+    rentPreview != null && maxOccupancy > 0
+      ? Math.round((rentPreview / maxOccupancy) * 100) / 100
+      : null
 
   const hydrateFromProperty = (p: Property) => {
     setAddress(p.address)
     setAddressConfirmed(Boolean(p.addressConfirmed) || Boolean(p.addressDetails))
     setAddressDetails(p.addressDetails)
     setPropertyType(p.propertyType)
+    setFurnished(p.furnished === true ? 'yes' : 'no')
+    const pricing =
+      p.pricingStructure === 'room' || p.pricingStructure === 'person' || p.pricingStructure === 'bed'
+        ? p.pricingStructure === 'bed' && p.furnished !== true
+          ? 'person'
+          : p.pricingStructure
+        : p.furnished === true
+          ? 'bed'
+          : 'person'
+    setPricingStructure(pricing)
+    if (p.depositAmount != null && p.depositAmount > 0) {
+      setHasDeposit('yes')
+      setDepositAmount(String(p.depositAmount))
+    } else {
+      setHasDeposit('no')
+      setDepositAmount('')
+    }
     setBedrooms(String(p.bedrooms ?? p.bedroomsLayout?.length ?? 0))
     setLayout(
       p.bedroomsLayout?.length
@@ -167,6 +214,10 @@ export function AddPropertyModal({
     setPropertyType('')
     setRentalTypeOpen(false)
     setRentalTypeHighlight(0)
+    setFurnished('')
+    setPricingStructure('')
+    setHasDeposit('')
+    setDepositAmount('')
     setBedrooms('')
     setLayout([])
     setUnitCount('1')
@@ -250,6 +301,27 @@ export function AddPropertyModal({
       next.propertyType = 'Select a rental type'
     }
 
+    if (!furnished) {
+      next.furnished = 'Choose whether this rental is furnished'
+    }
+
+    if (!pricingStructure) {
+      next.pricingStructure = 'Choose a pricing structure'
+    } else if (pricingStructure === 'bed' && furnished !== 'yes') {
+      next.pricingStructure = 'Pricing by bed is only available for furnished rentals'
+    }
+
+    if (!hasDeposit) {
+      next.depositAmount = 'Choose whether this rental requires a deposit'
+    } else if (hasDeposit === 'yes') {
+      const deposit = parsePositiveMoney(depositAmount)
+      if (depositAmount.trim() === '') {
+        next.depositAmount = 'Enter the deposit amount'
+      } else if (deposit === null) {
+        next.depositAmount = 'Enter a valid deposit amount'
+      }
+    }
+
     const beds = parseNonNegativeInt(bedrooms)
     if (bedrooms.trim() === '') {
       next.bedrooms = 'Enter the number of bedrooms'
@@ -264,7 +336,9 @@ export function AddPropertyModal({
         'Configure at least one bed with a size for every bedroom before saving'
     }
 
-    if (monthlyRent.trim()) {
+    if (!monthlyRent.trim()) {
+      next.monthlyRent = 'Enter the total monthly rent'
+    } else {
       const rent = parsePositiveMoney(monthlyRent)
       if (rent === null) {
         next.monthlyRent = 'Enter a valid monthly rent amount'
@@ -310,8 +384,12 @@ export function AddPropertyModal({
 
     const beds = parseNonNegativeInt(bedrooms)
     const units = showUnitCount ? parseNonNegativeInt(unitCount) : 1
-    if (beds === null || units === null || !propertyType) return
-    const rent = monthlyRent.trim() ? parsePositiveMoney(monthlyRent) : undefined
+    if (beds === null || units === null || !propertyType || !furnished || !pricingStructure) return
+    const rent = parsePositiveMoney(monthlyRent)
+    if (rent == null) return
+    const deposit =
+      hasDeposit === 'yes' ? parsePositiveMoney(depositAmount) : null
+    if (hasDeposit === 'yes' && deposit == null) return
 
     const payload = {
       address: address.trim(),
@@ -320,7 +398,11 @@ export function AddPropertyModal({
       maxTenants: Math.max(1, maxOccupancy),
       unitCount: units,
       bedroomsLayout: layout,
-      ...(rent != null ? { monthlyRent: rent } : {}),
+      monthlyRent: rent,
+      furnished: furnished === 'yes',
+      pricingStructure:
+        pricingStructure === 'bed' && furnished !== 'yes' ? 'person' : pricingStructure,
+      depositAmount: hasDeposit === 'yes' ? deposit : null,
       addressConfirmed: true,
       addressDetails,
     }
@@ -359,8 +441,8 @@ export function AddPropertyModal({
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <p className="text-sm text-ink-muted">
           {isEdit
-            ? 'Update this rental’s bedrooms, beds, and rent. Maximum occupancy is calculated from bed sizes.'
-            : 'Add a rental to your portfolio. Configure bedrooms and beds — maximum occupancy is calculated from bed sizes.'}
+            ? 'Update furnished status, pricing, deposit, bedrooms, and beds. Maximum occupancy comes from bed sizes.'
+            : 'Start with furnished or not, then pricing and deposit. Configure bedrooms and beds — maximum occupancy is calculated from bed sizes.'}
         </p>
 
         {error && (
@@ -383,6 +465,158 @@ export function AddPropertyModal({
             if (fieldErrors.address) setFieldErrors((prev) => ({ ...prev, address: undefined }))
           }}
         />
+
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-semibold text-ink">
+            Is this rental furnished? <span className="text-accent">*</span>
+          </legend>
+          <div role="group" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { value: 'yes' as const, label: 'Furnished', hint: 'Includes furniture for tenants' },
+                { value: 'no' as const, label: 'Unfurnished', hint: 'Tenants bring their own furniture' },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={furnished === option.value}
+                onClick={() => {
+                  setFurnished(option.value)
+                  if (option.value === 'no' && pricingStructure === 'bed') {
+                    setPricingStructure('person')
+                  }
+                  if (fieldErrors.furnished) {
+                    setFieldErrors((prev) => ({ ...prev, furnished: undefined }))
+                  }
+                }}
+                className={cn(
+                  'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-3 text-left transition-colors',
+                  furnished === option.value
+                    ? 'border-brand bg-brand/5'
+                    : 'border-line bg-surface-paper hover:border-brand/40'
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+              </button>
+            ))}
+          </div>
+          {fieldErrors.furnished ? (
+            <p className="mt-1.5 text-xs text-accent" role="alert">
+              {fieldErrors.furnished}
+            </p>
+          ) : null}
+        </fieldset>
+
+        {furnished ? (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-ink">
+              Pricing structure <span className="text-accent">*</span>
+            </legend>
+            <div
+              role="group"
+              className={cn('grid gap-2', isFurnished ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}
+            >
+              {(
+                [
+                  { value: 'room' as const, label: 'By room', hint: 'Always available' },
+                  { value: 'person' as const, label: 'By person', hint: 'Always available' },
+                  ...(isFurnished
+                    ? [{ value: 'bed' as const, label: 'By bed', hint: 'Furnished only' }]
+                    : []),
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={pricingStructure === option.value}
+                  onClick={() => {
+                    setPricingStructure(option.value)
+                    if (fieldErrors.pricingStructure) {
+                      setFieldErrors((prev) => ({ ...prev, pricingStructure: undefined }))
+                    }
+                  }}
+                  className={cn(
+                    'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-3 text-left transition-colors',
+                    pricingStructure === option.value
+                      ? 'border-brand bg-brand/5'
+                      : 'border-line bg-surface-paper hover:border-brand/40'
+                  )}
+                >
+                  <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-ink-muted">{pricingHint(pricingStructure)}</p>
+            {fieldErrors.pricingStructure ? (
+              <p className="mt-1 text-xs text-accent" role="alert">
+                {fieldErrors.pricingStructure}
+              </p>
+            ) : null}
+          </fieldset>
+        ) : null}
+
+        {furnished ? (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-ink">
+              Security deposit <span className="text-accent">*</span>
+            </legend>
+            <div role="group" className="grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  { value: 'yes' as const, label: 'Yes — require a deposit' },
+                  { value: 'no' as const, label: 'No deposit' },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={hasDeposit === option.value}
+                  onClick={() => {
+                    setHasDeposit(option.value)
+                    if (option.value === 'no') setDepositAmount('')
+                    if (fieldErrors.depositAmount) {
+                      setFieldErrors((prev) => ({ ...prev, depositAmount: undefined }))
+                    }
+                  }}
+                  className={cn(
+                    'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left text-sm font-semibold transition-colors',
+                    hasDeposit === option.value
+                      ? 'border-brand bg-brand/5 text-ink'
+                      : 'border-line bg-surface-paper text-ink hover:border-brand/40'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {hasDeposit === 'yes' ? (
+              <div className="mt-3">
+                <Input
+                  label="Deposit amount"
+                  name="depositAmount"
+                  inputMode="decimal"
+                  value={depositAmount}
+                  onChange={(e) => {
+                    setDepositAmount(e.target.value)
+                    if (fieldErrors.depositAmount) {
+                      setFieldErrors((prev) => ({ ...prev, depositAmount: undefined }))
+                    }
+                  }}
+                  placeholder="e.g. 1800"
+                  required
+                  error={fieldErrors.depositAmount}
+                />
+              </div>
+            ) : fieldErrors.depositAmount ? (
+              <p className="mt-1.5 text-xs text-accent" role="alert">
+                {fieldErrors.depositAmount}
+              </p>
+            ) : null}
+          </fieldset>
+        ) : null}
 
         <div ref={rentalTypeRef} className="relative">
           <FormLabel label="Rental Type" htmlFor={rentalTypeListId} required />
@@ -507,7 +741,12 @@ export function AddPropertyModal({
               }
             }}
             placeholder="e.g. 1800"
-            hint="Independent of bed sizes. Rent is allocated by physical beds, not by headcount."
+            required
+            hint={
+              costPerPersonAtMax != null
+                ? `Stored with max occupancy. At full occupancy: $${costPerPersonAtMax.toLocaleString('en-US', { maximumFractionDigits: 2 })}/person.`
+                : pricingHint(pricingStructure)
+            }
             error={fieldErrors.monthlyRent}
           />
         </div>

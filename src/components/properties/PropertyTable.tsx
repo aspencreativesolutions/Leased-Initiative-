@@ -1,9 +1,11 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil } from 'lucide-react'
+import { RentalInterestCue } from '@/components/properties/RentalInterestCue'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
 import { useArrangeTableColumns } from '@/hooks/useArrangeTableColumns'
 import { columnArrangeOutlineClass } from '@/lib/columnArrangeOutline'
+import type { RentalInterestCounts } from '@/lib/properties'
 import { formatUsd } from '@/lib/rentalRent'
 import {
   DEFAULT_RENTAL_TABLE_COLUMNS,
@@ -49,6 +51,8 @@ interface PropertyTableProps {
   onEditClick?: (row: PropertyTableRow) => void
   /** Briefly emphasize a rental after navigating from Waiting to Connect. */
   highlightedId?: string | null
+  /** Waiting / pending applicant counts keyed by property id (View Applicants cue). */
+  interestByPropertyId?: Map<string, RentalInterestCounts>
   /** Visible spreadsheet columns in display order. Defaults to full set. */
   visibleColumns?: RentalTableColumnId[]
   onVisibleColumnsChange?: (columns: RentalTableColumnId[]) => void
@@ -126,12 +130,14 @@ function PropertyCell({
   cellAlign,
   outlineClass,
   onEditClick,
+  interest,
 }: {
   columnId: RentalTableColumnId
   row: PropertyTableRow
   cellAlign: (align: 'left' | 'center' | 'right') => string
   outlineClass?: string
   onEditClick?: (row: PropertyTableRow) => void
+  interest?: RentalInterestCounts
 }) {
   switch (columnId) {
     case 'address':
@@ -211,6 +217,14 @@ function PropertyCell({
           <span className="mt-0.5 block text-[10px] text-ink-muted">
             Beds: {row.occupiedBeds} of {row.totalBeds} occupied
           </span>
+          {interest ? (
+            <RentalInterestCue
+              propertyId={row.id}
+              applicantCount={interest.applicantCount}
+              pendingTenantCount={interest.pendingTenantCount}
+              compact
+            />
+          ) : null}
         </td>
       )
     case 'tenantShare':
@@ -280,6 +294,7 @@ export function PropertyTable({
   onRowClick,
   onEditClick,
   highlightedId = null,
+  interestByPropertyId,
   visibleColumns = DEFAULT_RENTAL_TABLE_COLUMNS,
   onVisibleColumnsChange,
   arrangeColumns = false,
@@ -510,6 +525,7 @@ export function PropertyTable({
                       row={row}
                       cellAlign={cellAlign}
                       onEditClick={onEditClick}
+                      interest={interestByPropertyId?.get(row.id)}
                       outlineClass={columnArrangeOutlineClass(
                         column.id,
                         selectedColumnId,

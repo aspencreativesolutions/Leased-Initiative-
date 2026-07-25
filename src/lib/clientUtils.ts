@@ -675,6 +675,76 @@ export function nextLeaseAgreementStatusFilter(
   return cycle[nextIdx] ?? null
 }
 
+/**
+ * Lease Agreements Display Settings → Lease Progress cycle (after Any).
+ * Order: Any → Not Started → Ongoing → Ending Soon → Any
+ */
+export const LEASE_AGREEMENT_PROGRESS_FILTERS = [
+  'Not Started',
+  'Ongoing',
+  'Ending Soon',
+] as const
+
+export type LeaseAgreementProgressFilter =
+  (typeof LEASE_AGREEMENT_PROGRESS_FILTERS)[number]
+
+/** Full cycle including Any (null) for the Display Settings progress button. */
+export const LEASE_AGREEMENT_PROGRESS_CYCLE = [
+  null,
+  ...LEASE_AGREEMENT_PROGRESS_FILTERS,
+] as const satisfies ReadonlyArray<LeaseAgreementProgressFilter | null>
+
+/**
+ * Fixed width for the Lease Progress cycle control — sized for “Ending Soon”
+ * so the button does not resize between selections.
+ */
+export const LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS = 'w-[7.5rem]'
+
+export function isLeaseAgreementProgressFilter(
+  value: string | null | undefined
+): value is LeaseAgreementProgressFilter {
+  return (
+    value != null &&
+    (LEASE_AGREEMENT_PROGRESS_FILTERS as readonly string[]).includes(value)
+  )
+}
+
+/** Button label for the Lease Progress cycle control (`null` → Any). */
+export function getLeaseAgreementProgressFilterLabel(
+  filter: LeaseAgreementProgressFilter | null
+): string {
+  return filter ?? 'Any'
+}
+
+/** Advance Any → Not Started → Ongoing → Ending Soon → Any. */
+export function nextLeaseAgreementProgressFilter(
+  current: LeaseAgreementProgressFilter | null
+): LeaseAgreementProgressFilter | null {
+  const cycle = LEASE_AGREEMENT_PROGRESS_CYCLE
+  const idx = cycle.findIndex((s) => s === current)
+  const nextIdx = idx < 0 ? 0 : (idx + 1) % cycle.length
+  return cycle[nextIdx] ?? null
+}
+
+/** Whether a lease’s term progress matches the Display Settings progress filter. */
+export function leaseProgressMatchesFilter(
+  progress: Pick<LeaseTermProgress, 'state'>,
+  filter: LeaseAgreementProgressFilter | null
+): boolean {
+  if (!filter) return true
+  const state = progress.state
+  switch (filter) {
+    case 'Not Started':
+      return state === 'Upcoming'
+    case 'Ongoing':
+      return state === 'Active'
+    case 'Ending Soon':
+      return state === 'Ending Soon'
+    default:
+      return true
+  }
+}
+
 export function getContractActionLabel(status: ContractStatus): string {
   if (status === 'Not Started' || status === 'Draft in Progress') return 'Draft Lease Agreement'
   if (status === 'Generated') return 'Send Lease Agreement'

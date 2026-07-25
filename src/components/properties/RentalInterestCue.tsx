@@ -1,10 +1,17 @@
 import { ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import {
+  rentalApplicantsHref,
+  type RentalApplicantsFocusTarget,
+} from '@/lib/rentalApplicantsFocus'
 import { cn } from '@/lib/utils'
 
 type RentalInterestCueProps = {
+  propertyId: string
   applicantCount: number
   pendingTenantCount: number
+  /** Hide the pointing arrow (e.g. spreadsheet cells). */
+  compact?: boolean
   className?: string
 }
 
@@ -13,8 +20,10 @@ type RentalInterestCueProps = {
  * has Waiting-to-Connect applicants and/or Pending Tenants at that address.
  */
 export function RentalInterestCue({
+  propertyId,
   applicantCount,
   pendingTenantCount,
+  compact = false,
   className,
 }: RentalInterestCueProps) {
   const navigate = useNavigate()
@@ -23,15 +32,21 @@ export function RentalInterestCue({
 
   if (!hasApplicants && !hasPendingTenants) return null
 
+  const goToApplicants = (target: RentalApplicantsFocusTarget) => {
+    navigate(rentalApplicantsHref(propertyId, target))
+  }
+
   return (
     <div
-      className={cn('rental-interest-cue', className)}
+      className={cn('rental-interest-cue', compact && 'rental-interest-cue--compact', className)}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <span className="rental-interest-cue__arrow" aria-hidden>
-        <ChevronDown strokeWidth={2.25} />
-      </span>
+      {!compact ? (
+        <span className="rental-interest-cue__arrow" aria-hidden>
+          <ChevronDown strokeWidth={2.25} />
+        </span>
+      ) : null}
 
       <div className="rental-interest-cue__tags">
         {hasApplicants ? (
@@ -43,7 +58,7 @@ export function RentalInterestCue({
                 ? 'View 1 applicant in Waiting to Connect'
                 : `View ${applicantCount} applicants in Waiting to Connect`
             }
-            onClick={() => navigate('/studio/clients#tenants-waiting-connect')}
+            onClick={() => goToApplicants('waiting')}
           >
             View Applicants
           </button>
@@ -55,12 +70,12 @@ export function RentalInterestCue({
             className="rental-interest-cue__tag rental-interest-cue__tag--pending"
             aria-label={
               pendingTenantCount === 1
-                ? '1 applicant pending a signed lease'
-                : `${pendingTenantCount} applicants pending a signed lease`
+                ? 'View 1 applicant in Pending Tenants'
+                : `View ${pendingTenantCount} applicants in Pending Tenants`
             }
-            onClick={() => navigate('/studio/clients#tenants-waiting-lease')}
+            onClick={() => goToApplicants('pending')}
           >
-            Applicants Pending
+            {hasApplicants ? 'Applicants Pending' : 'View Applicants'}
           </button>
         ) : null}
       </div>

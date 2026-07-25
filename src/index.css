@@ -459,14 +459,16 @@
   }
 
   .lease-tile-grid {
-    justify-content: start;
+    /* auto-fit collapses empty tracks so justify-content can center short rows */
+    justify-content: center;
     align-items: stretch;
-    grid-template-columns: repeat(auto-fill, var(--lease-tile-size, 260px));
+    grid-template-columns: repeat(auto-fit, var(--lease-tile-size, 260px));
   }
 
   /*
    * Mobile section tiles (Rentals, Official Tenants, Lease Agreements):
-   * fixed 1 or 2 columns. Desktop keeps the square auto-fill lease grid.
+   * fixed 1 or 2 columns. Desktop keeps the square auto-fit lease grid,
+   * centered so 1–N tiles per row stay visually balanced.
    */
   .section-tile-grid {
     justify-content: stretch;
@@ -492,11 +494,23 @@
     padding: 0.75rem;
   }
 
+  /* Official Tenants cards — fill grid cells; equal row height via h-full + stretch */
+  .official-tenant-tile {
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 100%;
+    padding: 0.625rem;
+  }
+
+  .tile-scale-root .official-tenant-tile {
+    padding: max(0.625rem, calc(0.7rem * var(--tile-scale, 1)));
+  }
+
   @media (min-width: 768px) {
     .section-tile-grid {
-      justify-content: start;
+      justify-content: center;
       gap: var(--tile-gap, 1rem);
-      grid-template-columns: repeat(auto-fill, var(--lease-tile-size, 260px));
+      grid-template-columns: repeat(auto-fit, var(--lease-tile-size, 260px));
     }
 
     .section-tile-grid .lease-tile-card {
@@ -507,6 +521,12 @@
 
     .section-tile-grid .lease-tile-card__body {
       padding: var(--tile-pad, 1.1rem);
+    }
+
+    .section-tile-grid .official-tenant-tile {
+      width: var(--lease-tile-size, 260px);
+      min-height: var(--lease-tile-size, 260px);
+      max-width: 100%;
     }
   }
 
@@ -2329,6 +2349,65 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
+/* Ava demo — Connect with Landlord enter rim (plays once, then stops) */
+@keyframes portal-connect-enter-rim {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    border-color: var(--card-border, var(--line));
+  }
+
+  35% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 32%, transparent);
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--line));
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
+    border-color: var(--card-border, var(--line));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .portal-connect-box--enter-rim {
+    animation: portal-connect-enter-rim 2s ease-out 1 both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-connect-box--enter-rim {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 28%, transparent);
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--line));
+  }
+}
+
+/* Ava demo — highlight Desired Address after landlord is chosen */
+.portal-address-field--guide {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 26%, transparent);
+}
+
+.portal-address-field--guide input {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--line)) !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .portal-address-field--guide {
+    animation: portal-address-guide-rim 1.6s ease-in-out 2;
+  }
+}
+
+@keyframes portal-address-guide-rim {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 18%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 34%, transparent);
+  }
+}
+
 /* In-place status-box text swap (replaces floating tooltips on compact badges) */
 .in-place-hover {
   vertical-align: middle;
@@ -2579,8 +2658,9 @@ a.in-place-hover {
 /*
  * Official Tenants payment tags — CSS-locked compact shell so On Time /
  * Overdue / Deposit Paid share identical geometry (origin, size, padding,
- * type). Overlay expand grows from the left edge; Notify (absolute host child)
- * tracks compact→full width without shifting the badge.
+ * type). Right-aligned in the payment column; overlay expand grows from the
+ * left edge of that shared shell. Notify (absolute host child) tracks
+ * compact→full width without shifting the badge.
  */
 .payment-status-tag-cell {
   --payment-status-tag-compact-w: 6.75rem;
@@ -2588,13 +2668,22 @@ a.in-place-hover {
   --payment-status-tag-pad-y: 0.375rem;
   --payment-status-tag-pad-x: 0.75rem;
   --payment-status-tag-notify-gap: 0.375rem;
+  --payment-status-tag-notify-reserve: 3.25rem;
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   width: 100%;
   max-width: 100%;
+  min-height: var(--payment-status-tag-compact-h);
   overflow: visible;
+}
+
+/* Keep Notify inside the cell when the badge is pinned to the right edge. */
+.payment-status-tag-cell:has(.payment-status-notify) {
+  padding-right: calc(
+    var(--payment-status-tag-notify-reserve) + var(--payment-status-tag-notify-gap)
+  );
 }
 
 .in-place-hover--payment-tag,
@@ -2627,6 +2716,8 @@ a.in-place-hover {
   max-width: var(--payment-status-tag-compact-w);
   height: var(--payment-status-tag-compact-h);
   min-height: var(--payment-status-tag-compact-h);
+  max-height: var(--payment-status-tag-compact-h);
+  flex-shrink: 0;
 }
 
 /* Size is CSS-locked, so show the face immediately (no measure flash). */
@@ -2648,6 +2739,7 @@ a.in-place-hover {
   max-width: none;
   height: var(--payment-status-tag-compact-h);
   min-height: var(--payment-status-tag-compact-h);
+  max-height: var(--payment-status-tag-compact-h);
 }
 
 .payment-status-tag-cell
@@ -3388,6 +3480,15 @@ a.in-place-hover {
   align-items: center;
   gap: 0.2rem;
   margin-top: 0.35rem;
+}
+
+.rental-interest-cue--compact {
+  margin-top: 0.4rem;
+  align-items: center;
+}
+
+.rental-interest-cue--compact .rental-interest-cue__tags {
+  justify-content: center;
 }
 
 .rental-interest-cue__arrow {

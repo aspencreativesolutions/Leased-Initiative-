@@ -37,12 +37,12 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     paymentMethod: 'Not set yet',
     paymentStatus: 'No lease yet',
     statusPoints: [
-      'Start Application ready',
+      'Start Application Ready',
       'Pick landlord + address or invite code',
       'Send to reach Waiting to Connect',
     ],
     details: [
-      'Demo flow: Start Application → landlord dropdown → address → Send',
+      'Demo flow: Start Application → landlord company → address (furnished / unfurnished) → Send',
       'Or enter an invite code instead of public discovery',
       'After Send: Application sent + Switch to Landlord POV (direct) → Accept & Draft Lease → Lease Drafted → Review & Send',
     ],

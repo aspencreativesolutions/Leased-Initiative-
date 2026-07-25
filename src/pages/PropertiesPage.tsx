@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
+import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import {
@@ -77,12 +78,14 @@ import {
 import {
   LEASE_TILE_SCALE_DEFAULT,
   leaseTileScaleStyle,
+  useTileScale,
 } from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import { type Property } from '@/types'
 import { cn } from '@/lib/utils'
 
 const RENTALS_VIEW_KEY = 'rentals-view-mode'
+const RENTALS_TILE_SCALE_KEY = 'rentals-tile-scale'
 
 type RentalsViewMode = 'tile' | 'spreadsheet'
 
@@ -198,6 +201,10 @@ export function PropertiesPage() {
   )
   const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
     useMobileTileColumns()
+  const { scale, setScale, factor } = useTileScale(
+    RENTALS_TILE_SCALE_KEY,
+    LEASE_TILE_SCALE_DEFAULT
+  )
   const isMobile = useIsMobileViewport()
   const effectiveViewMode: RentalsViewMode = isMobile ? 'tile' : viewMode
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
@@ -479,6 +486,16 @@ export function PropertiesPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Rental tile size"
+                className="min-w-[12.5rem] flex-none"
+              />
+            ) : null}
+
             <button
               type="button"
               onClick={() => setFilterBarOpen((open) => !open)}
@@ -796,6 +813,7 @@ export function PropertiesPage() {
                 onRowClick={handleRowClick}
                 onEditClick={(row) => setEditingPropertyId(row.id)}
                 highlightedId={highlightedId}
+                interestByPropertyId={interestByPropertyId}
                 visibleColumns={visibleColumns}
                 onVisibleColumnsChange={setVisibleColumns}
                 arrangeColumns={arrangeColumns}
@@ -804,7 +822,7 @@ export function PropertiesPage() {
             ) : (
               <div
                 className="tile-scale-root"
-                style={leaseTileScaleStyle(LEASE_TILE_SCALE_DEFAULT / 100)}
+                style={leaseTileScaleStyle(factor)}
               >
                 <div className={sectionTileGridClassName(mobileTileColumns)}>
                   {filteredSortedRows.map((row) => {
@@ -910,6 +928,7 @@ export function PropertiesPage() {
                               className="mt-0.5"
                             />
                             <RentalInterestCue
+                              propertyId={row.id}
                               applicantCount={
                                 interestByPropertyId.get(row.id)?.applicantCount ?? 0
                               }

@@ -54,17 +54,42 @@ export function collectPropertyAddresses(store) {
 export function propertyOccupancyDetail(store, address) {
   const trimmed = String(address ?? '').trim()
   if (!trimmed) {
-    return { address: '', maxTenants: 0, availableSpots: 0, occupied: 0 }
+    return {
+      address: '',
+      maxTenants: 0,
+      availableSpots: 0,
+      occupied: 0,
+      furnished: false,
+      monthlyRent: null,
+      costPerPersonAtMax: null,
+      depositAmount: null,
+      pricingStructure: null,
+    }
   }
   const { property, slots } = availableApplicantSlotsAtAddress(store, trimmed)
   if (property) {
     const maxTenants = Math.max(1, Number(property.maxTenants) || 1)
     const availableSpots = Math.max(0, slots)
+    const monthlyRent =
+      Number.isFinite(Number(property.monthlyRent)) && Number(property.monthlyRent) > 0
+        ? Math.round(Number(property.monthlyRent))
+        : null
+    const depositAmount =
+      Number.isFinite(Number(property.depositAmount)) && Number(property.depositAmount) > 0
+        ? Math.round(Number(property.depositAmount))
+        : null
+    const furnished = property.furnished === true
     return {
       address: property.address?.trim() || trimmed,
       maxTenants,
       availableSpots,
       occupied: Math.max(0, maxTenants - availableSpots),
+      furnished,
+      monthlyRent,
+      costPerPersonAtMax:
+        monthlyRent != null ? Math.round((monthlyRent / maxTenants) * 100) / 100 : null,
+      depositAmount,
+      pricingStructure: property.pricingStructure ?? (furnished ? 'bed' : 'person'),
     }
   }
   return {
@@ -72,6 +97,11 @@ export function propertyOccupancyDetail(store, address) {
     maxTenants: 4,
     availableSpots: 4,
     occupied: 0,
+    furnished: false,
+    monthlyRent: null,
+    costPerPersonAtMax: null,
+    depositAmount: null,
+    pricingStructure: 'person',
   }
 }
 

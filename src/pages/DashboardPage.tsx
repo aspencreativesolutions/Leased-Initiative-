@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Columns3, Plus, Users } from 'lucide-react'
+import { Columns3, LayoutGrid, LayoutList, Plus, Users } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
@@ -10,11 +10,16 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
+import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { shouldShowInOfficialTenants } from '@/lib/clientUtils'
 import { useMobileTileColumns } from '@/lib/mobileTileColumns'
+import {
+  LEASE_TILE_SCALE_DEFAULT,
+  useTileScale,
+} from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import {
   sortOfficialTenants,
@@ -24,6 +29,29 @@ import {
   loadTenantTableColumnOrder,
   type TenantTableColumnId,
 } from '@/lib/tenantTableColumns'
+import { cn } from '@/lib/utils'
+
+const DASHBOARD_VIEW_KEY = 'dashboard-view-mode'
+const DASHBOARD_TILE_SCALE_KEY = 'dashboard-official-tenants-tile-scale'
+
+type DashboardViewMode = 'tile' | 'spreadsheet'
+
+/** Official Tenants / Dashboard default to spreadsheet on first visit. */
+function readViewModePreference(): DashboardViewMode {
+  try {
+    return localStorage.getItem(DASHBOARD_VIEW_KEY) === 'tile'
+      ? 'tile'
+      : 'spreadsheet'
+  } catch {
+    return 'spreadsheet'
+  }
+}
+
+const segmentedShellClass =
+  'inline-flex h-9 shrink-0 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-0.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
+
+const segmentedSegmentClass =
+  'inline-flex h-7 items-center justify-center gap-1.5 rounded-[calc(var(--radius-sm)-2px)] px-2 text-[10px] font-semibold uppercase tracking-caps transition-colors'
 
 export function DashboardPage() {
   const { clients, refresh, getContractForClient, settings, properties } = useApp()
@@ -32,12 +60,18 @@ export function DashboardPage() {
   const { count: notificationCount } = useAdminNotifications()
   const [addOpen, setAddOpen] = useState(false)
   const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<DashboardViewMode>(readViewModePreference)
   const [arrangeColumns, setArrangeColumns] = useState(false)
   const [columnOrder, setColumnOrder] = useState<TenantTableColumnId[]>(loadTenantTableColumnOrder)
   const [addressFocus, setAddressFocus] = useState<OfficialTenantAddressFocus>({ kind: 'all' })
   const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
     useMobileTileColumns()
+  const { scale, setScale, factor } = useTileScale(
+    DASHBOARD_TILE_SCALE_KEY,
+    LEASE_TILE_SCALE_DEFAULT
+  )
   const isMobile = useIsMobileViewport()
+  const effectiveViewMode: DashboardViewMode = isMobile ? 'tile' : viewMode
   const prevNotificationCount = useRef(0)
 
   const regions = settings.contractRegions ?? []
@@ -65,6 +99,21 @@ export function DashboardPage() {
       properties,
     ]
   )
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DASHBOARD_VIEW_KEY, viewMode)
+    } catch {
+      /* ignore quota / private mode */
+    }
+    if (viewMode !== 'spreadsheet') {
+      setArrangeColumns(false)
+    }
+  }, [viewMode])
+
+  useEffect(() => {
+    if (isMobile) setArrangeColumns(false)
+  }, [isMobile])
 
   useEffect(() => {
     if (notificationCount > prevNotificationCount.current) {
@@ -111,6 +160,15 @@ export function DashboardPage() {
             action={
               officialClients.length > 0 ? (
                 <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+                  {effectiveViewMode === 'tile' && !isMobile ? (
+                    <TileScaleControl
+                      variant="row"
+                      value={scale}
+                      onChange={setScale}
+                      label="Tenant tile size"
+                      className="min-w-[12.5rem] flex-none"
+                    />
+                  ) : null}
                   {isMobile ? (
                     <MobileTileColumnsControl
                       value={mobileTileColumns}
@@ -125,7 +183,45 @@ export function DashboardPage() {
                     addressFocus={addressFocus}
                     onAddressFocusChange={setAddressFocus}
                   />
-                  {!arrangeColumns && !isMobile ? (
+                  <div
+                    role="group"
+                    aria-label="Official Tenants display"
+                    className={cn(segmentedShellClass, 'hidden md:inline-flex')}
+                  >
+                    <button
+                      type="button"
+                      title="Tile View"
+                      aria-label="Tile View"
+                      aria-pressed={viewMode === 'tile'}
+                      onClick={() => setViewMode('tile')}
+                      className={cn(
+                        segmentedSegmentClass,
+                        viewMode === 'tile'
+                          ? 'bg-brand text-surface-paper'
+                          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                      )}
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+                      <span className="hidden sm:inline">Tile</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Spreadsheet View"
+                      aria-label="Spreadsheet View"
+                      aria-pressed={viewMode === 'spreadsheet'}
+                      onClick={() => setViewMode('spreadsheet')}
+                      className={cn(
+                        segmentedSegmentClass,
+                        viewMode === 'spreadsheet'
+                          ? 'bg-brand text-surface-paper'
+                          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                      )}
+                    >
+                      <LayoutList className="h-3.5 w-3.5" aria-hidden />
+                      <span className="hidden sm:inline">Spreadsheet</span>
+                    </button>
+                  </div>
+                  {effectiveViewMode === 'spreadsheet' && !arrangeColumns ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -134,6 +230,7 @@ export function DashboardPage() {
                       aria-pressed={false}
                       title="Edit Columns"
                       aria-label="Edit Columns"
+                      className="hidden md:inline-flex"
                     >
                       <Columns3 className="h-3.5 w-3.5" aria-hidden />
                       <span className="hidden sm:inline">Edit Columns</span>
@@ -158,12 +255,14 @@ export function DashboardPage() {
           ) : (
             <ClientTable
               clients={tableClients}
-              arrangeColumns={arrangeColumns && !isMobile}
+              viewMode={effectiveViewMode}
+              arrangeColumns={arrangeColumns && effectiveViewMode === 'spreadsheet'}
               onArrangeDone={() => setArrangeColumns(false)}
               columnOrder={columnOrder}
               onColumnOrderChange={setColumnOrder}
               mobileTileColumns={mobileTileColumns}
               onMobileTileColumnsChange={setMobileTileColumns}
+              tileScaleFactor={effectiveViewMode === 'tile' ? factor : undefined}
               onOpenTenantDetails={setDetailsTenantId}
             />
           )}

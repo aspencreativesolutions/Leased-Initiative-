@@ -12,7 +12,6 @@ type DemoTenantPovPickerProps = {
 }
 
 const FEATURED_SECTION_ID = 'start-application'
-const FEATURED_USER_KEY = 'pending-fresh'
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -117,6 +116,55 @@ function StatusPointList({ points }: { points: string[] }) {
   )
 }
 
+/** Direct-select row for Start Application (Ava) — no nested expand. */
+function StartApplicationReadyRow({
+  option,
+  selected,
+  busy,
+  disabled,
+  onSelect,
+}: {
+  option: DemoTenantPovOption
+  selected: boolean
+  busy: boolean
+  disabled: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      aria-pressed={selected}
+      aria-busy={busy || undefined}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface-paper px-3.5 py-3.5 text-left transition-colors sm:px-4 sm:py-4',
+        'hover:border-brand hover:bg-brand/[0.03] focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30',
+        selected && 'border-brand bg-brand/[0.04]',
+        busy && 'opacity-90',
+        disabled && !busy && 'cursor-not-allowed opacity-50'
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="heading-display block text-base font-semibold tracking-tight text-ink sm:text-lg">
+          {option.name}
+        </span>
+        <span className="mt-0.5 block text-sm font-medium text-brand">
+          {busy ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Opening…
+            </span>
+          ) : (
+            'Start Application Ready'
+          )}
+        </span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+    </button>
+  )
+}
+
 function TenantPovUserRow({
   option,
   expanded,
@@ -189,8 +237,8 @@ function TenantPovUserRow({
 }
 
 /**
- * Nested scenario dropdowns for Demo Mode tenant POV selection.
- * Section → mock users with status points → full card to proceed.
+ * Scenario picker for Demo Mode tenant POV selection.
+ * Start Application shows Ava as a direct click row; other sections nest expand → card.
  */
 export function DemoTenantPovPicker({
   selectedKey,
@@ -199,17 +247,15 @@ export function DemoTenantPovPicker({
   className,
 }: DemoTenantPovPickerProps) {
   const byKey = new Map(DEMO_TENANT_POV_OPTIONS.map((o) => [o.key, o]))
-  const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set([FEATURED_SECTION_ID])
-  )
-  const [openUsers, setOpenUsers] = useState<Set<string>>(() => new Set([FEATURED_USER_KEY]))
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set())
+  const [openUsers, setOpenUsers] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (!busyKey && !selectedKey) return
     const focusKey = busyKey ?? selectedKey
     if (!focusKey) return
     const section = DEMO_TENANT_POV_SECTIONS.find((s) => s.keys.includes(focusKey))
-    if (!section) return
+    if (!section || section.id === FEATURED_SECTION_ID) return
     setOpenSections((prev) => {
       if (prev.has(section.id)) return prev
       const next = new Set(prev)
@@ -250,7 +296,8 @@ export function DemoTenantPovPicker({
           .filter((o): o is DemoTenantPovOption => Boolean(o))
         if (options.length === 0) return null
 
-        const sectionOpen = openSections.has(section.id)
+        const isStartApplication = section.id === FEATURED_SECTION_ID
+        const sectionOpen = isStartApplication || openSections.has(section.id)
         const panelId = `demo-tenant-section-${section.id}`
         const countLabel = `${options.length} mock user${options.length === 1 ? '' : 's'}`
 
@@ -259,44 +306,66 @@ export function DemoTenantPovPicker({
             key={section.id}
             className="overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/15 bg-surface-paper"
           >
-            <button
-              type="button"
-              onClick={() => toggleSection(section.id)}
-              aria-expanded={sectionOpen}
-              aria-controls={panelId}
-              className={cn(
-                'flex w-full items-center gap-2 px-4 py-3.5 text-left transition-colors sm:px-5',
-                'hover:bg-brand/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/30',
-                sectionOpen && 'border-b border-line'
-              )}
-            >
-              {sectionOpen ? (
-                <ChevronDown className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
-              ) : (
-                <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="heading-display block text-lg font-semibold tracking-tight text-ink sm:text-xl">
+            {isStartApplication ? (
+              <div className="border-b border-line px-4 py-3.5 sm:px-5">
+                <p className="heading-display text-lg font-semibold tracking-tight text-ink sm:text-xl">
                   {section.title}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Click Ava Mitchell to open her portal at Start Application
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggleSection(section.id)}
+                aria-expanded={sectionOpen}
+                aria-controls={panelId}
+                className={cn(
+                  'flex w-full items-center gap-2 px-4 py-3.5 text-left transition-colors sm:px-5',
+                  'hover:bg-brand/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/30',
+                  sectionOpen && 'border-b border-line'
+                )}
+              >
+                {sectionOpen ? (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="heading-display block text-lg font-semibold tracking-tight text-ink sm:text-xl">
+                    {section.title}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">{countLabel}</span>
                 </span>
-                <span className="mt-0.5 block text-xs text-ink-muted">{countLabel}</span>
-              </span>
-            </button>
+              </button>
+            )}
 
             {sectionOpen ? (
               <div id={panelId} className="space-y-2.5 px-3 py-3 sm:px-4 sm:py-4">
-                {options.map((option) => (
-                  <TenantPovUserRow
-                    key={option.key}
-                    option={option}
-                    expanded={openUsers.has(option.key)}
-                    onToggle={() => toggleUser(option.key)}
-                    selected={selectedKey === option.key}
-                    busy={busyKey === option.key}
-                    disabled={busyKey !== null && busyKey !== option.key}
-                    onSelect={() => onSelect(option)}
-                  />
-                ))}
+                {options.map((option) =>
+                  isStartApplication ? (
+                    <StartApplicationReadyRow
+                      key={option.key}
+                      option={option}
+                      selected={selectedKey === option.key}
+                      busy={busyKey === option.key}
+                      disabled={busyKey !== null && busyKey !== option.key}
+                      onSelect={() => onSelect(option)}
+                    />
+                  ) : (
+                    <TenantPovUserRow
+                      key={option.key}
+                      option={option}
+                      expanded={openUsers.has(option.key)}
+                      onToggle={() => toggleUser(option.key)}
+                      selected={selectedKey === option.key}
+                      busy={busyKey === option.key}
+                      disabled={busyKey !== null && busyKey !== option.key}
+                      onSelect={() => onSelect(option)}
+                    />
+                  )
+                )}
               </div>
             ) : null}
           </section>

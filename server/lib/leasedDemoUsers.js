@@ -68,9 +68,10 @@ export const LEASED_DEMO_USERS = [
     role: 'client',
     label: 'Tenant — start application',
     description:
-      'Portal starts at Start Application — pick a landlord + address or enter an invite code, then Send',
+      'Portal starts at Start Application — pick a landlord company, then an address (furnished / unfurnished), or enter an invite code, then Send',
     tenantState: 'pending_approval',
     // Explicit nulls clear any prior prefs so the portal shows Start Application
+    // at Connect with Landlord → Start Application → company → address.
     preferredLeaseMonths: null,
     preferredLandlordCompany: null,
     preferredPropertyAddress: null,

@@ -55,8 +55,8 @@ export function PortalDashboardPage() {
         {showAvaStageNote ? (
           <p className="mb-3 rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2 text-center text-sm text-ink">
             <span className="font-semibold text-brand">Demo stage:</span> Ava Mitchell is at{' '}
-            <span className="font-semibold">Start Application</span> — choose a landlord or enter
-            an invite code, then Send.
+            <span className="font-semibold">Start Application</span> — pick a landlord company,
+            then choose an address (furnished or unfurnished), and Send.
           </p>
         ) : null}
         <PortalApplicationPanel

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, Eye, FileCheck } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Download, Eye, File, FileCheck, Loader2 } from 'lucide-react'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ContractSignatureRow } from '@/components/contracts/ContractFormField'
-import { apiFetch, ApiError } from '@/lib/api'
+import { apiFetch, ApiError, getToken } from '@/lib/api'
+import { getFilePreviewKind } from '@/lib/filePreview'
 import { getPortalContractStatus } from '@/lib/portalContractStatus'
 import type { ContractData, PortalContractClientStatus } from '@/types'
 
@@ -30,6 +31,9 @@ export function PortalContractPage() {
   const [reviewing, setReviewing] = useState(false)
   const [portalStatus, setPortalStatus] = useState<PortalContractClientStatus>('Pending Review')
   const [canSign, setCanSign] = useState(false)
+  const [replacementPreviewUrl, setReplacementPreviewUrl] = useState<string | null>(null)
+  const [replacementPreviewLoading, setReplacementPreviewLoading] = useState(false)
+  const [replacementPreviewError, setReplacementPreviewError] = useState('')
 
   const load = useCallback(
     async (silent = false) => {
@@ -64,6 +68,64 @@ export function PortalContractPage() {
     load()
   }, [load])
 
+  const replacementFileId = data?.contract.replacementDocumentFileId?.trim() || ''
+  const replacementName =
+    data?.contract.replacementDocumentName?.trim() || 'Lease document'
+  const replacementMime =
+    data?.contract.replacementDocumentMimeType?.trim() || 'application/octet-stream'
+  const replacementPreviewKind = replacementFileId
+    ? getFilePreviewKind({
+        originalName: replacementName,
+        mimeType: replacementMime,
+      })
+    : null
+
+  useEffect(() => {
+    if (!contractId || !replacementFileId || !replacementPreviewKind || replacementPreviewKind === 'unsupported') {
+      setReplacementPreviewUrl(null)
+      setReplacementPreviewError('')
+      setReplacementPreviewLoading(false)
+      return
+    }
+
+    let objectUrl: string | null = null
+    let cancelled = false
+
+    const loadPreview = async () => {
+      setReplacementPreviewLoading(true)
+      setReplacementPreviewError('')
+      try {
+        const token = getToken()
+        const res = await fetch(`/api/portal/contracts/${contractId}/document`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new ApiError(body.error || 'Could not load lease document', res.status)
+        }
+        const blob = await res.blob()
+        if (cancelled) return
+        objectUrl = URL.createObjectURL(blob)
+        setReplacementPreviewUrl(objectUrl)
+      } catch (err) {
+        if (cancelled) return
+        setReplacementPreviewError(
+          err instanceof ApiError ? err.message : 'Could not load lease document'
+        )
+      } finally {
+        if (!cancelled) setReplacementPreviewLoading(false)
+      }
+    }
+
+    void loadPreview()
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      setReplacementPreviewUrl(null)
+    }
+  }, [contractId, replacementFileId, replacementPreviewKind])
+
   useEffect(() => {
     if (!data || !location.hash) return
     const id = location.hash.replace('#', '')
@@ -71,6 +133,29 @@ export function PortalContractPage() {
       document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }, [data, location.hash])
+
+  const downloadReplacement = async () => {
+    if (!contractId) return
+    try {
+      const token = getToken()
+      const res = await fetch(`/api/portal/contracts/${contractId}/document`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new ApiError(body.error || 'Could not download lease document', res.status)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = replacementName
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not download lease document')
+    }
+  }
 
   const handleMarkReviewed = async () => {
     if (!contractId) return
@@ -165,11 +250,54 @@ export function PortalContractPage() {
       )}
 
       <Card padding="none" className="overflow-hidden border-0 bg-transparent shadow-none">
-        <ContractReviewView
-          contract={contract}
-          designerName={settings.ownerName}
-          businessName={settings.businessName}
-        />
+        {replacementFileId ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-ink-muted">
+                Your landlord uploaded: <span className="font-medium text-ink">{replacementName}</span>
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void downloadReplacement()}>
+                <Download className="h-3.5 w-3.5" />
+                Download
+              </Button>
+            </div>
+            {replacementPreviewKind === 'unsupported' ? (
+              <div className="flex flex-col items-center gap-3 rounded-[var(--radius-sm)] border border-line bg-surface px-4 py-10 text-center">
+                <File className="h-10 w-10 text-ink-faint" aria-hidden />
+                <p className="text-sm text-ink-muted">
+                  Preview isn’t available for this file type. Download it to review on your device.
+                </p>
+              </div>
+            ) : replacementPreviewLoading ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-ink-muted">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Loading document…
+              </div>
+            ) : replacementPreviewError ? (
+              <p className="py-8 text-center text-sm text-accent">{replacementPreviewError}</p>
+            ) : replacementPreviewKind === 'image' && replacementPreviewUrl ? (
+              <div className="flex justify-center bg-ink/5 p-2">
+                <img
+                  src={replacementPreviewUrl}
+                  alt={replacementName}
+                  className="max-h-[70vh] max-w-full object-contain"
+                />
+              </div>
+            ) : replacementPreviewKind === 'pdf' && replacementPreviewUrl ? (
+              <iframe
+                src={replacementPreviewUrl}
+                title={replacementName}
+                className="h-[70vh] w-full rounded-sm border border-line bg-surface"
+              />
+            ) : null}
+          </div>
+        ) : (
+          <ContractReviewView
+            contract={contract}
+            designerName={settings.ownerName}
+            businessName={settings.businessName}
+          />
+        )}
       </Card>
 
       {isAccepted ? (

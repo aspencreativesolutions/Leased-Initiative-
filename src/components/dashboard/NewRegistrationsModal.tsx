@@ -296,6 +296,21 @@ export function NewRegistrationsModal({
                         </>
                       )}
                     </p>
+                    {registration.preferredOccupancyMode === 'roommates' ? (
+                      <p className="text-xs font-medium text-brand">
+                        {(registration.roommateInviteCount ??
+                          registration.roommateInvitePhones?.length ??
+                          0) > 0
+                          ? `Invited ${registration.roommateInviteCount ?? registration.roommateInvitePhones?.length} friend${
+                              (registration.roommateInviteCount ??
+                                registration.roommateInvitePhones?.length ??
+                                0) === 1
+                                ? ''
+                                : 's'
+                            } to share`
+                          : 'Wants roommates · no friend invites sent yet'}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col gap-2 sm:items-stretch">
                     <Button

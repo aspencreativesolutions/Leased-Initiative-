@@ -57,7 +57,7 @@ export function useMobileTileColumns(
 }
 
 /**
- * Mobile: fixed 1 or 2 columns. Desktop (md+): lease auto-fill square grid.
+ * Mobile: fixed 1 or 2 columns. Desktop (md+): lease auto-fit centered square grid.
  */
 export function sectionTileGridClassName(columns: MobileTileColumns): string {
   return cn(

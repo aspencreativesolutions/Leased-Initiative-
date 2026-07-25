@@ -33,7 +33,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your tenant portal',
     description:
-      'Open an invite link or code from your landlord to confirm your rental on a pre-filled form. Or Start Application in your portal: choose a landlord company, pick an available address, choose Pay full rent or Live with roommates (invite friends up to open spots), and Send. After approval and lease signing, your dashboard centers on rent due dates, Pay Rent, leases, and updates.',
+      'Open an invite link or code from your landlord to confirm your rental on a pre-filled form. Or Start Application in your portal: choose a landlord company, pick an available address (see furnished status, total rent, and cost per person at full occupancy), choose Pay full rent or Live with roommates (your share drops as you invite friends), and Send. After approval and lease signing, your dashboard centers on rent due dates, Pay Rent, leases, and updates.',
   },
   {
     id: 'tenant-contracts',
@@ -84,7 +84,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your landlord workspace',
     description:
-      'Manage tenants from sign-up through an active lease — registrations, Official Tenants (Active / Upcoming lease status under each name; on mobile, scrollable tiles two-across by default; Edit Columns on larger screens; click a name for Tenant Details), lease agreements with Sent / Signed status and term progress (mobile tiles by default; Tile or Spreadsheet View in Display Settings on larger screens; Edit Columns in Spreadsheet View; cycle Lease Status through Any, Signed, or Sent, plus state, area code, or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
+      'Manage tenants from sign-up through an active lease — registrations, Official Tenants (Active / Upcoming lease status under each name; On Time / Overdue / Deposit Paid payment tags right-aligned in Spreadsheet View; on mobile, scrollable tiles two-across by default; on larger screens, Spreadsheet View by default — switch to Tile View with a Tenant tile size slider like Lease Agreements, or Edit Columns in Spreadsheet View; click a name for Tenant Details), lease agreements with Sent / Signed status and term progress (mobile tiles by default; Tile or Spreadsheet View in Display Settings on larger screens with a Lease tile size slider in Tile View; Edit Columns in Spreadsheet View; cycle Lease Status through Any, Signed, or Sent; cycle Lease Progress through Any, Not Started, Ongoing, or Ending Soon; filter by State like Rentals, plus area code or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
   },
   {
     id: 'landlord-properties',
@@ -92,7 +92,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Building2,
     title: 'Rentals and lease import',
     description:
-      'Open Rentals to add addresses with rental type, bedrooms, bed sizes per bedroom, and total monthly rent — maximum occupancy is calculated from beds. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, bed availability, and an occupancy box (people count); hover for “Click to see occupants,” expand the list, and open Tenant Details from a name. Color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
+      'Open Rentals to add addresses — first choose furnished or not, then pricing by room or person (and by bed when furnished), optional deposit, bedrooms, bed sizes, and total monthly rent. Maximum occupancy is calculated from beds; total rent, deposit, and occupancy are stored for tenant applications. They feed tenant signup, invitations, Upcoming Openings, and Payments. Tiles show monthly rent, bed availability, and an occupancy box (people count); hover for “Click to see occupants,” expand the list, and open Tenant Details from a name. Color-code by open beds (dark red when more beds are open, green when full). Assign tenants to a bedroom and bed in Tenant Details. On mobile, rentals appear as scrollable tiles (two per row by default; switch to one if you prefer). On larger screens, use Display Settings for Tile or Spreadsheet View (Rental tile size slider in Tile View; Edit Columns to rearrange, hide, or restore spreadsheet fields) and Filter by State, Town, and Group | Edit Groups (including map radius). In Company Profile, browse Rentals by type and All Renters, then import existing leases: queue files, Scan Files, confirm records, and send invite links by email or text.',
   },
   {
     id: 'landlord-users',
@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status so you can Review & Send — drafts are never delivered until you click Send to Tenant (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants (Upcoming until the lease starts). Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
+      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect — including how many friends they invited to share. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status and opens Lease Agreement Preview — Download the draft, Upload Replacement for a signed or custom lease, then Send from the preview banner when ready (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants (Upcoming until the lease starts). Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',
@@ -116,7 +116,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: AlertTriangle,
     title: 'Overdue rent messaging',
     description:
-      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings → Overdue Rent to focus past-due tiles. Send a custom text or pick a template — replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
+      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings to resize payment tiles, or filter → Overdue Rent to focus past-due tiles. Send a custom text or pick a template — replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
   },
   {
     id: 'landlord-tenant-alerts',

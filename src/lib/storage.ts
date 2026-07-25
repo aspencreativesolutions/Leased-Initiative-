@@ -22,6 +22,15 @@ export function normalizeProperty(p: Property): Property {
   const unitCount = Math.max(1, Number(p.unitCount) || 1)
   const baths = Number(p.bathrooms)
   const sqft = Number(p.squareFeet)
+  const furnished = p.furnished === true
+  const pricingRaw = String(p.pricingStructure ?? '').toLowerCase()
+  const pricingStructure =
+    pricingRaw === 'room'
+      ? 'room'
+      : pricingRaw === 'bed' && furnished
+        ? 'bed'
+        : 'person'
+  const deposit = Number(p.depositAmount)
   const base: Property = {
     ...p,
     address: migrateSampleAddress(p.address) ?? p.address,
@@ -29,8 +38,16 @@ export function normalizeProperty(p: Property): Property {
     unitCount,
     bedrooms: Math.max(0, Number(p.bedrooms) || 0),
     maxTenants: Math.max(1, Number(p.maxTenants) || unitCount),
+    furnished,
+    pricingStructure,
     ...(Number.isFinite(baths) && baths > 0 ? { bathrooms: baths } : {}),
     ...(Number.isFinite(sqft) && sqft > 0 ? { squareFeet: Math.floor(sqft) } : {}),
+    ...(Number.isFinite(deposit) && deposit > 0
+      ? { depositAmount: Math.round(deposit) }
+      : {}),
+  }
+  if (!(Number.isFinite(deposit) && deposit > 0)) {
+    delete base.depositAmount
   }
   return ensurePropertyMonthlyRent(ensurePropertyBedLayout(base))
 }

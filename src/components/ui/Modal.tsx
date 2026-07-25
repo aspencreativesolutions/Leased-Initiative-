@@ -10,6 +10,8 @@ interface ModalProps {
   size?: 'md' | 'lg' | 'xl' | 'full'
   /** Grow with content; scroll the viewport overlay instead of an inner panel scrollbar. */
   fitContent?: boolean
+  /** Optional controls shown in the top banner before the close (X) button. */
+  headerActions?: ReactNode
 }
 
 export function Modal({
@@ -19,6 +21,7 @@ export function Modal({
   children,
   size = 'md',
   fitContent = false,
+  headerActions,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return
@@ -50,15 +53,18 @@ export function Modal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="flex items-center justify-between border-b-[length:var(--border-width)] border-ink px-5 py-3.5 sm:py-4">
-        <h2 className="heading-display truncate pr-3 text-xl">{title}</h2>
-        <button
-          onClick={onClose}
-          className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-transparent p-1 text-ink-muted hover:border-ink hover:text-ink"
-          aria-label="Close"
-        >
-          <X className="h-5 w-5" strokeWidth={2.25} />
-        </button>
+      <div className="flex items-center justify-between gap-3 border-b-[length:var(--border-width)] border-ink px-5 py-3.5 sm:py-4">
+        <h2 className="heading-display min-w-0 truncate pr-1 text-xl">{title}</h2>
+        <div className="flex shrink-0 items-center gap-2">
+          {headerActions}
+          <button
+            onClick={onClose}
+            className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-transparent p-1 text-ink-muted hover:border-ink hover:text-ink"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" strokeWidth={2.25} />
+          </button>
+        </div>
       </div>
       <div
         className={cn(

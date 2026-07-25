@@ -49,6 +49,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     maxTenants: 4,
     /** Shared by two active demo roommates — $1,200 each */
     monthlyRent: 2400,
+    furnished: true,
+    pricingStructure: 'person',
+    depositAmount: 2400,
     addressDetails: {
       street: '523 Juanita Street',
       city: 'Steubenville',
@@ -64,6 +67,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 2,
     maxTenants: 4,
     monthlyRent: 2150,
+    furnished: false,
+    pricingStructure: 'room',
+    depositAmount: 2150,
     addressDetails: {
       street: '201 Heights Street',
       city: 'Weirton',
@@ -79,6 +85,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 2,
     maxTenants: 4,
     monthlyRent: 2200,
+    furnished: true,
+    pricingStructure: 'bed',
+    depositAmount: 2200,
     addressDetails: {
       street: '77 Maryland Street',
       city: 'Wheeling',
@@ -94,6 +103,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 2.5,
     maxTenants: 5,
     monthlyRent: 2850,
+    furnished: false,
+    pricingStructure: 'person',
+    depositAmount: 1425,
     addressDetails: {
       street: '211 Donnell Street',
       city: 'Weirton',
@@ -109,6 +121,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 3,
     maxTenants: 6,
     monthlyRent: 3200,
+    furnished: true,
+    pricingStructure: 'bed',
+    depositAmount: 3200,
     addressDetails: {
       street: '107 Broad Street',
       city: 'St. Clairsville',
@@ -124,6 +139,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 1.5,
     maxTenants: 3,
     monthlyRent: 1850,
+    furnished: false,
+    pricingStructure: 'person',
+    depositAmount: 1850,
     addressDetails: {
       street: '285 Bethany Pike',
       city: 'Wellsburg',
@@ -139,6 +157,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 1.5,
     maxTenants: 3,
     monthlyRent: 1750,
+    furnished: false,
+    pricingStructure: 'person',
+    depositAmount: 875,
     addressDetails: {
       street: '4610 Scioto Drive, Unit A',
       city: 'Steubenville',
@@ -154,6 +175,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 1,
     maxTenants: 3,
     monthlyRent: 1450,
+    furnished: true,
+    pricingStructure: 'person',
+    depositAmount: 1450,
     addressDetails: {
       street: '430 Canton Road, Unit 11',
       city: 'Wintersville',
@@ -169,6 +193,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     bathrooms: 1,
     maxTenants: 2,
     monthlyRent: 1350,
+    furnished: false,
+    pricingStructure: 'person',
+    depositAmount: 1350,
     addressDetails: {
       street: '1430 Ridge Avenue, Unit A',
       city: 'Steubenville',
@@ -185,6 +212,9 @@ export const DEFAULT_SEED_PROPERTIES = [
     maxTenants: 2,
     /** Vacant duplex side — unit rent still shown on Rentals */
     monthlyRent: 1400,
+    furnished: false,
+    pricingStructure: 'person',
+    depositAmount: 1400,
     addressDetails: {
       street: '1430 Ridge Avenue, Unit B',
       city: 'Steubenville',
@@ -272,6 +302,17 @@ function normalizeOptionalPositiveNumber(value) {
   return n
 }
 
+/** Room/person always; bed only when furnished. Defaults to person (or bed if furnished). */
+function normalizePricingStructure(value, furnished) {
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase()
+  if (raw === 'room') return 'room'
+  if (raw === 'bed' && furnished) return 'bed'
+  if (raw === 'person') return 'person'
+  return furnished ? 'bed' : 'person'
+}
+
 export function createPropertyRecord({
   address,
   propertyType,
@@ -281,6 +322,9 @@ export function createPropertyRecord({
   squareFeet,
   maxTenants,
   monthlyRent,
+  furnished,
+  pricingStructure,
+  depositAmount,
   bedroomsLayout,
   createdAt,
   importedFromLeaseScan,
@@ -296,6 +340,8 @@ export function createPropertyRecord({
     Number.isFinite(beds) && beds >= 0 ? Math.floor(beds) : 1
   )
   const derivedMax = Math.max(1, maxOccupancyFromLayout(layout))
+  const isFurnished = furnished === true
+  const pricing = normalizePricingStructure(pricingStructure, isFurnished)
   const record = {
     id: generateId(),
     address: String(address).trim(),
@@ -304,6 +350,8 @@ export function createPropertyRecord({
     bedrooms: layout.length,
     bedroomsLayout: layout,
     maxTenants: derivedMax,
+    furnished: isFurnished,
+    pricingStructure: pricing,
     createdAt: createdAt || new Date().toISOString(),
   }
   const baths = normalizeOptionalPositiveNumber(bathrooms)
@@ -324,6 +372,8 @@ export function createPropertyRecord({
     explicitRent != null
       ? Math.round(explicitRent)
       : resolvePropertyMonthlyRent(record)
+  const deposit = normalizeOptionalPositiveNumber(depositAmount)
+  if (deposit != null) record.depositAmount = Math.round(deposit)
   // Preserve explicit maxTenants only when no layout was provided and value is valid
   if (
     !bedroomsLayout &&
@@ -340,6 +390,7 @@ export function createPropertyRecord({
 export function normalizeStoredProperty(property) {
   if (!property || typeof property !== 'object') return property
   const units = Math.max(1, Math.floor(Number(property.unitCount) || 1))
+  const furnished = property.furnished === true
   let next = {
     ...property,
     address: String(property.address ?? '').trim(),
@@ -347,6 +398,8 @@ export function normalizeStoredProperty(property) {
     unitCount: units,
     bedrooms: Math.max(0, Math.floor(Number(property.bedrooms) || 0)),
     maxTenants: normalizeMaxTenants(property.maxTenants, units),
+    furnished,
+    pricingStructure: normalizePricingStructure(property.pricingStructure, furnished),
   }
   const baths = normalizeOptionalPositiveNumber(property.bathrooms)
   if (baths != null) next.bathrooms = baths
@@ -354,6 +407,9 @@ export function normalizeStoredProperty(property) {
   const sqft = normalizeOptionalPositiveNumber(property.squareFeet)
   if (sqft != null) next.squareFeet = Math.floor(sqft)
   else delete next.squareFeet
+  const deposit = normalizeOptionalPositiveNumber(property.depositAmount)
+  if (deposit != null) next.depositAmount = Math.round(deposit)
+  else delete next.depositAmount
   const details = normalizeAddressDetails(property.addressDetails)
   if (details) next.addressDetails = details
   else delete next.addressDetails
@@ -388,6 +444,24 @@ export function updatePropertyRecord(existing, updates) {
     const rent = normalizeOptionalPositiveNumber(updates.monthlyRent)
     if (rent != null) merged.monthlyRent = Math.round(rent)
   }
+  if (updates.furnished !== undefined) {
+    merged.furnished = updates.furnished === true
+  }
+  if (updates.pricingStructure !== undefined || updates.furnished !== undefined) {
+    merged.pricingStructure = normalizePricingStructure(
+      updates.pricingStructure ?? existing.pricingStructure,
+      merged.furnished === true
+    )
+  }
+  if (updates.depositAmount !== undefined) {
+    if (updates.depositAmount === null || updates.depositAmount === '') {
+      delete merged.depositAmount
+    } else {
+      const deposit = normalizeOptionalPositiveNumber(updates.depositAmount)
+      if (deposit != null) merged.depositAmount = Math.round(deposit)
+      else delete merged.depositAmount
+    }
+  }
   if (updates.addressDetails !== undefined) {
     const details = normalizeAddressDetails(updates.addressDetails)
     if (details) merged.addressDetails = details
@@ -414,6 +488,17 @@ function applySeedFields(property, seedEntry) {
   if (sqft != null) next.squareFeet = Math.floor(sqft)
   const seedRent = normalizeOptionalPositiveNumber(seedEntry.monthlyRent)
   if (seedRent != null) next.monthlyRent = Math.round(seedRent)
+  if (seedEntry.furnished === true || seedEntry.furnished === false) {
+    next.furnished = seedEntry.furnished === true
+  }
+  if (seedEntry.pricingStructure != null) {
+    next.pricingStructure = normalizePricingStructure(
+      seedEntry.pricingStructure,
+      next.furnished === true
+    )
+  }
+  const seedDeposit = normalizeOptionalPositiveNumber(seedEntry.depositAmount)
+  if (seedDeposit != null) next.depositAmount = Math.round(seedDeposit)
   if (seedDetails) next.addressDetails = seedDetails
   if (property.addressConfirmed !== true) next.addressConfirmed = true
   return next
@@ -604,14 +689,34 @@ export function validatePropertyInput(body) {
       ? Math.round(monthlyRentRaw)
       : undefined
 
+  const furnished = body?.furnished === true
+  let pricingStructure = normalizePricingStructure(body?.pricingStructure, furnished)
+  if (String(body?.pricingStructure ?? '').trim().toLowerCase() === 'bed' && !furnished) {
+    return { error: 'Pricing by bed is only available for furnished rentals' }
+  }
+
+  let depositAmount
+  if (body?.depositAmount === null || body?.depositAmount === '') {
+    depositAmount = null
+  } else if (body?.depositAmount != null && body?.depositAmount !== undefined) {
+    const depositRaw = Number(body.depositAmount)
+    if (!Number.isFinite(depositRaw) || depositRaw <= 0) {
+      return { error: 'Enter a valid deposit amount, or leave deposit blank' }
+    }
+    depositAmount = Math.round(depositRaw)
+  }
+
   return {
     address,
     propertyType,
     unitCount: Math.floor(unitCount),
     bedrooms: bedroomsLayout ? bedroomsLayout.length : Math.floor(bedrooms),
     maxTenants: Math.floor(maxTenants),
+    furnished,
+    pricingStructure,
     ...(bedroomsLayout ? { bedroomsLayout } : {}),
     ...(monthlyRent != null ? { monthlyRent } : {}),
+    ...(depositAmount !== undefined ? { depositAmount } : {}),
     addressConfirmed: true,
     addressDetails: normalizeAddressDetails(body?.addressDetails),
     ...(importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),

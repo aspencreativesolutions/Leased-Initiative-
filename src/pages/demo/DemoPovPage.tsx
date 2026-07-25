@@ -267,15 +267,14 @@ export function DemoPovPage() {
                 </button>
                 <div className="max-w-2xl">
                   <p className="mb-2 inline-flex rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2.5 py-1 text-[11px] font-semibold text-brand">
-                    Featured · Ava Mitchell · Start Application stage
+                    Featured · Ava Mitchell · Start Application Ready
                   </p>
                   <h1 className="heading-display text-3xl font-bold tracking-tight sm:text-4xl">
                     Choose a tenant scenario.
                   </h1>
                   <p className="mt-3 text-base leading-relaxed text-ink-muted sm:text-lg">
-                    Open a scenario section to browse mock users and their status. Expand a user
-                    for the full card — Ava Mitchell is ready at Start Application — then click
-                    the card to open that point of view.
+                    Click Ava Mitchell under Start Application to open her portal, or expand
+                    another scenario section to browse mock users and open their point of view.
                   </p>
                 </div>
               </div>

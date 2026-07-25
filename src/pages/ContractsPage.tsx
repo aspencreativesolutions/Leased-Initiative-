@@ -26,14 +26,20 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/FormField'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
+import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
 import { isMappableAddress } from '@/lib/addressMap'
 import {
   getLeaseAgreementBadgeLabel,
   getLeaseAgreementBadgeRank,
+  getLeaseAgreementProgressFilterLabel,
   getLeaseAgreementStatusFilterLabel,
   getLeaseAgreementStatusHoverDetail,
+  LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
+  leaseProgressMatchesFilter,
+  nextLeaseAgreementProgressFilter,
   nextLeaseAgreementStatusFilter,
+  type LeaseAgreementProgressFilter,
   type LeaseAgreementStatusFilter,
   getLeaseTermProgress,
 } from '@/lib/clientUtils'
@@ -56,12 +62,22 @@ import {
   useMobileTileColumns,
 } from '@/lib/mobileTileColumns'
 import {
+  getRentalStateFilterLabel,
+  nextOptionalLocationFilter,
+  RENTAL_LOCATION_FILTER_BUTTON_WIDTH_CLASS,
+  RENTAL_STATE_FILTER_ANY_LABEL,
+  RENTAL_STATE_FILTER_CYCLE_MAX,
+  shouldCycleLocationFilter,
+} from '@/lib/rentalDisplaySort'
+import {
   LEASE_TILE_SCALE_DEFAULT,
   leaseTileScaleStyle,
+  useTileScale,
 } from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
 
 const CONTRACTS_VIEW_KEY = 'contracts-view-mode'
+const CONTRACTS_TILE_SCALE_KEY = 'contracts-tile-scale'
 
 const LEASE_AGREEMENTS_HELP =
   'Track lease status, term progress, and ending urgency across all tenants.'
@@ -79,10 +95,9 @@ function readViewModePreference(): ContractsViewMode {
 }
 
 const LOCATION_FILTER_OPTIONS: {
-  id: ContractLocationFilterKind
+  id: Exclude<ContractLocationFilterKind, 'state'>
   label: string
 }[] = [
-  { id: 'state', label: 'Property State' },
   { id: 'areaCode', label: 'Area Code' },
   { id: 'region', label: 'Group' },
 ]
@@ -90,16 +105,46 @@ const LOCATION_FILTER_OPTIONS: {
 const filterButtonClass =
   'inline-flex h-9 items-center rounded-[var(--radius-sm)] border-2 px-3 text-[10px] font-semibold uppercase tracking-caps transition-colors shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
 
+/** Chevron used by the State cycle button and select (same placement as Rentals). */
+const locationFilterChevronClass = [
+  'bg-no-repeat bg-[length:0.55rem_0.55rem] bg-[position:right_0.45rem_center]',
+  'bg-[url(\'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23737373" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="m6 9 6 6 6-6"/%3E%3C/svg%3E\')]',
+].join(' ')
+
+/**
+ * Shared State filter chrome — identical width, height, padding, radius, type,
+ * arrow, hover, and active styling for cycle buttons and selects (mirrors Rentals).
+ */
+const locationFilterControlClass = [
+  'h-9 min-w-0 shrink-0 border-2 py-0 pl-3 pr-7 text-left',
+  'rounded-[var(--radius-sm)] text-[10px] font-semibold uppercase tracking-caps text-ink',
+  'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] transition-colors',
+  locationFilterChevronClass,
+  RENTAL_LOCATION_FILTER_BUTTON_WIDTH_CLASS,
+].join(' ')
+
+function locationFilterToneClass(active: boolean): string {
+  return active
+    ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+    : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+}
+
 export function ContractsPage() {
   const { clients, contracts, properties, settings, refresh } = useApp()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [regionsOpen, setRegionsOpen] = useState(false)
   const [preselectedId, setPreselectedId] = useState<string | undefined>()
-  const [filterKind, setFilterKind] = useState<ContractLocationFilterKind | null>(null)
+  const [filterKind, setFilterKind] = useState<Exclude<
+    ContractLocationFilterKind,
+    'state'
+  > | null>(null)
   const [filterValue, setFilterValue] = useState('')
+  const [stateFilter, setStateFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<LeaseAgreementStatusFilter | null>(
     null
   )
+  const [progressFilter, setProgressFilter] =
+    useState<LeaseAgreementProgressFilter | null>(null)
   const [filterBarOpen, setFilterBarOpen] = useState(false)
   const [mapTarget, setMapTarget] = useState<{ address: string; tenantName: string } | null>(
     null
@@ -113,6 +158,10 @@ export function ContractsPage() {
   const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('asc')
   const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
     useMobileTileColumns()
+  const { scale, setScale, factor } = useTileScale(
+    CONTRACTS_TILE_SCALE_KEY,
+    LEASE_TILE_SCALE_DEFAULT
+  )
   const isMobile = useIsMobileViewport()
   const effectiveViewMode: ContractsViewMode = isMobile ? 'tile' : viewMode
 
@@ -186,17 +235,23 @@ export function ContractsPage() {
     if (filterKind === 'areaCode') {
       return areaCodeOptions.map((code) => ({ value: code, label: code }))
     }
-    if (filterKind === 'state') {
-      return stateOptions.map((state) => ({ value: state, label: state }))
-    }
     if (filterKind === 'region') {
       return regions.map((region) => ({ value: region.id, label: region.name }))
     }
     return []
-  }, [filterKind, areaCodeOptions, stateOptions, regions])
+  }, [filterKind, areaCodeOptions, regions])
+
+  const cycleState = shouldCycleLocationFilter(
+    stateOptions.length,
+    RENTAL_STATE_FILTER_CYCLE_MAX
+  )
 
   const filteredOptions = useMemo(() => {
     return contractOptions.filter((option) => {
+      if (stateFilter && option.state !== stateFilter) {
+        return false
+      }
+
       if (
         !contractMatchesLocationFilter(
           {
@@ -212,14 +267,28 @@ export function ContractsPage() {
         return false
       }
 
-      if (!statusFilter) return true
+      if (statusFilter) {
+        const label = option.client
+          ? getLeaseAgreementBadgeLabel(option.client, option.contract)
+          : null
+        if (label !== statusFilter) return false
+      }
 
-      const label = option.client
-        ? getLeaseAgreementBadgeLabel(option.client, option.contract)
-        : null
-      return label === statusFilter
+      if (!leaseProgressMatchesFilter(option.progress, progressFilter)) {
+        return false
+      }
+
+      return true
     })
-  }, [contractOptions, filterKind, filterValue, regions, statusFilter])
+  }, [
+    contractOptions,
+    filterKind,
+    filterValue,
+    regions,
+    statusFilter,
+    progressFilter,
+    stateFilter,
+  ])
 
   const tableRows: ContractTableRow[] = useMemo(() => {
     const rows = filteredOptions.map(({ contract, client, clientName, address, progress }) => {
@@ -285,7 +354,7 @@ export function ContractsPage() {
     })
   }, [filteredOptions, tableSortColumn, tableSortDirection])
 
-  const selectFilterKind = (kind: ContractLocationFilterKind) => {
+  const selectFilterKind = (kind: Exclude<ContractLocationFilterKind, 'state'>) => {
     if (filterKind === kind) {
       setFilterKind(null)
       setFilterValue('')
@@ -297,6 +366,14 @@ export function ContractsPage() {
 
   const cycleStatusFilter = () => {
     setStatusFilter((current) => nextLeaseAgreementStatusFilter(current))
+  }
+
+  const cycleProgressFilter = () => {
+    setProgressFilter((current) => nextLeaseAgreementProgressFilter(current))
+  }
+
+  const cycleStateFilter = () => {
+    setStateFilter((current) => nextOptionalLocationFilter(current, stateOptions))
   }
 
   const handleTableSortChange = (column: ContractSortColumn) => {
@@ -322,11 +399,23 @@ export function ContractsPage() {
     if (!stillValid) setFilterValue('')
   }, [filterKind, filterValue, valueOptions])
 
-  const filtersActive = statusFilter !== null || filterKind !== null
-  const filterButtonLabel = statusFilter ?? 'Filter'
-  const locationFilterLabel = filterKind
-    ? LOCATION_FILTER_OPTIONS.find((o) => o.id === filterKind)?.label
-    : null
+  useEffect(() => {
+    if (!stateFilter) return
+    if (!stateOptions.includes(stateFilter)) setStateFilter('')
+  }, [stateFilter, stateOptions])
+
+  const filtersActive =
+    statusFilter !== null ||
+    progressFilter !== null ||
+    Boolean(stateFilter) ||
+    filterKind !== null
+  const filterButtonLabel = statusFilter ?? progressFilter ?? 'Filter'
+  const locationFilterLabel = stateFilter
+    ? getRentalStateFilterLabel(stateFilter)
+    : filterKind
+      ? LOCATION_FILTER_OPTIONS.find((o) => o.id === filterKind)?.label
+      : null
+  const stateFilterLabel = getRentalStateFilterLabel(stateFilter)
 
   const displaySettings =
     contracts.length > 0 ? (
@@ -337,20 +426,30 @@ export function ContractsPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Lease tile size"
+                className="min-w-[12.5rem] flex-none"
+              />
+            ) : null}
+
             <button
               type="button"
               onClick={() => setFilterBarOpen((open) => !open)}
               aria-expanded={filterBarOpen}
               aria-controls="contracts-filter-options"
               aria-label={
-                statusFilter
-                  ? `Filter: ${statusFilter}. Open to change lease status filter.`
-                  : 'Filter lease agreements by status'
+                statusFilter || progressFilter
+                  ? `Filter: ${[statusFilter, progressFilter].filter(Boolean).join(', ')}. Open to change lease filters.`
+                  : 'Filter lease agreements by status or progress'
               }
               title={
-                statusFilter
-                  ? `Filtered to ${statusFilter}`
-                  : 'Filter by lease status'
+                statusFilter || progressFilter
+                  ? `Filtered to ${[statusFilter, progressFilter].filter(Boolean).join(' · ')}`
+                  : 'Filter by lease status or progress'
               }
               className={cn(
                 filterButtonClass,
@@ -361,7 +460,7 @@ export function ContractsPage() {
               )}
             >
               {filterButtonLabel}
-              {!statusFilter && locationFilterLabel ? (
+              {!statusFilter && !progressFilter && locationFilterLabel ? (
                 <span className="normal-case tracking-normal text-ink-muted">
                   · {locationFilterLabel}
                 </span>
@@ -445,29 +544,96 @@ export function ContractsPage() {
               id="contracts-filter-options"
               className="flex flex-col gap-1.5 border-t border-ink/10 pt-1.5"
             >
-              <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
-                Lease Status
-              </p>
-              <button
-                type="button"
-                onClick={cycleStatusFilter}
-                aria-label={`Lease status filter: ${getLeaseAgreementStatusFilterLabel(statusFilter)}. Click to cycle Any, Signed, Sent.`}
-                title="Click to cycle lease status: Any → Signed → Sent"
-                className={cn(
-                  filterButtonClass,
-                  'w-[6rem] shrink-0 justify-center',
-                  statusFilter
-                    ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                    : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                )}
-              >
-                {getLeaseAgreementStatusFilterLabel(statusFilter)}
-              </button>
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+                    Lease Status
+                  </p>
+                  <button
+                    type="button"
+                    onClick={cycleStatusFilter}
+                    aria-label={`Lease status filter: ${getLeaseAgreementStatusFilterLabel(statusFilter)}. Click to cycle Any, Signed, Sent.`}
+                    title="Click to cycle lease status: Any → Signed → Sent"
+                    className={cn(
+                      filterButtonClass,
+                      'w-[6rem] shrink-0 justify-center',
+                      statusFilter
+                        ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                        : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                    )}
+                  >
+                    {getLeaseAgreementStatusFilterLabel(statusFilter)}
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+                    Lease Progress
+                  </p>
+                  <button
+                    type="button"
+                    onClick={cycleProgressFilter}
+                    aria-label={`Lease progress filter: ${getLeaseAgreementProgressFilterLabel(progressFilter)}. Click to cycle Any, Not Started, Ongoing, Ending Soon.`}
+                    title="Click to cycle lease progress: Any → Not Started → Ongoing → Ending Soon"
+                    className={cn(
+                      filterButtonClass,
+                      LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
+                      'shrink-0 justify-center',
+                      progressFilter
+                        ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                        : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                    )}
+                  >
+                    {getLeaseAgreementProgressFilterLabel(progressFilter)}
+                  </button>
+                </div>
+              </div>
 
               <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
                 Location
               </p>
               <div className="flex flex-wrap items-center gap-2">
+                {cycleState ? (
+                  <button
+                    type="button"
+                    onClick={cycleStateFilter}
+                    aria-label={`State filter: ${stateFilterLabel}. Click to cycle available states.`}
+                    title={
+                      stateFilter
+                        ? stateFilterLabel
+                        : stateOptions.length > 0
+                          ? `Click to cycle: ${RENTAL_STATE_FILTER_ANY_LABEL} → ${stateOptions.join(' → ')}`
+                          : RENTAL_STATE_FILTER_ANY_LABEL
+                    }
+                    className={cn(
+                      locationFilterControlClass,
+                      'inline-flex items-center',
+                      locationFilterToneClass(Boolean(stateFilter))
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{stateFilterLabel}</span>
+                  </button>
+                ) : (
+                  <select
+                    aria-label="State filter"
+                    title={stateFilterLabel}
+                    value={stateFilter}
+                    onChange={(e) => setStateFilter(e.target.value)}
+                    className={cn(
+                      locationFilterControlClass,
+                      'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                      locationFilterToneClass(Boolean(stateFilter))
+                    )}
+                  >
+                    <option value="">{RENTAL_STATE_FILTER_ANY_LABEL}</option>
+                    {stateOptions.map((state) => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 {LOCATION_FILTER_OPTIONS.map(({ id, label }) => {
                   const isActive = filterKind === id
                   const optionButton = (
@@ -515,11 +681,7 @@ export function ContractsPage() {
                   <Select
                     label=""
                     aria-label={
-                      filterKind === 'areaCode'
-                        ? 'Area code'
-                        : filterKind === 'state'
-                          ? 'Property state'
-                          : 'Group'
+                      filterKind === 'areaCode' ? 'Area code' : 'Group'
                     }
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
@@ -543,7 +705,10 @@ export function ContractsPage() {
             </div>
           ) : null}
 
-          {(statusFilter || (filterKind && filterValue)) && (
+          {(statusFilter ||
+            progressFilter ||
+            stateFilter ||
+            (filterKind && filterValue)) && (
             <p className="text-xs text-ink-faint">
               Showing {filteredOptions.length} of {contractOptions.length} leases
             </p>
@@ -570,7 +735,7 @@ export function ContractsPage() {
         <EmptyState
           icon={MapPinned}
           title="No lease agreements match this filter"
-          description="Try another lease status (Any, Signed, or Sent), area code, state, or group."
+          description="Try another lease status, progress (Any, Not Started, Ongoing, or Ending Soon), state, area code, or group."
         />
       ) : effectiveViewMode === 'spreadsheet' ? (
         <ContractTable
@@ -590,7 +755,7 @@ export function ContractsPage() {
       ) : (
         <div
           className="tile-scale-root"
-          style={leaseTileScaleStyle(LEASE_TILE_SCALE_DEFAULT / 100)}
+          style={leaseTileScaleStyle(factor)}
         >
           <div className={sectionTileGridClassName(mobileTileColumns)}>
             {filteredOptions.map(({ contract, client, clientName, address, progress }) => {

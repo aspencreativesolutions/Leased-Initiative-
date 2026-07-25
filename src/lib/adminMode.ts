@@ -49,7 +49,7 @@ export const CORE_MOCK_USERS: AdminMockUser[] = [
     role: 'client',
     label: 'Tenant — start application',
     description:
-      'Portal starts at Start Application — landlord + address or invite code, then Send',
+      'Portal starts at Start Application — landlord company, then address (furnished / unfurnished), or invite code, then Send',
     group: 'core',
     journey: 'pending_approval',
   },

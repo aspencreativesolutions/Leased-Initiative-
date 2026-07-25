@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   getLeaseAgreementBadgeLabel,
   getLeaseAgreementBadgeRank,
+  getLeaseAgreementProgressFilterLabel,
   getLeaseAgreementStatusFilterLabel,
   getLeaseAgreementStatusHoverDetail,
+  isLeaseAgreementProgressFilter,
   isLeaseAgreementStatusFilter,
+  LEASE_AGREEMENT_PROGRESS_FILTERS,
   LEASE_AGREEMENT_STATUS_FILTERS,
+  leaseProgressMatchesFilter,
+  nextLeaseAgreementProgressFilter,
   nextLeaseAgreementStatusFilter,
 } from '@/lib/clientUtils'
 import type { Client, ContractData } from '@/types'
@@ -239,5 +244,56 @@ describe('LEASE_AGREEMENT_STATUS_FILTERS', () => {
     expect(isLeaseAgreementStatusFilter(signedLabel)).toBe(true)
     expect(isLeaseAgreementStatusFilter(sentLabel)).toBe(true)
     expect(isLeaseAgreementStatusFilter(inTermLabel)).toBe(true)
+  })
+})
+
+describe('LEASE_AGREEMENT_PROGRESS_FILTERS', () => {
+  it('includes Not Started, Ongoing, and Ending Soon for Display Settings', () => {
+    expect(LEASE_AGREEMENT_PROGRESS_FILTERS).toEqual([
+      'Not Started',
+      'Ongoing',
+      'Ending Soon',
+    ])
+  })
+
+  it('recognizes filter values used by Display Settings → Lease Progress', () => {
+    expect(isLeaseAgreementProgressFilter('Not Started')).toBe(true)
+    expect(isLeaseAgreementProgressFilter('Ongoing')).toBe(true)
+    expect(isLeaseAgreementProgressFilter('Ending Soon')).toBe(true)
+    expect(isLeaseAgreementProgressFilter('Active')).toBe(false)
+    expect(isLeaseAgreementProgressFilter('Signed')).toBe(false)
+    expect(isLeaseAgreementProgressFilter(null)).toBe(false)
+  })
+
+  it('cycles Any → Not Started → Ongoing → Ending Soon → Any', () => {
+    expect(nextLeaseAgreementProgressFilter(null)).toBe('Not Started')
+    expect(nextLeaseAgreementProgressFilter('Not Started')).toBe('Ongoing')
+    expect(nextLeaseAgreementProgressFilter('Ongoing')).toBe('Ending Soon')
+    expect(nextLeaseAgreementProgressFilter('Ending Soon')).toBe(null)
+  })
+
+  it('labels null as Any for the cycle button', () => {
+    expect(getLeaseAgreementProgressFilterLabel(null)).toBe('Any')
+    expect(getLeaseAgreementProgressFilterLabel('Ongoing')).toBe('Ongoing')
+  })
+
+  it('matches term progress timeline states', () => {
+    expect(leaseProgressMatchesFilter({ state: 'Upcoming' }, null)).toBe(true)
+    expect(
+      leaseProgressMatchesFilter({ state: 'Upcoming' }, 'Not Started')
+    ).toBe(true)
+    expect(leaseProgressMatchesFilter({ state: 'Active' }, 'Not Started')).toBe(
+      false
+    )
+    expect(leaseProgressMatchesFilter({ state: 'Active' }, 'Ongoing')).toBe(true)
+    expect(
+      leaseProgressMatchesFilter({ state: 'Ending Soon' }, 'Ongoing')
+    ).toBe(false)
+    expect(
+      leaseProgressMatchesFilter({ state: 'Ending Soon' }, 'Ending Soon')
+    ).toBe(true)
+    expect(leaseProgressMatchesFilter({ state: 'Expired' }, 'Ongoing')).toBe(
+      false
+    )
   })
 })

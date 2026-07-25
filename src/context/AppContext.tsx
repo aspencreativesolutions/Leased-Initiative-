@@ -24,7 +24,7 @@ import {
 } from '@/lib/contractReview'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from '@/lib/api'
-import { createProperty as createPropertyRequest, updatePropertyRequest } from '@/lib/propertiesApi'
+import { createProperty as createPropertyRequest, updatePropertyRequest, type PropertyWriteInput } from '@/lib/propertiesApi'
 import { defaultSettings, migrateSampleAddress } from '@/data/seed'
 import { migrateServiceTier } from '@/lib/serviceTiers'
 import {
@@ -71,32 +71,8 @@ interface AppContextValue {
     client: Omit<Client, 'id' | 'createdAt' | 'notes' | 'deadlines'>,
     buildContract: (client: Client) => ContractData
   ) => Promise<Client>
-  addProperty: (input: {
-    address: string
-    propertyType: Property['propertyType']
-    bedrooms: number
-    maxTenants: number
-    unitCount?: number
-    bedroomsLayout?: Property['bedroomsLayout']
-    monthlyRent?: number
-    importedFromLeaseScan?: boolean
-    addressConfirmed?: boolean
-    addressDetails?: Property['addressDetails']
-  }) => Promise<Property>
-  updateProperty: (
-    propertyId: string,
-    input: {
-      address: string
-      propertyType: Property['propertyType']
-      bedrooms: number
-      maxTenants: number
-      unitCount?: number
-      bedroomsLayout?: Property['bedroomsLayout']
-      monthlyRent?: number
-      addressConfirmed?: boolean
-      addressDetails?: Property['addressDetails']
-    }
-  ) => Promise<Property>
+  addProperty: (input: PropertyWriteInput) => Promise<Property>
+  updateProperty: (propertyId: string, input: PropertyWriteInput) => Promise<Property>
   updateClient: (id: string, updates: Partial<Client>) => void
   getClient: (id: string) => Client | undefined
   addNote: (clientId: string, note: Omit<Note, 'id' | 'createdAt'>) => void
@@ -332,18 +308,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const addProperty = useCallback(
-    async (input: {
-      address: string
-      propertyType: Property['propertyType']
-      bedrooms: number
-      maxTenants: number
-      unitCount?: number
-      bedroomsLayout?: Property['bedroomsLayout']
-      monthlyRent?: number
-      importedFromLeaseScan?: boolean
-      addressConfirmed?: boolean
-      addressDetails?: Property['addressDetails']
-    }) => {
+    async (input: PropertyWriteInput) => {
       if (isAdmin) {
         const result = await createPropertyRequest(input)
         setProperties(result.properties)
@@ -351,6 +316,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return result.property
       }
       const unitCount = Math.max(1, Math.floor(input.unitCount ?? 1))
+      const furnished = input.furnished === true
       let property: Property = {
         id: generateId(),
         address: input.address.trim(),
@@ -358,10 +324,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unitCount,
         bedrooms: Math.max(0, Math.floor(input.bedrooms)),
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
+        furnished,
+        pricingStructure:
+          input.pricingStructure === 'room' ||
+          input.pricingStructure === 'person' ||
+          (input.pricingStructure === 'bed' && furnished)
+            ? input.pricingStructure
+            : furnished
+              ? 'bed'
+              : 'person',
         createdAt: new Date().toISOString(),
         ...(input.bedroomsLayout ? { bedroomsLayout: input.bedroomsLayout } : {}),
         ...(input.monthlyRent != null && input.monthlyRent > 0
           ? { monthlyRent: Math.round(input.monthlyRent) }
+          : {}),
+        ...(input.depositAmount != null && input.depositAmount > 0
+          ? { depositAmount: Math.round(input.depositAmount) }
           : {}),
         ...(input.importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),
         ...(input.addressConfirmed || input.importedFromLeaseScan
@@ -379,20 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   )
 
   const updateProperty = useCallback(
-    async (
-      propertyId: string,
-      input: {
-        address: string
-        propertyType: Property['propertyType']
-        bedrooms: number
-        maxTenants: number
-        unitCount?: number
-        bedroomsLayout?: Property['bedroomsLayout']
-        monthlyRent?: number
-        addressConfirmed?: boolean
-        addressDetails?: Property['addressDetails']
-      }
-    ) => {
+    async (propertyId: string, input: PropertyWriteInput) => {
       if (isAdmin) {
         const result = await updatePropertyRequest(propertyId, input)
         setProperties(result.properties)
@@ -401,6 +366,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const existing = properties.find((p) => p.id === propertyId)
       if (!existing) throw new Error('Rental not found')
+      const furnished = input.furnished === true
       let property: Property = normalizeProperty({
         ...existing,
         address: input.address.trim(),
@@ -408,6 +374,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unitCount: Math.max(1, Math.floor(input.unitCount ?? existing.unitCount ?? 1)),
         bedrooms: Math.max(0, Math.floor(input.bedrooms)),
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
+        furnished,
+        pricingStructure:
+          input.pricingStructure === 'room' ||
+          input.pricingStructure === 'person' ||
+          (input.pricingStructure === 'bed' && furnished)
+            ? input.pricingStructure
+            : furnished
+              ? 'bed'
+              : 'person',
         ...(input.bedroomsLayout ? { bedroomsLayout: input.bedroomsLayout } : {}),
         ...(input.monthlyRent != null && input.monthlyRent > 0
           ? { monthlyRent: Math.round(input.monthlyRent) }
@@ -415,6 +390,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...(input.addressConfirmed ? { addressConfirmed: true } : {}),
         ...(input.addressDetails ? { addressDetails: input.addressDetails } : {}),
       })
+      if (input.depositAmount === null) {
+        delete property.depositAmount
+      } else if (input.depositAmount != null && input.depositAmount > 0) {
+        property.depositAmount = Math.round(input.depositAmount)
+      }
+      property = normalizeProperty(property)
       const next = properties.map((p) => (p.id === propertyId ? property : p))
       setProperties(next)
       saveProperties(next)

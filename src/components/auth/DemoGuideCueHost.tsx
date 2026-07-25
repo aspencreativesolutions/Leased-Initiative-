@@ -35,7 +35,7 @@ function buildCue(kind: DemoGuideCueKind, name: string): ActiveCue {
     name,
     selector: '[data-onboarding="dashboard-pending-tenants-list"], #tenants-waiting-lease, [data-onboarding="tenants-waiting-lease"]',
     title: 'Pending Tenants',
-    note: `${name} is now a pending tenant with status Lease Drafted — open Review & Send Lease when you’re ready. Nothing is sent until you choose Send to Tenant (unless auto-send is on).`,
+    note: `${name} is now a pending tenant with status Lease Drafted — Lease Agreement Preview opens so you can Download, Upload Replacement, or Send when ready. Nothing is sent until you choose Send (unless auto-send is on).`,
   }
 }
 

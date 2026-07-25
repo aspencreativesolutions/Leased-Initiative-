@@ -4,6 +4,7 @@ import type {
   PropertyAddressDetails,
   PropertyBedroom,
   PropertyHousingType,
+  PropertyPricingStructure,
 } from '@/types'
 
 export type PropertyWriteInput = {
@@ -14,6 +15,10 @@ export type PropertyWriteInput = {
   unitCount?: number
   bedroomsLayout?: PropertyBedroom[]
   monthlyRent?: number
+  furnished?: boolean
+  pricingStructure?: PropertyPricingStructure
+  /** Security deposit; pass null to clear when editing. */
+  depositAmount?: number | null
   importedFromLeaseScan?: boolean
   addressConfirmed?: boolean
   addressDetails?: PropertyAddressDetails

@@ -52,7 +52,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-contracts"]',
     title: 'Start your application',
     description:
-      'Start with Start Application: pick landlord + property, choose Pay full rent or Live with roommates (invite friends up to open spots from the rental’s max occupancy), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
+      'Start with Start Application: pick landlord + property (dropdown shows furnished status, total rent, and cost per person at full occupancy), choose Pay full rent or Live with roommates (your share drops as you add friends up to open spots), then Send. Switch to Landlord POV jumps straight to the landlord’s New Registrants and Waiting to Connect — no second role prompt.',
     placement: 'top',
     when: (ctx) => ctx.linked === false,
   },
@@ -145,7 +145,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="tenants-waiting-connect"]',
     title: 'Waiting to Connect',
     description:
-      'This section shows people who claimed an invite or registered but are not yet connected. Review their property and requested lease start, then Accept & Draft Lease to generate a draft (not sent yet) — or dismiss them.',
+      'This section shows people who claimed an invite or registered but are not yet connected. Review their property, requested lease start, and any friends they invited to share, then Accept & Draft Lease to generate a draft (not sent yet) — or dismiss them.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -155,7 +155,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted with Review & Send Lease (draft only — not delivered yet). Open the draft to review, edit if needed, then intentionally Send to Tenant. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants (Upcoming until the lease start date).',
+      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants (Upcoming until the lease start date).',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -165,7 +165,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. Active or Upcoming lease status sits under each name. On mobile they appear as scrollable tiles (two per row by default). On larger screens, use Edit Columns to rearrange, hide, or restore table fields.',
+      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. Active or Upcoming lease status sits under each name; payment tags (On Time / Overdue / Deposit Paid) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default — switch to Tile View to use the Tenant tile size slider, or Edit Columns in Spreadsheet View to rearrange, hide, or restore fields.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -175,7 +175,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio lives here. Add addresses with type, bedrooms, and bed sizes (occupancy is calculated from beds); each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
+      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, bedrooms, and bed sizes (occupancy is calculated from beds); total rent, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -195,7 +195,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-contracts"]',
     title: 'Lease Agreements',
     description:
-      'Draft, send, and track every lease agreement. Tiles show Sent or Signed status and progress through the term. On mobile, leases appear as scrollable tiles (two per row by default). On larger screens, use Display Settings for Tile or Spreadsheet View, Edit Columns (rearrange, hide, or restore fields), and filters for lease status, property location, or group.',
+      'Draft, send, and track every lease agreement. Tiles show Sent or Signed status and progress through the term. On mobile, leases appear as scrollable tiles (two per row by default). On larger screens, use Display Settings for Tile or Spreadsheet View (Lease tile size slider in Tile View; Edit Columns to rearrange, hide, or restore fields), and filters for Lease Status, Lease Progress (Not Started / Ongoing / Ending Soon), State, area code, or group.',
     placement: 'bottom',
     route: '/studio/contracts',
     section: 'contracts',
@@ -205,7 +205,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Filter for Overdue Rent, Paid Early, or payment method, then Send Message to Tenant when someone is past due (replies stay on your phone).',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Use the Payment tile size slider in Display Settings to enlarge or shrink tiles. Filter for Overdue Rent, Paid Early, or payment method, then Send Message to Tenant when someone is past due (replies stay on your phone).',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',

@@ -21,9 +21,12 @@ import {
   type LeaseLengthMonths,
 } from '@/lib/leaseSchedule'
 import { claimPortalInvite, submitPortalApplication } from '@/lib/portalApplicationApi'
-import { requestPostApplyDemoTip } from '@/lib/publicDemo'
+import { DEMO_AVA_EMAIL, isPublicDemoSession, requestPostApplyDemoTip } from '@/lib/publicDemo'
 import { paymentProviderLabel } from '@/lib/paymentProvider'
+import { formatUsd } from '@/lib/rentalRent'
+import { cn } from '@/lib/utils'
 import type { PaymentProvider, PortalDashboard } from '@/types'
+import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
 
 type AgencyOption = {
   name: string
@@ -47,6 +50,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   const [viewOpen, setViewOpen] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [connectEnterRim, setConnectEnterRim] = useState(false)
+
+  const isAvaDemoGuide =
+    isPublicDemoSession() &&
+    user?.email?.trim().toLowerCase() === DEMO_AVA_EMAIL &&
+    !submitted
 
   const [agencies, setAgencies] = useState<AgencyOption[]>([])
   const [landlordCompany, setLandlordCompany] = useState('')
@@ -67,6 +76,19 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   useEffect(() => {
     if (submitted) setMode('sent')
   }, [submitted])
+
+  useEffect(() => {
+    if (!isAvaDemoGuide || mode !== 'choice') {
+      setConnectEnterRim(false)
+      return
+    }
+    setConnectEnterRim(true)
+    const timer = window.setTimeout(() => setConnectEnterRim(false), 2200)
+    return () => window.clearTimeout(timer)
+  }, [isAvaDemoGuide, mode])
+
+  const guideAddress =
+    isAvaDemoGuide && mode === 'apply' && Boolean(landlordCompany.trim()) && !propertyAddress.trim()
 
   useEffect(() => {
     let cancelled = false
@@ -105,6 +127,37 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     )
   }, [propertyAddress, selectedAgency])
   const maxRoommateInvites = Math.max(0, (selectedOccupancy?.availableSpots ?? 0) - 1)
+
+  const propertySelectOptions = useMemo<SearchableSelectOption[]>(() => {
+    const details = selectedAgency?.propertyDetails ?? []
+    return propertyOptions.map((address) => {
+      const detail =
+        details.find((d) => d.address.trim().toLowerCase() === address.trim().toLowerCase()) ??
+        null
+      if (!detail) return { value: address }
+      const parts: string[] = [detail.furnished ? 'Furnished' : 'Unfurnished']
+      if (detail.monthlyRent != null) {
+        parts.push(`${formatUsd(detail.monthlyRent)} total`)
+      }
+      if (detail.costPerPersonAtMax != null && detail.maxTenants > 1) {
+        parts.push(`${formatUsd(detail.costPerPersonAtMax)}/person at full occupancy`)
+      }
+      return { value: address, description: parts.join(' · ') }
+    })
+  }, [propertyOptions, selectedAgency])
+
+  const roommateSlotCount = occupancyMode === 'roommates' ? Math.max(0, roommatePhones.length) : 0
+  const householdSize = occupancyMode === 'roommates' ? 1 + roommateSlotCount : 1
+  const totalRent = selectedOccupancy?.monthlyRent ?? null
+  const shareNow =
+    totalRent != null && householdSize > 0
+      ? Math.round((totalRent / householdSize) * 100) / 100
+      : null
+  const shareAtMax = selectedOccupancy?.costPerPersonAtMax ?? null
+  const openSpotsLeft =
+    occupancyMode === 'roommates'
+      ? Math.max(0, (selectedOccupancy?.availableSpots ?? 0) - householdSize)
+      : 0
 
   useEffect(() => {
     if (occupancyMode !== 'roommates') return
@@ -393,7 +446,15 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
 
   if (mode === 'choice') {
     return (
-      <div className="paper-box mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10">
+      <div
+        className={cn(
+          'paper-box mt-4 px-4 py-8 text-center sm:px-8 sm:py-10',
+          isAvaDemoGuide
+            ? 'mx-auto w-[calc(100%-80px)] max-w-full'
+            : 'w-full',
+          connectEnterRim && 'portal-connect-box--enter-rim'
+        )}
+      >
         <p className="text-lg font-semibold text-ink sm:text-xl">Connect with a landlord</p>
         <p className="mt-3 text-sm text-ink-muted sm:text-base">
           Start a new application from scratch, or enter an invite code your landlord sent you.
@@ -582,22 +643,37 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
           hint="All companies available for public discovery"
           emptyMessage="No matching companies"
         />
-        <SearchableSelect
-          label="Desired Address"
-          name="preferredPropertyAddress"
-          value={propertyAddress}
-          options={propertyOptions}
-          onChange={handlePropertyChange}
-          required
-          disabled={!landlordCompany.trim()}
-          placeholder={
-            landlordCompany.trim()
-              ? 'Start typing a property address…'
-              : 'Select a landlord first'
-          }
-          hint="Addresses listed for the selected landlord"
-          emptyMessage="No available properties found for this company"
-        />
+        <div className={cn(guideAddress && 'space-y-2')}>
+          {guideAddress ? (
+            <p
+              className="rounded-[var(--radius-sm)] border border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink"
+              role="status"
+            >
+              <span className="font-semibold text-brand">Choose an address</span>
+              {' — '}
+              open the list and pick a property. Each option shows furnished or unfurnished
+              status, total rent, and cost per person when available.
+            </p>
+          ) : null}
+          <SearchableSelect
+            label="Desired Address"
+            name="preferredPropertyAddress"
+            value={propertyAddress}
+            options={propertySelectOptions}
+            onChange={handlePropertyChange}
+            required
+            disabled={!landlordCompany.trim()}
+            placeholder={
+              landlordCompany.trim()
+                ? 'Start typing a property address…'
+                : 'Select a landlord first'
+            }
+            hint="Addresses listed for the selected landlord — furnished status, total rent, and per-person cost at full occupancy"
+            emptyMessage="No available properties found for this company"
+            controlClassName={guideAddress ? 'portal-address-field--guide' : undefined}
+            openOnMount={guideAddress}
+          />
+        </div>
         <Select
           label="Preferred lease length"
           name="preferredLeaseMonths"
@@ -619,19 +695,48 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               How will you occupy this rental?
             </p>
             {selectedOccupancy ? (
-              <p className="text-sm text-ink-muted">
-                This rental accommodates up to{' '}
-                <span className="font-semibold text-ink">{selectedOccupancy.maxTenants}</span>{' '}
-                {selectedOccupancy.maxTenants === 1 ? 'person' : 'people'}
-                {selectedOccupancy.occupied > 0
-                  ? ` · ${selectedOccupancy.occupied} already placed`
-                  : null}
-                {' · '}
-                <span className="font-semibold text-ink">
-                  {selectedOccupancy.availableSpots}{' '}
-                  {selectedOccupancy.availableSpots === 1 ? 'spot' : 'spots'} open
-                </span>
-              </p>
+              <div className="space-y-2 text-sm text-ink-muted">
+                <p>
+                  {selectedOccupancy.furnished ? 'Furnished' : 'Unfurnished'}
+                  {totalRent != null ? (
+                    <>
+                      {' '}
+                      · Total rent{' '}
+                      <span className="font-semibold text-ink">{formatUsd(totalRent)}</span>
+                      /month
+                    </>
+                  ) : null}
+                  {shareAtMax != null && selectedOccupancy.maxTenants > 1 ? (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span className="font-semibold text-ink">{formatUsd(shareAtMax)}</span>
+                      /person at full occupancy ({selectedOccupancy.maxTenants})
+                    </>
+                  ) : null}
+                </p>
+                <p>
+                  This rental accommodates up to{' '}
+                  <span className="font-semibold text-ink">{selectedOccupancy.maxTenants}</span>{' '}
+                  {selectedOccupancy.maxTenants === 1 ? 'person' : 'people'}
+                  {selectedOccupancy.occupied > 0
+                    ? ` · ${selectedOccupancy.occupied} already placed`
+                    : null}
+                  {' · '}
+                  <span className="font-semibold text-ink">
+                    {selectedOccupancy.availableSpots}{' '}
+                    {selectedOccupancy.availableSpots === 1 ? 'spot' : 'spots'} open
+                  </span>
+                </p>
+                {selectedOccupancy.depositAmount != null ? (
+                  <p>
+                    Deposit{' '}
+                    <span className="font-semibold text-ink">
+                      {formatUsd(selectedOccupancy.depositAmount)}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <p className="text-sm text-ink-muted">
                 Occupancy limits come from the landlord’s rental details once an address is
@@ -660,7 +765,9 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 <span>
                   <span className="block text-sm font-semibold text-ink">Pay full rent</span>
                   <span className="mt-0.5 block text-xs text-ink-muted">
-                    You’ll cover the full rent for this rental.
+                    {totalRent != null
+                      ? `You’ll cover ${formatUsd(totalRent)}/month for this rental.`
+                      : 'You’ll cover the full rent for this rental.'}
                   </span>
                 </span>
               </button>
@@ -689,6 +796,39 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
 
             {occupancyMode === 'roommates' ? (
               <div className="space-y-3 border-t border-line pt-3">
+                {shareNow != null && totalRent != null ? (
+                  <div className="rounded-[var(--radius-sm)] border border-brand/20 bg-brand/5 px-3 py-2.5 text-sm text-ink">
+                    <p>
+                      Your share with{' '}
+                      <span className="font-semibold">
+                        {householdSize} {householdSize === 1 ? 'person' : 'people'}
+                      </span>
+                      :{' '}
+                      <span className="font-semibold tabular-nums">{formatUsd(shareNow)}</span>
+                      /month
+                      {householdSize > 1 ? (
+                        <span className="text-ink-muted">
+                          {' '}
+                          (down from {formatUsd(totalRent)} alone)
+                        </span>
+                      ) : null}
+                    </p>
+                    {openSpotsLeft > 0 ? (
+                      <p className="mt-1 text-xs text-ink-muted">
+                        Invite {openSpotsLeft} more friend
+                        {openSpotsLeft === 1 ? '' : 's'} to lower your share
+                        {shareAtMax != null
+                          ? ` — as low as ${formatUsd(shareAtMax)}/person at full occupancy`
+                          : ''}
+                        .
+                      </p>
+                    ) : shareAtMax != null && householdSize >= (selectedOccupancy?.availableSpots ?? 0) ? (
+                      <p className="mt-1 text-xs text-ink-muted">
+                        You’ve filled the open spots for this rental.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 <p className="text-sm text-ink">
                   <span className="font-semibold">{selectedOccupancy?.availableSpots ?? 0}</span>{' '}
                   {(selectedOccupancy?.availableSpots ?? 0) === 1 ? 'spot' : 'spots'} available
@@ -744,7 +884,8 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                     ) : null}
                     <p className="text-[11px] text-ink-muted">
                       Phone numbers are optional — leave blank if you’ll invite later. Each filled
-                      number gets a one-time invite link by text.
+                      number gets a one-time invite link by text. Your share updates as you add
+                      roommates.
                     </p>
                   </div>
                 )}

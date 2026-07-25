@@ -23,6 +23,12 @@ export type LandlordPropertyDetail = {
   maxTenants: number
   availableSpots: number
   occupied: number
+  furnished?: boolean
+  monthlyRent?: number | null
+  /** Total rent ÷ max occupancy when both are known */
+  costPerPersonAtMax?: number | null
+  depositAmount?: number | null
+  pricingStructure?: 'room' | 'person' | 'bed' | null
 }
 
 export async function fetchLandlordCompanies() {

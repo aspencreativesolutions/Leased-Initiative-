@@ -9,6 +9,7 @@ import {
 } from '@/lib/paymentStatusPresentation'
 import {
   getLastPaymentMadeOn,
+  paymentTenantHref,
   paymentTenantRemindHref,
 } from '@/lib/paymentTenantRows'
 import { InPlaceHoverText } from '@/components/ui/InPlaceHoverText'
@@ -25,6 +26,7 @@ interface PaymentStatusDateTagsProps {
 /**
  * Official Tenants payment column: On Time / Overdue / Deposit Paid, with
  * in-tag hover details and a Notify → action to the right when past due.
+ * Clicking the tag opens Payments and highlights that tenant’s tile.
  */
 export function PaymentStatusDateTags({
   client,
@@ -33,14 +35,22 @@ export function PaymentStatusDateTags({
 }: PaymentStatusDateTagsProps) {
   const schedule = getLeaseRentSchedule(client, contract)
   const leaseUpcoming = getLeaseStatusDetails(client, contract).state === 'Upcoming'
+  const lastPaidOn = getLastPaymentMadeOn(schedule.payments, client)
   const column = buildOfficialPaymentColumnPresentation({
     nextDueDate: schedule.nextDueDate,
     daysUntilNextDue: schedule.daysUntilNextDue,
     overduePaymentCount: schedule.overduePaymentCount,
-    lastPaidOn: getLastPaymentMadeOn(schedule.payments, client),
+    lastPaidOn,
     paymentProvider: resolveLastTransactionPaymentProvider(client, contract),
     leaseUpcoming,
   })
+
+  const paymentsHref =
+    column.kind === 'overdue'
+      ? paymentTenantRemindHref(client.id)
+      : lastPaidOn
+        ? paymentTenantHref(client.id, 'last')
+        : paymentTenantHref(client.id)
 
   const tagShell = cn(
     'in-place-hover--payment-tag',
@@ -74,7 +84,8 @@ export function PaymentStatusDateTags({
       <InPlaceHoverText
         primary={<span className={tagLayerClass}>{column.tagLabel}</span>}
         secondary={<span className={tagLayerClass}>{column.tagHoverLabel}</span>}
-        ariaLabel={column.ariaLabel}
+        ariaLabel={`${column.ariaLabel} Open Payments for ${client.name}.`}
+        to={paymentsHref}
         className={tagShell}
         expandOnReveal
         overlayExpand

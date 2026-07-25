@@ -20,6 +20,7 @@ import {
 } from '@/lib/leaseSchedule'
 import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
 import { generateId } from '@/lib/storage'
+import { requestLeaseAgreementPreview } from '@/lib/leaseAgreementPreview'
 import type { BusinessSettings, Client, ContractData, ProjectType, Property } from '@/types'
 
 const EMPTY_FORM = {
@@ -173,7 +174,7 @@ export function AddClientModal({
     setSubmitting(true)
     setError('')
     try {
-      await addClientWithContract(
+      const client = await addClientWithContract(
         {
           name: form.name.trim(),
           businessName: form.name.trim(),
@@ -200,6 +201,7 @@ export function AddClientModal({
             leaseLengthMonths
           )
       )
+      requestLeaseAgreementPreview(client.id)
       onAdded?.()
       onClose()
       const studioPath = location.pathname.startsWith('/studio')
