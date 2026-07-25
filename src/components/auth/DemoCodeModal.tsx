@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
+import { prepareViewportForNavigation } from '@/lib/mobileViewport'
 import { redeemDemoCode, type DemoAccountCredentials } from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
@@ -44,6 +45,7 @@ export function DemoCodeModal({
     setSubmitting(true)
     try {
       const result = await redeemDemoCode(code, role)
+      await prepareViewportForNavigation()
       onSuccess(result.account)
       setCode('')
     } catch (err) {
@@ -79,6 +81,8 @@ export function DemoCodeModal({
           autoFocus
           required
           placeholder="Enter code"
+          // 16px — prevents iOS Safari auto-zoom on focus (text-sm is 14px).
+          style={{ fontSize: 16 }}
         />
         <div className="flex flex-wrap justify-end gap-2 pt-1">
           <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>

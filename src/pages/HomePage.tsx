@@ -30,6 +30,7 @@ import {
 } from '@/lib/welcomeSlides'
 import { markPublicDemoSession, redeemDemoCode } from '@/lib/publicDemo'
 import { unlockAdminMode } from '@/lib/adminUnlock'
+import { prepareViewportForNavigation } from '@/lib/mobileViewport'
 import { cn } from '@/lib/utils'
 import { persistThemeIdAcrossSurfaces } from '@/themes/applyTheme'
 
@@ -383,6 +384,8 @@ export function HomePage() {
       markPublicDemoSession()
       // Carry the homepage Style Chooser pick into landlord + tenant demo surfaces.
       persistThemeIdAcrossSurfaces(themeId)
+      // Blur + settle viewport so iOS does not carry input zoom onto /demo/pov.
+      await prepareViewportForNavigation(demoInputRef.current)
       navigate('/demo/pov', { replace: true })
     } catch (err) {
       setDemoError(err instanceof ApiError ? err.message : 'Could not unlock the demo')

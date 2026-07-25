@@ -40,6 +40,10 @@ export function DemoPovPage() {
   const autoLandlordStarted = useRef(false)
 
   useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
+  useEffect(() => {
     if (loading) return
     if (!isPublicDemoSession()) {
       navigate('/', { replace: true })
