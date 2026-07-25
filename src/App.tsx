@@ -54,60 +54,65 @@ export default function App() {
                 <PortalThemeSync />
                 <AdminModeFab />
                 <PublicDemoPovFab />
-                <PaymentPartnerLogos />
-                <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/terms" element={<TermsOfServicePage />} />
-              <Route path="/demo/pov" element={<DemoPovPage />} />
-              <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
-              <Route path="/welcome" element={<RoleSelectPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage mode="client" />} />
-              <Route path="/check-email" element={<CheckEmailPage />} />
-              <Route path="/verify-email" element={<VerifyEmailPage />} />
-              <Route path="/studio/login" element={<StudioLoginPage />} />
-              <Route path="/studio/register" element={<StudioRegisterPage />} />
-              <Route path="/portal/login" element={<PortalLoginPage />} />
-              <Route path="/portal/register" element={<PortalRegisterPage />} />
+                {/* Main column fills the viewport so the in-flow footer stays below the fold. */}
+                <div className="flex min-h-dvh flex-col">
+                  <div className="flex min-h-dvh flex-1 flex-col">
+                    <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/terms" element={<TermsOfServicePage />} />
+                  <Route path="/demo/pov" element={<DemoPovPage />} />
+                  <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
+                  <Route path="/welcome" element={<RoleSelectPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage mode="client" />} />
+                  <Route path="/check-email" element={<CheckEmailPage />} />
+                  <Route path="/verify-email" element={<VerifyEmailPage />} />
+                  <Route path="/studio/login" element={<StudioLoginPage />} />
+                  <Route path="/studio/register" element={<StudioRegisterPage />} />
+                  <Route path="/portal/login" element={<PortalLoginPage />} />
+                  <Route path="/portal/register" element={<PortalRegisterPage />} />
 
-              <Route element={<ProtectedRoute role="client" />}>
-                <Route element={<PortalLayout />}>
-                  <Route path="/portal" element={<PortalDashboardPage />} />
-                  <Route path="/portal/profile" element={<PortalProfilePage />} />
-                  <Route path="/portal/timeline" element={<PortalTimelinePage />} />
-                  <Route path="/portal/report" element={<PortalReportPage />} />
-                  <Route path="/portal/contracts/:contractId" element={<PortalContractPage />} />
-                  <Route path="/portal/payment/success" element={<PortalPaymentSuccessPage />} />
-                </Route>
-              </Route>
+                  <Route element={<ProtectedRoute role="client" />}>
+                    <Route element={<PortalLayout />}>
+                      <Route path="/portal" element={<PortalDashboardPage />} />
+                      <Route path="/portal/profile" element={<PortalProfilePage />} />
+                      <Route path="/portal/timeline" element={<PortalTimelinePage />} />
+                      <Route path="/portal/report" element={<PortalReportPage />} />
+                      <Route path="/portal/contracts/:contractId" element={<PortalContractPage />} />
+                      <Route path="/portal/payment/success" element={<PortalPaymentSuccessPage />} />
+                    </Route>
+                  </Route>
 
-              <Route element={<ProtectedRoute role="admin" />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/studio" element={<DashboardPage />} />
-                  <Route path="/studio/openings" element={<Navigate to="/studio/properties" replace />} />
-                  <Route path="/studio/rentals" element={<Navigate to="/studio/properties" replace />} />
-                  <Route path="/studio/properties" element={<PropertiesPage />} />
-                  <Route path="/studio/alerts" element={<TenantAlertsPage />} />
-                  <Route path="/studio/users" element={<Navigate to="/studio" replace />} />
-                  <Route path="/studio/clients" element={<Navigate to="/studio" replace />} />
-                  <Route path="/studio/clients/:id" element={<ClientProfilePage />} />
-                  <Route path="/studio/clients/:id/contract" element={<ContractPage />} />
-                  <Route path="/studio/clients/:id/payment/success" element={<PaymentSuccessPage />} />
-                  <Route path="/studio/contracts" element={<ContractsPage />} />
-                  <Route path="/studio/payments" element={<PaymentsPage />} />
-                  <Route
-                    path="/studio/payments/overdue"
-                    element={<Navigate to="/studio/payments?status=overdue" replace />}
-                  />
-                  <Route path="/studio/calendar" element={<Navigate to="/studio/properties" replace />} />
-                  <Route path="/studio/scheduler" element={<Navigate to="/studio/properties" replace />} />
-                  <Route path="/studio/settings" element={<SettingsPage />} />
-                  <Route path="/studio/profile" element={<ProfilePage />} />
-                </Route>
-              </Route>
+                  <Route element={<ProtectedRoute role="admin" />}>
+                    <Route element={<AppLayout />}>
+                      <Route path="/studio" element={<DashboardPage />} />
+                      <Route path="/studio/openings" element={<Navigate to="/studio/properties" replace />} />
+                      <Route path="/studio/rentals" element={<Navigate to="/studio/properties" replace />} />
+                      <Route path="/studio/properties" element={<PropertiesPage />} />
+                      <Route path="/studio/alerts" element={<TenantAlertsPage />} />
+                      <Route path="/studio/users" element={<Navigate to="/studio" replace />} />
+                      <Route path="/studio/clients" element={<Navigate to="/studio" replace />} />
+                      <Route path="/studio/clients/:id" element={<ClientProfilePage />} />
+                      <Route path="/studio/clients/:id/contract" element={<ContractPage />} />
+                      <Route path="/studio/clients/:id/payment/success" element={<PaymentSuccessPage />} />
+                      <Route path="/studio/contracts" element={<ContractsPage />} />
+                      <Route path="/studio/payments" element={<PaymentsPage />} />
+                      <Route
+                        path="/studio/payments/overdue"
+                        element={<Navigate to="/studio/payments?status=overdue" replace />}
+                      />
+                      <Route path="/studio/calendar" element={<Navigate to="/studio/properties" replace />} />
+                      <Route path="/studio/scheduler" element={<Navigate to="/studio/properties" replace />} />
+                      <Route path="/studio/settings" element={<SettingsPage />} />
+                      <Route path="/studio/profile" element={<ProfilePage />} />
+                    </Route>
+                  </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </div>
+                  <PaymentPartnerLogos />
+                </div>
             </BrowserRouter>
           </AppProvider>
         </AuthProvider>

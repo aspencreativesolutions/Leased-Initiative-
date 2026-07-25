@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ExternalLink, FolderKanban, KeyRound, Save, UserCircle } from 'lucide-react'
+import { ExternalLink, KeyRound, Save, UserCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -127,31 +127,47 @@ export function PortalProfilePage() {
   }
 
   return (
-    <div>
+    <div className="w-full min-w-0">
       <PageHeader
         title="My Profile"
         subtitle="Account details, credentials, and your active projects"
       />
 
-      <div className="space-y-6">
+      <div className="w-full min-w-0 space-y-6">
         <Card>
-          <CardHeader title="Account" subtitle="Your sign-in email" />
-          <Input
-            label="Email"
-            type="email"
-            value={profile.email}
-            readOnly
-            hint="Contact your landlord if you need to change your login email."
+          <CardHeader
+            title="Account"
+            subtitle={
+              user
+                ? `Login, personal details, and password · Member since ${formatDate(user.createdAt.split('T')[0])}`
+                : 'Login, personal details, and password'
+            }
           />
-        </Card>
-
-        <form onSubmit={handleProfileSubmit}>
-          <Card>
-            <CardHeader
-              title="Personal details"
-              subtitle="Update how your landlord sees you on project files and leases"
-            />
+          <div className="space-y-8">
             <div className="space-y-4">
+              <Input
+                label="Login email"
+                type="email"
+                value={profile.email}
+                readOnly
+                hint="Contact your landlord if you need to change your login email."
+              />
+              <Input
+                label="Password"
+                type="password"
+                value="••••••••"
+                readOnly
+                hint="Your password is stored securely and cannot be displayed. Use the form below to change it."
+              />
+            </div>
+
+            <form onSubmit={handleProfileSubmit} className="space-y-4 border-t border-line pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Personal details</h3>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Update how your landlord sees you on project files and leases
+                </p>
+              </div>
               {profileError && (
                 <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                   {profileError}
@@ -193,17 +209,15 @@ export function PortalProfilePage() {
                   <span className="text-sm font-medium text-brand">Profile updated.</span>
                 )}
               </div>
-            </div>
-          </Card>
-        </form>
+            </form>
 
-        <form onSubmit={handlePasswordSubmit}>
-          <Card>
-            <CardHeader
-              title="Password"
-              subtitle="Change the password you use to sign in to the portal"
-            />
-            <div className="space-y-4">
+            <form onSubmit={handlePasswordSubmit} className="space-y-4 border-t border-line pt-6">
+              <div>
+                <h3 className="text-sm font-semibold text-ink">Change password</h3>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Enter your current password, then choose a new one
+                </p>
+              </div>
               {passwordError && (
                 <div className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
                   {passwordError}
@@ -224,17 +238,15 @@ export function PortalProfilePage() {
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input
-                  className="[&>label]:min-h-[2.75rem]"
                   label="New password"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  placeholder="At least 8 characters"
+                  hint="At least 8 characters"
                 />
                 <Input
-                  className="[&>label]:min-h-[2.75rem]"
                   label="Confirm new password"
                   type="password"
                   value={confirmPassword}
@@ -247,102 +259,89 @@ export function PortalProfilePage() {
                 <KeyRound className="h-4 w-4" />
                 {passwordSaving ? 'Updating…' : 'Update password'}
               </Button>
-            </div>
-          </Card>
-        </form>
+            </form>
+          </div>
+        </Card>
 
-        <section>
-          <h2 className="label-caps mb-3 flex items-center gap-2">
-            <FolderKanban className="h-4 w-4" />
-            My Projects
-          </h2>
-
+        <Card>
+          <CardHeader
+            title="My Projects"
+            subtitle="Leases and service tiers linked to your account"
+          />
           {!profile.linked ? (
-            <Card padding="md">
-              <p className="text-sm text-ink-muted">
-                Your landlord hasn&apos;t linked your account to a project yet. Once accepted,
-                your projects, service tier, and lease details will appear here.
-              </p>
-            </Card>
+            <p className="text-sm text-ink-muted">
+              Your landlord hasn&apos;t linked your account to a project yet. Once accepted,
+              your projects, service tier, and lease details will appear here.
+            </p>
           ) : profile.projects.length === 0 ? (
-            <Card padding="md">
-              <p className="text-sm text-ink-muted">
-                No leases have been sent yet. When your landlord shares a lease, it will
-                show up here with your service tier and developer contact.
-              </p>
-            </Card>
+            <p className="text-sm text-ink-muted">
+              No leases have been sent yet. When your landlord shares a lease, it will
+              show up here with your service tier and developer contact.
+            </p>
           ) : (
             <ul className="space-y-4">
               {profile.projects.map((project) => {
                 const tier = migrateServiceTier(project.serviceTier)
                 const tierInfo = getServiceTierInfo(tier)
                 return (
-                  <li key={project.contractId}>
-                    <Card padding="lg">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="font-display text-lg font-semibold text-ink">
-                            {project.projectTitle}
-                          </h3>
-                          <p className="mt-1 text-sm text-ink-muted">
-                            Developer:{' '}
-                            <span className="font-medium text-ink">
-                              {project.developerName}
-                            </span>
-                            {project.businessName ? ` · ${project.businessName}` : ''}
+                  <li key={project.contractId} className="paper-box-inset p-4 sm:p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="font-display text-lg font-semibold text-ink">
+                          {project.projectTitle}
+                        </h3>
+                        <p className="mt-1 text-sm text-ink-muted">
+                          Developer:{' '}
+                          <span className="font-medium text-ink">
+                            {project.developerName}
+                          </span>
+                          {project.businessName ? ` · ${project.businessName}` : ''}
+                        </p>
+                        {project.sentAt && (
+                          <p className="mt-0.5 text-xs text-ink-faint">
+                            Lease sent {formatDate(project.sentAt)}
+                            {project.signedAt
+                              ? ` · Signed ${formatDate(project.signedAt)}`
+                              : ''}
                           </p>
-                          {project.sentAt && (
-                            <p className="mt-0.5 text-xs text-ink-faint">
-                              Lease sent {formatDate(project.sentAt)}
-                              {project.signedAt
-                                ? ` · Signed ${formatDate(project.signedAt)}`
-                                : ''}
-                            </p>
-                          )}
-                        </div>
-                        <ServiceTierBadge tier={tier} />
+                        )}
                       </div>
+                      <ServiceTierBadge tier={tier} />
+                    </div>
 
-                      <p className="mt-1 text-sm font-medium text-ink">{tierInfo.tagline}</p>
+                    <p className="mt-1 text-sm font-medium text-ink">{tierInfo.tagline}</p>
 
-                      <p className="mt-3 text-sm text-ink-muted">{tierInfo.summary}</p>
+                    <p className="mt-3 text-sm text-ink-muted">{tierInfo.summary}</p>
 
-                      <ul className="mt-3 space-y-2">
-                        {tierInfo.details.map((detail) => (
-                          <li key={detail.sectionId} className="text-sm">
-                            <Link
-                              to={contractSectionHref(project.contractId, detail.sectionId)}
-                              className="inline-flex items-center gap-1.5 text-brand hover:underline"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                              {detail.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                    <ul className="mt-3 space-y-2">
+                      {tierInfo.details.map((detail) => (
+                        <li key={detail.sectionId} className="text-sm">
+                          <Link
+                            to={contractSectionHref(project.contractId, detail.sectionId)}
+                            className="inline-flex items-center gap-1.5 text-brand hover:underline"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                            {detail.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
 
-                      <div className="mt-4">
-                        <Link to={`/portal/contracts/${project.contractId}`}>
-                          <Button size="sm" variant="outline">
-                            View full lease
-                          </Button>
-                        </Link>
-                      </div>
-                    </Card>
+                    <div className="mt-4">
+                      <Link to={`/portal/contracts/${project.contractId}`}>
+                        <Button size="sm" variant="outline">
+                          View full lease
+                        </Button>
+                      </Link>
+                    </div>
                   </li>
                 )
               })}
             </ul>
           )}
-        </section>
+        </Card>
 
         <ProfileLegalSection />
-
-        {user && (
-          <p className="text-xs text-ink-faint">
-            Member since {formatDate(user.createdAt.split('T')[0])}
-          </p>
-        )}
       </div>
     </div>
   )

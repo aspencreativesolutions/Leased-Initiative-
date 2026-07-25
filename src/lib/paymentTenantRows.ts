@@ -83,7 +83,7 @@ export function paymentTenantHref(
   return `/studio/payments#${base}--${focus}`
 }
 
-/** Open Payments overdue filter and the tenant reminder composer. */
+/** Open Payments overdue filter and scroll to the tenant tile (same size as gallery). */
 export function paymentTenantRemindHref(clientId: string): string {
   const base = paymentTenantAnchorId(clientId)
   return `/studio/payments?status=overdue#${base}--remind`

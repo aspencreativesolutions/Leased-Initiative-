@@ -59,7 +59,7 @@ function TileDateMeta({
     <div
       className={cn(
         'payment-tile-card__detail rounded-[var(--radius-sm)] transition-colors duration-300',
-        highlighted && 'bg-accent-light/80 ring-2 ring-accent'
+        highlighted && 'payment-tile-card__detail--highlight'
       )}
     >
       <p className="tile-card__label">{label}</p>
@@ -96,7 +96,6 @@ export function PaymentsPage() {
   const [highlightedFocus, setHighlightedFocus] = useState<'last' | 'next' | 'remind' | null>(
     null
   )
-  const [remindComposerForId, setRemindComposerForId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter | null>(() => {
     const q = searchParams.get('status')
     return q === 'overdue' || q === 'paid_early' ? q : null
@@ -164,10 +163,9 @@ export function PaymentsPage() {
     const el = document.getElementById(parsed.anchorId)
     if (!el) return
     setHighlightedId(parsed.anchorId)
-    setHighlightedFocus(parsed.focus)
-    if (parsed.focus === 'remind') {
-      setRemindComposerForId(parsed.anchorId)
-    }
+    // Keep tile chrome the same size as a normal Overdue gallery visit —
+    // never auto-expand the message composer from a deep link.
+    setHighlightedFocus(parsed.focus === 'remind' ? null : parsed.focus)
     const timer = window.setTimeout(() => {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 50)
@@ -345,8 +343,8 @@ export function PaymentsPage() {
                   id={anchorId}
                   padding="none"
                   className={cn(
-                    'tile-card lease-tile-card payment-tile-card scroll-mt-28 transition-colors',
-                    highlightedId === anchorId && 'bg-accent-light/60 ring-2 ring-accent'
+                    'tile-card lease-tile-card payment-tile-card scroll-mt-28',
+                    highlightedId === anchorId && 'payment-tile-card--highlight'
                   )}
                 >
                   <div className="lease-tile-card__body payment-tile-card__body">
@@ -523,12 +521,10 @@ export function PaymentsPage() {
                           </p>
                         )}
                         <SendTenantMessageSection
-                          key={`${row.client.id}-${remindComposerForId === anchorId ? 'remind' : 'idle'}`}
                           tenantName={row.client.name}
                           address={row.address}
                           phone={row.client.phone}
                           landlordName={landlordName}
-                          defaultOpen={remindComposerForId === anchorId}
                           onSent={(message) =>
                             handleMessageSent(row.client.id, firstName, message)
                           }

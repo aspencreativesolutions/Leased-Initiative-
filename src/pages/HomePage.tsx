@@ -250,7 +250,7 @@ export function HomePage() {
 
   const guideToDemoCode = useCallback(() => {
     openQuickAccess()
-    // Drop then re-apply so the rim animation restarts on repeat clicks.
+    // Drop then re-apply so the breathe animation restarts on repeat clicks.
     setDemoTileHighlight(false)
     if (demoHighlightTimerRef.current != null) {
       window.clearTimeout(demoHighlightTimerRef.current)
@@ -258,11 +258,11 @@ export function HomePage() {
     }
     window.requestAnimationFrame(() => {
       setDemoTileHighlight(true)
-      // Three soft rim pulses (~1.6s each), then settle.
+      // Four gentle breaths (~1.25s) ≈ 5s, then settle to normal.
       demoHighlightTimerRef.current = window.setTimeout(() => {
         setDemoTileHighlight(false)
         demoHighlightTimerRef.current = null
-      }, 4800)
+      }, 5000)
     })
   }, [openQuickAccess])
 

@@ -24,32 +24,13 @@
       color 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* Clearance for fixed PaymentPartnerLogos on pre-dashboard screens */
-  body.has-secure-payments-footer {
-    padding-bottom: 6.5rem;
-  }
-
-  @media (min-width: 640px) {
-    body.has-secure-payments-footer {
-      padding-bottom: 7rem;
-    }
-  }
-
-  /* Homepage also stacks brand + links above payment marks */
-  body.has-secure-payments-footer.has-home-site-footer {
-    padding-bottom: 11.5rem;
-  }
-
-  @media (min-width: 640px) {
-    body.has-secure-payments-footer.has-home-site-footer {
-      padding-bottom: 12rem;
-    }
-  }
+  /* Secure payments / site footer sits in document flow below the fold */
 
   #root {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    min-height: 100dvh;
     overflow-x: clip;
   }
 
@@ -534,6 +515,15 @@
     position: relative;
   }
 
+  /* Deep-link flash from Notify — inset so width/height stay identical to peers */
+  .payment-tile-card--highlight {
+    background-color: color-mix(in srgb, var(--accent-light) 70%, var(--surface-paper, #fff));
+    box-shadow: inset 0 0 0 2px var(--accent);
+    transition:
+      background-color 0.35s ease,
+      box-shadow 0.35s ease;
+  }
+
   .payment-tile-card__body {
     position: relative;
   }
@@ -715,6 +705,11 @@
   .payment-tile-card__detail {
     min-width: 0;
     text-align: left;
+  }
+
+  .payment-tile-card__detail--highlight {
+    background-color: color-mix(in srgb, var(--accent-light) 80%, transparent);
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
 
   .payment-tile-card__detail .tile-card__value {
@@ -1531,33 +1526,36 @@
     text-align: center;
     backdrop-filter: blur(2px);
     box-shadow: 0 14px 36px -28px rgb(0 0 0 / 0.35);
+    transform-origin: center center;
   }
 
-  /* Soft animated rim — directs attention from footer “Guided product tour” */
-  @keyframes home-demo-tile-rim {
+  /* Gentle breathe — draws attention from footer “Guided product tour” */
+  @keyframes home-demo-tile-breathe {
     0%,
     100% {
-      border-color: color-mix(in srgb, var(--brand) 42%, transparent);
+      transform: scale(1);
+      border-color: color-mix(in srgb, var(--brand) 40%, transparent);
       box-shadow:
         0 14px 36px -28px rgb(0 0 0 / 0.35),
         0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent);
     }
     50% {
-      border-color: color-mix(in srgb, var(--brand) 68%, transparent);
+      transform: scale(1.035);
+      border-color: color-mix(in srgb, var(--brand) 62%, transparent);
       box-shadow:
         0 14px 36px -28px rgb(0 0 0 / 0.35),
-        0 0 0 3px color-mix(in srgb, var(--brand) 26%, transparent);
+        0 0 0 2px color-mix(in srgb, var(--brand) 22%, transparent);
     }
   }
 
   .home-demo-tile--highlight {
-    border-color: color-mix(in srgb, var(--brand) 55%, transparent);
-    will-change: box-shadow, border-color;
+    border-color: color-mix(in srgb, var(--brand) 50%, transparent);
+    will-change: transform, box-shadow, border-color;
   }
 
   @media (prefers-reduced-motion: no-preference) {
     .home-demo-tile--highlight {
-      animation: home-demo-tile-rim 1.6s ease-in-out 3;
+      animation: home-demo-tile-breathe 1.25s ease-in-out 4;
     }
   }
 
@@ -1565,7 +1563,7 @@
     .home-demo-tile--highlight {
       box-shadow:
         0 14px 36px -28px rgb(0 0 0 / 0.35),
-        0 0 0 2px color-mix(in srgb, var(--brand) 30%, transparent);
+        0 0 0 2px color-mix(in srgb, var(--brand) 28%, transparent);
     }
   }
 
