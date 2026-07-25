@@ -52,10 +52,40 @@ interface OnboardingTourProps {
 const DEFAULT_ONBOARDING_CONTEXT: OnboardingContext = {}
 
 const ADMIN_TOUR_STEP_KEY = 'leased-admin-tour-step-id'
+/** Survives refresh until the user explicitly restarts via the Tour button. */
+const TOUR_DISMISSED_KEY = 'leased-onboarding-tour-dismissed'
 const TOOLTIP_WIDTH = 320
 const TOOLTIP_FALLBACK_HEIGHT = 220
 const VIEWPORT_PAD = 16
 const SPOTLIGHT_GAP = 12
+
+function dismissedStorageKey(role: 'admin' | 'client', userId?: string | null) {
+  return userId
+    ? `${TOUR_DISMISSED_KEY}:${role}:${userId}`
+    : `${TOUR_DISMISSED_KEY}:${role}`
+}
+
+function readLocalDismissed(role: 'admin' | 'client', userId?: string | null): boolean {
+  try {
+    return localStorage.getItem(dismissedStorageKey(role, userId)) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeLocalDismissed(
+  role: 'admin' | 'client',
+  dismissed: boolean,
+  userId?: string | null
+) {
+  try {
+    const key = dismissedStorageKey(role, userId)
+    if (dismissed) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
+}
 
 const NAV_ARROW_CLASS =
   'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border-[length:var(--border-width)] border-brand bg-brand text-white transition-colors hover:bg-brand-light hover:border-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-35'
@@ -187,12 +217,16 @@ export function OnboardingTour({
     height: TOOLTIP_FALLBACK_HEIGHT,
   })
   const tooltipRef = useRef<HTMLDivElement>(null)
-  /** Prevents auto-restart after Exit / finish even before the dismiss API returns */
-  const dismissedLocallyRef = useRef(false)
+  /**
+   * Once the user exits (or finishes), stay closed until they click Tour.
+   * Never cleared by auto-start — only by the explicit restart path.
+   */
+  const optedOutRef = useRef(false)
   const onForceStartHandledRef = useRef(onForceStartHandled)
   onForceStartHandledRef.current = onForceStartHandled
 
   const allSteps = role === 'admin' ? ADMIN_ONBOARDING_STEPS : CLIENT_ONBOARDING_STEPS
+  const userId = user?.id ?? null
 
   const pendingSteps = useMemo(() => {
     if (!progress) return []
@@ -205,10 +239,28 @@ export function OnboardingTour({
   const isLastStep = stepIndex >= tourSteps.length - 1
   const isCompletionStep = Boolean(currentStep?.completion)
 
+  const isOptedOut = useCallback(() => {
+    return (
+      optedOutRef.current ||
+      Boolean(progress?.dismissedAt) ||
+      readLocalDismissed(role, userId)
+    )
+  }, [progress?.dismissedAt, role, userId])
+
+  const markTourDismissed = useCallback(() => {
+    optedOutRef.current = true
+    writeLocalDismissed(role, true, userId)
+  }, [role, userId])
+
+  const clearTourDismissed = useCallback(() => {
+    optedOutRef.current = false
+    writeLocalDismissed(role, false, userId)
+  }, [role, userId])
+
   const beginTour = useCallback(
     (steps: OnboardingStep[], preferredStepId?: string | null) => {
       if (steps.length === 0) return
-      dismissedLocallyRef.current = false
+      // Do NOT clear opted-out here — auto-start must never undo Exit Tour.
       const remembered = preferredStepId ?? (role === 'admin' ? readRememberedStepId() : null)
       let index = 0
       if (remembered) {
@@ -253,46 +305,90 @@ export function OnboardingTour({
 
   useEffect(() => {
     if (!user) return
+    // Hydrate opted-out from durable local flag (per user) as soon as we know who they are.
+    if (readLocalDismissed(role, user.id)) {
+      optedOutRef.current = true
+    }
+    let cancelled = false
     fetchOnboardingProgress(role)
-      .then(setProgress)
-      .catch(() => setProgress({ completedSteps: [] }))
+      .then((next) => {
+        if (cancelled) return
+        setProgress((prev) => {
+          // Never let a stale fetch wipe an Exit / finish.
+          if (optedOutRef.current || prev?.dismissedAt || next.dismissedAt) {
+            if (next.dismissedAt || prev?.dismissedAt) {
+              optedOutRef.current = true
+              writeLocalDismissed(role, true, user.id)
+            }
+            return {
+              ...next,
+              dismissedAt:
+                prev?.dismissedAt ?? next.dismissedAt ?? new Date().toISOString(),
+              completedAt: prev?.completedAt ?? next.completedAt,
+            }
+          }
+          return next
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setProgress((prev) => prev ?? { completedSteps: [] })
+      })
+    return () => {
+      cancelled = true
+    }
   }, [user, role])
 
-  /** Manual restart from Tour button — re-sync progress after server reset */
+  const allStepsRef = useRef(allSteps)
+  allStepsRef.current = allSteps
+  const contextRef = useRef(context)
+  contextRef.current = context
+  const beginTourRef = useRef(beginTour)
+  beginTourRef.current = beginTour
+  const clearTourDismissedRef = useRef(clearTourDismissed)
+  clearTourDismissedRef.current = clearTourDismissed
+
+  /** Manual restart from Tour button — only path that clears Exit and reopens the tour */
   useEffect(() => {
     if (!forceStart) return
     let cancelled = false
-    dismissedLocallyRef.current = false
+    clearTourDismissedRef.current()
+    const stepsSnapshot = tourPathSteps(allStepsRef.current, contextRef.current)
     ;(async () => {
-      let next: OnboardingProgress = { completedSteps: [] }
       try {
-        next = await fetchOnboardingProgress(role)
+        await fetchOnboardingProgress(role)
       } catch {
-        next = { completedSteps: [] }
+        /* offline — still allow a local restart */
       }
       if (cancelled) return
-      setProgress(next)
-      const steps = tourPathSteps(allSteps, context)
-      beginTour(steps, readRememberedStepId())
+      setProgress({ completedSteps: [] })
+      beginTourRef.current(stepsSnapshot, null)
       onForceStartHandledRef.current?.()
     })()
     return () => {
       cancelled = true
     }
-  }, [forceStart, role, allSteps, context, beginTour])
+  }, [forceStart, role])
 
-  /** Auto-start for first-time users who have not dismissed (skip in admin/dev tooling mode) */
+  /** Auto-start once for first-time users who have never exited or finished */
   useEffect(() => {
     if (adminMode || forceStart || active) return
-    if (dismissedLocallyRef.current) return
-    if (!progress || progress.dismissedAt) return
+    if (optedOutRef.current || isOptedOut()) return
+    if (!progress) return
+    if (progress.dismissedAt || progress.completedAt) {
+      optedOutRef.current = true
+      writeLocalDismissed(role, true, userId)
+      return
+    }
     if (pendingSteps.length === 0) return
     const steps = tourPathSteps(allSteps, context)
-    const timer = setTimeout(() => {
-      if (dismissedLocallyRef.current) return
-      beginTour(steps, pendingSteps[0]?.id)
+    const firstPendingId = pendingSteps[0]?.id
+    const timer = window.setTimeout(() => {
+      // Re-check the durable latch — Exit may have happened while we waited.
+      if (optedOutRef.current || readLocalDismissed(role, userId)) return
+      beginTour(steps, firstPendingId)
     }, 800)
-    return () => clearTimeout(timer)
+    return () => window.clearTimeout(timer)
   }, [
     progress,
     pendingSteps,
@@ -302,6 +398,9 @@ export function OnboardingTour({
     beginTour,
     allSteps,
     context,
+    role,
+    userId,
+    isOptedOut,
   ])
 
   useEffect(() => {
@@ -357,7 +456,7 @@ export function OnboardingTour({
           dismissedAt: prev?.dismissedAt ?? next.dismissedAt,
           completedAt: prev?.completedAt ?? next.completedAt,
         }))
-        if (!dismissedLocallyRef.current) {
+        if (!optedOutRef.current) {
           await refreshUser()
         }
       } catch (err) {
@@ -377,7 +476,7 @@ export function OnboardingTour({
 
   /** Close the tour immediately and permanently (Exit or finish). Persist dismiss in background. */
   const finishTour = useCallback(() => {
-    dismissedLocallyRef.current = true
+    markTourDismissed()
     const now = new Date().toISOString()
     setProgress((prev) => ({
       completedSteps: prev?.completedSteps ?? [],
@@ -401,7 +500,7 @@ export function OnboardingTour({
       .catch((err) => {
         console.warn('onboarding dismiss save failed', err)
       })
-  }, [role, refreshUser, endTour])
+  }, [role, refreshUser, endTour, markTourDismissed])
 
   const handleNext = useCallback(() => {
     if (!currentStep) return
@@ -422,9 +521,14 @@ export function OnboardingTour({
     goToStepIndex(stepIndex - 1)
   }, [stepIndex, goToStepIndex])
 
-  const handleDismiss = useCallback(() => {
-    finishTour()
-  }, [finishTour])
+  const handleDismiss = useCallback(
+    (event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
+      event?.preventDefault?.()
+      event?.stopPropagation?.()
+      finishTour()
+    },
+    [finishTour]
+  )
 
   const handleJumpToSection = useCallback(
     (sectionId: AdminTourSectionId) => {
@@ -490,8 +594,13 @@ export function OnboardingTour({
   }
 
   return (
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="Onboarding tour">
-      <svg className="absolute inset-0 h-full w-full" aria-hidden>
+    <div
+      className="pointer-events-none fixed inset-0 z-[100]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Onboarding tour"
+    >
+      <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
         <defs>
           <mask id="onboarding-spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -516,6 +625,13 @@ export function OnboardingTour({
           mask="url(#onboarding-spotlight-mask)"
         />
       </svg>
+
+      {/* Dimmed overlay catch — SVG cannot reliably receive clicks above siblings */}
+      <div
+        className="pointer-events-auto absolute inset-0 z-0"
+        aria-hidden
+        onClick={handleDismiss}
+      />
 
       {showSectionNav ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[101] flex justify-center px-3 pt-3 sm:pt-4">
@@ -564,10 +680,12 @@ export function OnboardingTour({
       <div
         ref={tooltipRef}
         className={cn(
-          'absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift',
+          'pointer-events-auto absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift',
           isCompletionStep ? 'w-[min(22.5rem,calc(100vw-2rem))] p-5 text-center sm:p-6' : 'w-80'
         )}
         style={tooltipPositionStyle}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
       >
         <div
           className={cn(
@@ -616,7 +734,7 @@ export function OnboardingTour({
                 <button
                   type="button"
                   onClick={handleDismiss}
-                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+                  className="relative z-[1] -ml-1 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
                 >
                   Exit Tour
                 </button>
@@ -631,14 +749,23 @@ export function OnboardingTour({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={isFirstStep}
-                className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
-              >
-                Back to last tip
-              </button>
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+                >
+                  Exit Tour
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  disabled={isFirstStep}
+                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+                >
+                  Back to last tip
+                </button>
+              </div>
             )}
           </div>
         ) : (
@@ -646,7 +773,7 @@ export function OnboardingTour({
             <button
               type="button"
               onClick={handleDismiss}
-              className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+              className="relative z-[1] -ml-1 rounded-[var(--radius-sm)] px-1 py-1 text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
             >
               Exit Tour
             </button>
@@ -687,7 +814,12 @@ export function OnboardingRestartButton({
   onStart: () => void
   className?: string
 }) {
+  const { user } = useAuth()
+
   const handleClick = async () => {
+    // Clear both legacy role-only and per-user dismiss latches.
+    writeLocalDismissed(role, false, null)
+    writeLocalDismissed(role, false, user?.id ?? null)
     await updateOnboardingProgress(role, { reset: true })
     rememberStepId(null)
     onStart()

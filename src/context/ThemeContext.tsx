@@ -29,10 +29,10 @@ import type { ThemeAppearance, ThemeId, ThemeOption } from '@/themes/types'
 interface SetThemeOptions {
   /** Also write the portal preference (home preview + Demo Mode POV parity) */
   syncSurfaces?: boolean
-  /**
-   * When false, save the preference without changing document theme.
-   * Defaults to true so home “Choose Your Style” live-previews immediately.
-   */
+/**
+ * When false, save the preference without changing document theme.
+ * Defaults to true so Style Chooser live-previews immediately.
+ */
   applyDocument?: boolean
 }
 

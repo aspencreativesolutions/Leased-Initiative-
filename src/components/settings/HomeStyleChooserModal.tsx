@@ -38,7 +38,8 @@ export function HomeStyleChooserModal({ open, onClose }: HomeStyleChooserModalPr
         }}
       />
       <p className="mt-4 text-xs text-ink-faint">
-        Your choice saves for Demo Mode, Settings, and every screen until you pick another.
+        Your choice applies to Demo Mode (landlord and tenant), Settings, and every screen until you
+        pick another.
       </p>
     </Modal>
   )

@@ -35,6 +35,17 @@
     }
   }
 
+  /* Homepage also stacks brand + links above payment marks */
+  body.has-secure-payments-footer.has-home-site-footer {
+    padding-bottom: 11.5rem;
+  }
+
+  @media (min-width: 640px) {
+    body.has-secure-payments-footer.has-home-site-footer {
+      padding-bottom: 12rem;
+    }
+  }
+
   #root {
     width: 100%;
     max-width: 100%;

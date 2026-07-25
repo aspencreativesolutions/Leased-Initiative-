@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { FileText, GitBranch, LogOut } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -115,12 +115,20 @@ export function PortalLayout() {
   const { notifications, refresh } = useClientNotifications()
   const [tourStart, setTourStart] = useState(false)
 
-  const onboardingContext = {
-    linked: data?.linked,
-    projectStarted: data?.projectStarted,
-    hasContracts: (data?.contracts?.length ?? 0) > 0,
-    hasInvoice: Boolean(data?.invoice?.sentToPortalAt),
-  }
+  const onboardingContext = useMemo(
+    () => ({
+      linked: data?.linked,
+      projectStarted: data?.projectStarted,
+      hasContracts: (data?.contracts?.length ?? 0) > 0,
+      hasInvoice: Boolean(data?.invoice?.sentToPortalAt),
+    }),
+    [
+      data?.linked,
+      data?.projectStarted,
+      data?.contracts?.length,
+      data?.invoice?.sentToPortalAt,
+    ]
+  )
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-surface">

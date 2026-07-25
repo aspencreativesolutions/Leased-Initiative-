@@ -3,8 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ApiError } from '@/lib/api'
-import { persistThemeIdAcrossSurfaces } from '@/themes/applyTheme'
-import { DEFAULT_THEME_ID, THEME_STORAGE_KEY } from '@/themes/options'
+import { persistThemeIdAcrossSurfaces, loadStoredThemeId } from '@/themes/applyTheme'
 import {
   fetchCompanyDemoLink,
   markPublicDemoSession,
@@ -63,9 +62,8 @@ export function CompanyDemoLinkPage() {
     try {
       await redeemCompanyDemoLink(token)
       markPublicDemoSession()
-      if (!localStorage.getItem(THEME_STORAGE_KEY)) {
-        persistThemeIdAcrossSurfaces(DEFAULT_THEME_ID)
-      }
+      // Keep whatever style was already chosen on the public site (or default).
+      persistThemeIdAcrossSurfaces(loadStoredThemeId())
       navigate('/demo/pov', { replace: true })
     } catch (err) {
       setStartError(

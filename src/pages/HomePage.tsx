@@ -7,17 +7,17 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Building2, KeyRound, Loader2, Palette } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { TermsOfServiceModal } from '@/components/legal/TermsOfServiceModal'
 import { HomeStyleChooserModal } from '@/components/settings/HomeStyleChooserModal'
-import { HomeStyleExploreSection } from '@/components/settings/HomeStyleExploreSection'
+import { OPEN_DEMO_CODE_EVENT } from '@/components/auth/PaymentPartnerLogos'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import { ApiError } from '@/lib/api'
 import { BrandMark } from '@/components/brand/BrandMark'
-import { BRAND_NAME } from '@/lib/brand'
 import {
   gatherHomePageContent,
   HOME_TILE_ICON_SRC,
@@ -32,7 +32,6 @@ import { markPublicDemoSession, redeemDemoCode } from '@/lib/publicDemo'
 import { unlockAdminMode } from '@/lib/adminUnlock'
 import { cn } from '@/lib/utils'
 import { persistThemeIdAcrossSurfaces } from '@/themes/applyTheme'
-import { DEFAULT_THEME_ID, THEME_STORAGE_KEY } from '@/themes/options'
 
 type AuthIntent = 'signin' | 'register' | null
 type QuickAccessPhase = 'closed' | 'opening' | 'open' | 'closing'
@@ -138,6 +137,7 @@ function FeaturesGrid({
 
 export function HomePage() {
   const { user, loading } = useAuth()
+  const { themeId } = useTheme()
   const navigate = useNavigate()
   const content = gatherHomePageContent()
   const demoCodeId = useId()
@@ -359,6 +359,12 @@ export function HomePage() {
     }
   }, [])
 
+  useEffect(() => {
+    const onOpenDemoCode = () => guideToDemoCode()
+    window.addEventListener(OPEN_DEMO_CODE_EVENT, onOpenDemoCode)
+    return () => window.removeEventListener(OPEN_DEMO_CODE_EVENT, onOpenDemoCode)
+  }, [guideToDemoCode])
+
   const handleDemoSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     if (demoSubmitting || !demoCode.trim()) return
@@ -367,10 +373,8 @@ export function HomePage() {
     try {
       await redeemDemoCode(demoCode, 'landlord')
       markPublicDemoSession()
-      // First-time demo with no saved style → Slate Bureau across landlord/tenant POV
-      if (!localStorage.getItem(THEME_STORAGE_KEY)) {
-        persistThemeIdAcrossSurfaces(DEFAULT_THEME_ID)
-      }
+      // Carry the homepage Style Chooser pick into landlord + tenant demo surfaces.
+      persistThemeIdAcrossSurfaces(themeId)
       navigate('/demo/pov', { replace: true })
     } catch (err) {
       setDemoError(err instanceof ApiError ? err.message : 'Could not unlock the demo')
@@ -589,7 +593,7 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Centered brand + feature grid + styles */}
+      {/* Centered brand + feature grid */}
       <div className="relative z-10 flex min-h-screen flex-col items-center px-4 pb-10 text-center sm:px-6 sm:pb-12 lg:px-8">
         {/* First viewport: logo, title, subtitle, and all nine tiles */}
         <div className="home-page__above-fold flex w-full flex-col items-center justify-center pt-8 sm:pt-10">
@@ -638,28 +642,6 @@ export function HomePage() {
             />
           </section>
         </div>
-
-        <HomeStyleExploreSection />
-
-        <footer className="home-page__footer mt-10 flex w-full max-w-4xl flex-col items-center gap-3 border-t border-line/80 pt-6 text-center sm:mt-12">
-          <p className="text-sm font-semibold tracking-tight text-ink">{BRAND_NAME}</p>
-          <p className="text-xs text-ink-faint">Landlord &amp; tenant management</p>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
-            <Link
-              to="/terms"
-              className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
-            >
-              Terms of Service
-            </Link>
-            <button
-              type="button"
-              onClick={guideToDemoCode}
-              className="font-semibold text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
-            >
-              Guided product tour
-            </button>
-          </div>
-        </footer>
       </div>
 
       <Modal
