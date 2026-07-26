@@ -173,45 +173,48 @@ export function ClientTableMobileCard({
         {addressValue}
       </button>
 
-      <div className="mt-2 min-w-0">
-        <PaymentStatusDateTags
-          client={client}
-          contract={contract}
-          className="mx-0"
-          onConfirmPayment={
-            awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
-          }
-          confirmingPayment={confirmingPayment}
-        />
-      </div>
+      {/* mt-auto pins payment tags + View to the tile bottom so neighbors align in a row */}
+      <div className="mt-auto flex min-w-0 flex-col gap-2 pt-2">
+        <div className="min-w-0">
+          <PaymentStatusDateTags
+            client={client}
+            contract={contract}
+            className="mx-0"
+            onConfirmPayment={
+              awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
+            }
+            confirmingPayment={confirmingPayment}
+          />
+        </div>
 
-      <div className="mt-auto flex flex-col items-end gap-1 pt-2">
-        {awaitingDeposit && onConfirmPayment ? (
+        <div className="flex flex-col items-end gap-1">
+          {awaitingDeposit && onConfirmPayment ? (
+            <button
+              type="button"
+              onClick={onConfirmPayment}
+              disabled={confirmingPayment}
+              className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
+              title={`Confirm deposit payment complete for ${client.name}`}
+              aria-label={`Confirm payment complete for ${client.name}`}
+            >
+              {confirmingPayment ? (
+                <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+              )}
+              Confirm Payment Complete
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={onConfirmPayment}
-            disabled={confirmingPayment}
-            className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
-            title={`Confirm deposit payment complete for ${client.name}`}
-            aria-label={`Confirm payment complete for ${client.name}`}
+            onClick={() => onOpenTenantDetails(client.id)}
+            className={tableViewLinkSubtleClass}
+            title={`View ${client.name}`}
           >
-            {confirmingPayment ? (
-              <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden />
-            ) : (
-              <CheckCircle2 className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
-            )}
-            Confirm Payment Complete
+            View
+            <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
           </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onOpenTenantDetails(client.id)}
-          className={tableViewLinkSubtleClass}
-          title={`View ${client.name}`}
-        >
-          View
-          <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
-        </button>
+        </div>
       </div>
     </article>
   )
