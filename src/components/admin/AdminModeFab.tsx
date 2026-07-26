@@ -45,8 +45,11 @@ import {
   type DemoVisitorEntry,
 } from '@/lib/publicDemo'
 import {
+  LIVE_UPDATE_CHANGED_EVENT,
   fetchAdminLiveUpdateStatus,
+  readCachedLiveUpdateEnabled,
   saveAdminLiveUpdateEnabled,
+  writeCachedLiveUpdateEnabled,
 } from '@/lib/liveUpdate'
 
 const PANEL_KEY = 'leased-admin-mode-open'
@@ -137,7 +140,7 @@ function AdminModeFabInner() {
   const [visitorsModalOpen, setVisitorsModalOpen] = useState(false)
   const [demoVisitors, setDemoVisitors] = useState<DemoVisitorEntry[]>([])
   const [visitorsLoading, setVisitorsLoading] = useState(false)
-  const [liveUpdateEnabled, setLiveUpdateEnabled] = useState(false)
+  const [liveUpdateEnabled, setLiveUpdateEnabled] = useState(() => readCachedLiveUpdateEnabled())
   const [liveUpdateLoaded, setLiveUpdateLoaded] = useState(false)
 
   const restartAsFirstTime = useCallback(() => {
@@ -199,6 +202,7 @@ function AdminModeFabInner() {
     fetchAdminLiveUpdateStatus()
       .then((data) => {
         if (cancelled) return
+        writeCachedLiveUpdateEnabled(data.enabled)
         setLiveUpdateEnabled(data.enabled)
         setLiveUpdateLoaded(true)
       })
@@ -209,6 +213,17 @@ function AdminModeFabInner() {
       cancelled = true
     }
   }, [open, liveUpdateLoaded])
+
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail
+      if (!detail || typeof detail.enabled !== 'boolean') return
+      setLiveUpdateEnabled(detail.enabled)
+      setLiveUpdateLoaded(true)
+    }
+    window.addEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
+  }, [])
 
   useEffect(() => {
     sessionStorage.setItem(EXPANDED_KEY, JSON.stringify(expanded))

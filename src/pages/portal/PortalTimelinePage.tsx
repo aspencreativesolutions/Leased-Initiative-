@@ -1,24 +1,20 @@
-import { GitBranch } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PortalTimelineView } from '@/components/portal/PortalTimelineView'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { LoadingWithRefresh } from '@/components/ui/LoadingWithRefresh'
 import { usePortalTimeline } from '@/hooks/usePortalTimeline'
 
 export function PortalTimelinePage() {
-  const { linked, projectName, steps, message, loading, error } = usePortalTimeline()
+  const { linked, projectName, steps, message, loading, error, retry } = usePortalTimeline()
 
-  if (loading) {
-    return (
-      <div data-onboarding="portal-timeline-page" className="py-16 text-center text-ink-muted">
-        Loading your timeline…
-      </div>
-    )
-  }
-
-  if (error) {
+  if (loading || error) {
     return (
       <div data-onboarding="portal-timeline-page">
-        <EmptyState icon={GitBranch} title="Something went wrong" description={error} />
+        <LoadingWithRefresh
+          message="Loading your timeline…"
+          onRefresh={() => {
+            void retry()
+          }}
+        />
       </div>
     )
   }

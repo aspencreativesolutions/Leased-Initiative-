@@ -301,17 +301,14 @@ router.get('/admin/demo-visitors', (_req, res) => {
 
 router.get('/admin/live-update', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
-  const store = readStoreFromDisk()
-  res.json(getLiveUpdateState(store))
+  res.json(getLiveUpdateState())
 })
 
 router.put('/admin/live-update', (req, res) => {
   try {
     const enabled = Boolean(req.body?.enabled)
-    const store = readStoreFromDisk()
-    const next = setLiveUpdateEnabled(store, enabled)
-    writeStoreToDisk(next)
-    res.json({ ok: true, ...getLiveUpdateState(next) })
+    setLiveUpdateEnabled(null, enabled)
+    res.json({ ok: true, ...getLiveUpdateState() })
   } catch (err) {
     console.error('admin live-update', err)
     res.status(500).json({ error: 'Could not update live update setting' })

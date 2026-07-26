@@ -8,7 +8,7 @@ import { PortalPaymentScheduleTimeline } from '@/components/portal/PortalPayment
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
 import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
 import { PortalTimelineView } from '@/components/portal/PortalTimelineView'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { LoadingWithRefresh } from '@/components/ui/LoadingWithRefresh'
 import { useAuth } from '@/context/AuthContext'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
 import { usePortalTimeline } from '@/hooks/usePortalTimeline'
@@ -27,7 +27,7 @@ function TenantPortalHeading() {
 }
 
 export function PortalDashboardPage() {
-  const { data, loading, error, refresh, setData } = usePortalDashboard()
+  const { data, loading, error, refresh, retry, setData } = usePortalDashboard()
   const {
     linked: timelineLinked,
     projectName: timelineProjectName,
@@ -42,16 +42,14 @@ export function PortalDashboardPage() {
     !data.linked &&
     !data.applicationSubmitted
 
-  if (loading) {
-    return <div className="py-16 text-center text-ink-muted">Loading your dashboard…</div>
-  }
-
-  if (error || !data) {
+  // Never dump tenants on a hard error — keep loading, offer refresh after 5s.
+  if (loading || error || !data) {
     return (
-      <EmptyState
-        icon={AlertTriangle}
-        title="Something went wrong"
-        description={error}
+      <LoadingWithRefresh
+        message="Loading your dashboard…"
+        onRefresh={() => {
+          void retry()
+        }}
       />
     )
   }
@@ -62,9 +60,8 @@ export function PortalDashboardPage() {
         <TenantPortalHeading />
         {showAvaStageNote ? (
           <p className="mb-3 rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-3 py-2 text-center text-sm text-ink">
-            <span className="font-semibold text-brand">Demo stage:</span> Ava Mitchell is at{' '}
-            <span className="font-semibold">Start Application</span> — pick a landlord company,
-            then choose an address (furnished or unfurnished, with total rent, full occupancy cost, and utilities), and Send.
+            <span className="font-semibold text-brand">Start Application Sequence (Demo)</span>—
+            pick a landlord company, choose an address, select preferences, and send application.
           </p>
         ) : null}
         <PortalApplicationPanel

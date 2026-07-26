@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { RefreshCw, X } from 'lucide-react'
 import {
   LIVE_UPDATE_CHANGED_EVENT,
@@ -7,38 +7,58 @@ import {
   clearLiveUpdateNoticeSeen,
   fetchLiveUpdateVersion,
   fetchPublicLiveUpdateStatus,
-  hasSeenLiveUpdateNotice,
-  markLiveUpdateNoticeSeen,
+  readCachedLiveUpdateEnabled,
   readLiveUpdateBaseline,
+  writeCachedLiveUpdateEnabled,
   writeLiveUpdateBaseline,
 } from '@/lib/liveUpdate'
 import { cn } from '@/lib/utils'
 
 /**
  * Top-left live-update beacon for all visitors while Admin Mode has live updates on.
- * The glowing red dot stays visible the whole time; click it for an explanation.
+ * The glowing red dot stays until the admin turns the feature off — above notices,
+ * through refreshes, and through brief API blips. Every page load / refresh opens an
+ * explanation; dismiss closes it for this view only (click the dot to reopen).
  * When a new build is ready, the explanation offers Refresh.
  */
 export function LiveUpdateIndicator() {
-  const [enabled, setEnabled] = useState(false)
+  const [enabled, setEnabled] = useState(() => readCachedLiveUpdateEnabled())
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const noticedThisLoadRef = useRef(false)
   const noticeTitleId = useId()
   const noticeDescId = useId()
+
+  const turnOn = useCallback((openNotice: boolean) => {
+    writeCachedLiveUpdateEnabled(true)
+    setEnabled(true)
+    if (openNotice && !noticedThisLoadRef.current) {
+      noticedThisLoadRef.current = true
+      clearLiveUpdateNoticeSeen()
+      setNoticeOpen(true)
+    }
+  }, [])
+
+  const turnOff = useCallback(() => {
+    writeCachedLiveUpdateEnabled(false)
+    clearLiveUpdateBaseline()
+    setEnabled(false)
+    setUpdateAvailable(false)
+    setNoticeOpen(false)
+    noticedThisLoadRef.current = false
+  }, [])
 
   const sync = useCallback(async () => {
     try {
       const status = await fetchPublicLiveUpdateStatus()
       if (!status.enabled) {
-        clearLiveUpdateBaseline()
-        setEnabled(false)
-        setUpdateAvailable(false)
-        setNoticeOpen(false)
+        // Only hide on a definitive “off” from the server — never on network blips.
+        turnOff()
         return
       }
 
-      setEnabled(true)
+      turnOn(!noticedThisLoadRef.current)
 
       const version = await fetchLiveUpdateVersion()
       if (!version) {
@@ -55,11 +75,17 @@ export function LiveUpdateIndicator() {
 
       setUpdateAvailable(version !== baseline)
     } catch {
-      // Keep last known UI if the poll fails briefly.
+      // Keep last known UI (and sticky cache) if the poll fails briefly.
     }
-  }, [])
+  }, [turnOff, turnOn])
 
   useEffect(() => {
+    // Cached-on: show the load notice immediately, then confirm with the server.
+    if (readCachedLiveUpdateEnabled() && !noticedThisLoadRef.current) {
+      noticedThisLoadRef.current = true
+      clearLiveUpdateNoticeSeen()
+      setNoticeOpen(true)
+    }
     void sync()
     const interval = window.setInterval(() => {
       void sync()
@@ -67,47 +93,36 @@ export function LiveUpdateIndicator() {
     const onFocus = () => {
       void sync()
     }
-    const onChanged = () => {
-      void sync()
-    }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
-    window.addEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
     return () => {
       window.clearInterval(interval)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onFocus)
-      window.removeEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
     }
   }, [sync])
 
   useEffect(() => {
-    if (!enabled) {
-      setNoticeOpen(false)
-      return
-    }
-    if (hasSeenLiveUpdateNotice()) return
-    setNoticeOpen(true)
-  }, [enabled])
-
-  useEffect(() => {
     const onChanged = (event: Event) => {
-      const nextEnabled = Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled)
-      if (!nextEnabled) {
-        setNoticeOpen(false)
+      const detail = (event as CustomEvent<{ enabled?: boolean }>).detail
+      if (!detail || typeof detail.enabled !== 'boolean') {
+        void sync()
         return
       }
-      // When live updates are turned on (including from Admin Mode), show the
-      // same first-load warning users see — even if this tab already dismissed it.
-      clearLiveUpdateNoticeSeen()
-      setNoticeOpen(true)
+      if (!detail.enabled) {
+        turnOff()
+        return
+      }
+      // Admin just turned live updates on — show the same warning visitors get.
+      noticedThisLoadRef.current = false
+      turnOn(true)
+      void sync()
     }
     window.addEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
     return () => window.removeEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
-  }, [])
+  }, [sync, turnOff, turnOn])
 
   const dismissNotice = () => {
-    markLiveUpdateNoticeSeen()
     setNoticeOpen(false)
   }
 
@@ -139,7 +154,8 @@ export function LiveUpdateIndicator() {
 
   return (
     <>
-      <div className="pointer-events-none fixed left-3 top-3 z-[100] flex items-start gap-2">
+      {/* Beacon sits above the notice overlay so the glowing dot is always visible. */}
+      <div className="pointer-events-none fixed left-3 top-3 z-[110] flex items-start gap-2">
         <button
           type="button"
           onClick={openNotice}
@@ -195,7 +211,8 @@ export function LiveUpdateIndicator() {
                 </h2>
                 <p id={noticeDescId} className="mt-1 text-[12px] leading-snug text-ink-muted">
                   The developer has turned live update on, meaning active changes are being made.
-                  Click the glowing red dot anytime to see this reminder.
+                  The glowing red dot stays until updates are finished. Click it anytime to see this
+                  reminder again.
                   {updateAvailable
                     ? ' A new update is ready — refresh the page to load it.'
                     : null}

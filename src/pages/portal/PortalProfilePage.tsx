@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ExternalLink, KeyRound, Save, UserCircle } from 'lucide-react'
+import { ExternalLink, KeyRound, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { LoadingWithRefresh } from '@/components/ui/LoadingWithRefresh'
 import { Input } from '@/components/ui/FormField'
 import { ServiceTierBadge } from '@/components/scheduler/ServiceTierBadge'
 import { ProfileLegalSection } from '@/components/legal/ProfileLegalSection'
@@ -112,16 +112,13 @@ export function PortalProfilePage() {
     }
   }
 
-  if (loading) {
-    return <div className="py-16 text-center text-ink-muted">Loading your profile…</div>
-  }
-
-  if (error || !profile) {
+  if (loading || error || !profile) {
     return (
-      <EmptyState
-        icon={UserCircle}
-        title="Could not load profile"
-        description={error || 'Something went wrong'}
+      <LoadingWithRefresh
+        message="Loading your profile…"
+        onRefresh={() => {
+          void load()
+        }}
       />
     )
   }

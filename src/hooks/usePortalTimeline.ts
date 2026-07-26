@@ -41,5 +41,14 @@ export function usePortalTimeline() {
     }
   }, [load])
 
-  return { linked, projectName, steps, message, loading, error, refresh: () => load(true) }
+  return {
+    linked,
+    projectName,
+    steps,
+    message,
+    loading,
+    error,
+    refresh: () => load(true),
+    retry: () => load(false),
+  }
 }

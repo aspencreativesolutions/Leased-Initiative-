@@ -30,8 +30,7 @@ router.get('/status', (_req, res) => {
 /** Public — any visitor can poll whether live updates are in progress. */
 router.get('/live-update', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store')
-  const store = readStoreFromDisk()
-  res.json(getLiveUpdateState(store))
+  res.json(getLiveUpdateState())
 })
 
 router.post('/redeem', async (req, res) => {
