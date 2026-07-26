@@ -211,11 +211,8 @@ export function LiveUpdateIndicator() {
                 </h2>
                 <p id={noticeDescId} className="mt-1 text-[12px] leading-snug text-ink-muted">
                   The developer has turned live update on, meaning active changes are being made.
-                  The glowing red dot stays until updates are finished. Click it anytime to see this
-                  reminder again.
-                  {updateAvailable
-                    ? ' A new update is ready — refresh the page to load it.'
-                    : null}
+                  When this turns to a refresh icon, tap it to refresh the page. This feature will
+                  remain on until the live updates are finished.
                 </p>
               </div>
               <button

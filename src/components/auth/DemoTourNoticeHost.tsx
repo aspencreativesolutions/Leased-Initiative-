@@ -383,8 +383,8 @@ export function DemoTourNoticeHost() {
             besideMenu ? 'mt-1.5 text-xs leading-snug' : 'mt-2 text-sm leading-snug'
           )}
         >
-          If you would like a guided tour of the features, the Take the tour option will always be
-          available in the Menu dropdown.
+          For a guided tour of the features, the tour option is always be available in the Menu
+          dropdown.
         </p>
         <button
           ref={continueRef}
