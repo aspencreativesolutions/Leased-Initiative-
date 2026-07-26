@@ -733,18 +733,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
           hint="All companies available for public discovery"
           emptyMessage="No matching companies"
         />
-        <div className={cn(guideAddress && 'space-y-2')}>
-          {guideAddress ? (
-            <p
-              className="rounded-[var(--radius-sm)] border border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink"
-              role="status"
-            >
-              <span className="font-semibold text-brand">Choose an address</span>
-              {' — '}
-              open the list and pick a property. Each option shows furnished or unfurnished
-              status, total rent, cost at full occupancy, and whether utilities are included.
-            </p>
-          ) : null}
+        <div>
           <SearchableSelect
             label="Desired Address"
             name="preferredPropertyAddress"
