@@ -186,6 +186,9 @@ export function DemoTourNoticeHost() {
   useLayoutEffect(() => {
     if (!visible) return
 
+    // Landlord/tenant demo landings must start at the top; never inherit mid-page scroll.
+    window.scrollTo(0, 0)
+
     const update = () => {
       const trigger = document.querySelector('[data-tour-notice-trigger]')
       const panel = document.querySelector('[data-tour-notice-panel]')
@@ -232,6 +235,7 @@ export function DemoTourNoticeHost() {
   const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1200
   const sidePad = 12
   const gap = 10
+  const estimatedCardH = isMobile ? 196 : 230
 
   let cardWidth = Math.min(340, viewportW - 32)
   let cardTop = 96
@@ -245,27 +249,28 @@ export function DemoTourNoticeHost() {
       ? Math.max(0, menuPanel.left - sidePad - gap)
       : 0
 
-  if (menuPanel && spaceLeftOfMenu >= (isMobile ? 108 : 220)) {
-    // Sit to the left of the open Menu so both fit in one viewport (no stack/scroll).
+  if (menuPanel && spaceLeftOfMenu >= (isMobile ? 88 : 220)) {
+    // Sit immediately left of the open Menu — never under it.
     besideMenu = true
-    cardWidth = isMobile
-      ? Math.min(Math.floor(spaceLeftOfMenu), Math.floor(viewportW * 0.52))
-      : Math.min(320, Math.floor(spaceLeftOfMenu))
-    cardLeft = isMobile
-      ? sidePad
-      : Math.max(sidePad, menuPanel.left - gap - cardWidth)
-    const preferredTop = rects.item
-      ? rects.item.top + rects.item.height / 2 - 88
-      : menuPanel.top
-    const maxTop = Math.max(sidePad, viewportH - 230 - sidePad)
+    cardWidth = Math.min(
+      Math.floor(spaceLeftOfMenu),
+      isMobile ? Math.floor(viewportW * 0.46) : 320
+    )
+    cardLeft = Math.max(sidePad, menuPanel.left - gap - cardWidth)
+    // Align with the menu panel top (not the tour row mid-screen).
+    const preferredTop = menuPanel.top
+    const maxTop = Math.max(sidePad, viewportH - estimatedCardH - sidePad)
     cardTop = Math.min(Math.max(sidePad, preferredTop), maxTop)
   } else if (isMobile) {
-    // Fallback before the panel measures: keep the prompt in the lower-left area
-    // (not full-bleed under the menu).
-    pinToBottom = true
-    cardWidth = Math.min(Math.round(viewportW * 0.64), viewportW - 32)
-    cardTop = viewportH - 220
+    // Menu took most of the width: compact card still on the left, near the top.
+    pinToBottom = false
+    besideMenu = true
+    cardWidth = Math.min(Math.round(viewportW * 0.42), Math.max(96, spaceLeftOfMenu || 140))
     cardLeft = sidePad
+    cardTop = Math.max(
+      sidePad,
+      Math.min(rects.trigger?.bottom ? rects.trigger.bottom + 8 : 72, viewportH - estimatedCardH - sidePad)
+    )
   } else if (menuCluster) {
     cardLeft = Math.min(
       viewportW - cardWidth - 16,

@@ -146,8 +146,25 @@ export function NavActionsMenu({
     if (!open) return
     if (tourNoticeActive) {
       const frame = window.requestAnimationFrame(() => {
+        // Scroll only inside the menu panel — never the document (that left
+        // landlord demo landings mid-page when "Take the tour" was revealed).
         const tourBtn = rootRef.current?.querySelector<HTMLElement>('[data-menu-item="tour"]')
-        tourBtn?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        const scrollParent = rootRef.current?.querySelector<HTMLElement>(
+          '[role="menu"] .overflow-y-auto'
+        )
+        if (tourBtn && scrollParent) {
+          const btnRect = tourBtn.getBoundingClientRect()
+          const parentRect = scrollParent.getBoundingClientRect()
+          const relativeTop = btnRect.top - parentRect.top + scrollParent.scrollTop
+          const relativeBottom = relativeTop + btnRect.height
+          const viewTop = scrollParent.scrollTop
+          const viewBottom = viewTop + scrollParent.clientHeight
+          if (relativeTop < viewTop) {
+            scrollParent.scrollTop = Math.max(0, relativeTop - 8)
+          } else if (relativeBottom > viewBottom) {
+            scrollParent.scrollTop = Math.max(0, relativeBottom - scrollParent.clientHeight + 8)
+          }
+        }
       })
       return () => window.cancelAnimationFrame(frame)
     }
@@ -270,7 +287,9 @@ export function NavActionsMenu({
           data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
           className={cn(
             'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-fit max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
-            tourNoticeActive && 'z-[96] demo-tour-notice-panel'
+            // Leave room for the Explore notice card beside the menu on phones.
+            tourNoticeActive &&
+              'z-[96] demo-tour-notice-panel max-w-[min(14.5rem,calc(100vw-7.75rem))]'
           )}
         >
           <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1">

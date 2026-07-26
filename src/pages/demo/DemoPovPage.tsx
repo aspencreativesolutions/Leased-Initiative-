@@ -22,6 +22,7 @@ import {
   peekWaitingConnectHighlightEmail,
   requestNewRegistrantsDemoCue,
 } from '@/lib/publicDemo'
+import { prepareViewportForNavigation } from '@/lib/mobileViewport'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
 
 type PovStep = 'role' | 'tenant'
@@ -78,6 +79,7 @@ export function DemoPovPage() {
       await login(mock.email, getMockPassword(mock.email), {
         publicDemo: true,
       })
+      await prepareViewportForNavigation()
       const highlightEmail = peekWaitingConnectHighlightEmail()
       if (highlightEmail) {
         requestNewRegistrantsDemoCue(peekDemoApplicantName() || DEMO_AVA_NAME)
@@ -85,6 +87,9 @@ export function DemoPovPage() {
       } else {
         navigate('/studio', { replace: true })
       }
+      window.requestAnimationFrame(() => {
+        window.scrollTo(0, 0)
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open the demo')
       setStartingRole(null)
@@ -117,7 +122,11 @@ export function DemoPovPage() {
         const nextUser = await login(option.email, getMockPassword(option.email), {
           publicDemo: true,
         })
+        await prepareViewportForNavigation()
         navigate(nextUser.role === 'admin' ? '/studio' : '/portal', { replace: true })
+        window.requestAnimationFrame(() => {
+          window.scrollTo(0, 0)
+        })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not open the tenant demo')
         setBusyTenantKey(null)
