@@ -70,8 +70,8 @@ export function LeaseStatusBadge({
   const tagShell = cn(
     'in-place-hover--lease-tag',
     'items-center justify-center text-center',
-    'rounded-[var(--radius-sm)] border',
-    'text-[10px] font-bold tracking-tight tabular-nums',
+    'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
+    'text-[10px] font-bold leading-none tracking-tight tabular-nums',
     'transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
     'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',

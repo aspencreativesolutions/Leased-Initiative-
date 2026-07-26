@@ -8,18 +8,24 @@ export function PortalTimelinePage() {
   const { linked, projectName, steps, message, loading, error } = usePortalTimeline()
 
   if (loading) {
-    return <div className="py-16 text-center text-ink-muted">Loading your timeline…</div>
+    return (
+      <div data-onboarding="portal-timeline-page" className="py-16 text-center text-ink-muted">
+        Loading your timeline…
+      </div>
+    )
   }
 
   if (error) {
     return (
-      <EmptyState icon={GitBranch} title="Something went wrong" description={error} />
+      <div data-onboarding="portal-timeline-page">
+        <EmptyState icon={GitBranch} title="Something went wrong" description={error} />
+      </div>
     )
   }
 
   if (!linked) {
     return (
-      <div>
+      <div data-onboarding="portal-timeline-page">
         <PageHeader title="Timeline" subtitle="Project progress" />
         <p className="mt-4 text-sm text-ink-muted">{message}</p>
       </div>
@@ -27,7 +33,7 @@ export function PortalTimelinePage() {
   }
 
   return (
-    <div>
+    <div data-onboarding="portal-timeline-page">
       <PageHeader
         title="Timeline"
         subtitle="Track what’s done, what’s next, and where your project stands"

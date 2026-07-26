@@ -154,6 +154,7 @@ export function PortalDashboardPage() {
       <section
         className="paper-box mb-8 w-full px-4 py-8 text-center sm:px-8 sm:py-10"
         aria-label="Lease overview"
+        data-onboarding="portal-dashboard-overview"
       >
         <p className="text-base font-medium text-ink sm:text-lg">Hello, {tenantName}</p>
 

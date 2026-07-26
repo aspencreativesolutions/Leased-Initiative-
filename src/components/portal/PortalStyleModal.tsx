@@ -18,13 +18,9 @@ export function PortalStyleModal({ open, onClose }: PortalStyleModalProps) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-muted">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 shrink-0 text-brand" />
-          <p className="hidden md:block">
+          <p>
             Pick a look for your portal — same styles as your landlord&apos;s dashboard. Your choice
             is saved on this device. Currently using{' '}
-            <strong className="text-ink">{theme.name}</strong>.
-          </p>
-          <p className="md:hidden">
-            Browse each finish full-size, then apply. Currently{' '}
             <strong className="text-ink">{theme.name}</strong>.
           </p>
         </div>
@@ -35,7 +31,6 @@ export function PortalStyleModal({ open, onClose }: PortalStyleModalProps) {
       <StylePickerGrid
         themeId={themeId}
         themes={themes}
-        appearance={appearance}
         onSelect={(id) => {
           setTheme(id)
         }}

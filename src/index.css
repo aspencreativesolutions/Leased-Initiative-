@@ -2884,16 +2884,22 @@ a.in-place-hover {
 /*
  * Official Tenants lease tags — compact shell under the tenant name.
  * Hover expands width only for a single-line summary; overlay mode keeps
- * the table from reflowing.
+ * the table from reflowing. Pin to the host’s top-left (like payment tags)
+ * so a height-locked face isn’t vertically centered by a half-pixel and
+ * lose its top border stroke on mobile / retina displays.
  */
-.in-place-hover--lease-tag {
-  padding: 0.15rem 0.5rem;
-  line-height: 1.2;
+.in-place-hover--lease-tag,
+.in-place-hover-expand-measure.in-place-hover--lease-tag {
+  box-sizing: border-box;
+  padding: 0.25rem 0.5rem;
+  border-width: var(--border-width);
+  border-style: solid;
+  line-height: 1;
 }
 
-.in-place-hover-expand-measure.in-place-hover--lease-tag {
-  padding: 0.15rem 0.5rem;
-  line-height: 1.2;
+.in-place-hover-expand-host--overlay > .in-place-hover--lease-tag {
+  justify-self: start;
+  align-self: start;
 }
 
 .in-place-hover__lease-label {
@@ -2901,7 +2907,7 @@ a.in-place-hover {
   align-items: center;
   justify-content: center;
   gap: 0.125rem;
-  line-height: 1.2;
+  line-height: 1;
   overflow: visible;
   text-align: center;
   white-space: nowrap;

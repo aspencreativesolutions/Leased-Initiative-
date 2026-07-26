@@ -6,7 +6,7 @@ export function PortalReportPage() {
   const navigate = useNavigate()
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg" data-onboarding="portal-report-problem">
       <PageHeader
         title="Request Maintenance"
         subtitle="Attach a required photo of the issue so your landlord can review it under Tenant Alerts. A note is optional."

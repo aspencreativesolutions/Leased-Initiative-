@@ -54,10 +54,20 @@ const DEFAULT_ONBOARDING_CONTEXT: OnboardingContext = {}
 const ADMIN_TOUR_STEP_KEY = 'leased-admin-tour-step-id'
 /** Survives refresh until the user explicitly restarts via the Tour button. */
 const TOUR_DISMISSED_KEY = 'leased-onboarding-tour-dismissed'
-const TOOLTIP_WIDTH = 320
+/** Desktop description tile width. */
+const TOOLTIP_WIDTH_DESKTOP = 320
+/** Mobile: 20% narrower so the tile fits phones like iPhone 12 with side margin. */
+const TOOLTIP_WIDTH_MOBILE = Math.round(TOOLTIP_WIDTH_DESKTOP * 0.8)
 const TOOLTIP_FALLBACK_HEIGHT = 220
 const VIEWPORT_PAD = 16
 const SPOTLIGHT_GAP = 12
+
+function tourTooltipWidth() {
+  if (typeof window === 'undefined') return TOOLTIP_WIDTH_DESKTOP
+  return window.matchMedia('(max-width: 767px)').matches
+    ? TOOLTIP_WIDTH_MOBILE
+    : TOOLTIP_WIDTH_DESKTOP
+}
 
 function dismissedStorageKey(role: 'admin' | 'client', userId?: string | null) {
   return userId
@@ -133,7 +143,7 @@ function getTooltipPosition(
   preferred: OnboardingStep['placement'],
   tooltipSize: { width: number; height: number }
 ): TooltipStyle {
-  const width = tooltipSize.width || TOOLTIP_WIDTH
+  const width = tooltipSize.width || tourTooltipWidth()
   const height = tooltipSize.height || TOOLTIP_FALLBACK_HEIGHT
   const maxLeft = Math.max(VIEWPORT_PAD, window.innerWidth - width - VIEWPORT_PAD)
   const maxTop = Math.max(VIEWPORT_PAD, window.innerHeight - height - VIEWPORT_PAD)
@@ -233,7 +243,7 @@ export function OnboardingTour({
   const [tourSteps, setTourSteps] = useState<OnboardingStep[]>([])
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null)
   const [tooltipSize, setTooltipSize] = useState({
-    width: TOOLTIP_WIDTH,
+    width: tourTooltipWidth(),
     height: TOOLTIP_FALLBACK_HEIGHT,
   })
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -598,13 +608,14 @@ export function OnboardingTour({
 
   if (!active || !currentStep) return null
 
+  const tooltipWidth = tourTooltipWidth()
   const tooltipStyle = isCompletionStep
     ? {
         top: Math.max(VIEWPORT_PAD, (window.innerHeight - tooltipSize.height) / 2),
         left: clamp(
-          (window.innerWidth - TOOLTIP_WIDTH) / 2,
+          (window.innerWidth - tooltipWidth) / 2,
           VIEWPORT_PAD,
-          Math.max(VIEWPORT_PAD, window.innerWidth - TOOLTIP_WIDTH - VIEWPORT_PAD)
+          Math.max(VIEWPORT_PAD, window.innerWidth - tooltipWidth - VIEWPORT_PAD)
         ),
       }
     : getTooltipPosition(spotlight, currentStep.placement ?? 'bottom', tooltipSize)
@@ -616,7 +627,9 @@ export function OnboardingTour({
   const tooltipPositionStyle: CSSProperties = {
     top: tooltipStyle.top,
     left: tooltipStyle.left,
-    width: isCompletionStep ? Math.min(TOOLTIP_WIDTH + 40, window.innerWidth - VIEWPORT_PAD * 2) : TOOLTIP_WIDTH,
+    width: isCompletionStep
+      ? Math.min(tooltipWidth + 40, window.innerWidth - VIEWPORT_PAD * 2)
+      : tooltipWidth,
   }
 
   return (
@@ -707,7 +720,9 @@ export function OnboardingTour({
         ref={tooltipRef}
         className={cn(
           'pointer-events-auto absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift',
-          isCompletionStep ? 'w-[min(22.5rem,calc(100vw-2rem))] p-5 text-center sm:p-6' : 'w-80'
+          isCompletionStep
+            ? 'w-[min(22.5rem,calc(100vw-2rem))] p-5 text-center sm:p-6'
+            : 'max-w-[calc(100vw-2rem)]'
         )}
         style={tooltipPositionStyle}
         onClick={(event) => event.stopPropagation()}

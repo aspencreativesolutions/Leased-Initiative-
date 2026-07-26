@@ -27,7 +27,7 @@ export function PortalInvoiceSection({
     )
 
     return (
-      <section className="mb-8">
+      <section className="mb-8" data-onboarding="portal-invoice">
         <Card padding="md" className={paidBoxClass}>
           <div
             className={cn(

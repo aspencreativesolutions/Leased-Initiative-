@@ -423,7 +423,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
 
   if (mode === 'sent' && data.application) {
     return (
-      <div className="paper-box mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10">
+      <div
+        data-onboarding="portal-application"
+        className="paper-box mt-4 w-full px-4 py-8 text-center sm:px-8 sm:py-10"
+      >
         <p className="text-lg font-semibold text-ink sm:text-xl">
           Application sent to {companyName}!
         </p>
@@ -523,6 +526,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   if (mode === 'choice') {
     return (
       <div
+        data-onboarding="portal-application"
         className={cn(
           'paper-box mt-4 px-4 py-8 text-center sm:px-8 sm:py-10',
           isAvaDemoGuide
@@ -565,7 +569,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   if (mode === 'invite') {
     const minStartDate = earliestFutureLeaseStartDate(resolveScheduleAsOf())
     return (
-      <div className="paper-box mt-4 w-full px-4 py-6 text-left sm:px-8 sm:py-8">
+      <div
+        data-onboarding="portal-application"
+        className="paper-box mt-4 w-full px-4 py-6 text-left sm:px-8 sm:py-8"
+      >
         <button
           type="button"
           className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-caps text-ink-muted transition-colors hover:text-ink"
@@ -690,7 +697,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
 
   // mode === 'apply'
   return (
-    <div className="paper-box mt-4 w-full px-4 py-6 text-left sm:px-8 sm:py-8">
+    <div
+      data-onboarding="portal-application"
+      className="paper-box mt-4 w-full px-4 py-6 text-left sm:px-8 sm:py-8"
+    >
       <button
         type="button"
         className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-caps text-ink-muted transition-colors hover:text-ink"

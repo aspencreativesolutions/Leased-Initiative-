@@ -128,13 +128,22 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
   },
 ]
 
-const TOUR_SLIDE: WelcomeSlide = {
+const LANDLORD_TOUR_SLIDE: WelcomeSlide = {
   id: 'tour-anytime',
   kind: 'tour',
   icon: Compass,
   title: 'Revisit the tour anytime',
   description:
     'Once you are signed in, open Menu in the top bar for Company Profile, Take the tour, Settings, Bug Report, and Sign out. The tour walks through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report under Menu to flag unexpected behavior to Aspen Creative Solutions.',
+}
+
+const TENANT_TOUR_SLIDE: WelcomeSlide = {
+  id: 'tour-anytime',
+  kind: 'tour',
+  icon: Compass,
+  title: 'Revisit the tour anytime',
+  description:
+    'Once you are signed in, open Menu for Take the tour, Choose Style, My profile, and Sign out. The tour walks through your tenant portal — starting an application or invite, reviewing and signing leases, paying rent and deposits, sharing files, requesting maintenance, and following your timeline. Restart anytime from Menu → Take the tour.',
 }
 
 const DEMO_SLIDE: WelcomeSlide = {
@@ -170,11 +179,12 @@ export function getWelcomeSlides(role: WelcomeRole | null): WelcomeSlide[] {
       : role === 'landlord'
         ? LANDLORD_FEATURE_SLIDES
         : []
+  const tourSlide = role === 'tenant' ? TENANT_TOUR_SLIDE : LANDLORD_TOUR_SLIDE
 
   return [
     ROLE_SLIDE,
     ...features,
-    ...(role ? [TOUR_SLIDE, DEMO_SLIDE, READY_SLIDE] : []),
+    ...(role ? [tourSlide, DEMO_SLIDE, READY_SLIDE] : []),
   ]
 }
 

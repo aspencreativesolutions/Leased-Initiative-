@@ -23,12 +23,7 @@ export function ThemePicker({ embedded = false, className }: ThemePickerProps) {
           <AppearanceToggle appearance={appearance} onChange={setAppearance} />
         </div>
       )}
-      <StylePickerGrid
-        themeId={themeId}
-        themes={themes}
-        appearance={appearance}
-        onSelect={setTheme}
-      />
+      <StylePickerGrid themeId={themeId} themes={themes} onSelect={setTheme} />
       <p className="mt-3 text-xs text-ink-muted">
         Slate Bureau is the default style.
         {supportsAppearance

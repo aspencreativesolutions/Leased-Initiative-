@@ -38,70 +38,118 @@ export interface OnboardingContext {
   hasInvoice?: boolean
 }
 
-/** Tenant tour — ordered by when each action is needed in the lease journey. */
+/**
+ * Tenant tour — walks the real portal features (application → lease → pay →
+ * files → maintenance → timeline → menu). Linked-only UI is gated; everything
+ * else stays available so unconnected demos still get a full feature tour.
+ */
 export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
-    id: 'registration-waiting',
-    target: '[data-onboarding="portal-contracts"]',
+    id: 'welcome',
+    target: '[data-onboarding="portal-nav"]',
+    title: 'Your tenant portal',
+    description:
+      'This is your home for applications, leases, rent, documents, and maintenance. Use Dashboard and Timeline in the top bar (or Menu on phones) to move around.',
+    placement: 'bottom',
+    route: '/portal',
+  },
+  {
+    id: 'application',
+    target: '[data-onboarding="portal-application"]',
     title: 'Start your application',
-    description: 'Choose a landlord and property, set your rent share, then send.',
-    placement: 'top',
-    when: (ctx) => ctx.linked === false,
+    description:
+      'Choose a landlord company, pick an available address (furnished status, total rent, full-occupancy cost, and utilities), set entire-home or roommate preference, then Send. Or enter an invite code your landlord texted you.',
+    placement: 'bottom',
+    route: '/portal',
+    when: (ctx) => ctx.linked !== true,
+  },
+  {
+    id: 'dashboard-overview',
+    target: '[data-onboarding="portal-dashboard-overview"]',
+    title: 'Your lease dashboard',
+    description:
+      'After you’re connected, your dashboard opens with a greeting, rent due dates, and Pay Rent — including paying several months ahead when your lease allows.',
+    placement: 'bottom',
+    route: '/portal',
+    when: (ctx) => ctx.linked === true,
   },
   {
     id: 'contracts',
     target: '[data-onboarding="portal-contracts"]',
-    title: 'Review and sign',
-    description: 'Open your lease, review terms, and sign when it arrives.',
+    title: 'Review and sign leases',
+    description:
+      'When your landlord accepts you and sends a lease, open it here, review the terms, and sign with your finger or mouse. After you sign, you and your landlord are notified and your deposit invoice appears.',
     placement: 'top',
+    route: '/portal',
+  },
+  {
+    id: 'pay-rent',
+    target:
+      '[data-onboarding="portal-pay-rent"], [data-onboarding="portal-payment-schedule"], [data-onboarding="portal-dashboard-overview"]',
+    title: 'Pay rent anytime',
+    description:
+      'See what’s next due on your schedule, then tap Pay Rent — PayPal, Stripe, or Square. If rent is past due, your landlord may text a reminder; reply from your phone and pay here anytime.',
+    placement: 'top',
+    route: '/portal',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'payment',
     target: '[data-onboarding="portal-invoice"]',
     title: 'Pay your deposit',
-    description: 'Your deposit invoice and pay link show up here after signing.',
+    description:
+      'Your deposit invoice and payment link show up here after you sign. Pay from the link, then your landlord can confirm and move you toward move-in.',
     placement: 'top',
+    route: '/portal',
     when: (ctx) => ctx.linked === true && ctx.hasInvoice === true,
-  },
-  {
-    id: 'pay-rent',
-    target: '[data-onboarding="portal-pay-rent"]',
-    title: 'Pay rent anytime',
-    description: 'Check what’s due and pay here when you’re ready.',
-    placement: 'top',
-    when: (ctx) => ctx.linked === true,
   },
   {
     id: 'files',
     target: '[data-onboarding="portal-files"]',
     title: 'Share documents',
-    description: 'Upload files and add a short note for your landlord.',
+    description:
+      'Upload files and short notes for your landlord once the project is active. Shared Files stays on your dashboard so lease paperwork stays in one place.',
     placement: 'top',
+    route: '/portal',
     when: (ctx) => ctx.linked === true,
   },
   {
     id: 'report-problem',
     target: '[data-onboarding="portal-report-problem"]',
     title: 'Request Maintenance',
-    description: 'Report a problem with a photo — your landlord gets notified.',
+    description:
+      'Pick a household problem, attach a required photo, optionally add a note, and send. Your landlord sees it under Tenant Alerts so they can dispatch help.',
     placement: 'bottom',
-    when: (ctx) => ctx.linked === true,
+    route: '/portal/report',
   },
   {
-    id: 'timeline-nav',
-    target: '[data-onboarding="portal-timeline-nav"]',
+    id: 'timeline',
+    target: '[data-onboarding="portal-timeline-page"]',
     title: 'Follow your timeline',
-    description: 'See what’s done and what’s next on your lease.',
+    description:
+      'Track what’s done and what’s next on your lease — the same milestones also appear on your dashboard once you’re connected.',
     placement: 'bottom',
-    when: (ctx) => ctx.linked === true,
+    route: '/portal/timeline',
   },
   {
-    id: 'notifications',
-    target: '[data-onboarding="portal-notifications"]',
-    title: 'Stay informed',
-    description: 'Alerts and reminders land here — and by email when needed.',
+    id: 'menu',
+    target:
+      '[data-onboarding="portal-mobile-menu"], [data-onboarding="portal-desktop-menu"]',
+    title: 'Menu, profile, and style',
+    description:
+      'Open Menu for Dashboard, Timeline, Choose Style, My profile, Take the tour, and Sign out. Alerts also show on your dashboard and by email when something needs attention.',
     placement: 'bottom',
+    route: '/portal',
+  },
+  {
+    id: 'complete',
+    target: '[data-onboarding="portal-nav"]',
+    title: 'You’re ready',
+    description:
+      'Apply or join with an invite, sign your lease, pay deposit and rent, share files, request maintenance, and follow your timeline — all from this portal. Restart anytime from Menu → Take the tour.',
+    placement: 'bottom',
+    route: '/portal',
+    completion: true,
   },
 ]
 
