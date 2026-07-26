@@ -238,27 +238,30 @@ export function DemoTourNoticeHost() {
   let pinToBottom = false
   let besideMenu = false
 
-  const mobileBesideWidth =
-    isMobile && rects.panel && rects.panel.width > 2
-      ? rects.panel.left - sidePad - gap
-      : 0
   const mobilePanel = rects.panel
+  const spaceLeftOfMenu =
+    isMobile && mobilePanel && mobilePanel.width > 2
+      ? Math.max(0, mobilePanel.left - sidePad - gap)
+      : 0
 
-  if (mobileBesideWidth >= 128 && mobilePanel) {
+  if (isMobile && mobilePanel && spaceLeftOfMenu >= 108) {
     // Sit to the left of the open Menu so both fit in one viewport (no stack/scroll).
     besideMenu = true
-    cardWidth = Math.min(200, mobileBesideWidth)
+    // Hug the remaining left column; keep readable but clearly beside the menu.
+    cardWidth = Math.min(Math.floor(spaceLeftOfMenu), Math.floor(viewportW * 0.52))
     cardLeft = sidePad
     const preferredTop = rects.item
       ? rects.item.top + rects.item.height / 2 - 88
       : mobilePanel.top
-    const maxTop = Math.max(sidePad, viewportH - 210 - sidePad)
+    const maxTop = Math.max(sidePad, viewportH - 230 - sidePad)
     cardTop = Math.min(Math.max(sidePad, preferredTop), maxTop)
   } else if (isMobile) {
-    // Fallback before the panel measures: keep the prompt in the lower viewport.
+    // Fallback before the panel measures: keep the prompt in the lower-left area
+    // (not full-bleed under the menu).
     pinToBottom = true
+    cardWidth = Math.min(Math.round(viewportW * 0.64), viewportW - 32)
     cardTop = viewportH - 220
-    cardLeft = 16
+    cardLeft = sidePad
   } else if (menuCluster) {
     cardLeft = Math.min(
       viewportW - cardWidth - 16,
@@ -339,26 +342,24 @@ export function DemoTourNoticeHost() {
       <div
         className={cn(
           'pointer-events-auto absolute z-[96] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper shadow-lift',
-          besideMenu
-            ? 'p-3'
-            : 'p-4 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:right-auto sm:w-[min(calc(100vw-2rem),21.25rem)]'
+          besideMenu || isMobile ? 'p-3' : 'p-4'
         )}
         style={
           pinToBottom
             ? {
                 bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))',
                 top: 'auto',
-                maxWidth: undefined,
+                left: `max(${cardLeft}px, env(safe-area-inset-left, 0px))`,
+                right: 'auto',
+                width: cardWidth,
+                maxWidth: cardWidth,
               }
             : {
                 top: `max(${cardTop}px, calc(0.75rem + env(safe-area-inset-top, 0px)))`,
                 left: `max(${cardLeft}px, env(safe-area-inset-left, 0px))`,
                 right: 'auto',
-                width: besideMenu ? cardWidth : undefined,
+                width: cardWidth,
                 maxWidth: cardWidth,
-                paddingBottom: besideMenu
-                  ? undefined
-                  : 'max(1rem, env(safe-area-inset-bottom, 0px))',
               }
         }
       >

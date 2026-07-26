@@ -505,6 +505,7 @@
     height: 100%;
     min-height: 100%;
     padding: 0.625rem;
+    overflow: visible;
   }
 
   .tile-scale-root .official-tenant-tile {
@@ -2884,22 +2885,32 @@ a.in-place-hover {
 /*
  * Official Tenants lease tags — compact shell under the tenant name.
  * Hover expands width only for a single-line summary; overlay mode keeps
- * the table from reflowing. Pin to the host’s top-left (like payment tags)
- * so a height-locked face isn’t vertically centered by a half-pixel and
- * lose its top border stroke on mobile / retina displays.
+ * the table from reflowing. Pin to the host’s top-left (like payment tags).
+ *
+ * Stroke is an outer box-shadow (not a border-box border) so mobile / retina
+ * never compresses or drops one side when the expand face height is px-locked.
  */
 .in-place-hover--lease-tag,
 .in-place-hover-expand-measure.in-place-hover--lease-tag {
   box-sizing: border-box;
   padding: 0.25rem 0.5rem;
-  border-width: var(--border-width);
-  border-style: solid;
+  border: none;
   line-height: 1;
+  box-shadow: 0 0 0 var(--border-width)
+    var(--lease-tag-stroke, color-mix(in srgb, var(--ink) 15%, transparent));
 }
 
 .in-place-hover-expand-host--overlay > .in-place-hover--lease-tag {
   justify-self: start;
   align-self: start;
+}
+
+.in-place-hover-expand-host:has(> .in-place-hover--lease-tag),
+.in-place-hover-expand-host--overlay:has(> .in-place-hover--lease-tag) {
+  /* Room for the outer stroke so parents don’t clip a side */
+  overflow: visible;
+  padding: var(--border-width);
+  margin: calc(-1 * var(--border-width));
 }
 
 .in-place-hover__lease-label {

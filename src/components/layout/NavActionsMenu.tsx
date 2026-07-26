@@ -269,7 +269,7 @@ export function NavActionsMenu({
           onKeyDown={onMenuKeyDown}
           data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
           className={cn(
-            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-max max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
+            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-fit max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
             tourNoticeActive && 'z-[96] demo-tour-notice-panel'
           )}
         >
@@ -277,13 +277,13 @@ export function NavActionsMenu({
             {header ? <div className="mb-1.5 border-b border-line px-2.5 py-2">{header}</div> : null}
 
             {sections?.length ? (
-              <div className="flex flex-col gap-0.5">
+              <div className="flex w-fit min-w-0 flex-col gap-0.5">
                 {sections.map((section, sectionIndex) => (
-                  <div key={section.id}>
+                  <div key={section.id} className="w-fit min-w-0">
                     {sectionIndex > 0 ? (
                       <div className="mx-2 my-1 border-t border-line" role="separator" />
                     ) : null}
-                    <p className="whitespace-nowrap px-2.5 pb-0.5 pt-1 text-[10px] font-semibold uppercase tracking-caps text-ink-muted">
+                    <p className="whitespace-pre-line px-2.5 pb-0.5 pt-1 text-[10px] font-semibold uppercase leading-tight tracking-caps text-ink-muted">
                       {section.label}
                     </p>
                     <ul className="flex flex-col gap-0.5" role="none">

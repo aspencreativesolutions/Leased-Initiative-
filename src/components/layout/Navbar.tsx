@@ -214,7 +214,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const utilityMenuSections = useMemo(
     (): NavActionsMenuSection[] => [
       { id: 'account', label: 'Account', items: accountItems },
-      { id: 'help', label: 'Help and Preferences', items: helpPreferenceItems },
+      { id: 'help', label: 'Help and\nPreferences', items: helpPreferenceItems },
     ],
     [accountItems, helpPreferenceItems]
   )

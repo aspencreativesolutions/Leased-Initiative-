@@ -9,16 +9,18 @@ import {
 
 const stateStyles: Record<LeaseTimelineState, string> = {
   Active:
-    'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
+    'lease-status-badge--active bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)] [--lease-tag-stroke:var(--deposit-border)]',
   // Ending Soon shares Active green — Official Tenants only shows Active / Upcoming by default.
   'Ending Soon':
-    'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
-  Upcoming: 'border-ink/15 bg-surface text-ink-muted',
-  Expired: 'border-line bg-transparent text-ink-faint',
+    'lease-status-badge--active bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)] [--lease-tag-stroke:var(--deposit-border)]',
+  Upcoming:
+    'bg-surface text-ink-muted [--lease-tag-stroke:color-mix(in_srgb,var(--ink)_15%,transparent)]',
+  Expired:
+    'bg-transparent text-ink-faint [--lease-tag-stroke:var(--line)]',
 }
 
 const awaitingDepositStyles =
-  'border-accent/35 bg-accent-light text-accent'
+  'bg-accent-light text-accent [--lease-tag-stroke:color-mix(in_srgb,var(--accent)_35%,transparent)]'
 
 interface LeaseStatusBadgeProps {
   details: LeaseStatusDetails
@@ -70,7 +72,7 @@ export function LeaseStatusBadge({
   const tagShell = cn(
     'in-place-hover--lease-tag',
     'items-center justify-center text-center',
-    'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
+    'rounded-[var(--radius-sm)]',
     'text-[10px] font-bold leading-none tracking-tight tabular-nums',
     'transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
@@ -81,7 +83,7 @@ export function LeaseStatusBadge({
       ? awaitingDepositStyles
       : state
         ? stateStyles[state]
-        : 'border-ink/15 bg-surface text-ink-muted',
+        : 'bg-surface text-ink-muted [--lease-tag-stroke:color-mix(in_srgb,var(--ink)_15%,transparent)]',
     className
   )
 

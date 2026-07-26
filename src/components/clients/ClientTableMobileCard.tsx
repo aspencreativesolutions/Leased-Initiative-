@@ -44,6 +44,17 @@ function getFullPropertyAddress(
   return fallback === '—' ? LOCATION_DISPLAY_MISSING : fallback
 }
 
+/** Gallery tiles: given name on line 1, last name on line 2. */
+function galleryNameLines(fullName: string): { given: string; family: string | null } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return { given: fullName, family: null }
+  if (parts.length === 1) return { given: parts[0], family: null }
+  return {
+    given: parts.slice(0, -1).join(' '),
+    family: parts[parts.length - 1],
+  }
+}
+
 /** Compact Official Tenants tile for mobile 1- or 2-column grids. */
 export function ClientTableMobileCard({
   client,
@@ -64,6 +75,7 @@ export function ClientTableMobileCard({
   const contactLabel = OFFICIAL_TENANT_CONTACT_DISPLAY_LABELS[contactDisplayMode]
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
+  const { given, family } = galleryNameLines(client.name)
 
   return (
     <article
@@ -79,10 +91,11 @@ export function ClientTableMobileCard({
           <button
             type="button"
             onClick={() => onOpenTenantDetails(client.id)}
-            className="min-w-0 max-w-full truncate text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
+            className="min-w-0 max-w-full text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
             title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
           >
-            {client.name}
+            <span className="block break-words">{given}</span>
+            {family ? <span className="block break-words">{family}</span> : null}
           </button>
           {showOccupancyStatus ? (
             <div className="mt-1 empty:hidden">
@@ -94,7 +107,7 @@ export function ClientTableMobileCard({
               />
             </div>
           ) : null}
-          <div className="mt-1">
+          <div className="mt-1.5 overflow-visible">
             <LeaseStatusBadge
               details={leaseStatus}
               onConfirmPayment={
