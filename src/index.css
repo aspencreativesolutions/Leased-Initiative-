@@ -4262,6 +4262,22 @@ a.in-place-hover {
   .live-update-dot {
     animation: live-update-dot-pulse 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
   }
+
+  .live-update-dot--update-ready {
+    animation: live-update-dot-pulse 1.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+}
+
+.live-update-dot--update-ready {
+  box-shadow:
+    0 0 8px 2px rgba(255, 90, 120, 1),
+    0 0 18px 7px rgba(255, 45, 85, 0.9),
+    0 0 32px 12px rgba(255, 23, 68, 0.5);
+}
+
+button.live-update-dot {
+  appearance: none;
+  background: #ff1744;
 }
 
 .live-update-refresh {

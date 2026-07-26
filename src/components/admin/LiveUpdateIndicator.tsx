@@ -14,15 +14,16 @@ import {
 } from '@/lib/liveUpdate'
 import { cn } from '@/lib/utils'
 
-type IndicatorMode = 'hidden' | 'watching' | 'refresh'
-
 /**
  * Top-left live-update beacon for all visitors while Admin Mode has live updates on.
- * Pulsing red dot while waiting; turns into a refresh control when a new build is detected.
+ * The glowing red dot stays visible the whole time; click it for an explanation.
+ * When a new build is ready, the explanation offers Refresh.
  */
 export function LiveUpdateIndicator() {
-  const [mode, setMode] = useState<IndicatorMode>('hidden')
+  const [enabled, setEnabled] = useState(false)
+  const [updateAvailable, setUpdateAvailable] = useState(false)
   const [noticeOpen, setNoticeOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const noticeTitleId = useId()
   const noticeDescId = useId()
 
@@ -31,30 +32,28 @@ export function LiveUpdateIndicator() {
       const status = await fetchPublicLiveUpdateStatus()
       if (!status.enabled) {
         clearLiveUpdateBaseline()
-        setMode('hidden')
+        setEnabled(false)
+        setUpdateAvailable(false)
         setNoticeOpen(false)
         return
       }
 
+      setEnabled(true)
+
       const version = await fetchLiveUpdateVersion()
       if (!version) {
-        setMode('watching')
+        setUpdateAvailable(false)
         return
       }
 
       const baseline = readLiveUpdateBaseline()
       if (!baseline) {
         writeLiveUpdateBaseline(version)
-        setMode('watching')
+        setUpdateAvailable(false)
         return
       }
 
-      if (version !== baseline) {
-        setMode('refresh')
-        return
-      }
-
-      setMode('watching')
+      setUpdateAvailable(version !== baseline)
     } catch {
       // Keep last known UI if the poll fails briefly.
     }
@@ -83,21 +82,18 @@ export function LiveUpdateIndicator() {
   }, [sync])
 
   useEffect(() => {
-    if (mode === 'hidden') {
+    if (!enabled) {
       setNoticeOpen(false)
       return
     }
-    if (hasSeenLiveUpdateNotice()) {
-      setNoticeOpen(false)
-      return
-    }
+    if (hasSeenLiveUpdateNotice()) return
     setNoticeOpen(true)
-  }, [mode])
+  }, [enabled])
 
   useEffect(() => {
     const onChanged = (event: Event) => {
-      const enabled = Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled)
-      if (!enabled) {
+      const nextEnabled = Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled)
+      if (!nextEnabled) {
         setNoticeOpen(false)
         return
       }
@@ -115,7 +111,12 @@ export function LiveUpdateIndicator() {
     setNoticeOpen(false)
   }
 
+  const openNotice = () => {
+    setNoticeOpen(true)
+  }
+
   const handleRefresh = async () => {
+    setRefreshing(true)
     // Wait for the API to be reachable so auth rehydration keeps the current route
     // (avoids demo recover → home during live-update server restarts).
     for (let attempt = 0; attempt < 12; attempt++) {
@@ -134,31 +135,29 @@ export function LiveUpdateIndicator() {
     window.location.reload()
   }
 
-  if (mode === 'hidden') return null
+  if (!enabled) return null
 
   return (
     <>
       <div className="pointer-events-none fixed left-3 top-3 z-[100] flex items-start gap-2">
-        {mode === 'watching' ? (
-          <span
-            className="live-update-dot pointer-events-auto"
-            role="status"
-            aria-label="Live updates in progress"
-            title="Live updates in progress"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              void handleRefresh()
-            }}
-            className="live-update-refresh pointer-events-auto"
-            aria-label="Refresh to apply live updates"
-            title="Refresh to apply updates"
-          >
-            <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openNotice}
+          className={cn(
+            'live-update-dot pointer-events-auto cursor-pointer border-0 p-0',
+            updateAvailable && 'live-update-dot--update-ready'
+          )}
+          aria-label={
+            updateAvailable
+              ? 'Live updates available — click for details'
+              : 'Live updates in progress — click for details'
+          }
+          title={
+            updateAvailable
+              ? 'New update ready — click for details'
+              : 'Live updates — click for details'
+          }
+        />
       </div>
 
       {noticeOpen ? (
@@ -183,7 +182,12 @@ export function LiveUpdateIndicator() {
           >
             <div className="flex items-start gap-2">
               <span className="mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
-                <span className="live-update-dot" />
+                <span
+                  className={cn(
+                    'live-update-dot',
+                    updateAvailable && 'live-update-dot--update-ready'
+                  )}
+                />
               </span>
               <div className="min-w-0 flex-1">
                 <h2 id={noticeTitleId} className="text-sm font-semibold text-ink">
@@ -191,7 +195,10 @@ export function LiveUpdateIndicator() {
                 </h2>
                 <p id={noticeDescId} className="mt-1 text-[12px] leading-snug text-ink-muted">
                   The developer has turned live update on, meaning active changes are being made.
-                  When the glowing dot turns to a refresh button refresh the page.
+                  Click the glowing red dot anytime to see this reminder.
+                  {updateAvailable
+                    ? ' A new update is ready — refresh the page to load it.'
+                    : null}
                 </p>
               </div>
               <button
@@ -203,13 +210,32 @@ export function LiveUpdateIndicator() {
                 <X className="h-4 w-4" strokeWidth={2.25} />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={dismissNotice}
-              className="mt-3 w-full rounded-[var(--radius-sm)] bg-ink px-3 py-2 text-xs font-semibold text-surface"
-            >
-              Got it
-            </button>
+            <div className="mt-3 flex flex-col gap-2">
+              {updateAvailable ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleRefresh()
+                  }}
+                  disabled={refreshing}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-[#ff1744] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  <RefreshCw
+                    className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+                    strokeWidth={2.5}
+                    aria-hidden
+                  />
+                  {refreshing ? 'Refreshing…' : 'Refresh page'}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={dismissNotice}
+                className="w-full rounded-[var(--radius-sm)] bg-ink px-3 py-2 text-xs font-semibold text-surface"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

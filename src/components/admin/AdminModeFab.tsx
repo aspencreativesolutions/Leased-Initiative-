@@ -511,8 +511,8 @@ function AdminModeFabInner() {
                     ) : null}
                   </span>
                   <span className="mt-0.5 block text-[10px] leading-snug text-ink-muted">
-                    When on, visitors see a pulsing red dot while you deploy. After changes are
-                    pushed it becomes a refresh button so they can load the update. Turn off when
+                    When on, visitors see a pulsing red dot while you deploy. They can click it for an
+                    explanation, and refresh from there when a new build is ready. Turn off when
                     you&apos;re done.
                   </span>
                 </span>
