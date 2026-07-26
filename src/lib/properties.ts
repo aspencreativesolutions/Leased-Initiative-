@@ -12,6 +12,7 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
+import { propertySurfacesBedAssignment } from '@/lib/furnishedOccupancy'
 import {
   buildRentalBedOccupancy,
   ensurePropertyBedLayout,
@@ -108,6 +109,7 @@ export function officialTenantsAtProperty(
 
 /**
  * Remaining tenant capacity (people): max occupancy minus active occupants.
+ * Whole-unit leases report 0 remaining while occupied (home is taken).
  * Prefer availableBedsForRental for vacancy / “full” (bed-based).
  */
 export function remainingTenantCapacity(
@@ -116,13 +118,17 @@ export function remainingTenantCapacity(
   getContract: (clientId: string) => ContractData | undefined
 ): number {
   const ensured = ensurePropertyBedLayout(property)
-  const current = activeTenantsAtProperty(ensured, clients, getContract).length
-  return Math.max(0, ensured.maxTenants - current)
+  const active = activeTenantsAtProperty(ensured, clients, getContract)
+  if (!propertySurfacesBedAssignment(ensured, active)) {
+    return active.length > 0 ? 0 : 1
+  }
+  return Math.max(0, ensured.maxTenants - active.length)
 }
 
 /**
  * Available applicant slots from maxTenants minus Official Tenants at the rental.
  * Matches Waiting to Connect “Requesting 1 of N available units” badges.
+ * Whole-unit / entire-home occupancy reports 0 while occupied.
  */
 export function availableUnitsForApplicant(
   property: Property,
@@ -130,8 +136,11 @@ export function availableUnitsForApplicant(
   getContract: (clientId: string) => ContractData | undefined
 ): number {
   const ensured = ensurePropertyBedLayout(property)
-  const current = officialTenantsAtProperty(ensured, clients, getContract).length
-  return Math.max(0, ensured.maxTenants - current)
+  const official = officialTenantsAtProperty(ensured, clients, getContract)
+  if (!propertySurfacesBedAssignment(ensured, official)) {
+    return official.length > 0 ? 0 : 1
+  }
+  return Math.max(0, ensured.maxTenants - official.length)
 }
 
 /** Bed + people occupancy snapshot for a rental. */
@@ -146,15 +155,80 @@ export function rentalBedOccupancyForProperty(
 }
 
 /**
+ * Whether bed assignment UI / open-bed messaging applies for this rental’s
+ * current active occupancy (false for whole-unit / entire-home leases).
+ */
+export function rentalSurfacesBedAssignment(
+  property: Property,
+  clients: Client[],
+  getContract: (clientId: string) => ContractData | undefined
+): boolean {
+  const ensured = ensurePropertyBedLayout(property)
+  const active = activeTenantsAtProperty(ensured, clients, getContract)
+  return propertySurfacesBedAssignment(ensured, active)
+}
+
+export type RentalVacancySnapshot = {
+  surfacesBeds: boolean
+  /** Open capacity units for vacancy tone / Open Beds column. */
+  available: number
+  /** Capacity denominator (physical beds, or 1 for whole-unit). */
+  total: number
+  currentOccupants: number
+  maxOccupancy: number
+  occupiedBeds: number
+  totalBeds: number
+}
+
+/**
+ * Vacancy + occupancy numbers for Rentals UI.
+ * Whole-unit leases hide bed capacity and treat the home as 0 or 1 open unit.
+ */
+export function rentalVacancySnapshot(
+  property: Property,
+  clients: Client[],
+  getContract: (clientId: string) => ContractData | undefined
+): RentalVacancySnapshot {
+  const ensured = ensurePropertyBedLayout(property)
+  const active = activeTenantsAtProperty(ensured, clients, getContract)
+  const bedOcc = buildRentalBedOccupancy(ensured, active)
+  const surfacesBeds = propertySurfacesBedAssignment(ensured, active)
+
+  if (!surfacesBeds) {
+    const occupied = active.length > 0
+    return {
+      surfacesBeds: false,
+      available: occupied ? 0 : 1,
+      total: 1,
+      currentOccupants: bedOcc.currentOccupants,
+      maxOccupancy: bedOcc.maxOccupancy,
+      occupiedBeds: occupied ? bedOcc.totalBeds : 0,
+      totalBeds: bedOcc.totalBeds,
+    }
+  }
+
+  return {
+    surfacesBeds: true,
+    available: bedOcc.availableBeds,
+    total: bedOcc.totalBeds,
+    currentOccupants: bedOcc.currentOccupants,
+    maxOccupancy: bedOcc.maxOccupancy,
+    occupiedBeds: bedOcc.occupiedBeds,
+    totalBeds: bedOcc.totalBeds,
+  }
+}
+
+/**
  * Available physical beds (beds with zero assigned tenants).
- * Drives Rentals vacancy / “full” — a bed with ≥1 person is taken.
+ * Whole-unit occupancy returns 0 when occupied, or 1 home available when vacant.
+ * Drives Rentals vacancy / “full”.
  */
 export function availableBedsForRental(
   property: Property,
   clients: Client[],
   getContract: (clientId: string) => ContractData | undefined
 ): number {
-  return rentalBedOccupancyForProperty(property, clients, getContract).availableBeds
+  return rentalVacancySnapshot(property, clients, getContract).available
 }
 
 export function totalBedsForRental(property: Property): number {
@@ -293,10 +367,14 @@ export function rentalOccupancyTone(
 
 export function rentalOccupancyStatusLabel(
   availableBeds: number,
-  totalBeds: number
+  totalBeds: number,
+  options?: { surfacesBeds?: boolean }
 ): string {
   const tone = rentalOccupancyTone(availableBeds, totalBeds)
   if (tone === 'full') return 'Fully occupied'
+  if (options?.surfacesBeds === false) {
+    return tone === 'vacant' ? 'Entire home available' : 'Entire home'
+  }
   const total = Math.max(1, Math.floor(totalBeds) || 1)
   const open = Math.max(0, Math.min(Math.floor(availableBeds) || 0, total))
   const bedLabel = open === 1 ? 'open bed' : 'open beds'
@@ -378,6 +456,11 @@ export function buildUpcomingOpenings(
     const state = getAddressState(property.address)
 
     if (vacant > 0) {
+      const surfacesBeds = rentalSurfacesBedAssignment(
+        property,
+        clients,
+        getContract
+      )
       openings.push({
         id: `vacant:${property.id}`,
         kind: 'vacant',
@@ -389,8 +472,9 @@ export function buildUpcomingOpenings(
         vacantUnits: vacant,
         tenantIds: [],
         tenantNames: [],
-        label:
-          vacant === 1
+        label: !surfacesBeds
+          ? 'Entire home available'
+          : vacant === 1
             ? '1 open bed'
             : `${vacant} open beds`,
       })

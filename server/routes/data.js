@@ -1044,8 +1044,15 @@ router.post('/accept-registration/:userId', (req, res) => {
         }
       : {}),
     ...(occupancyArrangement ? { occupancyArrangement } : {}),
-    ...(user.preferredBedroomId ? { bedroomId: user.preferredBedroomId } : {}),
-    ...(user.preferredBedId ? { bedId: user.preferredBedId } : {}),
+    ...(occupancyArrangement !== 'entire_home' && user.preferredBedroomId
+      ? { bedroomId: user.preferredBedroomId }
+      : {}),
+    ...(occupancyArrangement !== 'entire_home' && user.preferredBedId
+      ? { bedId: user.preferredBedId }
+      : {}),
+    ...(occupancyArrangement === 'entire_home'
+      ? { unitOrRoomLabel: 'Entire unit' }
+      : {}),
     notes: [
       {
         id: generateId(),

@@ -475,3 +475,97 @@ export function hasOpenPlacements(inventory: FurnishedPlacementInventory): boole
 export function totalBedSpaces(property: Property): number {
   return totalBedCount(property)
 }
+
+/**
+ * Official / active peers on the same lease group (shared lease), excluding subject.
+ * Tenants without a leaseGroupId are treated as solo on their lease.
+ */
+export function leaseCoTenantsAmong(
+  client: Pick<Client, 'id' | 'leaseGroupId'>,
+  peers: Pick<Client, 'id' | 'leaseGroupId'>[]
+): Pick<Client, 'id' | 'leaseGroupId'>[] {
+  if (!client.leaseGroupId) return []
+  return peers.filter(
+    (peer) => peer.id !== client.id && peer.leaseGroupId === client.leaseGroupId
+  )
+}
+
+function coversFullUnitRent(
+  client: Pick<Client, 'rentShareAmount' | 'occupancyArrangement' | 'preferredOccupancyMode'>,
+  property: Pick<Property, 'monthlyRent' | 'entireHomeOnly'> | undefined
+): boolean {
+  if (property?.entireHomeOnly === true) return true
+
+  if (client.occupancyArrangement === 'entire_home') return true
+  if (normalizeOccupancyMode(client.preferredOccupancyMode) === 'entire_home') {
+    return true
+  }
+
+  const unit = Number(property?.monthlyRent)
+  const share = Number(client.rentShareAmount)
+  if (
+    Number.isFinite(unit) &&
+    unit > 0 &&
+    Number.isFinite(share) &&
+    share > 0 &&
+    Math.abs(share - unit) < 0.02
+  ) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * True when this lease is a single tenant covering 100% of unit rent.
+ * Bed assignment is irrelevant for the duration of that lease.
+ */
+export function isWholeUnitSingleTenantLease(
+  client: Pick<
+    Client,
+    | 'id'
+    | 'leaseGroupId'
+    | 'rentShareAmount'
+    | 'occupancyArrangement'
+    | 'preferredOccupancyMode'
+  >,
+  property: Pick<Property, 'monthlyRent' | 'entireHomeOnly'> | undefined,
+  peersOnProperty: Pick<Client, 'id' | 'leaseGroupId'>[] = []
+): boolean {
+  if (leaseCoTenantsAmong(client, peersOnProperty).length > 0) return false
+  return coversFullUnitRent(client, property)
+}
+
+/**
+ * Whether landlords / rentals UI should surface bed assignment, bed maps,
+ * open-bed counts, or per-bed messaging for this property’s current occupancy.
+ *
+ * Hidden when the listing is entire-home-only, or when any active tenant is on a
+ * whole-unit single-tenant lease. Re-enabled automatically when occupancy becomes
+ * shared / per-bed (extra lease mates, shared arrangement, or landlord turns off
+ * entire-home-only).
+ */
+export function propertySurfacesBedAssignment(
+  property: Pick<Property, 'entireHomeOnly' | 'monthlyRent'>,
+  activeTenants: Pick<
+    Client,
+    | 'id'
+    | 'leaseGroupId'
+    | 'rentShareAmount'
+    | 'occupancyArrangement'
+    | 'preferredOccupancyMode'
+  >[]
+): boolean {
+  if (property.entireHomeOnly === true) return false
+  if (
+    activeTenants.some((tenant) =>
+      isWholeUnitSingleTenantLease(tenant, property, activeTenants)
+    )
+  ) {
+    return false
+  }
+  return true
+}
+
+/** Copy when bed UI is hidden because the tenant leases the whole unit. */
+export const WHOLE_UNIT_LEASE_LABEL = 'Leasing entire unit'

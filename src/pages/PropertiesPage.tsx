@@ -40,11 +40,15 @@ import {
 } from '@/lib/contractLocationFilters'
 import {
   activeTenantsAtProperty,
-  rentalBedOccupancyForProperty,
   rentalInterestByPropertyId,
   rentalOccupancyStatusLabel,
   rentalOccupancyTone,
+  rentalVacancySnapshot,
 } from '@/lib/properties'
+import {
+  WHOLE_UNIT_LEASE_LABEL,
+  isWholeUnitSingleTenantLease,
+} from '@/lib/furnishedOccupancy'
 import {
   findBedInLayout,
   formatBedAssignmentLabel,
@@ -283,7 +287,7 @@ export function PropertiesPage() {
         clients,
         getContractForClient
       )
-      const bedOcc = rentalBedOccupancyForProperty(
+      const vacancy = rentalVacancySnapshot(
         property,
         clients,
         getContractForClient
@@ -293,15 +297,18 @@ export function PropertiesPage() {
         address: property.address,
         propertyType: property.propertyType,
         bedrooms: property.bedrooms,
-        maxTenants: bedOcc.maxOccupancy,
-        currentTenants: bedOcc.currentOccupants,
+        maxTenants: vacancy.surfacesBeds
+          ? vacancy.maxOccupancy
+          : Math.max(1, vacancy.currentOccupants || 1),
+        currentTenants: vacancy.currentOccupants,
         unitCount: property.unitCount,
-        openUnits: bedOcc.availableBeds,
-        totalBeds: bedOcc.totalBeds,
-        occupiedBeds: bedOcc.occupiedBeds,
+        openUnits: vacancy.available,
+        totalBeds: vacancy.surfacesBeds ? vacancy.totalBeds : vacancy.total,
+        occupiedBeds: vacancy.occupiedBeds,
         monthlyRent: pricing.unitMonthlyRent,
         tenantShare: pricing.tenantShare,
         unitLabel: pricing.unitLabel,
+        surfacesBeds: vacancy.surfacesBeds,
       }
     })
   }, [properties, clients, getContractForClient])
@@ -834,28 +841,44 @@ export function PropertiesPage() {
                     )
                     const occupancyLabel = rentalOccupancyStatusLabel(
                       row.openUnits,
-                      row.totalBeds
+                      row.totalBeds,
+                      { surfacesBeds: row.surfacesBeds }
                     )
-                    const occupants = property
+                    const activeOccupants = property
                       ? activeTenantsAtProperty(
                           property,
                           clients,
                           getContractForClient
-                        ).map((tenant) => {
-                          const found = findBedInLayout(
-                            property.bedroomsLayout,
-                            tenant.bedroomId,
-                            tenant.bedId
-                          )
-                          return {
-                            id: tenant.id,
-                            name: tenant.name,
-                            bedLabel: found
-                              ? formatBedAssignmentLabel(found.bedroom, found.bed)
-                              : tenant.unitOrRoomLabel,
-                          }
-                        })
+                        )
                       : []
+                    const occupants = activeOccupants.map((tenant) => {
+                      const wholeUnit =
+                        !row.surfacesBeds ||
+                        isWholeUnitSingleTenantLease(
+                          tenant,
+                          property,
+                          activeOccupants
+                        )
+                      if (wholeUnit) {
+                        return {
+                          id: tenant.id,
+                          name: tenant.name,
+                          bedLabel: WHOLE_UNIT_LEASE_LABEL,
+                        }
+                      }
+                      const found = findBedInLayout(
+                        property!.bedroomsLayout,
+                        tenant.bedroomId,
+                        tenant.bedId
+                      )
+                      return {
+                        id: tenant.id,
+                        name: tenant.name,
+                        bedLabel: found
+                          ? formatBedAssignmentLabel(found.bedroom, found.bed)
+                          : tenant.unitOrRoomLabel,
+                      }
+                    })
                     return (
                       <Card
                         key={row.id}
@@ -910,14 +933,24 @@ export function PropertiesPage() {
                               Monthly Rent: {formatUsd(row.monthlyRent)}
                               {row.unitLabel ? ` · ${row.unitLabel}` : ''}
                             </p>
-                            {row.tenantShare != null && row.currentTenants > 1 ? (
+                            {row.surfacesBeds &&
+                            row.tenantShare != null &&
+                            row.currentTenants > 1 ? (
                               <p className="tile-card__meta tabular-nums">
                                 Per bed share: {formatUsd(row.tenantShare)}/month
                               </p>
                             ) : null}
-                            <p className="tile-card__meta tabular-nums text-ink-muted">
-                              Beds: {row.occupiedBeds} of {row.totalBeds} occupied
-                            </p>
+                            {row.surfacesBeds ? (
+                              <p className="tile-card__meta tabular-nums text-ink-muted">
+                                Beds: {row.occupiedBeds} of {row.totalBeds} occupied
+                              </p>
+                            ) : (
+                              <p className="tile-card__meta text-ink-muted">
+                                {row.currentTenants > 0
+                                  ? WHOLE_UNIT_LEASE_LABEL
+                                  : 'Entire home available'}
+                              </p>
+                            )}
 
                             <BedsOccupancyTag
                               bedrooms={row.bedrooms}

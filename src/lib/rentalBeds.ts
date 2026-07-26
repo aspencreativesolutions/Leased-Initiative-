@@ -297,7 +297,18 @@ export function findLayoutAssignmentConflicts(
   }
 
   const conflicts: LayoutConflict[] = []
-  const assigned = tenants.filter((t) => t.bedId)
+  const assigned = tenants.filter((t) => {
+    if (!t.bedId) return false
+    // Whole-unit leases do not depend on bed layout capacity.
+    if (
+      t.occupancyArrangement === 'entire_home' ||
+      t.preferredOccupancyMode === 'entire_home' ||
+      t.preferredOccupancyMode === 'full_rent'
+    ) {
+      return false
+    }
+    return true
+  })
 
   for (const tenant of assigned) {
     const bedId = tenant.bedId!

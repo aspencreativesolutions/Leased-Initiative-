@@ -365,6 +365,25 @@ export function linkClientsToPropertyBeds(
     )
     if (!property?.bedroomsLayout?.length) return client
 
+    const wholeUnit =
+      property.entireHomeOnly === true ||
+      client.occupancyArrangement === 'entire_home' ||
+      client.preferredOccupancyMode === 'entire_home' ||
+      client.preferredOccupancyMode === 'full_rent'
+
+    // Whole-unit leases do not track individual beds.
+    if (wholeUnit) {
+      return {
+        ...client,
+        propertyId: client.propertyId ?? property.id,
+        bedroomId: undefined,
+        bedId: undefined,
+        unitOrRoomLabel: client.unitOrRoomLabel?.trim()
+          ? client.unitOrRoomLabel
+          : 'Entire unit',
+      }
+    }
+
     if (client.bedId && client.bedroomId) {
       const stillValid = property.bedroomsLayout.some(
         (room) =>

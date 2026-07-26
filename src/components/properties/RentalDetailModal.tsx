@@ -7,11 +7,16 @@ import {
   getTenantAddress,
 } from '@/lib/clientUtils'
 import { formatLeaseLengthLabel } from '@/lib/leaseSchedule'
+import {
+  WHOLE_UNIT_LEASE_LABEL,
+  isWholeUnitSingleTenantLease,
+} from '@/lib/furnishedOccupancy'
 import { estimateMonthlyRent } from '@/lib/paymentTenantRows'
 import {
   activeTenantsAtProperty,
   remainingTenantCapacity,
   rentalBedOccupancyForProperty,
+  rentalVacancySnapshot,
   resolveLeaseEndYmd,
 } from '@/lib/properties'
 import {
@@ -52,11 +57,13 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
 
   const ensured = ensurePropertyBedLayout(property)
   const currentTenants = activeTenantsAtProperty(ensured, clients, getContractForClient)
+  const vacancy = rentalVacancySnapshot(ensured, clients, getContractForClient)
   const bedOcc = rentalBedOccupancyForProperty(ensured, clients, getContractForClient)
   const remainingCapacity = remainingTenantCapacity(ensured, clients, getContractForClient)
   const typeDescription = getRentalTypeDescription(ensured.propertyType)
   const pricing = buildRentalPricingSummary(ensured, clients, getContractForClient)
   const unitRent = resolvePropertyMonthlyRent(ensured)
+  const surfacesBeds = vacancy.surfacesBeds
 
   return (
     <Modal open={open} onClose={onClose} title="Rental details" size="xl" fitContent>
@@ -94,30 +101,50 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
           <DetailStat label="Monthly Rent" value={formatUsd(unitRent)} />
           <DetailStat
             label="Occupancy"
-            value={`${bedOcc.currentOccupants} of ${bedOcc.maxOccupancy} people`}
-          />
-          <DetailStat
-            label="Beds"
-            value={`${bedOcc.occupiedBeds} of ${bedOcc.totalBeds} occupied`}
-          />
-          <DetailStat
-            label="Per-bed share (avg)"
             value={
-              pricing.tenantShare != null
-                ? `${formatUsd(pricing.tenantShare)}/month`
-                : '—'
+              surfacesBeds
+                ? `${bedOcc.currentOccupants} of ${bedOcc.maxOccupancy} people`
+                : currentTenants.length > 0
+                  ? WHOLE_UNIT_LEASE_LABEL
+                  : 'Entire home available'
             }
           />
-          <DetailStat label="Bedrooms" value={ensured.bedrooms} />
-          <DetailStat label="Maximum Occupancy" value={bedOcc.maxOccupancy} />
-          <DetailStat label="Open Beds" value={bedOcc.availableBeds} />
-          <DetailStat label="Remaining People Capacity" value={remainingCapacity} />
+          {surfacesBeds ? (
+            <>
+              <DetailStat
+                label="Beds"
+                value={`${bedOcc.occupiedBeds} of ${bedOcc.totalBeds} occupied`}
+              />
+              <DetailStat
+                label="Per-bed share (avg)"
+                value={
+                  pricing.tenantShare != null
+                    ? `${formatUsd(pricing.tenantShare)}/month`
+                    : '—'
+                }
+              />
+              <DetailStat label="Bedrooms" value={ensured.bedrooms} />
+              <DetailStat label="Maximum Occupancy" value={bedOcc.maxOccupancy} />
+              <DetailStat label="Open Beds" value={bedOcc.availableBeds} />
+              <DetailStat label="Remaining People Capacity" value={remainingCapacity} />
+            </>
+          ) : (
+            <>
+              <DetailStat label="Bedrooms" value={ensured.bedrooms} />
+              <DetailStat
+                label="Availability"
+                value={
+                  currentTenants.length > 0 ? 'Fully occupied' : 'Entire home available'
+                }
+              />
+            </>
+          )}
           {ensured.unitCount > 1 ? (
             <DetailStat label="Number of Units" value={ensured.unitCount} />
           ) : null}
         </div>
 
-        {ensured.bedroomsLayout && ensured.bedroomsLayout.length > 0 ? (
+        {surfacesBeds && ensured.bedroomsLayout && ensured.bedroomsLayout.length > 0 ? (
           <div>
             <div className="mb-2 border-b border-line pb-1.5">
               <p className="label-caps">Bedroom &amp; bed map</p>
@@ -194,11 +221,19 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                   getContractForClient
                 )
                 const address = getTenantAddress(tenant, contract)
-                const bedFound = findBedInLayout(
-                  ensured.bedroomsLayout,
-                  tenant.bedroomId,
-                  tenant.bedId
+                const wholeUnit = isWholeUnitSingleTenantLease(
+                  tenant,
+                  ensured,
+                  currentTenants
                 )
+                const bedFound =
+                  !wholeUnit && surfacesBeds
+                    ? findBedInLayout(
+                        ensured.bedroomsLayout,
+                        tenant.bedroomId,
+                        tenant.bedId
+                      )
+                    : null
 
                 return (
                   <li
@@ -218,11 +253,15 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                           {tenant.email}
                           {tenant.phone ? ` · ${tenant.phone}` : ''}
                         </p>
-                        {bedFound ? (
+                        {wholeUnit ? (
+                          <p className="mt-0.5 text-xs font-medium text-ink">
+                            {WHOLE_UNIT_LEASE_LABEL}
+                          </p>
+                        ) : bedFound ? (
                           <p className="mt-0.5 text-xs font-medium text-ink">
                             {formatBedAssignmentLabel(bedFound.bedroom, bedFound.bed)}
                           </p>
-                        ) : tenant.unitOrRoomLabel ? (
+                        ) : tenant.unitOrRoomLabel && surfacesBeds ? (
                           <p className="mt-0.5 text-xs text-ink-muted">{tenant.unitOrRoomLabel}</p>
                         ) : null}
                       </div>
@@ -251,7 +290,9 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-ink-faint">Monthly rent share</dt>
+                        <dt className="text-ink-faint">
+                          {wholeUnit || !surfacesBeds ? 'Monthly rent' : 'Monthly rent share'}
+                        </dt>
                         <dd className="mt-0.5 font-medium text-ink">{formatUsd(rent)}</dd>
                       </div>
                       <div>

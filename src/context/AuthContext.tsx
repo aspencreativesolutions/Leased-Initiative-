@@ -183,7 +183,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       isAdmin: user?.role === 'admin',
       isClient: user?.role === 'client',
-      isPublicDemo: user?.publicDemo === true,
+      // Session flag covers race/hydration cases where the JWT user object
+      // hasn’t yet exposed `publicDemo` (tour must stay optional in demo).
+      isPublicDemo: user?.publicDemo === true || isPublicDemoSession(),
     }),
     [user, loading, login, register, updateProfile, refreshUser, changePassword, logout]
   )

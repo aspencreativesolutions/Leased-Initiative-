@@ -47,7 +47,7 @@ function unionRect(a: DOMRect | null, b: DOMRect | null): DOMRect | null {
  * optional and highlights Menu → Take the tour. Does not start the tour.
  */
 export function DemoTourNoticeHost() {
-  const { user, isPublicDemo } = useAuth()
+  const { user } = useAuth()
   const location = useLocation()
   const [pov, setPov] = useState<DemoTourNoticePov | null>(null)
   const [visible, setVisible] = useState(false)
@@ -80,8 +80,9 @@ export function DemoTourNoticeHost() {
 
   const tryShow = useCallback(() => {
     if (visible) return
+    // Demo session is the source of truth — don’t require user.publicDemo
+    // (hydration races previously let the full tour auto-start instead).
     if (!isPublicDemoSession()) return
-    if (!(isPublicDemo || user?.publicDemo)) return
     if (!user) return
 
     const nextPov = resolvePov(user.role)
@@ -101,7 +102,7 @@ export function DemoTourNoticeHost() {
 
     setPov(nextPov)
     setVisible(true)
-  }, [isPublicDemo, location.pathname, user, visible])
+  }, [location.pathname, user, visible])
 
   useEffect(() => {
     tryShow()
@@ -238,21 +239,24 @@ export function DemoTourNoticeHost() {
   let pinToBottom = false
   let besideMenu = false
 
-  const mobilePanel = rects.panel
+  const menuPanel = rects.panel
   const spaceLeftOfMenu =
-    isMobile && mobilePanel && mobilePanel.width > 2
-      ? Math.max(0, mobilePanel.left - sidePad - gap)
+    menuPanel && menuPanel.width > 2
+      ? Math.max(0, menuPanel.left - sidePad - gap)
       : 0
 
-  if (isMobile && mobilePanel && spaceLeftOfMenu >= 108) {
+  if (menuPanel && spaceLeftOfMenu >= (isMobile ? 108 : 220)) {
     // Sit to the left of the open Menu so both fit in one viewport (no stack/scroll).
     besideMenu = true
-    // Hug the remaining left column; keep readable but clearly beside the menu.
-    cardWidth = Math.min(Math.floor(spaceLeftOfMenu), Math.floor(viewportW * 0.52))
-    cardLeft = sidePad
+    cardWidth = isMobile
+      ? Math.min(Math.floor(spaceLeftOfMenu), Math.floor(viewportW * 0.52))
+      : Math.min(320, Math.floor(spaceLeftOfMenu))
+    cardLeft = isMobile
+      ? sidePad
+      : Math.max(sidePad, menuPanel.left - gap - cardWidth)
     const preferredTop = rects.item
       ? rects.item.top + rects.item.height / 2 - 88
-      : mobilePanel.top
+      : menuPanel.top
     const maxTop = Math.max(sidePad, viewportH - 230 - sidePad)
     cardTop = Math.min(Math.max(sidePad, preferredTop), maxTop)
   } else if (isMobile) {

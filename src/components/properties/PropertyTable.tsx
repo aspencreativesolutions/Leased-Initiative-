@@ -33,13 +33,15 @@ export interface PropertyTableRow {
   maxTenants: number
   currentTenants: number
   unitCount: number
-  /** Available physical beds (zero assigned tenants) */
+  /** Available capacity units (open beds, or 0/1 for whole-unit homes). */
   openUnits: number
   totalBeds: number
   occupiedBeds: number
   monthlyRent: number
   tenantShare: number | null
   unitLabel: string | null
+  /** False when whole-unit / entire-home occupancy hides bed UI. */
+  surfacesBeds: boolean
 }
 
 interface PropertyTableProps {
@@ -93,10 +95,19 @@ function SortIcon({
 }
 
 /** Color-coded open-unit count: 1 light yellow → 2 yellow → 3 red → 4+ dark red. */
-export function OpenUnitsIndicator({ count }: { count: number }) {
+export function OpenUnitsIndicator({
+  count,
+  surfacesBeds = true,
+}: {
+  count: number
+  surfacesBeds?: boolean
+}) {
   if (count <= 0) {
     return (
-      <span className="tabular-nums text-ink-faint" aria-label="0 open units">
+      <span
+        className="tabular-nums text-ink-faint"
+        aria-label={surfacesBeds ? '0 open units' : 'Fully occupied'}
+      >
         —
       </span>
     )
@@ -111,7 +122,11 @@ export function OpenUnitsIndicator({ count }: { count: number }) {
           ? 'open-units-circle--yellow'
           : 'open-units-circle--light-yellow'
 
-  const unitLabel = count === 1 ? 'open bed' : 'open beds'
+  const unitLabel = !surfacesBeds
+    ? 'home available'
+    : count === 1
+      ? 'open bed'
+      : 'open beds'
 
   return (
     <span
@@ -237,7 +252,11 @@ function PropertyCell({
             outlineClass
           )}
         >
-          {row.tenantShare != null ? `${formatUsd(row.tenantShare)}/mo` : '—'}
+          {!row.surfacesBeds
+            ? 'Entire unit'
+            : row.tenantShare != null
+              ? `${formatUsd(row.tenantShare)}/mo`
+              : '—'}
         </td>
       )
     case 'bedrooms':
@@ -276,9 +295,16 @@ function PropertyCell({
           )}
         >
           <span className="inline-flex w-full flex-col items-center justify-center gap-0.5">
-            <OpenUnitsIndicator count={row.openUnits} />
+            <OpenUnitsIndicator
+              count={row.openUnits}
+              surfacesBeds={row.surfacesBeds}
+            />
             <span className="text-[10px] tabular-nums text-ink-muted">
-              {row.openUnits} open
+              {!row.surfacesBeds
+                ? row.openUnits > 0
+                  ? 'Home open'
+                  : 'Occupied'
+                : `${row.openUnits} open`}
             </span>
           </span>
         </td>

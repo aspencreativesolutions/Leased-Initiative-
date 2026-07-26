@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import { LeaseStatusBadge } from '@/components/clients/LeaseStatusBadge'
 import { TenantBedAssignmentPicker } from '@/components/properties/TenantBedAssignmentPicker'
 import { getLeaseStatusDetails } from '@/lib/clientUtils'
+import {
+  isWholeUnitSingleTenantLease,
+  WHOLE_UNIT_LEASE_LABEL,
+} from '@/lib/furnishedOccupancy'
 import {
   findPropertyByAddress,
   tenantsAtProperty,
@@ -90,13 +95,19 @@ function ProfileBody({
   const occupants = property
     ? tenantsAtProperty(property, clients, getContractForClient)
     : []
-  const bedFound = property
-    ? findBedInLayout(
-        property.bedroomsLayout,
-        profile.client.bedroomId,
-        profile.client.bedId
-      )
-    : null
+  const wholeUnitLease = isWholeUnitSingleTenantLease(
+    profile.client,
+    property,
+    occupants
+  )
+  const bedFound =
+    !wholeUnitLease && property
+      ? findBedInLayout(
+          property.bedroomsLayout,
+          profile.client.bedroomId,
+          profile.client.bedId
+        )
+      : null
   const daysRemainingLabel =
     profile.daysRemaining == null
       ? null
@@ -120,7 +131,11 @@ function ProfileBody({
           {profile.leaseBeganLabel ? (
             <p className="mt-0.5 text-sm font-medium text-ink">{profile.leaseBeganLabel}</p>
           ) : null}
-          {bedFound ? (
+          {wholeUnitLease ? (
+            <p className="mt-0.5 text-sm font-medium text-ink">
+              {WHOLE_UNIT_LEASE_LABEL}
+            </p>
+          ) : bedFound ? (
             <p className="mt-0.5 text-sm font-medium text-ink">
               {formatBedAssignmentLabel(bedFound.bedroom, bedFound.bed)}
             </p>
@@ -171,6 +186,9 @@ function ProfileBody({
             />
           ) : null}
           <DetailStat label="Occupancy" value={profile.propertyOccupancyStatement} />
+          {wholeUnitLease ? (
+            <DetailStat label="Lease coverage" value={WHOLE_UNIT_LEASE_LABEL} />
+          ) : null}
           {profile.sharesLeaseWithRoommates ? (
             <DetailStat label="Lease arrangement" value="Shared lease" />
           ) : null}
@@ -178,7 +196,7 @@ function ProfileBody({
             <DetailStat label="Lease arrangement" value="Separate lease" />
           ) : null}
         </div>
-        {property && onAssignBed ? (
+        {property && onAssignBed && !wholeUnitLease ? (
           <div className="mt-3">
             <TenantBedAssignmentPicker
               property={property}
@@ -354,6 +372,29 @@ export function TenantDetailsContent({ tenantId, onSelectTenant }: TenantDetails
     properties,
     getContractForClient
   )
+
+  useEffect(() => {
+    const client = clients.find((c) => c.id === tenantId)
+    if (!client) return
+    const address =
+      getContractForClient(client.id)?.clientAddress?.trim() ||
+      client.projectName?.trim() ||
+      ''
+    const property =
+      (client.propertyId
+        ? properties.find((p) => p.id === client.propertyId)
+        : undefined) ?? findPropertyByAddress(properties, address)
+    const occupants = property
+      ? tenantsAtProperty(property, clients, getContractForClient)
+      : []
+    if (!isWholeUnitSingleTenantLease(client, property, occupants)) return
+    if (!client.bedId && !client.bedroomId) return
+    updateClient(tenantId, {
+      bedroomId: undefined,
+      bedId: undefined,
+      unitOrRoomLabel: client.unitOrRoomLabel?.trim() || 'Entire unit',
+    })
+  }, [tenantId, clients, properties, getContractForClient, updateClient])
 
   if (!profile) {
     return (

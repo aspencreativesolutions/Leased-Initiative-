@@ -24,6 +24,7 @@ import {
   type OnboardingContext,
   type OnboardingStep,
 } from '@/lib/onboardingSteps'
+import { isPublicDemoSession } from '@/lib/publicDemo'
 import { NAV_TOOLBAR_ICON_BUTTON_CLASS } from '@/lib/navToolbar'
 import { cn } from '@/lib/utils'
 import type { OnboardingProgress } from '@/types'
@@ -252,6 +253,8 @@ export function OnboardingTour({
    * Never cleared by auto-start — only by the explicit restart path.
    */
   const optedOutRef = useRef(false)
+  /** True only when Menu → Take the tour (forceStart) opened the walkthrough. */
+  const startedManuallyRef = useRef(false)
   const onForceStartHandledRef = useRef(onForceStartHandled)
   onForceStartHandledRef.current = onForceStartHandled
 
@@ -288,9 +291,10 @@ export function OnboardingTour({
   }, [role, userId])
 
   const beginTour = useCallback(
-    (steps: OnboardingStep[], preferredStepId?: string | null) => {
+    (steps: OnboardingStep[], preferredStepId?: string | null, manual = false) => {
       if (steps.length === 0) return
       // Do NOT clear opted-out here — auto-start must never undo Exit Tour.
+      startedManuallyRef.current = manual
       const remembered = preferredStepId ?? (role === 'admin' ? readRememberedStepId() : null)
       let index = 0
       if (remembered) {
@@ -392,7 +396,7 @@ export function OnboardingTour({
       }
       if (cancelled) return
       setProgress({ completedSteps: [] })
-      beginTourRef.current(stepsSnapshot, null)
+      beginTourRef.current(stepsSnapshot, null, true)
       onForceStartHandledRef.current?.()
     })()
     return () => {
@@ -402,11 +406,12 @@ export function OnboardingTour({
 
   /**
    * Auto-start once for first-time (non-demo) users who have never exited or finished.
-   * Public demo never auto-starts — visitors get a one-time notice and start via Menu → Take the tour.
+   * Public demo never auto-starts on mobile or desktop — visitors get a one-time
+   * “tour is optional” notice and start via Menu → Take the tour.
    */
   useEffect(() => {
     if (adminMode || forceStart || active) return
-    if (isPublicDemo || user?.publicDemo) return
+    if (isPublicDemo || user?.publicDemo || isPublicDemoSession()) return
     if (optedOutRef.current || isOptedOut()) return
     if (!progress) return
     if (progress.dismissedAt || progress.completedAt) {
@@ -420,7 +425,8 @@ export function OnboardingTour({
     const timer = window.setTimeout(() => {
       // Re-check the durable latch — Exit may have happened while we waited.
       if (optedOutRef.current || readLocalDismissed(role, userId)) return
-      beginTour(steps, firstPendingId)
+      if (isPublicDemoSession()) return
+      beginTour(steps, firstPendingId, false)
     }, 800)
     return () => window.clearTimeout(timer)
   }, [
@@ -438,6 +444,16 @@ export function OnboardingTour({
     isPublicDemo,
     user?.publicDemo,
   ])
+
+  /** Kill any leftover auto-started tour once a demo session is detected. */
+  useEffect(() => {
+    if (!active || startedManuallyRef.current) return
+    if (!isPublicDemo && !user?.publicDemo && !isPublicDemoSession()) return
+    setActive(false)
+    setTourSteps([])
+    setSpotlight(null)
+    rememberStepId(null)
+  }, [active, isPublicDemo, user?.publicDemo])
 
   useEffect(() => {
     if (!active || !currentStep?.route) return

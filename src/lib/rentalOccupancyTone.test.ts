@@ -24,4 +24,13 @@ describe('rentalOccupancyTone', () => {
     expect(rentalOccupancyStatusLabel(0, 3)).toBe('Fully occupied')
     expect(rentalOccupancyStatusLabel(2, 4)).toBe('2 of 4 open beds')
   })
+
+  it('labels whole-unit vacancy without open-bed wording', () => {
+    expect(
+      rentalOccupancyStatusLabel(1, 1, { surfacesBeds: false })
+    ).toBe('Entire home available')
+    expect(
+      rentalOccupancyStatusLabel(0, 1, { surfacesBeds: false })
+    ).toBe('Fully occupied')
+  })
 })
