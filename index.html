@@ -16,7 +16,14 @@
         var defaultAppearance = 'light';
         var valid = ['graphite', 'ink', 'ocean', 'slate'];
         var appearanceKey = 'leased-theme-appearance';
-        var appearance = localStorage.getItem(appearanceKey);
+        function safeGet(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        }
+        var appearance = safeGet(appearanceKey);
         if (appearance !== 'light' && appearance !== 'dark') appearance = defaultAppearance;
         document.documentElement.setAttribute('data-appearance', appearance);
 
@@ -35,7 +42,7 @@
           path.indexOf('/portal') === 0 || path === '/login' || path === '/register';
         if (path.indexOf('/studio') === 0) isPortal = false;
         var k = isPortal ? 'leased-portal-theme-v5' : 'leased-app-theme-v5';
-        var t = localStorage.getItem(k);
+        var t = safeGet(k);
         if (t && valid.indexOf(t) !== -1) {
           document.documentElement.setAttribute('data-theme', t);
         } else {

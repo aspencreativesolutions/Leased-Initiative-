@@ -1,3 +1,4 @@
+import { safeLocalGet, safeLocalRemove, safeLocalSet } from '@/lib/safeStorage'
 import {
   APPEARANCE_STORAGE_KEY,
   DEFAULT_APPEARANCE,
@@ -19,7 +20,7 @@ export function isThemeAppearance(value: string): value is ThemeAppearance {
 }
 
 export function loadThemeIdFromStorage(storageKey: string): ThemeId {
-  const raw = localStorage.getItem(storageKey)
+  const raw = safeLocalGet(storageKey)
   if (raw && isThemeId(raw)) return raw
   return DEFAULT_THEME_ID
 }
@@ -29,13 +30,13 @@ export function loadStoredThemeId(): ThemeId {
 }
 
 export function loadStoredPortalThemeId(): ThemeId {
-  const raw = localStorage.getItem(PORTAL_THEME_STORAGE_KEY)
+  const raw = safeLocalGet(PORTAL_THEME_STORAGE_KEY)
   if (raw && isThemeId(raw)) return raw
   return DEFAULT_PORTAL_THEME_ID
 }
 
 export function loadStoredAppearance(): ThemeAppearance {
-  const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY)
+  const raw = safeLocalGet(APPEARANCE_STORAGE_KEY)
   if (raw && isThemeAppearance(raw)) return raw
   return DEFAULT_APPEARANCE
 }
@@ -46,7 +47,7 @@ export function applyAppearanceToDocument(
 ): void {
   document.documentElement.setAttribute('data-appearance', appearance)
   if (options?.persist === true) {
-    localStorage.setItem(APPEARANCE_STORAGE_KEY, appearance)
+    safeLocalSet(APPEARANCE_STORAGE_KEY, appearance)
   }
 }
 
@@ -57,8 +58,8 @@ export const THEME_PREFERENCE_EVENT = 'leased-theme-preference'
  * Used for home-page previews and Demo Mode so landlord ↔ tenant POV switches keep the same look.
  */
 export function persistThemeIdAcrossSurfaces(themeId: ThemeId): void {
-  localStorage.setItem(THEME_STORAGE_KEY, themeId)
-  localStorage.setItem(PORTAL_THEME_STORAGE_KEY, themeId)
+  safeLocalSet(THEME_STORAGE_KEY, themeId)
+  safeLocalSet(PORTAL_THEME_STORAGE_KEY, themeId)
   window.dispatchEvent(
     new CustomEvent(THEME_PREFERENCE_EVENT, { detail: { themeId } })
   )
@@ -83,23 +84,23 @@ export function applyThemeToDocument(
     if (options.syncSurfaces) {
       persistThemeIdAcrossSurfaces(themeId)
     } else {
-      localStorage.setItem(storageKey, themeId)
+      safeLocalSet(storageKey, themeId)
     }
   }
 }
 
 /** Clear saved style prefs so the next load uses the default theme until the user picks again */
 export function clearThemePreferences(): void {
-  localStorage.removeItem(THEME_STORAGE_KEY)
-  localStorage.removeItem(PORTAL_THEME_STORAGE_KEY)
-  localStorage.removeItem(APPEARANCE_STORAGE_KEY)
+  safeLocalRemove(THEME_STORAGE_KEY)
+  safeLocalRemove(PORTAL_THEME_STORAGE_KEY)
+  safeLocalRemove(APPEARANCE_STORAGE_KEY)
   // Drop legacy keys so removed styles / old defaults cannot resurface
-  localStorage.removeItem('leased-app-theme-v4')
-  localStorage.removeItem('leased-portal-theme-v4')
-  localStorage.removeItem('leased-app-theme-v3')
-  localStorage.removeItem('leased-portal-theme-v3')
-  localStorage.removeItem('leased-app-theme-v2')
-  localStorage.removeItem('leased-portal-theme-v2')
+  safeLocalRemove('leased-app-theme-v4')
+  safeLocalRemove('leased-portal-theme-v4')
+  safeLocalRemove('leased-app-theme-v3')
+  safeLocalRemove('leased-portal-theme-v3')
+  safeLocalRemove('leased-app-theme-v2')
+  safeLocalRemove('leased-portal-theme-v2')
 }
 
 /** Public introduction / marketing routes (participate in the shared theme system) */

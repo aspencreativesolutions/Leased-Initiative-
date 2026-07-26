@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAppearance } from '@/context/AppearanceContext'
+import { safeLocalRemove } from '@/lib/safeStorage'
 import {
   THEME_PREFERENCE_EVENT,
   applyThemeToDocument,
@@ -72,7 +73,7 @@ export function PortalThemeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetToDefault = useCallback(() => {
-    localStorage.removeItem(PORTAL_THEME_STORAGE_KEY)
+    safeLocalRemove(PORTAL_THEME_STORAGE_KEY)
     applyThemeToDocument(DEFAULT_PORTAL_THEME_ID, PORTAL_THEME_STORAGE_KEY, {
       persist: false,
       appearance: DEFAULT_APPEARANCE,

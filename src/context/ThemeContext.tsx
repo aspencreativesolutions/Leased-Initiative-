@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useAppearance } from '@/context/AppearanceContext'
 import { isPublicDemoSession } from '@/lib/publicDemo'
+import { safeLocalRemove, safeLocalSet } from '@/lib/safeStorage'
 import {
   THEME_PREFERENCE_EVENT,
   applyThemeToDocument,
@@ -71,7 +72,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (syncSurfaces) {
         persistThemeIdAcrossSurfaces(id)
       } else {
-        localStorage.setItem(THEME_STORAGE_KEY, id)
+        safeLocalSet(THEME_STORAGE_KEY, id)
         window.dispatchEvent(
           new CustomEvent(THEME_PREFERENCE_EVENT, { detail: { themeId: id } })
         )
@@ -88,7 +89,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetToDefault = useCallback(() => {
-    localStorage.removeItem(THEME_STORAGE_KEY)
+    safeLocalRemove(THEME_STORAGE_KEY)
     applyThemeToDocument(DEFAULT_THEME_ID, THEME_STORAGE_KEY, {
       persist: false,
       appearance: DEFAULT_APPEARANCE,

@@ -1,14 +1,15 @@
 import { getAdminUnlockHeader } from '@/lib/adminUnlock'
+import { safeLocalGet, safeLocalRemove, safeLocalSet } from '@/lib/safeStorage'
 
 const TOKEN_KEY = 'client-craft-token'
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY)
+  return safeLocalGet(TOKEN_KEY)
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token)
-  else localStorage.removeItem(TOKEN_KEY)
+  if (token) safeLocalSet(TOKEN_KEY, token)
+  else safeLocalRemove(TOKEN_KEY)
 }
 
 export class ApiError extends Error {
