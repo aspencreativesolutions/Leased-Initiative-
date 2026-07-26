@@ -137,7 +137,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [contracts, setContracts] = useState<ContractData[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [settings, setSettings] = useState<BusinessSettings>(loadSettings())
-  const [syncing, setSyncing] = useState(false)
+  // Start true so Official Tenants shows "Loading…" instead of an empty flash
+  // while auth + first /api/data fetch complete (especially public demo).
+  const [syncing, setSyncing] = useState(true)
   const [migrated, setMigrated] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -186,6 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setContracts(loadContracts())
       setSettings(loadSettings())
       setProperties(loadProperties())
+      setSyncing(false)
       return
     }
 

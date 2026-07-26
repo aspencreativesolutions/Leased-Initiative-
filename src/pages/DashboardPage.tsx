@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
+import { useAuth } from '@/context/AuthContext'
 import { useAdminNotifications } from '@/hooks/useAdminNotifications'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { shouldShowInOfficialTenants } from '@/lib/clientUtils'
@@ -64,7 +65,8 @@ const segmentedSegmentClass =
   'inline-flex h-7 items-center justify-center gap-1.5 rounded-[calc(var(--radius-sm)-2px)] px-2 text-[10px] font-semibold uppercase tracking-caps transition-colors'
 
 export function DashboardPage() {
-  const { clients, refresh, getContractForClient, settings, properties } = useApp()
+  const { clients, refresh, getContractForClient, settings, properties, syncing } = useApp()
+  const { loading: authLoading } = useAuth()
   const location = useLocation()
   const { error: registrationsError } = usePendingRegistrations()
   const { count: notificationCount } = useAdminNotifications()
@@ -293,17 +295,26 @@ export function DashboardPage() {
           />
 
           {tableClients.length === 0 ? (
-            <EmptyState
-              icon={Users}
-              title="No official tenants yet"
-              description="Approve sign-ups under Waiting to Connect, then send a lease from Pending Tenants. Once signed, they appear here."
-              action={
-                <Button onClick={() => setAddOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add Tenant
-                </Button>
-              }
-            />
+            authLoading || syncing ? (
+              <EmptyState
+                icon={Users}
+                loading
+                title="Loading tenants…"
+                description="Fetching your official tenants."
+              />
+            ) : (
+              <EmptyState
+                icon={Users}
+                title="No official tenants yet"
+                description="Approve sign-ups under Waiting to Connect, then send a lease from Pending Tenants. Once signed, they appear here."
+                action={
+                  <Button onClick={() => setAddOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Tenant
+                  </Button>
+                }
+              />
+            )
           ) : (
             <ClientTable
               clients={tableClients}

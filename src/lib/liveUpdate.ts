@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api'
 
 export const LIVE_UPDATE_POLL_MS = 4000
 export const LIVE_UPDATE_BASELINE_KEY = 'leased-live-update-baseline'
+/** Once per browser tab/session — so admins still preview the same first-load warning. */
 export const LIVE_UPDATE_NOTICE_SEEN_KEY = 'leased-live-update-notice-seen'
 export const LIVE_UPDATE_CHANGED_EVENT = 'leased-live-update-changed'
 
@@ -28,6 +29,10 @@ export async function saveAdminLiveUpdateEnabled(enabled: boolean): Promise<Live
     body: JSON.stringify({ enabled }),
   })
   if (typeof window !== 'undefined') {
+    if (result.enabled) {
+      // Let the host preview the same first-load warning visitors will see.
+      clearLiveUpdateNoticeSeen()
+    }
     window.dispatchEvent(
       new CustomEvent(LIVE_UPDATE_CHANGED_EVENT, { detail: { enabled: result.enabled } })
     )
@@ -74,7 +79,12 @@ export function clearLiveUpdateBaseline(): void {
 
 export function hasSeenLiveUpdateNotice(): boolean {
   try {
-    return localStorage.getItem(LIVE_UPDATE_NOTICE_SEEN_KEY) === '1'
+    // Older builds stored this forever in localStorage — clear so admins/hosts
+    // still see the same first-load warning visitors get.
+    if (localStorage.getItem(LIVE_UPDATE_NOTICE_SEEN_KEY) === '1') {
+      localStorage.removeItem(LIVE_UPDATE_NOTICE_SEEN_KEY)
+    }
+    return sessionStorage.getItem(LIVE_UPDATE_NOTICE_SEEN_KEY) === '1'
   } catch {
     return false
   }
@@ -82,7 +92,18 @@ export function hasSeenLiveUpdateNotice(): boolean {
 
 export function markLiveUpdateNoticeSeen(): void {
   try {
-    localStorage.setItem(LIVE_UPDATE_NOTICE_SEEN_KEY, '1')
+    sessionStorage.setItem(LIVE_UPDATE_NOTICE_SEEN_KEY, '1')
+    // Clear any legacy forever-flag from earlier builds.
+    localStorage.removeItem(LIVE_UPDATE_NOTICE_SEEN_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearLiveUpdateNoticeSeen(): void {
+  try {
+    sessionStorage.removeItem(LIVE_UPDATE_NOTICE_SEEN_KEY)
+    localStorage.removeItem(LIVE_UPDATE_NOTICE_SEEN_KEY)
   } catch {
     /* ignore */
   }

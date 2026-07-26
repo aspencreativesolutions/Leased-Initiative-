@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { useApp } from '@/context/AppContext'
+import { useAuth } from '@/context/AuthContext'
 import {
   getClientServiceTier,
   getProjectStatusDisplayLabel,
@@ -38,7 +39,8 @@ const compactFilterSelectClass = [
 ].join(' ')
 
 export function ClientsPage() {
-  const { clients, refresh, getContractForClient, settings, properties } = useApp()
+  const { clients, refresh, getContractForClient, settings, properties, syncing } = useApp()
+  const { loading: authLoading } = useAuth()
   const location = useLocation()
   const [addOpen, setAddOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -270,15 +272,24 @@ export function ClientsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={actualTenants.length === 0 ? 'No official tenants yet' : 'No matching tenants'}
-            description={
-              actualTenants.length === 0
-                ? 'Tenants appear here once their lease is signed.'
-                : 'Try adjusting your search or filters.'
-            }
-          />
+          authLoading || syncing ? (
+            <EmptyState
+              icon={Users}
+              loading
+              title="Loading tenants…"
+              description="Fetching your official tenants."
+            />
+          ) : (
+            <EmptyState
+              icon={Users}
+              title={actualTenants.length === 0 ? 'No official tenants yet' : 'No matching tenants'}
+              description={
+                actualTenants.length === 0
+                  ? 'Tenants appear here once their lease is signed.'
+                  : 'Try adjusting your search or filters.'
+              }
+            />
+          )
         ) : (
           <ClientTable
             clients={filtered}

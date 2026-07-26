@@ -4,6 +4,7 @@ import {
   LIVE_UPDATE_CHANGED_EVENT,
   LIVE_UPDATE_POLL_MS,
   clearLiveUpdateBaseline,
+  clearLiveUpdateNoticeSeen,
   fetchLiveUpdateVersion,
   fetchPublicLiveUpdateStatus,
   hasSeenLiveUpdateNotice,
@@ -86,9 +87,28 @@ export function LiveUpdateIndicator() {
       setNoticeOpen(false)
       return
     }
-    if (hasSeenLiveUpdateNotice()) return
+    if (hasSeenLiveUpdateNotice()) {
+      setNoticeOpen(false)
+      return
+    }
     setNoticeOpen(true)
   }, [mode])
+
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const enabled = Boolean((event as CustomEvent<{ enabled?: boolean }>).detail?.enabled)
+      if (!enabled) {
+        setNoticeOpen(false)
+        return
+      }
+      // When live updates are turned on (including from Admin Mode), show the
+      // same first-load warning users see — even if this tab already dismissed it.
+      clearLiveUpdateNoticeSeen()
+      setNoticeOpen(true)
+    }
+    window.addEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(LIVE_UPDATE_CHANGED_EVENT, onChanged)
+  }, [])
 
   const dismissNotice = () => {
     markLiveUpdateNoticeSeen()
