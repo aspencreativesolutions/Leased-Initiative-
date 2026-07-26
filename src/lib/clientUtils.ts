@@ -108,10 +108,15 @@ export interface LeaseStatusDetails {
   daysUntilStart?: number
 }
 
-/** Single-line hover summary for Official Tenants lease status tags. */
+/** Hover copy for Official Tenants lease status tags. */
 export interface LeaseStatusHoverDetail {
-  /** e.g. "12 Mo · 01/01/26 - 12/31/26" */
+  /** Single-line form for aria / desktop (e.g. "12 Mo · 01/01/26 - 12/31/26") */
   summaryLine: string
+  /**
+   * Two-line expand for narrow tiles (duration on line 1, dates on line 2)
+   * so the tag stays within the card width when revealed.
+   */
+  lines?: [string, string]
 }
 
 /** Duration token for lease status hover — "12 Mo" / "MTM". */
@@ -133,7 +138,7 @@ export function formatLeaseStatusHoverDate(dateStr?: string): string | null {
   return `${month}/${day}/${year}`
 }
 
-/** Hover copy for lease status badges — duration · date range on one line. */
+/** Hover copy for lease status badges — duration + dates (stacked on narrow tiles). */
 export function getLeaseStatusHoverDetail(
   details: LeaseStatusDetails
 ): LeaseStatusHoverDetail | undefined {
@@ -150,19 +155,30 @@ export function getLeaseStatusHoverDetail(
   const startLabel = formatLeaseStatusHoverDate(startDate)
   const endLabel = formatLeaseStatusHoverDate(endDate)
 
-  let summaryLine: string | undefined
   if (startLabel && endLabel) {
-    summaryLine = `${duration} · ${startLabel} - ${endLabel}`
-  } else if (startLabel) {
-    summaryLine = `${duration} · ${startLabel}`
-  } else if (endLabel) {
-    summaryLine = `${duration} · ${endLabel}`
-  } else if (termMonths != null && termMonths > 0) {
-    summaryLine = duration
+    const range = `${startLabel} – ${endLabel}`
+    return {
+      summaryLine: `${duration} · ${startLabel} - ${endLabel}`,
+      lines: [duration, range],
+    }
+  }
+  if (startLabel) {
+    return {
+      summaryLine: `${duration} · ${startLabel}`,
+      lines: [duration, startLabel],
+    }
+  }
+  if (endLabel) {
+    return {
+      summaryLine: `${duration} · ${endLabel}`,
+      lines: [duration, endLabel],
+    }
+  }
+  if (termMonths != null && termMonths > 0) {
+    return { summaryLine: duration }
   }
 
-  if (!summaryLine) return undefined
-  return { summaryLine }
+  return undefined
 }
 
 function parseLocalYmd(value: string): Date {

@@ -107,9 +107,10 @@ export function ClientTableMobileCard({
               />
             </div>
           ) : null}
-          <div className="mt-1.5 overflow-visible">
+          <div className="mt-1.5 min-w-0 overflow-visible">
             <LeaseStatusBadge
               details={leaseStatus}
+              constrainToParent
               onConfirmPayment={
                 awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
               }

@@ -2969,6 +2969,60 @@ a.in-place-hover {
   white-space: nowrap;
 }
 
+/* Two-line expand inside narrow Official Tenants tiles */
+.in-place-hover__lease-label--stack {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: 100%;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.2;
+  padding-inline: 0.05rem;
+}
+
+.official-tenant-tile .lease-status-badge-wrap {
+  max-width: 100%;
+}
+
+.official-tenant-tile .in-place-hover-expand-host--overlay:has(> .in-place-hover--lease-tag) {
+  max-width: 100%;
+}
+
+.official-tenant-tile .in-place-hover--lease-tag.in-place-hover--expand-ready {
+  /* Uniform inset when compact or expanded */
+  padding: 0.3rem 0.45rem;
+}
+
+@keyframes lease-tag-nudge {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 var(--border-width)
+      var(--lease-tag-stroke, color-mix(in srgb, var(--ink) 15%, transparent));
+  }
+  35%,
+  70% {
+    transform: scale(1.07);
+    box-shadow:
+      0 0 0 var(--border-width)
+        var(--lease-tag-stroke, color-mix(in srgb, var(--ink) 15%, transparent)),
+      0 0 0 4px color-mix(in srgb, var(--deposit-border, var(--brand)) 35%, transparent);
+  }
+}
+
+.lease-status-badge--nudge {
+  animation: lease-tag-nudge 1.15s ease-in-out 2;
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lease-status-badge--nudge {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .in-place-hover__layer,
   .in-place-hover--expand,

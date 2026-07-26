@@ -273,16 +273,18 @@ export function DashboardPage() {
   return (
     <div className="w-full min-w-0" data-onboarding="admin-dashboard">
       {registrationsError && (
-        <p className="mb-4 rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
-          {registrationsError}.{' '}
-          {import.meta.env.PROD
-            ? 'Sign out and sign back in (or re-enter your demo code) to refresh your session.'
-            : (
-              <>
-                Try restarting the app with{' '}
-                <code className="text-xs">npm run desktop:stop && npm run desktop</code>.
-              </>
-            )}
+        <p
+          className="mb-4 rounded-sm border border-line bg-surface-paper px-3 py-2 text-sm text-ink"
+          role="status"
+        >
+          Developer changes made… refresh page.
+          <button
+            type="button"
+            className="ml-2 font-semibold text-brand underline-offset-2 hover:underline"
+            onClick={() => window.location.reload()}
+          >
+            Refresh
+          </button>
         </p>
       )}
 

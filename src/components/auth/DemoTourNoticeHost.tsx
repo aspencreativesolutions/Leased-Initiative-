@@ -8,6 +8,7 @@ import {
   markDemoTourNoticeSeen,
   peekNewRegistrantsDemoCue,
   peekPendingTenantDemoCue,
+  requestDemoLeaseTagNudge,
   setDemoTourNoticeHighlight,
   type DemoTourNoticePov,
 } from '@/lib/publicDemo'
@@ -62,6 +63,7 @@ export function DemoTourNoticeHost() {
   const descId = 'demo-tour-notice-desc'
 
   const dismiss = useCallback(() => {
+    const dismissedPov = pov
     if (pov) markDemoTourNoticeSeen(pov)
     setDemoTourNoticeHighlight(false)
     setVisible(false)
@@ -76,6 +78,14 @@ export function DemoTourNoticeHost() {
         restore && document.contains(restore) ? restore : menuTrigger
       focusTarget?.focus?.()
     })
+    // A few seconds after the notice closes, nudge lease tags under tenant names.
+    if (dismissedPov === 'landlord') {
+      window.setTimeout(() => {
+        if (window.matchMedia('(max-width: 767px)').matches) {
+          requestDemoLeaseTagNudge()
+        }
+      }, 2800)
+    }
   }, [pov])
 
   const tryShow = useCallback(() => {

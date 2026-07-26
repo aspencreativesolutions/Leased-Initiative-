@@ -47,10 +47,17 @@ type InPlaceHoverTextProps = {
    */
   overlayExpand?: boolean
   /**
+   * Cap expand width (and secondary measure max-width) so long reveal copy
+   * wraps inside a tile instead of overflowing neighboring cards.
+   */
+  maxExpandWidth?: number | null
+  /**
    * Rendered inside the expand host (after the face) so it can inherit size
    * CSS vars — e.g. a Notify action that tracks compact→full width.
    */
   trailing?: ReactNode
+  /** Force the secondary face visible (e.g. demo nudge animation). */
+  forceRevealed?: boolean
   disabled?: boolean
 }
 
@@ -86,7 +93,9 @@ export function InPlaceHoverText({
   requireRevealBeforeActivate = Boolean(to || onActivate),
   expandOnReveal = false,
   overlayExpand = false,
+  maxExpandWidth = null,
   trailing,
+  forceRevealed = false,
   disabled,
 }: InPlaceHoverTextProps) {
   const [revealed, setRevealed] = useState(false)
@@ -107,11 +116,22 @@ export function InPlaceHoverText({
       const secondaryEl = secondaryMeasureRef.current
       if (!primaryEl || !secondaryEl) return
 
+      const cap =
+        typeof maxExpandWidth === 'number' && maxExpandWidth > 0
+          ? Math.floor(maxExpandWidth)
+          : null
+      if (cap) {
+        secondaryEl.style.maxWidth = `${cap}px`
+      } else {
+        secondaryEl.style.maxWidth = ''
+      }
+
       const compactW = Math.ceil(primaryEl.getBoundingClientRect().width)
-      const fullW = Math.ceil(secondaryEl.getBoundingClientRect().width)
+      let fullW = Math.ceil(secondaryEl.getBoundingClientRect().width)
       const compactH = Math.ceil(primaryEl.getBoundingClientRect().height)
       const fullH = Math.ceil(secondaryEl.getBoundingClientRect().height)
       if (compactW <= 0 || fullW <= 0 || compactH <= 0 || fullH <= 0) return
+      if (cap) fullW = Math.min(fullW, cap)
 
       setExpandSize((prev) => {
         const next: ExpandSize = {
@@ -150,6 +170,7 @@ export function InPlaceHoverText({
   }, [
     expandOnReveal,
     overlayExpand,
+    maxExpandWidth,
     primary,
     secondary,
     className,
@@ -170,7 +191,7 @@ export function InPlaceHoverText({
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [revealed])
 
-  const showSecondary = revealed
+  const showSecondary = revealed || forceRevealed
   const rootClassName = cn(
     'in-place-hover group/in-place relative inline-grid place-items-center items-center justify-items-center text-center',
     !expandOnReveal && 'max-w-full',

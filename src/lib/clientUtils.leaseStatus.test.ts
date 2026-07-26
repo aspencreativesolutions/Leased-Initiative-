@@ -167,6 +167,7 @@ describe('getLeaseStatusHoverDetail', () => {
     })
     expect(hover).toEqual({
       summaryLine: '12 Mo · 01/01/26 - 12/31/26',
+      lines: ['12 Mo', '01/01/26 – 12/31/26'],
     })
   })
 
@@ -180,6 +181,7 @@ describe('getLeaseStatusHoverDetail', () => {
     })
     expect(hover).toEqual({
       summaryLine: '6 Mo · 08/01/26 - 01/31/27',
+      lines: ['6 Mo', '08/01/26 – 01/31/27'],
     })
   })
 
@@ -193,6 +195,7 @@ describe('getLeaseStatusHoverDetail', () => {
     })
     expect(hover).toEqual({
       summaryLine: '18 Mo · 06/15/26 - 12/14/27',
+      lines: ['18 Mo', '06/15/26 – 12/14/27'],
     })
   })
 })

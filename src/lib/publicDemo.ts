@@ -29,6 +29,8 @@ export const PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY = 'leased-public-demo-tour-not
 export const PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY = 'leased-public-demo-tour-notice-tenant'
 /** Custom event to open/highlight Menu → Take the tour during the notice. */
 export const DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT = 'leased-demo-tour-notice-highlight'
+/** After landlord tour notice dismiss — nudge Official Tenants lease tags on mobile. */
+export const DEMO_LEASE_TAG_NUDGE_EVENT = 'leased-demo-lease-tag-nudge'
 /** Optional visitor first name for personalizing mock messages/docs this demo session. */
 export const PUBLIC_DEMO_FIRST_NAME_KEY = 'leased-public-demo-first-name'
 /** Shown in templates when the visitor skips the optional first-name field. */
@@ -177,6 +179,16 @@ export function setDemoTourNoticeHighlight(
         detail: { active, menuScope },
       })
     )
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Pulse + peek Official Tenants lease tags (mobile landlord demo). */
+export function requestDemoLeaseTagNudge(): void {
+  try {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent(DEMO_LEASE_TAG_NUDGE_EVENT))
   } catch {
     /* ignore */
   }
