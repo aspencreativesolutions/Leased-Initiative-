@@ -4178,3 +4178,82 @@ a.in-place-hover {
   }
 }
 
+/* Live update beacon (Admin Mode → Live updates) */
+@keyframes live-update-dot-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.55);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 7px rgba(255, 23, 68, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0);
+  }
+}
+
+@keyframes live-update-dot-core {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+}
+
+.live-update-dot {
+  position: relative;
+  display: inline-block;
+  height: 0.625rem;
+  width: 0.625rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #ff1744;
+  box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.55);
+}
+
+.live-update-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #ff1744;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .live-update-dot {
+    animation: live-update-dot-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .live-update-dot::before {
+    animation: live-update-dot-core 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+}
+
+.live-update-refresh {
+  display: inline-flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1.5px solid #ff1744;
+  background: #ff1744;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(127, 29, 29, 0.35);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
+}
+
+.live-update-refresh:hover {
+  background: #e0113a;
+  transform: scale(1.06);
+}
+
+.live-update-refresh:focus-visible {
+  outline: 2px solid #ff1744;
+  outline-offset: 2px;
+}
+

@@ -44,6 +44,10 @@ import {
   type CompanyDemoLinkSummary,
   type DemoVisitorEntry,
 } from '@/lib/publicDemo'
+import {
+  fetchAdminLiveUpdateStatus,
+  saveAdminLiveUpdateEnabled,
+} from '@/lib/liveUpdate'
 
 const PANEL_KEY = 'leased-admin-mode-open'
 const EXPANDED_KEY = 'leased-admin-mode-expanded'
@@ -133,6 +137,8 @@ function AdminModeFabInner() {
   const [visitorsModalOpen, setVisitorsModalOpen] = useState(false)
   const [demoVisitors, setDemoVisitors] = useState<DemoVisitorEntry[]>([])
   const [visitorsLoading, setVisitorsLoading] = useState(false)
+  const [liveUpdateEnabled, setLiveUpdateEnabled] = useState(false)
+  const [liveUpdateLoaded, setLiveUpdateLoaded] = useState(false)
 
   const restartAsFirstTime = useCallback(() => {
     clearWelcomeCarouselDone()
@@ -186,6 +192,23 @@ function AdminModeFabInner() {
       cancelled = true
     }
   }, [open, companyLinksLoaded])
+
+  useEffect(() => {
+    if (!open || liveUpdateLoaded) return
+    let cancelled = false
+    fetchAdminLiveUpdateStatus()
+      .then((data) => {
+        if (cancelled) return
+        setLiveUpdateEnabled(data.enabled)
+        setLiveUpdateLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setLiveUpdateLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, liveUpdateLoaded])
 
   useEffect(() => {
     sessionStorage.setItem(EXPANDED_KEY, JSON.stringify(expanded))
@@ -377,6 +400,26 @@ function AdminModeFabInner() {
     setVisitorsModalOpen(false)
   }
 
+  const handleToggleLiveUpdate = async () => {
+    const next = !liveUpdateEnabled
+    setBusy('live-update')
+    setError(null)
+    setMessage(null)
+    try {
+      const result = await saveAdminLiveUpdateEnabled(next)
+      setLiveUpdateEnabled(result.enabled)
+      setMessage(
+        result.enabled
+          ? 'Live updates on — visitors see a red indicator until you turn this off.'
+          : 'Live updates off — the red indicator is hidden on the live site.'
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update live update setting')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <>
       <button
@@ -433,6 +476,49 @@ function AdminModeFabInner() {
           </div>
 
           <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto px-3.5 py-3.5">
+            <div className="space-y-2.5 rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={liveUpdateEnabled}
+                disabled={Boolean(busy) || !liveUpdateLoaded}
+                onClick={() => {
+                  void handleToggleLiveUpdate()
+                }}
+                className="flex w-full items-start gap-3 text-left disabled:opacity-50"
+              >
+                <span
+                  className={cn(
+                    'relative mt-0.5 h-5 w-9 shrink-0 rounded-full border-[length:var(--border-width)] transition-colors',
+                    liveUpdateEnabled ? 'border-red-700 bg-red-600' : 'border-line bg-surface-paper'
+                  )}
+                  aria-hidden
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 h-3.5 w-3.5 rounded-full shadow-sm transition-all',
+                      liveUpdateEnabled ? 'left-[1.05rem] bg-white' : 'left-0.5 bg-ink/40'
+                    )}
+                  />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+                    Live updates
+                    {busy === 'live-update' ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-ink-muted" />
+                    ) : liveUpdateEnabled ? (
+                      <span className="live-update-dot" aria-hidden />
+                    ) : null}
+                  </span>
+                  <span className="mt-0.5 block text-[10px] leading-snug text-ink-muted">
+                    When on, visitors see a pulsing red dot while you deploy. After changes are
+                    pushed it becomes a refresh button so they can load the update. Turn off when
+                    you&apos;re done.
+                  </span>
+                </span>
+              </button>
+            </div>
+
             <div className="space-y-2.5 rounded-[var(--radius-sm)] border border-[var(--card-inset-border,var(--line))] bg-surface px-3 py-2.5">
               <p className="text-[11px] font-semibold text-ink">Public demo access code</p>
               <p className="text-[10px] leading-snug text-ink-muted">

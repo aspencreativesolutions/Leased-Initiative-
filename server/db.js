@@ -39,6 +39,9 @@ const DEFAULT_STORE = {
   companyDemoLinks: [],
   bugReports: [],
   demoVisitors: [],
+  liveUpdate: {
+    enabled: false,
+  },
 }
 
 function ensureDataDir() {

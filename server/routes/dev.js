@@ -26,6 +26,7 @@ import {
   listKnownCompanyDemoNames,
 } from '../lib/companyDemoLinks.js'
 import { listDemoVisitors } from '../lib/demoVisitors.js'
+import { getLiveUpdateState, setLiveUpdateEnabled } from '../lib/liveUpdate.js'
 
 const router = Router()
 
@@ -296,6 +297,25 @@ router.get('/admin/demo-visitors', (_req, res) => {
     createdAt: entry.createdAt,
   }))
   res.json({ visitors })
+})
+
+router.get('/admin/live-update', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  const store = readStoreFromDisk()
+  res.json(getLiveUpdateState(store))
+})
+
+router.put('/admin/live-update', (req, res) => {
+  try {
+    const enabled = Boolean(req.body?.enabled)
+    const store = readStoreFromDisk()
+    const next = setLiveUpdateEnabled(store, enabled)
+    writeStoreToDisk(next)
+    res.json({ ok: true, ...getLiveUpdateState(next) })
+  } catch (err) {
+    console.error('admin live-update', err)
+    res.status(500).json({ error: 'Could not update live update setting' })
+  }
 })
 
 export default router

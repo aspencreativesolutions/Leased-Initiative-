@@ -124,6 +124,11 @@ export function PublicDemoPovFab() {
       }
       collapseSignal={collapseSignal}
       attentionSignal={attentionSignal}
+      onExit={() => {
+        void handleExit()
+      }}
+      exitBusy={busyAction === 'exit'}
+      exitDisabled={busy}
       action={
         <div className="flex flex-col gap-2">
           <Button

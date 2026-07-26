@@ -10,7 +10,9 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PortalLayout } from '@/components/layout/PortalLayout'
 import { AdminModeFab } from '@/components/admin/AdminModeFab'
+import { LiveUpdateIndicator } from '@/components/admin/LiveUpdateIndicator'
 import { PublicDemoPovFab } from '@/components/auth/PublicDemoPovFab'
+import { DemoIdleLockHost } from '@/components/auth/DemoIdleLockHost'
 import { DemoGuideCueHost } from '@/components/auth/DemoGuideCueHost'
 import { DemoTourNoticeHost } from '@/components/auth/DemoTourNoticeHost'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
@@ -55,8 +57,10 @@ export default function App() {
               <BrowserRouter>
                 <RouteThemeSync />
                 <PortalThemeSync />
+                <LiveUpdateIndicator />
                 <AdminModeFab />
                 <PublicDemoPovFab />
+                <DemoIdleLockHost />
                 <DemoGuideCueHost />
                 <DemoTourNoticeHost />
                 {/* Main column fills the viewport so the in-flow footer stays below the fold. */}

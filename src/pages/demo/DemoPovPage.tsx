@@ -308,6 +308,10 @@ export function DemoPovPage() {
             : 'Choose a role to start your demo.'
         }
         subtitle="Exit demo anytime. After a tenant application, Switch to Landlord POV opens the landlord side directly."
+        onExit={() => {
+          void handleExit()
+        }}
+        exitDisabled={selecting}
         action={
           <Button
             type="button"

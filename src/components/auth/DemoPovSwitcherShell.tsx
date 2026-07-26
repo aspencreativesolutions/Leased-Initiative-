@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { ArrowLeftRight, ChevronDown } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Loader2, LogOut } from 'lucide-react'
 import {
   hasPlayedDemoPovIntro,
   markDemoPovIntroPlayed,
@@ -38,6 +38,10 @@ type DemoPovSwitcherShellProps = {
   collapseSignal?: number
   /** Increment to expand + replay the attention animation (e.g. post-apply tip). */
   attentionSignal?: number
+  /** Always-available exit from collapsed or expanded chrome. */
+  onExit?: () => void
+  exitBusy?: boolean
+  exitDisabled?: boolean
 }
 
 function prefersReducedMotion(): boolean {
@@ -50,6 +54,7 @@ function prefersReducedMotion(): boolean {
 /**
  * Bottom-right Switch POV chrome: expands on first demo entry with a brief
  * attention cue, then collapses to a compact tab for the rest of the session.
+ * Exit stays available when collapsed so visitors can leave anytime.
  */
 export function DemoPovSwitcherShell({
   title = 'Choose a role to start your demo.',
@@ -59,6 +64,9 @@ export function DemoPovSwitcherShell({
   className,
   collapseSignal = 0,
   attentionSignal = 0,
+  onExit,
+  exitBusy = false,
+  exitDisabled = false,
 }: DemoPovSwitcherShellProps) {
   const panelId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -209,7 +217,10 @@ export function DemoPovSwitcherShell({
     return (
       <div
         ref={rootRef}
-        className={cn('fixed bottom-4 right-4 z-[80] sm:bottom-5 sm:right-5', className)}
+        className={cn(
+          'fixed bottom-4 right-4 z-[80] flex items-center gap-2 sm:bottom-5 sm:right-5',
+          className
+        )}
       >
         <button
           type="button"
@@ -221,13 +232,30 @@ export function DemoPovSwitcherShell({
           )}
           aria-expanded={false}
           aria-controls={panelId}
-          aria-label="Demo mode controls"
-          title="Demo mode controls"
+          aria-label="Switch demo point of view"
+          title="Switch demo point of view"
         >
           <ArrowLeftRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className="hidden sm:inline">Switch POV</span>
           <span className="sm:hidden">POV</span>
         </button>
+        {onExit ? (
+          <button
+            type="button"
+            onClick={onExit}
+            disabled={exitDisabled || exitBusy}
+            className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink bg-ink px-3 py-2 text-xs font-semibold text-surface shadow-lift transition hover:bg-ink/90 disabled:opacity-50"
+            aria-label="Exit Demo"
+            title="Exit Demo"
+          >
+            {exitBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            )}
+            <span className="hidden sm:inline">Exit</span>
+          </button>
+        ) : null}
       </div>
     )
   }

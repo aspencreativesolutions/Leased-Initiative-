@@ -15,6 +15,7 @@ import {
   isCompanyDemoLinkExpired,
 } from '../lib/companyDemoLinks.js'
 import { recordDemoVisitor } from '../lib/demoVisitors.js'
+import { getLiveUpdateState } from '../lib/liveUpdate.js'
 
 const router = Router()
 
@@ -24,6 +25,13 @@ router.get('/status', (_req, res) => {
     available: true,
     codeConfigured: Boolean(getConfiguredDemoCode(store)),
   })
+})
+
+/** Public — any visitor can poll whether live updates are in progress. */
+router.get('/live-update', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  const store = readStoreFromDisk()
+  res.json(getLiveUpdateState(store))
 })
 
 router.post('/redeem', async (req, res) => {

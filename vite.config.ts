@@ -1,9 +1,10 @@
 import path from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { liveUpdateVersionPlugin } from './vite.liveUpdateVersionPlugin'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), liveUpdateVersionPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

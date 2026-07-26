@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { AuthResponse, User } from '@/types'
-import { apiFetch, getToken, setToken } from '@/lib/api'
+import { ApiError, apiFetch, getToken, setToken } from '@/lib/api'
 import { registerAccount } from '@/lib/authApi'
 import {
   clearPublicDemoSession,
@@ -51,6 +51,36 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+
+const AUTH_ME_RETRY_ATTEMPTS = 6
+const AUTH_ME_RETRY_BASE_MS = 350
+
+function isRetryableAuthError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return true
+  // Auth is permanently invalid — don't keep retrying.
+  if (err.status === 401 || err.status === 403 || err.status === 404) return false
+  // Network blips / API restarts during live updates are retryable.
+  return err.status === 0 || err.status >= 500
+}
+
+async function fetchCurrentUserWithRetry(): Promise<User> {
+  let lastError: unknown
+  for (let attempt = 0; attempt < AUTH_ME_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const data = await apiFetch<{ user: User }>('/api/auth/me')
+      return data.user
+    } catch (err) {
+      lastError = err
+      if (!isRetryableAuthError(err) || attempt === AUTH_ME_RETRY_ATTEMPTS - 1) {
+        throw err
+      }
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, AUTH_ME_RETRY_BASE_MS * (attempt + 1))
+      )
+    }
+  }
+  throw lastError
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -140,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null
     }
     try {
-      const data = await apiFetch<{ user: User }>('/api/auth/me')
-      setUser(data.user)
-      return data.user
+      const me = await fetchCurrentUserWithRetry()
+      setUser(me)
+      return me
     } catch {
       failSession(token)
       return null
@@ -165,10 +195,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    apiFetch<{ user: User }>('/api/auth/me')
-      .then(({ user: me }) => setUser(me))
-      .catch(() => failSession(token))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    fetchCurrentUserWithRetry()
+      .then((me) => {
+        if (!cancelled) setUser(me)
+      })
+      .catch(() => {
+        if (!cancelled) failSession(token)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [failSession])
 
   const value = useMemo(
