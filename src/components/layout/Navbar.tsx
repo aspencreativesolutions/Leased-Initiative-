@@ -105,7 +105,7 @@ function useLocalTodayLabel() {
 }
 
 const links = [
-  { to: '/studio', label: 'Dashboard', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
+  { to: '/studio', label: 'Tenants and Waiting', icon: LayoutDashboard, onboarding: 'admin-dashboard' },
   { to: '/studio/properties', label: 'Rentals', icon: Building2, onboarding: 'admin-properties' },
   { to: '/studio/contracts', label: 'Lease Agreements', icon: FileText, onboarding: 'admin-contracts' },
   { to: '/studio/payments', label: 'Payments', icon: DollarSign, onboarding: 'admin-payments' },

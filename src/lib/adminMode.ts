@@ -197,7 +197,7 @@ export const FIRST_TIME_SCENARIOS: AdminScenario[] = [
 const landlordScenarios: AdminScenario[] = [
   {
     id: 'landlord-dashboard',
-    label: 'Dashboard',
+    label: 'Tenants and Waiting',
     description: 'Overview with pending registrations and tenants',
     email: 'landlord@leased.test',
     path: '/studio',
@@ -206,7 +206,7 @@ const landlordScenarios: AdminScenario[] = [
   {
     id: 'landlord-registrations',
     label: 'Approve new tenants',
-    description: 'Dashboard → Waiting to Connect (pending sign-ups)',
+    description: 'Tenants and Waiting → Waiting to Connect (pending sign-ups)',
     email: 'landlord@leased.test',
     path: '/studio',
     reseed: true,
@@ -214,7 +214,7 @@ const landlordScenarios: AdminScenario[] = [
   {
     id: 'landlord-tenants',
     label: 'Official Tenants',
-    description: 'Dashboard → Official Tenants, Waiting to Connect, and Pending Tenants',
+    description: 'Tenants and Waiting → Official Tenants, Waiting to Connect, and Pending Tenants',
     email: 'landlord@leased.test',
     path: '/studio',
     reseed: true,

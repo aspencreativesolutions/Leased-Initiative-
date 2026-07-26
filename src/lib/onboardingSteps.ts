@@ -8,7 +8,7 @@ export type AdminTourSectionId =
   | 'settings'
 
 export const ADMIN_TOUR_SECTIONS: { id: AdminTourSectionId; label: string }[] = [
-  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'dashboard', label: 'Tenants and Waiting' },
   { id: 'rentals', label: 'Rentals' },
   { id: 'contracts', label: 'Lease Agreements' },
   { id: 'payments', label: 'Payments' },
@@ -159,7 +159,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-dashboard"]',
     title: 'Welcome to Leased Initiative',
     description:
-      'This is your landlord dashboard for managing tenants from sign-up through an active lease. This quick tour highlights each key area — use the section bar at the top to jump ahead anytime.',
+      'Tenants and Waiting is your home for managing tenants from sign-up through an active lease. This quick tour highlights each key area — use the section bar at the top to jump ahead anytime.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',

@@ -14,7 +14,7 @@ export function ClientProfilePage() {
       <div className="py-16 text-center">
         <p className="text-ink-muted">Tenant not found.</p>
         <Link to="/studio" className="mt-4 inline-block text-brand hover:underline">
-          Back to Dashboard
+          Back to Tenants and Waiting
         </Link>
       </div>
     )
@@ -27,7 +27,7 @@ export function ClientProfilePage() {
         className="mb-4 inline-flex items-center gap-1 text-sm text-ink-muted hover:text-brand"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
+        Back to Tenants and Waiting
       </Link>
 
       <div className="rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-4 shadow-lift sm:p-6">

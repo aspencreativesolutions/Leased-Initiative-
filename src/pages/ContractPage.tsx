@@ -21,7 +21,7 @@ export function ContractPage() {
       <div className="py-16 text-center">
         <p className="text-stone-600">Client not found.</p>
         <Link to="/studio" className="mt-4 inline-block text-brand hover:underline">
-          Back to Dashboard
+          Back to Tenants and Waiting
         </Link>
       </div>
     )
