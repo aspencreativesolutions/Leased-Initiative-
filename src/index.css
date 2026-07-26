@@ -3420,6 +3420,23 @@ a.in-place-hover {
   text-overflow: ellipsis;
 }
 
+/* Mobile Waiting to Connect tiles are narrow — shrink type so the full
+   “Requesting 1 of N available units” line never clips. */
+@media (max-width: 767px) {
+  .availability-badge {
+    font-size: 0.40625rem;
+    letter-spacing: 0;
+    padding: 0.08rem 0.35rem;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .waiting-connect-tile__availability .availability-badge,
+  .waiting-connect-tile__availability .in-place-hover {
+    max-width: 100%;
+  }
+}
+
 .availability-badge--open {
   background-color: color-mix(in srgb, #15803d 10%, var(--surface-paper));
   color: color-mix(in srgb, #166534 88%, var(--ink));

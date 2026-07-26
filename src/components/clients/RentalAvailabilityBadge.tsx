@@ -89,11 +89,11 @@ export function RentalAvailabilityBadge({
 
   return (
     <InPlaceHoverText
-      primary={<span className="truncate">{label}</span>}
+      primary={<span>{label}</span>}
       secondary={<span className="whitespace-nowrap">{hoverLabel}</span>}
       ariaLabel={`${label}. ${hoverLabel}`}
       requireRevealBeforeActivate
-      className={cn(badgeClass, 'availability-badge--link inline-flex justify-center')}
+      className={cn(badgeClass, 'availability-badge--link inline-flex max-w-full justify-center')}
       style={breatheStyle}
       onActivate={(event) => {
         event.stopPropagation()
