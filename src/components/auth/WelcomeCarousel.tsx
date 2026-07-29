@@ -11,6 +11,7 @@ import {
   WELCOME_CAROUSEL_STORAGE_KEY,
   type WelcomeRole,
 } from '@/lib/welcomeSlides'
+import { isAccountCreationEnabled } from '@/lib/accountCreation'
 import { markPublicDemoSession, type DemoAccountCredentials } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
@@ -65,7 +66,7 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
   }
 
   const handleCreateAccount = useCallback(() => {
-    if (!role) return
+    if (!role || !isAccountCreationEnabled()) return
     markDone()
     onComplete()
     navigate(registerPathForRole(role))
@@ -251,19 +252,21 @@ export function WelcomeCarousel({ onSkip, onComplete }: WelcomeCarouselProps) {
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center">
           <Button
             size="sm"
-            variant="outline"
+            variant={isAccountCreationEnabled() ? 'outline' : undefined}
             onClick={() => setDemoOpen(true)}
             className="w-full sm:w-auto sm:min-w-[10rem]"
           >
             Use Demo Account
           </Button>
-          <Button
-            size="sm"
-            onClick={handleCreateAccount}
-            className="w-full sm:w-auto sm:min-w-[10rem]"
-          >
-            Create Account
-          </Button>
+          {isAccountCreationEnabled() && (
+            <Button
+              size="sm"
+              onClick={handleCreateAccount}
+              className="w-full sm:w-auto sm:min-w-[10rem]"
+            >
+              Create Account
+            </Button>
+          )}
         </div>
       )}
 

@@ -49,7 +49,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-nav"]',
     title: 'Your tenant portal',
     description:
-      'This is your home for applications, leases, rent, documents, and maintenance. Use Dashboard and Timeline in the top bar (or Menu on phones) to move around.',
+      'Your home for applications, leases, rent, documents, and maintenance. Use Dashboard and Timeline in the top bar — or Menu on phones — to move around.',
     placement: 'bottom',
     route: '/portal',
   },
@@ -58,7 +58,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-application"]',
     title: 'Start your application',
     description:
-      'Choose a landlord company, pick an available address (furnished status, total rent, full-occupancy cost, and utilities), set entire-home or roommate preference, then Send. Or enter an invite code your landlord texted you.',
+      'Choose a landlord, pick an available address, set entire-home or roommate preference, then Send — or enter an invite code your landlord texted you.',
     placement: 'bottom',
     route: '/portal',
     when: (ctx) => ctx.linked !== true,
@@ -68,7 +68,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-dashboard-overview"]',
     title: 'Your lease dashboard',
     description:
-      'After you’re connected, your dashboard opens with a greeting, rent due dates, and Pay Rent — including paying several months ahead when your lease allows.',
+      'Once connected, see your greeting, rent due dates, and Pay Rent — including paying several months ahead when your lease allows.',
     placement: 'bottom',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
@@ -78,7 +78,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-contracts"]',
     title: 'Review and sign leases',
     description:
-      'When your landlord accepts you and sends a lease, open it here, review the terms, and sign with your finger or mouse. After you sign, you and your landlord are notified and your deposit invoice appears.',
+      'When a lease is sent, open it here, review the terms, and sign. After you sign, you’re notified and your deposit invoice appears.',
     placement: 'top',
     route: '/portal',
   },
@@ -88,7 +88,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
       '[data-onboarding="portal-pay-rent"], [data-onboarding="portal-payment-schedule"], [data-onboarding="portal-dashboard-overview"]',
     title: 'Pay rent anytime',
     description:
-      'See what’s next due on your schedule, then tap Pay Rent — PayPal, Stripe, or Square. If rent is past due, your landlord may text a reminder; reply from your phone and pay here anytime.',
+      'See what’s next due, then tap Pay Rent — PayPal, Stripe, or Square. If rent is past due, your landlord may text a reminder; reply from your phone and pay here anytime.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
@@ -98,7 +98,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-invoice"]',
     title: 'Pay your deposit',
     description:
-      'Your deposit invoice and payment link show up here after you sign. Pay from the link, then your landlord can confirm and move you toward move-in.',
+      'Your deposit invoice and payment link appear here after you sign. Pay from the link so your landlord can confirm and move you toward move-in.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true && ctx.hasInvoice === true,
@@ -108,7 +108,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-files"]',
     title: 'Share documents',
     description:
-      'Upload files and short notes for your landlord once the project is active. Shared Files stays on your dashboard so lease paperwork stays in one place.',
+      'Upload files and short notes for your landlord. Shared Files stays on your dashboard so lease paperwork stays in one place.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
@@ -118,7 +118,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-report-problem"]',
     title: 'Request Maintenance',
     description:
-      'Pick a household problem, attach a required photo, optionally add a note, and send. Your landlord sees it under Tenant Alerts so they can dispatch help.',
+      'Pick a problem, attach a required photo, optionally add a note, and send. Your landlord sees it under Tenant Alerts.',
     placement: 'bottom',
     route: '/portal/report',
   },
@@ -137,7 +137,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
       '[data-onboarding="portal-mobile-menu"], [data-onboarding="portal-desktop-menu"]',
     title: 'Menu, profile, and style',
     description:
-      'Open Menu for Dashboard, Timeline, Choose Style, My profile, Take the tour, and Sign out. Alerts also show on your dashboard and by email when something needs attention.',
+      'Open Menu for Dashboard, Timeline, Choose Style, My profile, Take the tour, and Sign out. Alerts also show on your dashboard and by email.',
     placement: 'bottom',
     route: '/portal',
   },
@@ -146,7 +146,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-nav"]',
     title: 'You’re ready',
     description:
-      'Apply or join with an invite, sign your lease, pay deposit and rent, share files, request maintenance, and follow your timeline — all from this portal. Restart anytime from Menu → Take the tour.',
+      'Apply or join with an invite, sign your lease, pay deposit and rent, share files, request maintenance, and follow your timeline — all from here. Restart anytime from Menu → Take the tour.',
     placement: 'bottom',
     route: '/portal',
     completion: true,
@@ -159,7 +159,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-dashboard"]',
     title: 'Welcome to Leased Initiative',
     description:
-      'Tenants and Waiting is your home for managing tenants from sign-up through an active lease. This quick tour highlights each key area — use the section bar at the top to jump ahead anytime.',
+      'Tenants and Waiting is your home for managing tenants from sign-up through an active lease. Use the section bar at the top to jump ahead anytime.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -169,7 +169,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="tenants-waiting-connect"]',
     title: 'Waiting to Connect',
     description:
-      'This section shows people who claimed an invite or registered but are not yet connected. Review their property, requested lease start, and any friends they invited to share, then Accept & Draft Lease to generate a draft (not sent yet) — or dismiss them.',
+      'People who claimed an invite or registered but aren’t connected yet. Review their property and lease start, then Accept & Draft Lease — or dismiss them.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -179,7 +179,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle on each pending tenant row. Use Change Lease Style to upload a PDF/DOC template in Settings, then Apply to All (or the animated New lease style tag) to restyle pending leases without clearing tenant details or signatures. After the tenant signs electronically they move to Official Tenants as Awaiting Deposit (deposit invoice is auto-sent); Confirm Payment Complete moves them to Upcoming until the lease start date.',
+      'Accepted or manually added tenants stay here until their lease is signed. Status starts as Lease Drafted — preview to download, upload a replacement, or send when ready. Optionally auto-send drafted leases from each row. Change Lease Style in Settings to restyle pending leases without clearing details. After e-sign they move to Official Tenants as Awaiting Deposit; confirm payment to mark them Upcoming until the lease starts.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -189,7 +189,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Tenants with signed leases that are active or starting soon appear here. Click a name to open Tenant Details — rental, lease, household, and payment history. After signing they show Awaiting Deposit under each name (hover for Confirm Payment, or use Confirm Payment Complete in the row); once you confirm, status becomes Upcoming until the lease starts, then Active. Payment tags (On Time / Overdue / Deposit Paid / Awaiting Deposit) stay right-aligned. On mobile they appear as scrollable tiles (two per row by default). On larger screens, Spreadsheet View opens by default in Display Settings — switch to Tile View to use the Tenant tile size slider, Edit Columns in Spreadsheet View to rearrange fields, or turn on Show Occupancy Status for optional tags under each name.',
+      'Signed leases that are active or starting soon appear here. Click a name for Tenant Details. After signing they show Awaiting Deposit — confirm payment to move them to Upcoming, then Active when the lease starts. Payment tags stay right-aligned. On mobile, use scrollable tiles; on larger screens, Spreadsheet View is the default (switch layouts, edit columns, or show occupancy tags in Display Settings).',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -199,7 +199,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio lives here. Add addresses by choosing furnished or not, pricing by room/person (or by bed when furnished), optional deposit, whether utilities are included, entire-home-only when needed, bedrooms with private/shared privacy, and bed sizes (occupancy is calculated from beds); total rent, cost at full occupancy, utilities, deposit, and max occupancy are stored for applications. Each tile has an occupancy box (people count) you can expand to see occupants and open Tenant Details; edit any rental with the pencil icon. On mobile, rentals are scrollable tiles (two per row by default). On larger screens, switch Tile or Spreadsheet View in Display Settings (use the Rental tile size slider in Tile View, and Edit Columns to rearrange, hide, or restore spreadsheet fields). Filter by State, Town, and Group to find openings quickly.',
+      'Your rental portfolio. Add addresses with furnished status, pricing, beds, deposit, and utilities — occupancy is calculated from beds. Expand a tile to see who’s there or open Tenant Details. On mobile, use scrollable tiles; on larger screens, switch Tile or Spreadsheet View in Display Settings. Filter by State, Town, and Group.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -209,7 +209,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-upcoming-openings"]',
     title: 'Upcoming Openings',
     description:
-      'Vacant units and leases ending soon appear here. From each row you can Send Re-sign Message to current tenants or Generate Invite Code for a new tenant at that address.',
+      'Vacant units and leases ending soon. From each row, Send Re-sign Message to current tenants or Generate Invite Code for a new tenant.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -219,7 +219,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-contracts"]',
     title: 'Lease Agreements',
     description:
-      'Draft, send, and track every lease agreement. Tiles show Sent or Signed status and progress through the term. After you confirm a new Lease Agreement Template in Settings, an animated New lease agreement style tag appears here so you can replace all official tenant agreements or select tiles to restyle — signatures and tenant details stay intact. On mobile, leases appear as scrollable tiles (two per row by default). On larger screens, use Display Settings for Tile or Spreadsheet View (Lease tile size slider in Tile View; Edit Columns to rearrange, hide, or restore fields), and filters for Lease Status, Lease Progress (Not Started / Ongoing / Ending Soon), State, area code, or group.',
+      'Draft, send, and track every lease. Tiles show Sent or Signed status and progress through the term. After you confirm a new template in Settings, restyle all or selected agreements without clearing signatures. On mobile, use scrollable tiles; on larger screens, switch layouts and filters in Display Settings.',
     placement: 'bottom',
     route: '/studio/contracts',
     section: 'contracts',
@@ -229,7 +229,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Use the Payment tile size slider in Display Settings to enlarge or shrink tiles. Filter for Overdue Rent, Paid Early, or payment method, then Send Message to Tenant when someone is past due — the message panel opens below the payment summary so replies stay on your phone.',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Filter for Overdue Rent or Paid Early, then Send Message to Tenant when someone is past due. Replies stay on your phone.',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',
@@ -239,7 +239,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-tenant-alerts"]',
     title: 'Tenant Alerts',
     description:
-      'When a tenant submits a maintenance request with a required photo, it appears here so you can assess the problem and dispatch maintenance.',
+      'Maintenance requests with photos appear here so you can assess the problem and dispatch help.',
     placement: 'bottom',
     route: '/studio/alerts',
     section: 'alerts',
@@ -249,7 +249,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-tenant-actions]',
     title: 'Tenant shortcuts',
     description:
-      'Use Link to text a one-time invite with property, future lease start, duration, and optional custom code. Use Add to create a tenant yourself. On phones, these live in the Waiting to Connect header; on larger screens they stay in the top navigation. New Registers appears in the top bar only when someone is waiting.',
+      'Use Link to text a one-time invite, or Add to create a tenant yourself. New Registers appears in the top bar only when someone is waiting.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -259,7 +259,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-company-details"]',
     title: 'Company Profile',
     description:
-      'Review your registered company name and browse rental-type or renter counts. Tap a count to explore that group, and filter lists by lease duration when needed.',
+      'Review your company name and rental or renter counts. Tap a count to explore that group, and filter by lease duration when needed.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',
@@ -269,7 +269,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-lease-upload"]',
     title: 'Import existing leases',
     description:
-      'Queue lease PDFs, images, or spreadsheets, then click Scan Files. Review the records that appear, confirm what looks right, and send invite links by email or text.',
+      'Queue lease PDFs, images, or spreadsheets, then Scan Files. Review the records, confirm what looks right, and send invite links by email or text.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',
@@ -279,7 +279,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-tabs"]',
     title: 'Settings',
     description:
-      'Open Settings anytime from Menu in the top bar. Switch between Business Information, Client Automation, Lease Defaults (including Lease Agreement Templates), and App Style using these tabs.',
+      'Open Settings from Menu anytime. Switch between Business Information, Client Automation, Lease Defaults, and App Style with these tabs.',
     placement: 'bottom',
     route: '/studio/settings',
     section: 'settings',
@@ -289,7 +289,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-business"]',
     title: 'Business Information',
     description:
-      'Company name, contact details, and address used in lease headers and signatures live here. Choose Public Discovery (tenants can find you by name) or Invite-Only (tenants need a connection link or code). Keep these current so generated agreements stay accurate.',
+      'Company name, contact details, and address used in lease headers. Choose Public Discovery or Invite-Only so tenants find you the way you want.',
     placement: 'bottom',
     route: '/studio/settings?tab=business',
     section: 'settings',
@@ -299,7 +299,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-automation"]',
     title: 'Client Automation',
     description:
-      'Turn on reminders, follow-ups, and status updates so overdue rent and lease milestones nudge tenants without you chasing every message.',
+      'Turn on reminders and status updates so overdue rent and lease milestones nudge tenants without you chasing every message.',
     placement: 'bottom',
     route: '/studio/settings?tab=automation',
     section: 'settings',
@@ -309,7 +309,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-lease"]',
     title: 'Lease Defaults',
     description:
-      'Upload a PDF or Word file under Lease Agreement Templates to set your default lease style, then View sample with a pending tenant and Confirm. Under Default Lease Calendar Settings, review Current Seasonal Options (6–24 months) and add custom lease eras with your own start and end dates — those options appear when you add a rental or generate a lease. Also set payment terms, revision limits, and contract footers that prefill when you draft a new lease. Restyling never clears tenant details or signatures.',
+      'Upload a PDF or Word file to set your default lease style. Set seasonal options, custom lease eras, payment terms, and footers that prefill when you draft. Restyling never clears tenant details or signatures.',
     placement: 'bottom',
     route: '/studio/settings?tab=lease',
     section: 'settings',
@@ -319,7 +319,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-lease-agreement-templates"]',
     title: 'Lease Agreement Templates',
     description:
-      'Upload a sample lease (PDF or DOC) to create a style in your template library. View sample, Confirm as default, then return to Pending Tenants and use Apply to All — or the animated New lease agreement style tag — to restyle all or selected leases. Personal info, rent, and signatures stay intact; tenants do not need to re-sign.',
+      'Upload a sample lease to create a style, Confirm as default, then Apply to All from Pending Tenants — or use the New lease style tag. Personal info, rent, and signatures stay intact.',
     placement: 'bottom',
     route: '/studio/settings?tab=lease#lease-agreement-templates',
     section: 'settings',
@@ -339,7 +339,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-style"]',
     title: 'Tour complete',
     description:
-      "You're ready to manage tenants, rentals, leases, and payments on your own. Restart this walkthrough anytime from Menu → Take the tour.",
+      "You're ready to manage tenants, rentals, leases, and payments. Restart anytime from Menu → Take the tour.",
     placement: 'bottom',
     route: '/studio/settings?tab=style',
     section: 'settings',

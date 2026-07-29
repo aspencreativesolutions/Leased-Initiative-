@@ -1,6 +1,10 @@
 import { Router } from 'express'
 import { readStore, updateStore } from '../db.js'
 import {
+  ACCOUNT_CREATION_DISABLED_MESSAGE,
+  isAccountCreationEnabled,
+} from '../lib/accountCreation.js'
+import {
   authMiddleware,
   hashPassword,
   sanitizeUser,
@@ -150,6 +154,10 @@ const PAYMENT_METHODS = new Set(['paypal', 'stripe', 'square'])
  */
 router.post('/claim-invite', async (req, res) => {
   try {
+    if (!isAccountCreationEnabled()) {
+      return res.status(403).json({ error: ACCOUNT_CREATION_DISABLED_MESSAGE })
+    }
+
     const {
       inviteToken,
       connectionCode,
@@ -297,6 +305,10 @@ router.post('/claim-invite', async (req, res) => {
 
 router.post('/register', async (req, res) => {
   try {
+    if (!isAccountCreationEnabled()) {
+      return res.status(403).json({ error: ACCOUNT_CREATION_DISABLED_MESSAGE })
+    }
+
     const {
       email,
       password,

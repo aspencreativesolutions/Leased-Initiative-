@@ -34,6 +34,7 @@ import {
   type AdminMockUser,
   type AdminScenario,
 } from '@/lib/adminMode'
+import { isAccountCreationEnabled } from '@/lib/accountCreation'
 import { ADMIN_UNLOCK_EVENT, lockAdminMode } from '@/lib/adminUnlock'
 import {
   createAdminCompanyDemoLink,
@@ -647,7 +648,11 @@ function AdminModeFabInner() {
               onToggle={() => toggleSection('first')}
             >
               <ul className="space-y-1">
-                {FIRST_TIME_SCENARIOS.map((scenario) => (
+                {FIRST_TIME_SCENARIOS.filter(
+                  (scenario) =>
+                    isAccountCreationEnabled() ||
+                    !scenario.path.includes('register')
+                ).map((scenario) => (
                   <ScenarioRow
                     key={scenario.id}
                     scenario={scenario}

@@ -16,6 +16,7 @@ import { DemoIdleLockHost } from '@/components/auth/DemoIdleLockHost'
 import { DemoGuideCueHost } from '@/components/auth/DemoGuideCueHost'
 import { DemoTourNoticeHost } from '@/components/auth/DemoTourNoticeHost'
 import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
+import { isAccountCreationEnabled } from '@/lib/accountCreation'
 import { HomePage } from '@/pages/HomePage'
 import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
 import { DemoPovPage } from '@/pages/demo/DemoPovPage'
@@ -73,15 +74,52 @@ export default function App() {
                   <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
                   <Route path="/welcome" element={<RoleSelectPage />} />
                   <Route path="/login" element={<LoginPage />} />
-                  <Route path="/invite/:token" element={<InviteClaimPage />} />
-                  <Route path="/invite" element={<InviteClaimPage />} />
-                  <Route path="/register" element={<RegisterPage mode="client" />} />
+                  <Route
+                    path="/invite/:token"
+                    element={
+                      isAccountCreationEnabled() ? <InviteClaimPage /> : <Navigate to="/" replace />
+                    }
+                  />
+                  <Route
+                    path="/invite"
+                    element={
+                      isAccountCreationEnabled() ? <InviteClaimPage /> : <Navigate to="/" replace />
+                    }
+                  />
+                  <Route
+                    path="/register"
+                    element={
+                      isAccountCreationEnabled() ? (
+                        <RegisterPage mode="client" />
+                      ) : (
+                        <Navigate to="/" replace />
+                      )
+                    }
+                  />
                   <Route path="/check-email" element={<CheckEmailPage />} />
                   <Route path="/verify-email" element={<VerifyEmailPage />} />
                   <Route path="/studio/login" element={<StudioLoginPage />} />
-                  <Route path="/studio/register" element={<StudioRegisterPage />} />
+                  <Route
+                    path="/studio/register"
+                    element={
+                      isAccountCreationEnabled() ? (
+                        <StudioRegisterPage />
+                      ) : (
+                        <Navigate to="/" replace />
+                      )
+                    }
+                  />
                   <Route path="/portal/login" element={<PortalLoginPage />} />
-                  <Route path="/portal/register" element={<PortalRegisterPage />} />
+                  <Route
+                    path="/portal/register"
+                    element={
+                      isAccountCreationEnabled() ? (
+                        <PortalRegisterPage />
+                      ) : (
+                        <Navigate to="/" replace />
+                      )
+                    }
+                  />
 
                   <Route element={<ProtectedRoute role="client" />}>
                     <Route element={<PortalLayout />}>

@@ -28,6 +28,7 @@ import {
   registerPathForRole,
   type WelcomeRole,
 } from '@/lib/welcomeSlides'
+import { isAccountCreationEnabled } from '@/lib/accountCreation'
 import { markPublicDemoSession, redeemDemoCode, setDemoFirstName, clearPublicDemoSession } from '@/lib/publicDemo'
 import { unlockAdminMode } from '@/lib/adminUnlock'
 import { prepareViewportForNavigation } from '@/lib/mobileViewport'
@@ -403,7 +404,7 @@ export function HomePage() {
   const goAuth = (role: WelcomeRole) => {
     const intent = authIntent
     setAuthIntent(null)
-    if (intent === 'register') {
+    if (intent === 'register' && isAccountCreationEnabled()) {
       navigate(registerPathForRole(role))
       return
     }
@@ -463,14 +464,16 @@ export function HomePage() {
                   <Button size="lg" className="w-full" onClick={() => setAuthIntent('signin')}>
                     Sign In
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="w-full bg-surface-paper"
-                    onClick={() => setAuthIntent('register')}
-                  >
-                    Create Account
-                  </Button>
+                  {isAccountCreationEnabled() && (
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="w-full bg-surface-paper"
+                      onClick={() => setAuthIntent('register')}
+                    >
+                      Create Account
+                    </Button>
+                  )}
 
                 {authIntent && (
                   <div
