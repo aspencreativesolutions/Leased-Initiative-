@@ -3,6 +3,7 @@ import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
+import { TenantLeaseStateIcon } from './TenantLeaseStateIcon'
 import { getLeaseStatusDetails, getTenantAddress, isAwaitingDeposit } from '@/lib/clientUtils'
 import {
   getOfficialTenantLocationDisplayValue,
@@ -81,11 +82,14 @@ export function ClientTableMobileCard({
           <button
             type="button"
             onClick={() => onOpenTenantDetails(client.id)}
-            className="min-w-0 max-w-full text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
+            className="inline-flex max-w-full min-w-0 items-start gap-1.5 text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
             title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
           >
-            <span className="block break-words">{given}</span>
-            {family ? <span className="block break-words">{family}</span> : null}
+            <TenantLeaseStateIcon details={leaseStatus} className="mt-[0.2em]" />
+            <span className="min-w-0">
+              <span className="block break-words">{given}</span>
+              {family ? <span className="block break-words">{family}</span> : null}
+            </span>
           </button>
           <OfficialTenantContactLinks client={client} compact />
           {showOccupancyStatus ? (

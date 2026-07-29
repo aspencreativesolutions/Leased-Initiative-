@@ -10,6 +10,8 @@ type AutoSendLeaseToggleProps = {
    * No card chrome or helper copy — keeps table layout intact.
    */
   inline?: boolean
+  /** Override the visible label (aria still describes the full behavior). */
+  label?: string
 }
 
 /**
@@ -20,9 +22,11 @@ export function AutoSendLeaseToggle({
   className,
   compact = false,
   inline = false,
+  label,
 }: AutoSendLeaseToggleProps) {
   const { settings, updateSettings } = useApp()
   const enabled = Boolean(settings.autoSendLeaseDrafts)
+  const visibleLabel = label ?? 'Automatically send drafted leases'
 
   if (inline) {
     return (
@@ -57,7 +61,7 @@ export function AutoSendLeaseToggle({
           />
         </span>
         <span className="min-w-0 text-[11px] font-medium leading-snug text-ink">
-          Automatically send drafted leases
+          {visibleLabel}
         </span>
       </button>
     )
@@ -91,7 +95,7 @@ export function AutoSendLeaseToggle({
       </span>
       <span className="min-w-0">
         <span className={cn('block font-semibold text-ink', compact ? 'text-xs' : 'text-sm')}>
-          Automatically send drafted leases
+          {visibleLabel}
         </span>
         <span
           className={cn(

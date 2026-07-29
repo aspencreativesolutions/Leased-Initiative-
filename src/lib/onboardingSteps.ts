@@ -179,7 +179,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'Accepted or manually added tenants stay here until their lease is signed. Status starts as Lease Drafted — preview to download, upload a replacement, or send when ready. Optionally auto-send drafted leases from each row. Change Lease Style in Settings to restyle pending leases without clearing details. After e-sign they move to Official Tenants as Awaiting Deposit; confirm payment to mark them Upcoming until the lease starts.',
+      'Accepted or manually added tenants stay here until their lease is signed. Status starts as Lease Drafted — preview to download, upload a replacement, or send when ready. Use Auto-send in the header, or Change Lease Style to open Templates and apply to pending or official tenants. After e-sign they move to Official Tenants as Awaiting Deposit; confirm payment to mark them Upcoming until the lease starts.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -189,7 +189,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Signed leases that are active or starting soon appear here. Click a name for Tenant Details. After signing they show Awaiting Deposit — confirm payment to move them to Upcoming, then Active when the lease starts. Payment tags stay right-aligned. On mobile, use scrollable tiles; on larger screens, Spreadsheet View is the default (switch layouts, edit columns, or show occupancy tags in Display Settings).',
+      'Signed leases that are active or starting soon appear here. A check or clock icon sits beside each name. Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method (and other statuses in full — no hover needed). Click a name for Tenant Details. Confirm payment to move Awaiting Deposit to Upcoming, then Active when the lease starts.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -319,7 +319,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-lease-agreement-templates"]',
     title: 'Lease Agreement Templates',
     description:
-      'Upload a sample lease to create a style, Confirm as default, then Apply to All from Pending Tenants — or use the New lease style tag. Personal info, rent, and signatures stay intact.',
+      'Upload a sample lease to create a style, Confirm as default, then Apply to all pending tenants or Apply to all official tenants. Personal info, rent, and signatures stay intact.',
     placement: 'bottom',
     route: '/studio/settings?tab=lease#lease-agreement-templates',
     section: 'settings',

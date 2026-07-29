@@ -229,7 +229,6 @@ export function TenantPipelineSections({
     !stylePrompt?.dismissedAt
   const defaultTemplateId =
     stylePrompt?.templateId || settings.defaultLeaseTemplateId || undefined
-  const canApplyDefaultStyle = Boolean(defaultTemplateId)
 
   const previewClient = previewClientId
     ? clients.find((c) => c.id === previewClientId) ?? null
@@ -848,32 +847,16 @@ export function TenantPipelineSections({
               aria-label="Updating pending tenants"
             />
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            data-onboarding="pending-change-lease-styles"
-            onClick={() => navigate(leaseTemplatesSettingsHref(true))}
-          >
-            Change Lease Style
-          </Button>
+          <AutoSendLeaseToggle inline label="Auto-send" />
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            data-onboarding="pending-apply-lease-style-all"
-            disabled={styleBusy || !canApplyDefaultStyle || prospectiveApplicants.length === 0}
-            title={
-              canApplyDefaultStyle
-                ? 'Restyle all pending leases with your default template — tenant details and signatures stay intact'
-                : 'Upload and confirm a default lease style in Settings first'
-            }
-            onClick={() => void applyPendingStyle('all')}
+            data-onboarding="pending-change-lease-styles"
+            title="Open Lease Agreement Templates to change style and apply to pending or official tenants"
+            onClick={() => navigate(leaseTemplatesSettingsHref(true))}
           >
-            {styleBusy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : null}
-            Apply to All
+            Change Lease Style
           </Button>
           <SectionHelpIcon label={PENDING_TENANTS_HELP} />
         </div>
@@ -910,10 +893,6 @@ export function TenantPipelineSections({
         </div>
       ) : prospectiveApplicants.length === 0 ? (
         <div className="space-y-3">
-          <AutoSendLeaseToggle
-            inline
-            className="rounded-[var(--radius-sm)] border border-line/70 bg-surface-paper px-2.5 py-1.5"
-          />
           <Card>
             <EmptyState
               compact
@@ -1403,12 +1382,6 @@ function ProspectiveApplicantRow({
     </button>
   ) : null
 
-  const autoSendToggle = (
-    <div className="mt-2 max-w-[14rem]">
-      <AutoSendLeaseToggle inline />
-    </div>
-  )
-
   return (
     <tr
       className={cn(
@@ -1462,7 +1435,6 @@ function ProspectiveApplicantRow({
             </p>
           ) : null}
           {reviewSendControl}
-          {autoSendToggle}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
           Added {formatDate(user.acceptedAt)}
@@ -1505,7 +1477,6 @@ function ProspectiveApplicantRow({
           </p>
         ) : null}
         {reviewSendControl}
-        {autoSendToggle}
       </td>
       <td className="px-3 py-4 align-middle sm:px-4">
         {showLeaseActions ? (

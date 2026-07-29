@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, FileText, Loader2, Upload } from 'lucide-react'
 import { ContractReviewView } from '@/components/contracts/ContractReviewView'
 import { Button } from '@/components/ui/Button'
@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import { ApiError } from '@/lib/api'
 import {
+  applyLeaseAgreementStyle,
   confirmLeaseAgreementTemplate,
   fetchLeaseAgreementTemplates,
   PENDING_TENANTS_RETURN_HREF,
@@ -29,7 +30,7 @@ function isPendingClient(client: Client) {
 }
 
 interface LeaseAgreementTemplatesSectionProps {
-  /** When true, arrived from Pending Tenants — show return CTA */
+  /** When true, arrived from Pending Tenants — show return CTA + rim highlight */
   fromPendingTenants?: boolean
   onSettingsSynced?: (settings: BusinessSettings) => void
 }
@@ -38,17 +39,28 @@ export function LeaseAgreementTemplatesSection({
   fromPendingTenants = false,
   onSettingsSynced,
 }: LeaseAgreementTemplatesSectionProps) {
-  const { clients, contracts, settings, updateSettings } = useApp()
+  const { clients, contracts, settings, updateSettings, refresh } = useApp()
+  const navigate = useNavigate()
   const fileInputId = useId()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [templates, setTemplates] = useState<LeaseAgreementTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [applying, setApplying] = useState<'pending' | 'official' | null>(null)
   const [error, setError] = useState('')
+  const [applyMessage, setApplyMessage] = useState('')
   const [pendingReview, setPendingReview] = useState<LeaseAgreementTemplate | null>(null)
   const [sampleClientId, setSampleClientId] = useState('')
   const [sampleOpen, setSampleOpen] = useState(false)
+  const [rimPulse, setRimPulse] = useState(fromPendingTenants)
+
+  useEffect(() => {
+    if (!fromPendingTenants) return
+    setRimPulse(true)
+    const timer = window.setTimeout(() => setRimPulse(false), 4200)
+    return () => window.clearTimeout(timer)
+  }, [fromPendingTenants])
 
   const pendingClients = useMemo(
     () => clients.filter(isPendingClient).sort((a, b) => a.name.localeCompare(b.name)),
@@ -138,6 +150,46 @@ export function LeaseAgreementTemplatesSection({
     }
   }
 
+  const defaultTemplateId =
+    settings.defaultLeaseTemplateId ||
+    activeTemplate?.id ||
+    undefined
+
+  const handleApply = async (scope: 'pending' | 'official') => {
+    if (!defaultTemplateId) {
+      setError('Confirm a default lease style before applying.')
+      return
+    }
+    setApplying(scope)
+    setError('')
+    setApplyMessage('')
+    try {
+      const result = await applyLeaseAgreementStyle({
+        scope,
+        templateId: defaultTemplateId,
+      })
+      await refresh()
+      updateSettings({
+        leaseStyleReplacePrompt: result.settings.leaseStyleReplacePrompt ?? null,
+      })
+      const noun = scope === 'pending' ? 'pending' : 'official'
+      setApplyMessage(
+        result.updatedCount === 0
+          ? `No ${noun} leases to restyle.`
+          : `Restyled ${result.updatedCount} ${noun} lease${result.updatedCount === 1 ? '' : 's'}.`
+      )
+      if (scope === 'pending') {
+        window.setTimeout(() => navigate(PENDING_TENANTS_RETURN_HREF), 700)
+      } else {
+        window.setTimeout(() => navigate('/studio/contracts'), 700)
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not apply lease style')
+    } finally {
+      setApplying(null)
+    }
+  }
+
   const styledSampleContract =
     sampleContract && pendingReview
       ? {
@@ -154,7 +206,12 @@ export function LeaseAgreementTemplatesSection({
     <section
       id="lease-agreement-templates"
       data-onboarding="admin-lease-agreement-templates"
-      className="scroll-mt-28 space-y-4 rounded-[var(--radius-lg)] border border-line bg-surface/50 p-4"
+      className={cn(
+        'scroll-mt-28 space-y-4 rounded-[var(--radius-lg)] border-2 bg-surface/50 p-4',
+        rimPulse
+          ? 'lease-templates-section--breathe border-brand'
+          : 'border-line'
+      )}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -174,14 +231,19 @@ export function LeaseAgreementTemplatesSection({
 
       {fromPendingTenants ? (
         <div className="rounded-[var(--radius-md)] border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-ink">
-          You opened this from Pending Tenants. After you confirm a new style, return there to
-          restyle pending leases — or use the return link above.
+          Confirm a style below, then apply it to pending tenants, official tenants, or both.
         </div>
       ) : null}
 
       {error ? (
         <p className="text-sm font-semibold text-accent" role="alert">
           {error}
+        </p>
+      ) : null}
+
+      {applyMessage ? (
+        <p className="text-sm font-semibold text-brand" role="status">
+          {applyMessage}
         </p>
       ) : null}
 
@@ -224,6 +286,43 @@ export function LeaseAgreementTemplatesSection({
                 No custom default yet — built-in residential style is used.
               </p>
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!defaultTemplateId || applying !== null}
+              title={
+                defaultTemplateId
+                  ? 'Restyle all pending leases with your default template'
+                  : 'Confirm a default lease style first'
+              }
+              onClick={() => void handleApply('pending')}
+            >
+              {applying === 'pending' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : null}
+              Apply to all pending tenants
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={!defaultTemplateId || applying !== null}
+              title={
+                defaultTemplateId
+                  ? 'Restyle all official tenant leases with your default template'
+                  : 'Confirm a default lease style first'
+              }
+              onClick={() => void handleApply('official')}
+            >
+              {applying === 'official' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : null}
+              Apply to all official tenants
+            </Button>
           </div>
 
           {pendingReview ? (

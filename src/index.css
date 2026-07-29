@@ -3117,6 +3117,32 @@ span.in-place-hover--lease-tag.inline-flex {
   }
 }
 
+@keyframes lease-templates-rim-breathe {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 42%, transparent);
+    border-color: var(--brand);
+  }
+  45% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--brand) 18%, transparent);
+    border-color: color-mix(in srgb, var(--brand) 75%, white);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    border-color: var(--line);
+  }
+}
+
+.lease-templates-section--breathe {
+  animation: lease-templates-rim-breathe 4.2s ease-out 1 forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lease-templates-section--breathe {
+    animation: none;
+    border-color: var(--brand);
+  }
+}
+
 /* Floating status-badge tooltips (portal) — never expand the tag or clip in tables */
 .status-badge-hover-tooltip {
   position: fixed;

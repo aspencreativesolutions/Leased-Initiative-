@@ -5,6 +5,7 @@ import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
+import { TenantLeaseStateIcon } from './TenantLeaseStateIcon'
 import { RemoveClientModal } from './RemoveClientModal'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
@@ -161,10 +162,11 @@ function renderCell(
             <button
               type="button"
               onClick={() => onOpenTenantDetails(client.id)}
-              className="min-w-0 truncate text-left text-base font-semibold text-ink hover:text-brand hover:underline"
+              className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-base font-semibold text-ink hover:text-brand hover:underline"
               title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
             >
-              {client.name}
+              <TenantLeaseStateIcon details={leaseStatus} />
+              <span className="min-w-0 truncate">{client.name}</span>
             </button>
             <OfficialTenantContactLinks client={client} />
             {showOccupancyStatus ? (
