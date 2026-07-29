@@ -28,10 +28,11 @@ export const defaultSettings: BusinessSettings = {
     'This residential lease agreement constitutes the entire understanding between landlord and tenant regarding the premises. Local and state landlord-tenant laws may impose additional rights and obligations. Any modifications must be in writing and signed by both parties.',
   /** Off by default — landlord reviews drafts, then sends. Toggle on any lease draft. */
   autoSendLeaseDrafts: false,
-  /** Seasonal Jan 1 / Aug 1 defaults unless the landlord enables custom calendar dates. */
+  /** Seasonal Jan 1 / Aug 1 defaults; landlords can add custom lease eras in Settings. */
   customDefaultLeaseDates: false,
   defaultLeaseStartDate: '',
   defaultLeaseEndDate: '',
+  customLeaseEras: [],
   profileReminders: defaultProfileReminders,
   automation: {
     enabled: true,

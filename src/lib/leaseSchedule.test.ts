@@ -3,7 +3,9 @@ import {
   computeLeaseEndDate,
   computeLeaseStartDate,
   getLeaseRentSchedule,
+  listDefaultLeaseOptions,
   listUpcomingSeasonalLeaseStarts,
+  normalizeCustomLeaseEras,
   resolveDefaultLeaseDates,
 } from '@/lib/leaseSchedule'
 import type { Client, ContractData } from '@/types'
@@ -36,6 +38,50 @@ describe('listUpcomingSeasonalLeaseStarts', () => {
     expect(options.map((o) => o.date)).toEqual(['2026-08-01', '2027-01-01'])
     expect(options[0].label).toBe('August 1, 2026')
     expect(options[1].label).toBe('January 1, 2027')
+  })
+})
+
+describe('listDefaultLeaseOptions', () => {
+  it('lists seasonal lengths plus custom eras', () => {
+    const options = listDefaultLeaseOptions(
+      {
+        customLeaseEras: [
+          {
+            id: 'era-1',
+            startDate: '2026-09-01',
+            endDate: '2027-02-28',
+            label: 'Fall short term',
+          },
+        ],
+      },
+      new Date(2026, 6, 23)
+    )
+    expect(options.filter((o) => o.kind === 'seasonal').map((o) => o.leaseLengthMonths)).toEqual([
+      6, 12, 18, 24,
+    ])
+    expect(options.find((o) => o.id === 'era-1')).toMatchObject({
+      kind: 'custom',
+      leaseStartDate: '2026-09-01',
+      leaseEndDate: '2027-02-28',
+      leaseLengthMonths: 6,
+      label: 'Fall short term',
+    })
+  })
+
+  it('migrates legacy single custom dates into eras', () => {
+    const eras = normalizeCustomLeaseEras({
+      customDefaultLeaseDates: true,
+      defaultLeaseStartDate: '2026-09-01',
+      defaultLeaseEndDate: '2027-08-31',
+    })
+    expect(eras).toEqual([
+      {
+        id: 'legacy-custom-default',
+        startDate: '2026-09-01',
+        endDate: '2027-08-31',
+        label: 'Custom lease era',
+      },
+    ])
   })
 })
 
@@ -84,6 +130,25 @@ describe('resolveDefaultLeaseDates', () => {
     )
     expect(resolved.usedCustomDates).toBe(false)
     expect(resolved.leaseStartDate).toBe('2026-08-01')
+  })
+
+  it('resolves an explicit option id', () => {
+    const resolved = resolveDefaultLeaseDates(
+      {
+        customLeaseEras: [
+          { id: 'era-1', startDate: '2026-09-01', endDate: '2027-02-28' },
+        ],
+      },
+      12,
+      new Date(2026, 6, 23),
+      'era-1'
+    )
+    expect(resolved).toEqual({
+      leaseStartDate: '2026-09-01',
+      leaseEndDate: '2027-02-28',
+      leaseLengthMonths: 6,
+      usedCustomDates: true,
+    })
   })
 })
 

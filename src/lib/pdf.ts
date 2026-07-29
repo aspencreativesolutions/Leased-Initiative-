@@ -117,21 +117,33 @@ function addDocumentHeader(
     { align: 'center' }
   )
 
+  let preparedY = 53
+  if (contract.leaseStyleName?.trim()) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    setText(doc, PDF.ink)
+    doc.text(`Document style: ${contract.leaseStyleName.trim()}`, PAGE_WIDTH / 2, preparedY, {
+      align: 'center',
+    })
+    preparedY += 7
+  }
+
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   setText(doc, PDF.inkMuted)
   doc.text(
     `Prepared by ${resolveDemoSenderName() || settings.businessName || settings.ownerName || 'Your landlord'} · Issued ${new Date(contract.createdAt).toLocaleDateString('en-US')}`,
     PAGE_WIDTH / 2,
-    53,
+    preparedY,
     { align: 'center' }
   )
 
+  const ruleY = preparedY + 5
   setStroke(doc, PDF.line)
   doc.setLineWidth(0.2)
-  doc.line(MARGIN, 58, PAGE_WIDTH - MARGIN, 58)
+  doc.line(MARGIN, ruleY, PAGE_WIDTH - MARGIN, ruleY)
 
-  return 66
+  return ruleY + 8
 }
 
 export function generateContractPdf(

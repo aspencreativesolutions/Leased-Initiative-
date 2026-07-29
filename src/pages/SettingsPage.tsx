@@ -11,6 +11,7 @@ import {
 import { ThemePicker } from '@/components/settings/ThemePicker'
 import { AutomationSettingsSection } from '@/components/settings/AutomationSettingsSection'
 import { LeaseDefaultDatesSection } from '@/components/settings/LeaseDefaultDatesSection'
+import { LeaseAgreementTemplatesSection } from '@/components/settings/LeaseAgreementTemplatesSection'
 import { TenantDiscoverySection } from '@/components/settings/TenantDiscoverySection'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -18,6 +19,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Input, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import { defaultSettings } from '@/data/seed'
+import { normalizeCustomLeaseEras } from '@/lib/leaseSchedule'
 import { cn } from '@/lib/utils'
 import type { AutomationSettings, TenantDiscoveryMode } from '@/types'
 
@@ -46,7 +48,7 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
   {
     id: 'lease',
     title: 'Lease Defaults',
-    description: 'Seasonal start/end dates, payment terms, revision limits, and footers.',
+    description: 'Templates, lease calendar settings, payment terms, revision limits, and footers.',
     icon: FileText,
   },
   {
@@ -60,12 +62,19 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
 export function SettingsPage() {
   const { settings, updateSettings } = useApp()
   const [searchParams] = useSearchParams()
-  const [form, setForm] = useState(settings)
+  const [form, setForm] = useState(() => ({
+    ...settings,
+    customLeaseEras: normalizeCustomLeaseEras(settings),
+    customDefaultLeaseDates: false,
+    defaultLeaseStartDate: '',
+    defaultLeaseEndDate: '',
+  }))
   const [saved, setSaved] = useState(false)
   const [dateError, setDateError] = useState('')
   const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('business')
   const baseId = useId()
   const tabRefs = useRef<Partial<Record<SettingsCategoryId, HTMLButtonElement | null>>>({})
+  const fromPendingTenants = searchParams.get('from') === 'pending-tenants'
 
   const automation: AutomationSettings =
     form.automation ?? defaultSettings.automation!
@@ -80,6 +89,20 @@ export function SettingsPage() {
       setActiveCategory(tab)
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (activeCategory !== 'lease') return
+    if (searchParams.get('from') !== 'pending-tenants' && !window.location.hash.includes('lease-agreement-templates')) {
+      return
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('lease-agreement-templates')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [activeCategory, searchParams])
 
   useEffect(() => {
     tabRefs.current[activeCategory]?.scrollIntoView({
@@ -99,7 +122,10 @@ export function SettingsPage() {
     updates: Partial<
       Pick<
         typeof form,
-        'customDefaultLeaseDates' | 'defaultLeaseStartDate' | 'defaultLeaseEndDate'
+        | 'customDefaultLeaseDates'
+        | 'defaultLeaseStartDate'
+        | 'defaultLeaseEndDate'
+        | 'customLeaseEras'
       >
     >
   ) => {
@@ -120,23 +146,24 @@ export function SettingsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (
-      form.customDefaultLeaseDates &&
-      form.defaultLeaseStartDate &&
-      form.defaultLeaseEndDate &&
-      form.defaultLeaseEndDate < form.defaultLeaseStartDate
-    ) {
-      setDateError('Lease end date must be on or after the start date.')
-      return
+    const eras = normalizeCustomLeaseEras(form)
+    for (const era of eras) {
+      if (!era.startDate?.trim() || !era.endDate?.trim()) {
+        setDateError('Each custom lease era needs both a start and end date.')
+        return
+      }
+      if (era.endDate < era.startDate) {
+        setDateError('Lease end date must be on or after the start date for every custom era.')
+        return
+      }
     }
-    if (
-      form.customDefaultLeaseDates &&
-      (!form.defaultLeaseStartDate?.trim() || !form.defaultLeaseEndDate?.trim())
-    ) {
-      setDateError('Choose both a start and end date for custom lease defaults.')
-      return
-    }
-    updateSettings(form)
+    updateSettings({
+      ...form,
+      customDefaultLeaseDates: false,
+      defaultLeaseStartDate: '',
+      defaultLeaseEndDate: '',
+      customLeaseEras: eras,
+    })
     setSaved(true)
     setDateError('')
     setTimeout(() => setSaved(false), 3000)
@@ -306,11 +333,13 @@ export function SettingsPage() {
 
           {activeCategory === 'lease' && (
             <div className="space-y-4">
+              <LeaseAgreementTemplatesSection fromPendingTenants={fromPendingTenants} />
               <LeaseDefaultDatesSection
                 value={{
                   customDefaultLeaseDates: form.customDefaultLeaseDates,
                   defaultLeaseStartDate: form.defaultLeaseStartDate,
                   defaultLeaseEndDate: form.defaultLeaseEndDate,
+                  customLeaseEras: form.customLeaseEras,
                 }}
                 onChange={updateLeaseDates}
               />

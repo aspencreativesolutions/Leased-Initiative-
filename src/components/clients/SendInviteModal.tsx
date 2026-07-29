@@ -9,9 +9,11 @@ import { createTenantInvite } from '@/lib/portalUsersApi'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   earliestFutureLeaseStartDate,
+  findDefaultLeaseOption,
   formatLeaseLengthLabel,
   isFutureLeaseStartDate,
   LEASE_LENGTH_OPTIONS,
+  listDefaultLeaseOptions,
   resolveScheduleAsOf,
   type LeaseLengthMonths,
 } from '@/lib/leaseSchedule'
@@ -50,6 +52,12 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
   )
 
   const minStartDate = earliestFutureLeaseStartDate(resolveScheduleAsOf())
+  const leaseDurationOptions = useMemo(() => {
+    const customMonths = listDefaultLeaseOptions(settings, resolveScheduleAsOf())
+      .filter((option) => option.kind === 'custom')
+      .map((option) => option.leaseLengthMonths)
+    return [...new Set([...LEASE_LENGTH_OPTIONS, ...customMonths])].sort((a, b) => a - b)
+  }, [settings])
 
   useEffect(() => {
     if (!open) return
@@ -66,7 +74,26 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
   }, [open])
 
   const update = (field: keyof typeof EMPTY_FORM, value: string) =>
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm((f) => {
+      const next = { ...f, [field]: value }
+      if (field === 'propertyAddress') {
+        const property = properties.find(
+          (p) => p.address.trim().toLowerCase() === value.trim().toLowerCase()
+        )
+        const option = findDefaultLeaseOption(
+          settings,
+          property?.defaultLeaseOptionId,
+          resolveScheduleAsOf()
+        )
+        if (option) {
+          next.leaseLengthMonths = String(option.leaseLengthMonths)
+          if (isFutureLeaseStartDate(option.leaseStartDate, resolveScheduleAsOf())) {
+            next.leaseStartDate = option.leaseStartDate
+          }
+        }
+      }
+      return next
+    })
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -183,7 +210,7 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
                   value={form.leaseLengthMonths}
                   onChange={(e) => update('leaseLengthMonths', e.target.value)}
                 >
-                  {LEASE_LENGTH_OPTIONS.map((months) => (
+                  {leaseDurationOptions.map((months) => (
                     <option key={months} value={months}>
                       {formatLeaseLengthLabel(months)}
                     </option>

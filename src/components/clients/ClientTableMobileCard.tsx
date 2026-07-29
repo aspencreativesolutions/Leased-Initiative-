@@ -1,13 +1,9 @@
-import { ChevronsUpDown, UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { getLeaseStatusDetails, getTenantAddress, isAwaitingDeposit } from '@/lib/clientUtils'
-import {
-  getOfficialTenantContactDisplayValue,
-  OFFICIAL_TENANT_CONTACT_DISPLAY_LABELS,
-  type OfficialTenantContactDisplayMode,
-} from '@/lib/officialTenantContactDisplay'
 import {
   getOfficialTenantLocationDisplayValue,
   getTenantAssignedProperty,
@@ -21,8 +17,6 @@ interface ClientTableMobileCardProps {
   client: Client
   contract?: ContractData
   properties: Property[]
-  contactDisplayMode: OfficialTenantContactDisplayMode
-  onCycleContactDisplay: () => void
   highlighted?: boolean
   dimmed?: boolean
   showOccupancyStatus?: boolean
@@ -60,8 +54,6 @@ export function ClientTableMobileCard({
   client,
   contract,
   properties,
-  contactDisplayMode,
-  onCycleContactDisplay,
   highlighted = false,
   dimmed = false,
   showOccupancyStatus = false,
@@ -71,8 +63,6 @@ export function ClientTableMobileCard({
   confirmingPayment = false,
 }: ClientTableMobileCardProps) {
   const addressValue = getFullPropertyAddress(client, contract, properties)
-  const contactValue = getOfficialTenantContactDisplayValue(client, contactDisplayMode)
-  const contactLabel = OFFICIAL_TENANT_CONTACT_DISPLAY_LABELS[contactDisplayMode]
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
   const { given, family } = galleryNameLines(client.name)
@@ -97,6 +87,7 @@ export function ClientTableMobileCard({
             <span className="block break-words">{given}</span>
             {family ? <span className="block break-words">{family}</span> : null}
           </button>
+          <OfficialTenantContactLinks client={client} compact />
           {showOccupancyStatus ? (
             <div className="mt-1 empty:hidden">
               <OccupancyPreferenceTag
@@ -107,16 +98,6 @@ export function ClientTableMobileCard({
               />
             </div>
           ) : null}
-          <div className="mt-1.5 min-w-0 overflow-visible">
-            <LeaseStatusBadge
-              details={leaseStatus}
-              constrainToParent
-              onConfirmPayment={
-                awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
-              }
-              confirmingPayment={confirmingPayment}
-            />
-          </div>
         </div>
         <button
           type="button"
@@ -129,38 +110,16 @@ export function ClientTableMobileCard({
         </button>
       </div>
 
-      <button
-        type="button"
-        title="Click to switch between email and phone"
-        aria-label={`${contactLabel}. Click to switch between email and phone`}
-        onClick={onCycleContactDisplay}
-        className={cn(
-          'group mt-2 inline-flex max-w-full items-center gap-0.5 rounded-sm px-0.5 py-0.5 -mx-0.5',
-          'cursor-pointer text-left transition-colors duration-150',
-          'hover:bg-ink/[0.06]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface-paper'
-        )}
-      >
-        <span className="label-caps min-w-0 whitespace-nowrap text-[8px] leading-none tracking-[0.1em] text-ink-faint">
-          {contactLabel}
-        </span>
-        <ChevronsUpDown
-          className="h-2.5 w-2.5 shrink-0 text-ink-faint transition-transform duration-200 group-hover:text-ink-muted group-hover:rotate-180"
-          strokeWidth={2.25}
-          aria-hidden
+      <div className="mt-2 min-w-0 overflow-visible">
+        <LeaseStatusBadge
+          details={leaseStatus}
+          constrainToParent
+          onConfirmPayment={
+            awaitingDeposit && onConfirmPayment ? onConfirmPayment : undefined
+          }
+          confirmingPayment={confirmingPayment}
         />
-      </button>
-      <button
-        type="button"
-        onClick={onCycleContactDisplay}
-        title={`Click to switch to ${contactDisplayMode === 'email' ? 'phone' : 'email'}`}
-        aria-label={`${contactValue}. Click to switch between email and phone`}
-        className="mt-0.5 min-w-0 break-words text-left text-[11px] leading-snug text-ink-muted hover:text-ink"
-      >
-        <span key={contactDisplayMode} className="location-display-fade">
-          {contactValue}
-        </span>
-      </button>
+      </div>
 
       <p className="label-caps mt-2 text-[8px] leading-none tracking-[0.1em] text-ink-faint">
         Address
@@ -196,7 +155,7 @@ export function ClientTableMobileCard({
               disabled={confirmingPayment}
               className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
               title={`Confirm deposit payment complete for ${client.name}`}
-              aria-label={`Confirm payment complete for ${client.name}`}
+              aria-label={`Confirm deposit payment complete for ${client.name}`}
             >
               {confirmingPayment ? (
                 <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden />

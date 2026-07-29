@@ -2,10 +2,16 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { AddressAutocomplete } from '@/components/properties/AddressAutocomplete'
 import { Button } from '@/components/ui/Button'
-import { FormLabel, Input } from '@/components/ui/FormField'
+import { FormLabel, Input, Select } from '@/components/ui/FormField'
 import { Modal } from '@/components/ui/Modal'
 import { ApiError } from '@/lib/api'
 import { useApp } from '@/context/AppContext'
+import {
+  DEFAULT_LEASE_LENGTH_MONTHS,
+  listDefaultLeaseOptions,
+  resolveScheduleAsOf,
+  seasonalLeaseOptionId,
+} from '@/lib/leaseSchedule'
 import {
   BED_SIZE_LABELS,
   bedCapacityForSize,
@@ -21,7 +27,7 @@ import {
   rentalTypeShowsUnitCount,
   suggestedUnitCount,
 } from '@/lib/rentalTypes'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import type {
   BedSize,
   Property,
@@ -113,10 +119,15 @@ export function AddPropertyModal({
   onSaved,
   property = null,
 }: RentalFormModalProps) {
-  const { addProperty, updateProperty, clients } = useApp()
+  const { addProperty, updateProperty, clients, settings } = useApp()
   const isEdit = Boolean(property?.id)
   const rentalTypeListId = useId()
   const rentalTypeRef = useRef<HTMLDivElement>(null)
+  const leaseOptions = useMemo(
+    () => listDefaultLeaseOptions(settings, resolveScheduleAsOf()),
+    [settings]
+  )
+  const defaultLeaseOptionFallback = seasonalLeaseOptionId(DEFAULT_LEASE_LENGTH_MONTHS)
   const [address, setAddress] = useState('')
   const [addressConfirmed, setAddressConfirmed] = useState(false)
   const [addressDetails, setAddressDetails] = useState<PropertyAddressDetails | undefined>()
@@ -133,6 +144,7 @@ export function AddPropertyModal({
   const [layout, setLayout] = useState<PropertyBedroom[]>([])
   const [unitCount, setUnitCount] = useState('1')
   const [monthlyRent, setMonthlyRent] = useState('')
+  const [defaultLeaseOptionId, setDefaultLeaseOptionId] = useState(defaultLeaseOptionFallback)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -194,6 +206,12 @@ export function AddPropertyModal({
     )
     setUnitCount(String(p.unitCount || 1))
     setMonthlyRent(p.monthlyRent != null ? String(p.monthlyRent) : '')
+    const savedOption = p.defaultLeaseOptionId?.trim()
+    setDefaultLeaseOptionId(
+      savedOption && leaseOptions.some((option) => option.id === savedOption)
+        ? savedOption
+        : defaultLeaseOptionFallback
+    )
   }
 
   useEffect(() => {
@@ -236,6 +254,7 @@ export function AddPropertyModal({
     setLayout([])
     setUnitCount('1')
     setMonthlyRent('')
+    setDefaultLeaseOptionId(defaultLeaseOptionFallback)
     setFieldErrors({})
     setError('')
     setSubmitting(false)
@@ -431,6 +450,7 @@ export function AddPropertyModal({
       depositAmount: hasDeposit === 'yes' ? deposit : null,
       utilitiesIncluded: utilitiesIncluded === 'yes',
       entireHomeOnly: furnished === 'yes' && entireHomeOnly,
+      defaultLeaseOptionId,
       addressConfirmed: true,
       addressDetails,
     }
@@ -868,6 +888,23 @@ export function AddPropertyModal({
             error={fieldErrors.monthlyRent}
           />
         </div>
+
+        <Select
+          label="Default lease option"
+          name="defaultLeaseOptionId"
+          required
+          value={defaultLeaseOptionId}
+          onChange={(e) => setDefaultLeaseOptionId(e.target.value)}
+          hint="From Settings → Lease Defaults. Seasonal lengths and any custom lease eras you added."
+        >
+          {leaseOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.kind === 'custom'
+                ? `Custom · ${option.label}`
+                : `${option.label} · ${formatDate(option.leaseStartDate)} – ${formatDate(option.leaseEndDate)}`}
+            </option>
+          ))}
+        </Select>
 
         {costPerPersonAtMax != null ? (
           <div className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface px-3 py-2.5">

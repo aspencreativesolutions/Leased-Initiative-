@@ -197,6 +197,15 @@ export function createDraftContract(client, settings, leaseOptions = {}) {
     leaseGenerationStatus: readyImmediately ? 'ready' : 'generating',
     leaseGenerationStartedAt: now,
     ...(readyImmediately ? { leaseGenerationCompletedAt: now } : {}),
+    ...(settings.defaultLeaseTemplateId
+      ? {
+          leaseTemplateId: settings.defaultLeaseTemplateId,
+          leaseStyleName:
+            leaseOptions.leaseStyleName ||
+            settings.defaultLeaseTemplateName ||
+            'Default lease style',
+        }
+      : {}),
     leaseVersion: 1,
     versionHistory: [],
     createdAt: now,

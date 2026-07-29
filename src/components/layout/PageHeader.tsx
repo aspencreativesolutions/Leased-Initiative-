@@ -18,6 +18,8 @@ interface PageHeaderProps {
   compact?: boolean
   /** Larger page title for primary portal surfaces */
   prominent?: boolean
+  /** Hide the bottom border rule */
+  noBorder?: boolean
 }
 
 export function PageHeader({
@@ -29,6 +31,7 @@ export function PageHeader({
   below,
   compact,
   prominent,
+  noBorder,
 }: PageHeaderProps) {
   const subtitleOffset = prominent ? 'mt-2' : 'mt-0.5'
   const showSubtitle = Boolean(subtitle) && !help
@@ -36,8 +39,14 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'border-b-[length:var(--border-width)] border-ink',
-        compact ? 'mb-3 pb-2 sm:mb-5 sm:pb-3' : 'mb-5 pb-3'
+        !noBorder && 'border-b-[length:var(--border-width)] border-ink',
+        noBorder
+          ? compact
+            ? 'mb-3'
+            : 'mb-3 sm:mb-4'
+          : compact
+            ? 'mb-3 pb-2 sm:mb-5 sm:pb-3'
+            : 'mb-5 pb-3'
       )}
     >
       <div

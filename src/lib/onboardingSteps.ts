@@ -179,7 +179,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle. After the tenant signs electronically they move to Official Tenants as Awaiting Deposit (deposit invoice is auto-sent); Confirm Payment Complete moves them to Upcoming until the lease start date.',
+      'After you accept someone from Waiting to Connect — or add a tenant yourself — they appear here until their lease is signed. Status starts as Lease Drafted and Lease Agreement Preview opens so you can Download the draft, Upload Replacement (signed or custom), then Send from the preview banner when ready. Automatic sending is optional via the Automatically send drafted leases toggle on each pending tenant row. Use Change Lease Style to upload a PDF/DOC template in Settings, then Apply to All (or the animated New lease style tag) to restyle pending leases without clearing tenant details or signatures. After the tenant signs electronically they move to Official Tenants as Awaiting Deposit (deposit invoice is auto-sent); Confirm Payment Complete moves them to Upcoming until the lease start date.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -219,7 +219,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-contracts"]',
     title: 'Lease Agreements',
     description:
-      'Draft, send, and track every lease agreement. Tiles show Sent or Signed status and progress through the term. On mobile, leases appear as scrollable tiles (two per row by default). On larger screens, use Display Settings for Tile or Spreadsheet View (Lease tile size slider in Tile View; Edit Columns to rearrange, hide, or restore fields), and filters for Lease Status, Lease Progress (Not Started / Ongoing / Ending Soon), State, area code, or group.',
+      'Draft, send, and track every lease agreement. Tiles show Sent or Signed status and progress through the term. After you confirm a new Lease Agreement Template in Settings, an animated New lease agreement style tag appears here so you can replace all official tenant agreements or select tiles to restyle — signatures and tenant details stay intact. On mobile, leases appear as scrollable tiles (two per row by default). On larger screens, use Display Settings for Tile or Spreadsheet View (Lease tile size slider in Tile View; Edit Columns to rearrange, hide, or restore fields), and filters for Lease Status, Lease Progress (Not Started / Ongoing / Ending Soon), State, area code, or group.',
     placement: 'bottom',
     route: '/studio/contracts',
     section: 'contracts',
@@ -279,7 +279,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-tabs"]',
     title: 'Settings',
     description:
-      'Open Settings anytime from Menu in the top bar. Switch between Business Information, Client Automation, Lease Defaults, and App Style using these tabs.',
+      'Open Settings anytime from Menu in the top bar. Switch between Business Information, Client Automation, Lease Defaults (including Lease Agreement Templates), and App Style using these tabs.',
     placement: 'bottom',
     route: '/studio/settings',
     section: 'settings',
@@ -309,9 +309,19 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-lease"]',
     title: 'Lease Defaults',
     description:
-      'Set seasonal start and end dates, payment terms, revision limits, and contract footers that prefill when you draft a new lease.',
+      'Upload a PDF or Word file under Lease Agreement Templates to set your default lease style, then View sample with a pending tenant and Confirm. Under Default Lease Calendar Settings, review Current Seasonal Options (6–24 months) and add custom lease eras with your own start and end dates — those options appear when you add a rental or generate a lease. Also set payment terms, revision limits, and contract footers that prefill when you draft a new lease. Restyling never clears tenant details or signatures.',
     placement: 'bottom',
     route: '/studio/settings?tab=lease',
+    section: 'settings',
+  },
+  {
+    id: 'settings-lease-templates',
+    target: '[data-onboarding="admin-lease-agreement-templates"]',
+    title: 'Lease Agreement Templates',
+    description:
+      'Upload a sample lease (PDF or DOC) to create a style in your template library. View sample, Confirm as default, then return to Pending Tenants and use Apply to All — or the animated New lease agreement style tag — to restyle all or selected leases. Personal info, rent, and signatures stay intact; tenants do not need to re-sign.',
+    placement: 'bottom',
+    route: '/studio/settings?tab=lease#lease-agreement-templates',
     section: 'settings',
   },
   {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import {
   DEMO_GUIDE_CUE_EVENT,
@@ -11,6 +11,69 @@ import {
   type DemoGuideCueKind,
 } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
+
+const CUE_TOOLTIP_GAP = 12
+const CUE_TOOLTIP_MARGIN = 16
+const CUE_TOOLTIP_MAX_WIDTH = 300 // 18.75rem
+const CUE_TOOLTIP_FALLBACK_HEIGHT = 180
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+/** Place the cue card beside (or above) the spotlight without leaving the viewport. */
+function computeCueTooltipStyle(
+  spotlight: { top: number; left: number; width: number; height: number },
+  kind: DemoGuideCueKind,
+  tooltipSize: { width: number; height: number }
+): { top: number; left: number } {
+  const { width, height } = tooltipSize
+  const maxLeft = window.innerWidth - width - CUE_TOOLTIP_MARGIN
+  const maxTop = window.innerHeight - height - CUE_TOOLTIP_MARGIN
+
+  if (kind === 'pending-tenant') {
+    const leftOfTarget = spotlight.left - width - CUE_TOOLTIP_GAP
+    const rightOfTarget = spotlight.left + spotlight.width + CUE_TOOLTIP_GAP
+
+    if (leftOfTarget >= CUE_TOOLTIP_MARGIN) {
+      return {
+        top: clamp(spotlight.top, CUE_TOOLTIP_MARGIN, Math.max(CUE_TOOLTIP_MARGIN, maxTop)),
+        left: leftOfTarget,
+      }
+    }
+
+    if (rightOfTarget <= maxLeft) {
+      return {
+        top: clamp(spotlight.top, CUE_TOOLTIP_MARGIN, Math.max(CUE_TOOLTIP_MARGIN, maxTop)),
+        left: rightOfTarget,
+      }
+    }
+
+    // Narrow viewports: sit above the pending box, left edges aligned.
+    const topAbove = spotlight.top - height - CUE_TOOLTIP_GAP
+    return {
+      top: clamp(
+        topAbove >= CUE_TOOLTIP_MARGIN ? topAbove : spotlight.top,
+        CUE_TOOLTIP_MARGIN,
+        Math.max(CUE_TOOLTIP_MARGIN, maxTop)
+      ),
+      left: clamp(spotlight.left, CUE_TOOLTIP_MARGIN, Math.max(CUE_TOOLTIP_MARGIN, maxLeft)),
+    }
+  }
+
+  return {
+    top: clamp(
+      spotlight.top + spotlight.height + CUE_TOOLTIP_GAP,
+      CUE_TOOLTIP_MARGIN,
+      Math.max(CUE_TOOLTIP_MARGIN, maxTop)
+    ),
+    left: clamp(
+      spotlight.left + spotlight.width / 2 - width / 2,
+      CUE_TOOLTIP_MARGIN,
+      Math.max(CUE_TOOLTIP_MARGIN, maxLeft)
+    ),
+  }
+}
 
 type ActiveCue = {
   kind: DemoGuideCueKind
@@ -54,6 +117,11 @@ function resolveTarget(selector: string): Element | null {
 export function DemoGuideCueHost() {
   const [cue, setCue] = useState<ActiveCue | null>(null)
   const [rect, setRect] = useState<DOMRect | null>(null)
+  const [tooltipSize, setTooltipSize] = useState({
+    width: CUE_TOOLTIP_MAX_WIDTH,
+    height: CUE_TOOLTIP_FALLBACK_HEIGHT,
+  })
+  const tooltipRef = useRef<HTMLDivElement>(null)
 
   const dismiss = useCallback(() => {
     if (cue?.kind === 'new-registrants') consumeNewRegistrantsDemoCue()
@@ -103,6 +171,14 @@ export function DemoGuideCueHost() {
         return
       }
       setRect(target.getBoundingClientRect())
+      const tip = tooltipRef.current
+      if (tip) {
+        const tipRect = tip.getBoundingClientRect()
+        setTooltipSize({
+          width: tipRect.width || CUE_TOOLTIP_MAX_WIDTH,
+          height: tipRect.height || CUE_TOOLTIP_FALLBACK_HEIGHT,
+        })
+      }
     }
 
     update()
@@ -140,17 +216,8 @@ export function DemoGuideCueHost() {
     : null
 
   const tooltipStyle = spotlight
-    ? {
-        top: Math.min(
-          window.innerHeight - 160,
-          Math.max(16, spotlight.top + spotlight.height + 12)
-        ),
-        left: Math.min(
-          window.innerWidth - 320,
-          Math.max(16, spotlight.left + spotlight.width / 2 - 150)
-        ),
-      }
-    : { top: 96, left: 16 }
+    ? computeCueTooltipStyle(spotlight, cue.kind, tooltipSize)
+    : { top: 96, left: CUE_TOOLTIP_MARGIN }
 
   return (
     <div
@@ -207,6 +274,7 @@ export function DemoGuideCueHost() {
       ) : null}
 
       <div
+        ref={tooltipRef}
         className="pointer-events-auto absolute z-[91] w-[min(calc(100vw-2rem),18.75rem)] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 shadow-lift"
         style={tooltipStyle}
       >

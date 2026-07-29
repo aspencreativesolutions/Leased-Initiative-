@@ -7,6 +7,8 @@ export const TILE_SCALE_MAX = 150
 export const TILE_SCALE_DEFAULT = 100
 /** Lease grid starts at the slider midpoint; persisted preference still wins when set. */
 export const LEASE_TILE_SCALE_DEFAULT = TILE_SCALE_DEFAULT
+/** Official Tenants dashboard Tile View — slightly under full so more tiles fit per row. */
+export const OFFICIAL_TENANTS_TILE_SCALE_DEFAULT = 95
 /** Payments gallery starts at the slider midpoint; persisted preference still wins when set. */
 export const PAYMENT_TILE_SCALE_DEFAULT = TILE_SCALE_DEFAULT
 export const TILE_SCALE_STEP = 5

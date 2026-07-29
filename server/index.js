@@ -12,6 +12,7 @@ import dataRoutes from './routes/data.js'
 import contractRoutes from './routes/contracts.js'
 import portalRoutes from './routes/portal.js'
 import filesRoutes from './routes/files.js'
+import leaseTemplatesRoutes from './routes/leaseTemplates.js'
 import invoiceRoutes from './routes/invoices.js'
 import e2eRoutes from './routes/e2e.js'
 import demoRoutes from './routes/demo.js'
@@ -170,6 +171,7 @@ app.use('/api/data', dataRoutes)
 app.use('/api/contracts', contractRoutes)
 app.use('/api/portal', portalRoutes)
 app.use('/api/files', filesRoutes)
+app.use('/api/lease-templates', leaseTemplatesRoutes)
 app.use('/api/invoices', invoiceRoutes)
 if (process.env.E2E_TEST === '1') {
   app.use('/api/e2e', e2eRoutes)

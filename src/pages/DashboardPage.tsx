@@ -18,7 +18,7 @@ import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { shouldShowInOfficialTenants } from '@/lib/clientUtils'
 import { useMobileTileColumns } from '@/lib/mobileTileColumns'
 import {
-  LEASE_TILE_SCALE_DEFAULT,
+  OFFICIAL_TENANTS_TILE_SCALE_DEFAULT,
   useTileScale,
 } from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
@@ -30,7 +30,7 @@ import {
 import { cn } from '@/lib/utils'
 
 const DASHBOARD_VIEW_KEY = 'dashboard-view-mode'
-const DASHBOARD_TILE_SCALE_KEY = 'dashboard-official-tenants-tile-scale'
+const DASHBOARD_TILE_SCALE_KEY = 'dashboard-official-tenants-tile-scale-v2'
 const DASHBOARD_OCCUPANCY_STATUS_KEY = 'dashboard-show-occupancy-status'
 
 type DashboardViewMode = 'tile' | 'spreadsheet'
@@ -80,7 +80,7 @@ export function DashboardPage() {
     useMobileTileColumns()
   const { scale, setScale, factor } = useTileScale(
     DASHBOARD_TILE_SCALE_KEY,
-    LEASE_TILE_SCALE_DEFAULT
+    OFFICIAL_TENANTS_TILE_SCALE_DEFAULT
   )
   const isMobile = useIsMobileViewport()
   const effectiveViewMode: DashboardViewMode = isMobile ? 'tile' : viewMode
@@ -151,7 +151,7 @@ export function DashboardPage() {
 
   const displaySettings =
     officialClients.length > 0 ? (
-      <Card className="w-fit max-w-full !px-3 !py-2">
+      <Card className="w-full max-w-full !px-3 !py-2">
         <div className="flex flex-col gap-1.5">
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint">
             Display Settings
@@ -294,44 +294,48 @@ export function DashboardPage() {
             title="Official Tenants"
             help="Tenants with signed leases that are active or starting soon"
             below={displaySettings}
+            noBorder
           />
 
-          {tableClients.length === 0 ? (
-            authLoading || syncing ? (
-              <EmptyState
-                icon={Users}
-                loading
-                title="Loading tenants…"
-                description="Fetching your official tenants."
-              />
+          <Card className="w-full min-w-0 p-3 sm:p-5" padding="none">
+            {tableClients.length === 0 ? (
+              authLoading || syncing ? (
+                <EmptyState
+                  icon={Users}
+                  loading
+                  title="Loading tenants…"
+                  description="Fetching your official tenants."
+                />
+              ) : (
+                <EmptyState
+                  icon={Users}
+                  title="No official tenants yet"
+                  description="Approve sign-ups under Waiting to Connect, then send a lease from Pending Tenants. Once signed, they appear here."
+                  action={
+                    <Button onClick={() => setAddOpen(true)}>
+                      <Plus className="h-4 w-4" />
+                      Add Tenant
+                    </Button>
+                  }
+                />
+              )
             ) : (
-              <EmptyState
-                icon={Users}
-                title="No official tenants yet"
-                description="Approve sign-ups under Waiting to Connect, then send a lease from Pending Tenants. Once signed, they appear here."
-                action={
-                  <Button onClick={() => setAddOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                    Add Tenant
-                  </Button>
-                }
+              <ClientTable
+                clients={tableClients}
+                viewMode={effectiveViewMode}
+                arrangeColumns={arrangeColumns && effectiveViewMode === 'spreadsheet'}
+                onArrangeDone={() => setArrangeColumns(false)}
+                columnOrder={columnOrder}
+                onColumnOrderChange={setColumnOrder}
+                mobileTileColumns={mobileTileColumns}
+                onMobileTileColumnsChange={setMobileTileColumns}
+                tileScaleFactor={effectiveViewMode === 'tile' ? factor : undefined}
+                showOccupancyStatus={showOccupancyStatus}
+                framed
+                onOpenTenantDetails={setDetailsTenantId}
               />
-            )
-          ) : (
-            <ClientTable
-              clients={tableClients}
-              viewMode={effectiveViewMode}
-              arrangeColumns={arrangeColumns && effectiveViewMode === 'spreadsheet'}
-              onArrangeDone={() => setArrangeColumns(false)}
-              columnOrder={columnOrder}
-              onColumnOrderChange={setColumnOrder}
-              mobileTileColumns={mobileTileColumns}
-              onMobileTileColumnsChange={setMobileTileColumns}
-              tileScaleFactor={effectiveViewMode === 'tile' ? factor : undefined}
-              showOccupancyStatus={showOccupancyStatus}
-              onOpenTenantDetails={setDetailsTenantId}
-            />
-          )}
+            )}
+          </Card>
         </div>
 
         <Card className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] p-3 sm:p-5">

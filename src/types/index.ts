@@ -392,10 +392,48 @@ export interface ContractData {
   replacementDocumentFileId?: string
   replacementDocumentName?: string
   replacementDocumentMimeType?: string
+  /**
+   * Active lease agreement template style (from Lease Agreement Templates library).
+   * Restyling updates these fields only — tenant details and signatures are preserved.
+   */
+  leaseTemplateId?: string
+  /** Display name of the applied template style */
+  leaseStyleName?: string
   /** Monotonic lease version; increments when a sent lease is revised */
   leaseVersion?: number
   /** Prior delivered versions superseded by edits after send */
   versionHistory?: LeaseVersionSnapshot[]
+}
+
+/** Uploaded PDF/DOC that defines default lease visual style / format. */
+export type LeaseAgreementTemplateStatus = 'pending_review' | 'active' | 'archived'
+
+export interface LeaseAgreementTemplate {
+  id: string
+  name: string
+  originalFileName: string
+  mimeType: string
+  /** Project-file style id under the templates upload bucket */
+  fileId: string
+  storedName: string
+  size: number
+  status: LeaseAgreementTemplateStatus
+  createdAt: string
+  confirmedAt?: string
+  /** Short label shown on styled lease previews */
+  styleLabel: string
+}
+
+/** Banner prompt after a new default lease style is confirmed. */
+export interface LeaseStyleReplacePrompt {
+  templateId: string
+  templateName: string
+  confirmedAt: string
+  /** When landlord dismisses the animated replace tag without applying */
+  dismissedAt?: string
+  /** Surfaces that still need the prompt (cleared individually) */
+  showOnPending?: boolean
+  showOnContracts?: boolean
 }
 
 export interface LeaseVersionSnapshot {
@@ -901,9 +939,25 @@ export interface Property {
   addressConfirmed?: boolean
   /** Future: individual unit records within a multi-unit rental */
   units?: PropertyUnit[]
+  /**
+   * Default lease calendar option for this rental (`seasonal-12`, custom era id, etc.).
+   * Used when adding tenants / generating leases for this address.
+   */
+  defaultLeaseOptionId?: string
 }
 
 export type TenantDiscoveryMode = 'public' | 'invite_only'
+
+/** Landlord-defined custom lease start/end window (a “lease era”). */
+export interface CustomLeaseEra {
+  id: string
+  /** YYYY-MM-DD */
+  startDate: string
+  /** YYYY-MM-DD */
+  endDate: string
+  /** Optional display label; otherwise derived from dates */
+  label?: string
+}
 
 export interface BusinessSettings {
   businessName: string
@@ -922,14 +976,19 @@ export interface BusinessSettings {
    */
   autoSendLeaseDrafts?: boolean
   /**
-   * When true, newly generated leases use defaultLeaseStartDate / defaultLeaseEndDate
-   * instead of the seasonal January 1 / August 1 calendar defaults.
+   * @deprecated Prefer customLeaseEras. When true without eras, newly generated leases
+   * use defaultLeaseStartDate / defaultLeaseEndDate instead of seasonal defaults.
    */
   customDefaultLeaseDates?: boolean
-  /** YYYY-MM-DD — applied only when customDefaultLeaseDates is enabled */
+  /** @deprecated Prefer customLeaseEras — YYYY-MM-DD legacy single custom start */
   defaultLeaseStartDate?: string
-  /** YYYY-MM-DD — applied only when customDefaultLeaseDates is enabled */
+  /** @deprecated Prefer customLeaseEras — YYYY-MM-DD legacy single custom end */
   defaultLeaseEndDate?: string
+  /**
+   * Landlord-defined lease eras (custom start/end windows) offered alongside
+   * seasonal Jan 1 / Aug 1 length options in Settings and rental/tenant pickers.
+   */
+  customLeaseEras?: CustomLeaseEra[]
   profileReminders?: ProfileReminder[]
   automation?: AutomationSettings
   /** Named rental groups used to filter leases and rentals by location */
@@ -940,6 +999,12 @@ export interface BusinessSettings {
    * - invite_only: tenants must use a connection link or code
    */
   tenantDiscoveryMode?: TenantDiscoveryMode
+  /** Default lease agreement template from the Lease Agreement Templates library */
+  defaultLeaseTemplateId?: string
+  /** Display name of the active default template */
+  defaultLeaseTemplateName?: string
+  /** After confirming a new template — drives animated replace tags until dismissed/applied */
+  leaseStyleReplacePrompt?: LeaseStyleReplacePrompt | null
 }
 
 export interface EmailDraft {

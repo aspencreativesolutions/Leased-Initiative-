@@ -45,6 +45,11 @@ export function ContractReviewView({
           <h2 className="font-display text-xl font-semibold uppercase tracking-[0.22em] text-ink sm:text-2xl">
             Residential Lease Agreement
           </h2>
+          {contract.leaseStyleName ? (
+            <p className="mt-3 inline-flex rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-caps text-brand">
+              Style: {contract.leaseStyleName}
+            </p>
+          ) : null}
           <p className="mx-auto mt-5 max-w-md font-serif text-sm italic leading-relaxed text-ink-muted">
             Lease for <span className="text-ink">{contract.clientName}</span>
             {' — '}
@@ -54,6 +59,11 @@ export function ContractReviewView({
             Monthly rent {monthlyRent || '—'} · Security deposit {deposit || '—'}
             {contract.leaseVersion != null ? ` · Version ${contract.leaseVersion}` : ''}
           </p>
+          {contract.leaseStyleName?.trim() ? (
+            <p className="mx-auto mt-2 max-w-lg text-xs font-medium text-brand">
+              Document style: {contract.leaseStyleName.trim()}
+            </p>
+          ) : null}
           <p className="mx-auto mt-2 max-w-lg text-xs leading-relaxed text-ink-faint">
             Prepared by {preparedBy}
             {contract.createdAt && (

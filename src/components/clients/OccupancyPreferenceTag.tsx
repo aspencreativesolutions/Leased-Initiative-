@@ -21,7 +21,7 @@ type OccupancyPreferenceTagProps = {
 }
 
 /**
- * Compact status tag under a tenant’s name (pipeline + official lists).
+ * Compact occupancy tag under a tenant’s name (pipeline + official lists).
  */
 export function OccupancyPreferenceTag({
   mode,

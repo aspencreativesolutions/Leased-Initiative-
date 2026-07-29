@@ -100,7 +100,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Users,
     title: 'Approve new tenants',
     description:
-      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect — including occupancy preference tags (Renting Entire Home, Open to Roommates, Private Room, Shared Room) and how many friends they invited to share. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status and opens Lease Agreement Preview — Download the draft, Upload Replacement for a signed or custom lease, then Send from the preview banner when ready (optional: turn on Automatically send drafted leases). After they sign they move to Official Tenants as Awaiting Deposit (deposit invoice auto-sent with a payment link); Confirm Payment Complete moves them to Upcoming until the lease starts. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
+      'Tenants find you by agency name when Public Discovery is on, or join with a one-time invite link/code when you set Invite-Only in Settings. Use Send Invite Link to pick a property, future lease start, duration, and custom code — the link is texted to their phone. They confirm details (or Start Application in their portal) and appear under Waiting to Connect — including occupancy preference tags (Renting Entire Home, Open to Roommates, Private Room, Shared Room) and how many friends they invited to share. Accept & Draft Lease moves them to Pending Tenants with Lease Drafted status and opens Lease Agreement Preview — Download the draft, Upload Replacement for a signed or custom lease, then Send from the preview banner when ready (optional: turn on Automatically send drafted leases on each Pending Tenants row). From Pending Tenants, Change Lease Style opens Settings → Lease Agreement Templates — upload a PDF or DOC, View sample with a pending tenant, Confirm as default, then Apply to All (or select leases) to restyle pending agreements while keeping rent, personal info, and signatures — no re-sign required. After they sign they move to Official Tenants as Awaiting Deposit (deposit invoice auto-sent with a payment link); Confirm Payment Complete moves them to Upcoming until the lease starts. Click any official tenant’s name for Tenant Details — lease, household, and payment history.',
   },
   {
     id: 'landlord-openings',
@@ -134,8 +134,8 @@ const LANDLORD_TOUR_SLIDE: WelcomeSlide = {
   icon: Compass,
   title: 'Revisit the tour anytime',
   description:
-    'Once you are signed in, open Menu in the top bar for Company Profile, Take the tour, Settings, Bug Report, and Sign out. The tour walks through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report under Menu to flag unexpected behavior to Aspen Creative Solutions.',
-}
+    'Once you are signed in, open Menu in the top bar for Company Profile, Take the tour, Settings, Bug Report, and Sign out. The tour walks through the dashboard, rentals, lease agreements, payments, tenant alerts, and Settings (company profile, lease import, business info, automation, lease defaults with seasonal options and custom lease eras, and app style). Jump to any section from the bar at the top of the tour. Use Bug Report under Menu to flag unexpected behavior to Aspen Creative Solutions.',
+ }
 
 const TENANT_TOUR_SLIDE: WelcomeSlide = {
   id: 'tour-anytime',

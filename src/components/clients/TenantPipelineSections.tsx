@@ -23,7 +23,9 @@ import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailability
 import {
   clientNameMarkersClass,
 } from '@/components/clients/clientBadgeStyles'
+import { AutoSendLeaseToggle } from '@/components/contracts/AutoSendLeaseToggle'
 import { LeaseAgreementPreviewModal } from '@/components/contracts/LeaseAgreementPreviewModal'
+import { NewLeaseStyleBanner } from '@/components/contracts/NewLeaseStyleBanner'
 import { SendContractModal } from '@/components/contracts/SendContractModal'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -31,6 +33,11 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { useApp } from '@/context/AppContext'
 import { ApiError } from '@/lib/api'
+import {
+  applyLeaseAgreementStyle,
+  dismissLeaseStyleReplacePrompt,
+  leaseTemplatesSettingsHref,
+} from '@/lib/leaseAgreementTemplatesApi'
 import {
   consumeLeaseAgreementPreviewRequest,
   peekLeaseAgreementPreviewRequest,
@@ -183,7 +190,7 @@ export function TenantPipelineSections({
 } = {}) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { clients, getContractForClient, properties, refresh, settings } = useApp()
+  const { clients, getContractForClient, properties, refresh, settings, updateSettings } = useApp()
   const [overview, setOverview] = useState<PortalUsersOverview | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -211,6 +218,18 @@ export function TenantPipelineSections({
   )
   const [waitingAddOpen, setWaitingAddOpen] = useState(false)
   const [waitingInviteOpen, setWaitingInviteOpen] = useState(false)
+  const [styleSelecting, setStyleSelecting] = useState(false)
+  const [selectedStyleContractIds, setSelectedStyleContractIds] = useState<string[]>([])
+  const [styleBusy, setStyleBusy] = useState(false)
+
+  const stylePrompt = settings.leaseStyleReplacePrompt
+  const showStyleBanner =
+    Boolean(stylePrompt) &&
+    stylePrompt?.showOnPending !== false &&
+    !stylePrompt?.dismissedAt
+  const defaultTemplateId =
+    stylePrompt?.templateId || settings.defaultLeaseTemplateId || undefined
+  const canApplyDefaultStyle = Boolean(defaultTemplateId)
 
   const previewClient = previewClientId
     ? clients.find((c) => c.id === previewClientId) ?? null
@@ -444,6 +463,60 @@ export function TenantPipelineSections({
   const hasGeneratingLease = prospectiveApplicants.some(
     (user) => user.leaseAction === 'generating'
   )
+
+  const dismissStyleBanner = useCallback(async () => {
+    setStyleSelecting(false)
+    setSelectedStyleContractIds([])
+    try {
+      const { settings: next } = await dismissLeaseStyleReplacePrompt({ pending: true })
+      updateSettings({ leaseStyleReplacePrompt: next.leaseStyleReplacePrompt ?? null })
+    } catch {
+      updateSettings({
+        leaseStyleReplacePrompt: stylePrompt
+          ? { ...stylePrompt, showOnPending: false }
+          : null,
+      })
+    }
+  }, [stylePrompt, updateSettings])
+
+  const applyPendingStyle = useCallback(
+    async (mode: 'all' | 'selected') => {
+      if (!defaultTemplateId && mode === 'all') {
+        navigate(leaseTemplatesSettingsHref(true))
+        return
+      }
+      setStyleBusy(true)
+      setError('')
+      try {
+        // Apply on the server only, then refresh — do not updateSettings/persist
+        // (that would PUT stale local contracts and wipe the restyle).
+        await applyLeaseAgreementStyle(
+          mode === 'all'
+            ? { scope: 'pending', templateId: defaultTemplateId }
+            : {
+                scope: 'selected',
+                templateId: defaultTemplateId,
+                contractIds: selectedStyleContractIds,
+                surface: 'pending',
+              }
+        )
+        await refresh()
+        setStyleSelecting(false)
+        setSelectedStyleContractIds([])
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not apply lease style')
+      } finally {
+        setStyleBusy(false)
+      }
+    },
+    [defaultTemplateId, navigate, refresh, selectedStyleContractIds]
+  )
+
+  const toggleStyleContract = useCallback((contractId: string) => {
+    setSelectedStyleContractIds((prev) =>
+      prev.includes(contractId) ? prev.filter((id) => id !== contractId) : [...prev, contractId]
+    )
+  }, [])
 
   // Poll while any lease is generating so status flips to Lease Drafted automatically.
   useEffect(() => {
@@ -753,7 +826,7 @@ export function TenantPipelineSections({
         pendingHighlightName && 'pending-tenants-section--demo-highlight'
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <FileSignature className="h-4 w-4 shrink-0 text-ink-muted" />
           <h2 className="heading-display text-lg">{pendingSectionTitle}</h2>
@@ -768,35 +841,98 @@ export function TenantPipelineSections({
             </span>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {pendingSyncing || acceptingId ? (
             <Loader2
               className="h-4 w-4 animate-spin text-brand"
               aria-label="Updating pending tenants"
             />
           ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-onboarding="pending-change-lease-styles"
+            onClick={() => navigate(leaseTemplatesSettingsHref(true))}
+          >
+            Change Lease Style
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            data-onboarding="pending-apply-lease-style-all"
+            disabled={styleBusy || !canApplyDefaultStyle || prospectiveApplicants.length === 0}
+            title={
+              canApplyDefaultStyle
+                ? 'Restyle all pending leases with your default template — tenant details and signatures stay intact'
+                : 'Upload and confirm a default lease style in Settings first'
+            }
+            onClick={() => void applyPendingStyle('all')}
+          >
+            {styleBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : null}
+            Apply to All
+          </Button>
           <SectionHelpIcon label={PENDING_TENANTS_HELP} />
         </div>
       </div>
+
+      {showStyleBanner && stylePrompt ? (
+        <NewLeaseStyleBanner
+          className="mb-3"
+          variant="pending"
+          templateName={stylePrompt.templateName}
+          selecting={styleSelecting}
+          selectedCount={selectedStyleContractIds.length}
+          busy={styleBusy}
+          onReplaceAll={() => void applyPendingStyle('all')}
+          onReplaceSelect={() => {
+            setStyleSelecting(true)
+            setSelectedStyleContractIds([])
+          }}
+          onApplySelected={() => void applyPendingStyle('selected')}
+          onCancel={() => {
+            if (styleSelecting) {
+              setStyleSelecting(false)
+              setSelectedStyleContractIds([])
+              return
+            }
+            void dismissStyleBanner()
+          }}
+        />
+      ) : null}
 
       {loading ? (
         <div className="flex items-center justify-center py-10 text-ink-muted">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : prospectiveApplicants.length === 0 ? (
-        <Card>
-          <EmptyState
-            compact
-            icon={FileSignature}
-            title="No pending tenants"
-            description="Accept someone from Waiting to Connect, or use Add Tenant to generate a lease — they appear here until it is signed."
+        <div className="space-y-3">
+          <AutoSendLeaseToggle
+            inline
+            className="rounded-[var(--radius-sm)] border border-line/70 bg-surface-paper px-2.5 py-1.5"
           />
-        </Card>
+          <Card>
+            <EmptyState
+              compact
+              icon={FileSignature}
+              title="No pending tenants"
+              description="Accept someone from Waiting to Connect, or use Add Tenant to generate a lease — they appear here until it is signed."
+            />
+          </Card>
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
           <table className="w-full min-w-[320px] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                {styleSelecting ? (
+                  <th className="w-10 px-2 py-3 sm:px-3">
+                    <span className="sr-only">Select</span>
+                  </th>
+                ) : null}
                 <th className="px-3 py-3 sm:px-4">Tenant</th>
                 <th className="hidden px-3 py-3 sm:table-cell sm:px-4">Desired address</th>
                 <th className="hidden px-3 py-3 md:table-cell md:px-4">Lease Status</th>
@@ -822,6 +958,19 @@ export function TenantPipelineSections({
                           ))
                     )
                   }
+                  selecting={styleSelecting}
+                  selected={
+                    Boolean(
+                      getContractForClient(user.clientId)?.id &&
+                        selectedStyleContractIds.includes(
+                          getContractForClient(user.clientId)!.id
+                        )
+                    )
+                  }
+                  onToggleSelect={() => {
+                    const id = getContractForClient(user.clientId)?.id
+                    if (id) toggleStyleContract(id)
+                  }}
                   onView={(client) => setPreviewClientId(client.id)}
                   onReviewAndSend={(client) => setPreviewClientId(client.id)}
                   onEdit={() => navigate(`/studio/clients/${user.clientId}/contract`)}
@@ -1151,6 +1300,9 @@ function ProspectiveApplicantRow({
   user,
   contract,
   highlighted = false,
+  selecting = false,
+  selected = false,
+  onToggleSelect,
   onView,
   onReviewAndSend,
   onEdit,
@@ -1159,6 +1311,9 @@ function ProspectiveApplicantRow({
   user: PortalUserAccepted
   contract: ContractData | undefined
   highlighted?: boolean
+  selecting?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
   onView: (client: Client, contract: ContractData) => void
   onReviewAndSend: (client: Client, contract: ContractData) => void
   onEdit: () => void
@@ -1248,10 +1403,31 @@ function ProspectiveApplicantRow({
     </button>
   ) : null
 
+  const autoSendToggle = (
+    <div className="mt-2 max-w-[14rem]">
+      <AutoSendLeaseToggle inline />
+    </div>
+  )
+
   return (
     <tr
-      className={cn(highlighted && 'pending-tenant-row--demo-highlight')}
+      className={cn(
+        highlighted && 'pending-tenant-row--demo-highlight',
+        selecting && selected && 'bg-brand/5'
+      )}
     >
+      {selecting ? (
+        <td className="px-2 py-4 sm:px-3">
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!contract}
+            onChange={() => onToggleSelect?.()}
+            aria-label={`Select ${user.name} for style replace`}
+            className="h-4 w-4 accent-[var(--color-brand,theme(colors.brand))]"
+          />
+        </td>
+      ) : null}
       <td className="px-3 py-4 sm:px-4">
         <p className="min-w-0 truncate font-semibold text-ink">{user.name}</p>
         <OccupancyPreferenceTag
@@ -1286,10 +1462,16 @@ function ProspectiveApplicantRow({
             </p>
           ) : null}
           {reviewSendControl}
+          {autoSendToggle}
         </div>
         <p className="mt-0.5 text-xs text-ink-faint">
           Added {formatDate(user.acceptedAt)}
         </p>
+        {contract?.leaseStyleName?.trim() ? (
+          <p className="mt-1 text-[11px] font-medium text-brand">
+            Style: {contract.leaseStyleName.trim()}
+          </p>
+        ) : null}
       </td>
       <td className="hidden px-3 py-4 sm:table-cell sm:px-4">
         <p className="font-medium text-ink">
@@ -1323,34 +1505,35 @@ function ProspectiveApplicantRow({
           </p>
         ) : null}
         {reviewSendControl}
+        {autoSendToggle}
       </td>
       <td className="px-3 py-4 align-middle sm:px-4">
         {showLeaseActions ? (
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-col items-end gap-1">
             <Button
               size="sm"
               variant="outline"
-              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
+              className="h-6 w-[5.25rem] shrink-0 gap-1 px-1.5 py-0 text-[10px] leading-none"
               onClick={() => {
                 if (client && contract) onView(client, contract)
               }}
             >
-              <Eye className="h-3.5 w-3.5 shrink-0" />
+              <Eye className="h-3 w-3 shrink-0" aria-hidden />
               View
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
+              className="h-6 w-[5.25rem] shrink-0 gap-1 px-1.5 py-0 text-[10px] leading-none"
               onClick={onEdit}
             >
-              <Pencil className="h-3.5 w-3.5 shrink-0" />
+              <Pencil className="h-3 w-3 shrink-0" aria-hidden />
               Edit
             </Button>
             <Button
               size="sm"
               variant="primary"
-              className="h-7 w-[5.25rem] shrink-0 gap-1 px-2 py-0"
+              className="h-6 w-[5.25rem] shrink-0 gap-1 px-1.5 py-0 text-[10px] leading-none"
               disabled={!client || !contract}
               onClick={() => {
                 if (client && contract) {
@@ -1359,7 +1542,7 @@ function ProspectiveApplicantRow({
                 }
               }}
             >
-              <Send className="h-3.5 w-3.5 shrink-0" />
+              <Send className="h-3 w-3 shrink-0" aria-hidden />
               {leaseSent ? 'Resend' : 'Send'}
             </Button>
           </div>

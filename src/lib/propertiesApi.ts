@@ -23,6 +23,8 @@ export type PropertyWriteInput = {
   utilitiesIncluded?: boolean
   /** When true, applicants may only rent the entire home. */
   entireHomeOnly?: boolean
+  /** Default lease calendar option id from Settings (`seasonal-12`, custom era id). */
+  defaultLeaseOptionId?: string | null
   importedFromLeaseScan?: boolean
   addressConfirmed?: boolean
   addressDetails?: PropertyAddressDetails

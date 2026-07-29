@@ -27,8 +27,9 @@ interface PaymentStatusDateTagsProps {
 
 /**
  * Official Tenants payment column: On Time / Overdue / Deposit Paid /
- * Awaiting Deposit, with in-tag hover details. Awaiting Deposit hover
- * confirms payment; Overdue shows Notify → to the right.
+ * Awaiting Deposit, with in-tag hover details (fixed-size shell; hover text
+ * is not bold). Awaiting Deposit hover confirms payment; Overdue shows
+ * Notify → to the right.
  */
 export function PaymentStatusDateTags({
   client,
@@ -69,15 +70,17 @@ export function PaymentStatusDateTags({
     'in-place-hover--payment-tag',
     'items-center justify-center text-center',
     'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
-    'text-[10px] font-bold leading-none tracking-tight tabular-nums',
+    'text-[10px] leading-none tracking-tight tabular-nums',
     'transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
     'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
     paymentToneTagClass(column.tone)
   )
 
-  const tagLayerClass =
+  const tagPrimaryLabelClass =
     'in-place-hover__payment-label text-center text-[10px] font-bold leading-none tracking-tight'
+  const tagHoverLabelClass =
+    'in-place-hover__payment-label text-center text-[10px] font-normal leading-none tracking-tight'
 
   const notify =
     column.kind === 'overdue' ? (
@@ -95,9 +98,9 @@ export function PaymentStatusDateTags({
   return (
     <div className={cn('payment-status-tag-cell', className)}>
       <InPlaceHoverText
-        primary={<span className={tagLayerClass}>{column.tagLabel}</span>}
+        primary={<span className={tagPrimaryLabelClass}>{column.tagLabel}</span>}
         secondary={
-          <span className={tagLayerClass}>
+          <span className={tagHoverLabelClass}>
             {canConfirm ? (
               <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={2.75} aria-hidden />
             ) : null}

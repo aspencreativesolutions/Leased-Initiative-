@@ -34,8 +34,9 @@ export const REORDERABLE_TENANT_TABLE_COLUMNS: TenantTableColumnId[] = [
 ]
 
 export const TENANT_TABLE_COLUMN_WIDTHS: Record<TenantTableColumnId, string> = {
-  // Name + lease status badge underneath.
+  // Name + contact links underneath.
   tenant: '18%',
+  // Lease status badge (Active / Upcoming / Awaiting Deposit).
   contact: '18%',
   // Widest data column — full property address wraps, never ellipsizes.
   address: '36%',
@@ -48,7 +49,7 @@ export const TENANT_TABLE_ACTIONS_RESERVED_PERCENT = 8
 
 export const TENANT_TABLE_COLUMN_LABELS: Record<TenantTableColumnId, string> = {
   tenant: 'Tenant',
-  contact: 'Contact',
+  contact: 'Lease Status',
   address: 'Address',
   paymentStatus: 'Payment Status',
   actions: 'Actions',
@@ -62,8 +63,8 @@ const REORDERABLE_WIDTH_DEFS = REORDERABLE_TENANT_TABLE_COLUMNS.map((id) => ({
 /**
  * Normalize a persisted layout: keep known reorderable ids (unique) in saved
  * relative order. Missing ids stay hidden. Always pin Actions last.
- * Legacy `leaseStatus` column ids are dropped (badge now lives under the name).
- * Legacy `email` column ids map to `contact`.
+ * Legacy `leaseStatus` column ids are dropped (badge lives in the Contact/
+ * Lease Status column). Legacy `email` column ids map to `contact`.
  */
 export function normalizeTenantTableColumns(
   order: unknown

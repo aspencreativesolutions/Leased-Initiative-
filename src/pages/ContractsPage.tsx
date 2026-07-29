@@ -19,6 +19,7 @@ import {
 import { DeleteContractModal } from '@/components/contracts/DeleteContractModal'
 import { EditRegionsModal } from '@/components/contracts/EditRegionsModal'
 import { LeaseTileTimeline } from '@/components/contracts/LeaseTileTimeline'
+import { NewLeaseStyleBanner } from '@/components/contracts/NewLeaseStyleBanner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -28,7 +29,12 @@ import { Select } from '@/components/ui/FormField'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
+import { ApiError } from '@/lib/api'
 import { isMappableAddress } from '@/lib/addressMap'
+import {
+  applyLeaseAgreementStyle,
+  dismissLeaseStyleReplacePrompt,
+} from '@/lib/leaseAgreementTemplatesApi'
 import {
   getLeaseAgreementBadgeLabel,
   getLeaseAgreementBadgeRank,
@@ -130,7 +136,7 @@ function locationFilterToneClass(active: boolean): string {
 }
 
 export function ContractsPage() {
-  const { clients, contracts, properties, settings, refresh } = useApp()
+  const { clients, contracts, properties, settings, refresh, updateSettings } = useApp()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [regionsOpen, setRegionsOpen] = useState(false)
   const [preselectedId, setPreselectedId] = useState<string | undefined>()
@@ -156,6 +162,10 @@ export function ContractsPage() {
   )
   const [tableSortColumn, setTableSortColumn] = useState<ContractSortColumn>('tenant')
   const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [styleSelecting, setStyleSelecting] = useState(false)
+  const [selectedStyleContractIds, setSelectedStyleContractIds] = useState<string[]>([])
+  const [styleBusy, setStyleBusy] = useState(false)
+  const [styleError, setStyleError] = useState('')
   const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
     useMobileTileColumns()
   const { scale, setScale, factor } = useTileScale(
@@ -164,6 +174,61 @@ export function ContractsPage() {
   )
   const isMobile = useIsMobileViewport()
   const effectiveViewMode: ContractsViewMode = isMobile ? 'tile' : viewMode
+
+  const stylePrompt = settings.leaseStyleReplacePrompt
+  const showStyleBanner =
+    Boolean(stylePrompt) &&
+    stylePrompt?.showOnContracts !== false &&
+    !stylePrompt?.dismissedAt
+
+  const dismissStyleBanner = async () => {
+    setStyleSelecting(false)
+    setSelectedStyleContractIds([])
+    try {
+      const { settings: next } = await dismissLeaseStyleReplacePrompt({ contracts: true })
+      updateSettings({ leaseStyleReplacePrompt: next.leaseStyleReplacePrompt ?? null })
+    } catch {
+      updateSettings({
+        leaseStyleReplacePrompt: stylePrompt
+          ? { ...stylePrompt, showOnContracts: false }
+          : null,
+      })
+    }
+  }
+
+  const applyOfficialStyle = async (mode: 'all' | 'selected') => {
+    setStyleBusy(true)
+    setStyleError('')
+    try {
+      // Server apply + refresh only — avoid updateSettings persist of stale contracts.
+      await applyLeaseAgreementStyle(
+        mode === 'all'
+          ? {
+              scope: 'official',
+              templateId: stylePrompt?.templateId || settings.defaultLeaseTemplateId,
+            }
+          : {
+              scope: 'selected',
+              templateId: stylePrompt?.templateId || settings.defaultLeaseTemplateId,
+              contractIds: selectedStyleContractIds,
+              surface: 'contracts',
+            }
+      )
+      await refresh()
+      setStyleSelecting(false)
+      setSelectedStyleContractIds([])
+    } catch (err) {
+      setStyleError(err instanceof ApiError ? err.message : 'Could not apply lease style')
+    } finally {
+      setStyleBusy(false)
+    }
+  }
+
+  const toggleStyleContract = (contractId: string) => {
+    setSelectedStyleContractIds((prev) =>
+      prev.includes(contractId) ? prev.filter((id) => id !== contractId) : [...prev, contractId]
+    )
+  }
 
   useEffect(() => {
     try {
@@ -725,6 +790,38 @@ export function ContractsPage() {
         below={displaySettings}
       />
 
+      {showStyleBanner && stylePrompt ? (
+        <NewLeaseStyleBanner
+          className="mb-4"
+          variant="contracts"
+          templateName={stylePrompt.templateName}
+          selecting={styleSelecting}
+          selectedCount={selectedStyleContractIds.length}
+          busy={styleBusy}
+          onReplaceAll={() => void applyOfficialStyle('all')}
+          onReplaceSelect={() => {
+            setStyleSelecting(true)
+            setSelectedStyleContractIds([])
+            if (effectiveViewMode !== 'tile') setViewMode('tile')
+          }}
+          onApplySelected={() => void applyOfficialStyle('selected')}
+          onCancel={() => {
+            if (styleSelecting) {
+              setStyleSelecting(false)
+              setSelectedStyleContractIds([])
+              return
+            }
+            void dismissStyleBanner()
+          }}
+        />
+      ) : null}
+
+      {styleError ? (
+        <p className="mb-4 text-sm font-semibold text-accent" role="alert">
+          {styleError}
+        </p>
+      ) : null}
+
       {contracts.length === 0 ? (
         <EmptyState
           icon={FileText}
@@ -772,11 +869,27 @@ export function ContractsPage() {
                 <Card
                   key={contract.id}
                   padding="none"
-                  className="tile-card lease-tile-card"
+                  className={cn(
+                    'tile-card lease-tile-card',
+                    styleSelecting &&
+                      selectedStyleContractIds.includes(contract.id) &&
+                      'ring-2 ring-brand'
+                  )}
                 >
                   <div className="lease-tile-card__body">
                     <div className="lease-tile-card__content">
                       <div className="lease-tile-card__top">
+                        {styleSelecting ? (
+                          <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs font-medium text-ink">
+                            <input
+                              type="checkbox"
+                              checked={selectedStyleContractIds.includes(contract.id)}
+                              onChange={() => toggleStyleContract(contract.id)}
+                              className="h-4 w-4"
+                            />
+                            Select for new style
+                          </label>
+                        ) : null}
                         <div className="lease-tile-card__icon" aria-hidden>
                           <FileText strokeWidth={1.75} />
                         </div>

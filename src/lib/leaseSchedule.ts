@@ -1,7 +1,13 @@
 import { PLACEHOLDER_MARKER } from '@/lib/contractPlaceholders'
 import { getDemoAsOfDate } from '@/lib/demoClock'
 import { isPublicDemoSession } from '@/lib/publicDemo'
-import type { Client, ContractData, PortalRentPayment, PortalRentPaymentStatus } from '@/types'
+import type {
+  Client,
+  ContractData,
+  CustomLeaseEra,
+  PortalRentPayment,
+  PortalRentPaymentStatus,
+} from '@/types'
 
 /** Common residential lease terms offered at tenant registration */
 export const LEASE_LENGTH_OPTIONS = [6, 12, 18, 24] as const
@@ -163,6 +169,7 @@ export interface DefaultLeaseDatePrefs {
   customDefaultLeaseDates?: boolean
   defaultLeaseStartDate?: string
   defaultLeaseEndDate?: string
+  customLeaseEras?: CustomLeaseEra[]
 }
 
 export interface ResolvedDefaultLeaseDates {
@@ -173,16 +180,146 @@ export interface ResolvedDefaultLeaseDates {
   usedCustomDates: boolean
 }
 
+export type DefaultLeaseOptionKind = 'seasonal' | 'custom'
+
+/** Unified picker option for Settings lists and rental/tenant lease selection. */
+export interface DefaultLeaseOption {
+  id: string
+  kind: DefaultLeaseOptionKind
+  label: string
+  detail: string
+  leaseStartDate: string
+  leaseEndDate: string
+  leaseLengthMonths: number
+}
+
+export function seasonalLeaseOptionId(months: number): string {
+  return `seasonal-${months}`
+}
+
+export function formatCustomLeaseEraLabel(era: Pick<CustomLeaseEra, 'startDate' | 'endDate' | 'label'>): string {
+  if (era.label?.trim()) return era.label.trim()
+  const months = monthsBetweenLeaseDates(era.startDate, era.endDate)
+  return `${era.startDate.slice(0, 10)} – ${era.endDate.slice(0, 10)} (${formatLeaseLengthLabel(months)})`
+}
+
+/**
+ * Normalize eras from settings, migrating a legacy single custom start/end pair
+ * into the eras array when present.
+ */
+export function normalizeCustomLeaseEras(
+  prefs: DefaultLeaseDatePrefs | null | undefined
+): CustomLeaseEra[] {
+  const eras = Array.isArray(prefs?.customLeaseEras)
+    ? prefs!.customLeaseEras.filter(
+        (era): era is CustomLeaseEra =>
+          Boolean(
+            era &&
+              typeof era.id === 'string' &&
+              isPlainYmd(era.startDate) &&
+              isPlainYmd(era.endDate) &&
+              era.endDate.slice(0, 10) >= era.startDate.slice(0, 10)
+          )
+      )
+    : []
+
+  if (
+    eras.length === 0 &&
+    prefs?.customDefaultLeaseDates &&
+    isPlainYmd(prefs.defaultLeaseStartDate) &&
+    isPlainYmd(prefs.defaultLeaseEndDate) &&
+    prefs.defaultLeaseEndDate.slice(0, 10) >= prefs.defaultLeaseStartDate.slice(0, 10)
+  ) {
+    return [
+      {
+        id: 'legacy-custom-default',
+        startDate: prefs.defaultLeaseStartDate.slice(0, 10),
+        endDate: prefs.defaultLeaseEndDate.slice(0, 10),
+        label: 'Custom lease era',
+      },
+    ]
+  }
+
+  return eras.map((era) => ({
+    id: era.id,
+    startDate: era.startDate.slice(0, 10),
+    endDate: era.endDate.slice(0, 10),
+    label: era.label?.trim() || undefined,
+  }))
+}
+
+/**
+ * Seasonal length options (6/12/18/24) plus landlord custom lease eras.
+ */
+export function listDefaultLeaseOptions(
+  prefs: DefaultLeaseDatePrefs | null | undefined = undefined,
+  asOf: Date = new Date()
+): DefaultLeaseOption[] {
+  const seasonalStart = computeLeaseStartDate(asOf)
+  const seasonal: DefaultLeaseOption[] = LEASE_LENGTH_OPTIONS.map((months) => {
+    const leaseEndDate = computeLeaseEndDate(seasonalStart, months)
+    return {
+      id: seasonalLeaseOptionId(months),
+      kind: 'seasonal' as const,
+      label: formatLeaseLengthLabel(months),
+      detail: `${seasonalStart} – ${leaseEndDate}`,
+      leaseStartDate: seasonalStart,
+      leaseEndDate,
+      leaseLengthMonths: months,
+    }
+  })
+
+  const custom: DefaultLeaseOption[] = normalizeCustomLeaseEras(prefs).map((era) => {
+    const leaseStartDate = era.startDate.slice(0, 10)
+    const leaseEndDate = era.endDate.slice(0, 10)
+    const leaseLengthMonths = monthsBetweenLeaseDates(leaseStartDate, leaseEndDate)
+    return {
+      id: era.id,
+      kind: 'custom' as const,
+      label: formatCustomLeaseEraLabel(era),
+      detail: `${leaseStartDate} – ${leaseEndDate}`,
+      leaseStartDate,
+      leaseEndDate,
+      leaseLengthMonths,
+    }
+  })
+
+  return [...seasonal, ...custom]
+}
+
+export function findDefaultLeaseOption(
+  prefs: DefaultLeaseDatePrefs | null | undefined,
+  optionId: string | null | undefined,
+  asOf: Date = new Date()
+): DefaultLeaseOption | undefined {
+  if (!optionId?.trim()) return undefined
+  return listDefaultLeaseOptions(prefs, asOf).find((option) => option.id === optionId)
+}
+
 /**
  * Resolve start/end for newly generated leases.
- * Seasonal Jan 1 / Aug 1 defaults unless the landlord enabled custom calendar dates.
+ * Prefer an explicit option id when provided; otherwise seasonal Jan 1 / Aug 1
+ * (or a legacy single custom pair when still enabled).
  * Existing leases are never rewritten by this helper.
  */
 export function resolveDefaultLeaseDates(
   prefs: DefaultLeaseDatePrefs | null | undefined,
   leaseLengthMonths: number = DEFAULT_LEASE_LENGTH_MONTHS,
-  asOf: Date = new Date()
+  asOf: Date = new Date(),
+  optionId?: string | null
 ): ResolvedDefaultLeaseDates {
+  if (optionId?.trim()) {
+    const option = findDefaultLeaseOption(prefs, optionId, asOf)
+    if (option) {
+      return {
+        leaseStartDate: option.leaseStartDate,
+        leaseEndDate: option.leaseEndDate,
+        leaseLengthMonths: option.leaseLengthMonths,
+        usedCustomDates: option.kind === 'custom',
+      }
+    }
+  }
+
   const months = parseLeaseLengthMonths(leaseLengthMonths)
 
   if (

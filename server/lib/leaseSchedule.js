@@ -83,11 +83,121 @@ export function monthsBetweenLeaseDates(startYmd, endYmd) {
 }
 
 /**
+ * Normalize eras from settings, migrating a legacy single custom start/end pair
+ * into the eras array when present.
+ */
+export function normalizeCustomLeaseEras(prefs) {
+  const eras = Array.isArray(prefs?.customLeaseEras)
+    ? prefs.customLeaseEras.filter(
+        (era) =>
+          era &&
+          typeof era.id === 'string' &&
+          isPlainYmd(era.startDate) &&
+          isPlainYmd(era.endDate) &&
+          era.endDate.slice(0, 10) >= era.startDate.slice(0, 10)
+      )
+    : []
+
+  if (
+    eras.length === 0 &&
+    prefs?.customDefaultLeaseDates &&
+    isPlainYmd(prefs.defaultLeaseStartDate) &&
+    isPlainYmd(prefs.defaultLeaseEndDate) &&
+    prefs.defaultLeaseEndDate.slice(0, 10) >= prefs.defaultLeaseStartDate.slice(0, 10)
+  ) {
+    return [
+      {
+        id: 'legacy-custom-default',
+        startDate: prefs.defaultLeaseStartDate.slice(0, 10),
+        endDate: prefs.defaultLeaseEndDate.slice(0, 10),
+        label: 'Custom lease era',
+      },
+    ]
+  }
+
+  return eras.map((era) => ({
+    id: era.id,
+    startDate: era.startDate.slice(0, 10),
+    endDate: era.endDate.slice(0, 10),
+    label: typeof era.label === 'string' && era.label.trim() ? era.label.trim() : undefined,
+  }))
+}
+
+export function seasonalLeaseOptionId(months) {
+  return `seasonal-${months}`
+}
+
+export function formatCustomLeaseEraLabel(era) {
+  if (era?.label && String(era.label).trim()) return String(era.label).trim()
+  const months = monthsBetweenLeaseDates(era.startDate, era.endDate)
+  return `${era.startDate.slice(0, 10)} – ${era.endDate.slice(0, 10)} (${formatLeaseLengthLabel(months)})`
+}
+
+/**
+ * Seasonal length options (6/12/18/24) plus landlord custom lease eras.
+ */
+export function listDefaultLeaseOptions(prefs, asOf = new Date()) {
+  const seasonalStart = computeLeaseStartDate(asOf)
+  const seasonal = LEASE_LENGTH_OPTIONS.map((months) => {
+    const leaseEndDate = computeLeaseEndDate(seasonalStart, months)
+    return {
+      id: seasonalLeaseOptionId(months),
+      kind: 'seasonal',
+      label: formatLeaseLengthLabel(months),
+      detail: `${seasonalStart} – ${leaseEndDate}`,
+      leaseStartDate: seasonalStart,
+      leaseEndDate,
+      leaseLengthMonths: months,
+    }
+  })
+
+  const custom = normalizeCustomLeaseEras(prefs).map((era) => {
+    const leaseStartDate = era.startDate.slice(0, 10)
+    const leaseEndDate = era.endDate.slice(0, 10)
+    const leaseLengthMonths = monthsBetweenLeaseDates(leaseStartDate, leaseEndDate)
+    return {
+      id: era.id,
+      kind: 'custom',
+      label: formatCustomLeaseEraLabel(era),
+      detail: `${leaseStartDate} – ${leaseEndDate}`,
+      leaseStartDate,
+      leaseEndDate,
+      leaseLengthMonths,
+    }
+  })
+
+  return [...seasonal, ...custom]
+}
+
+export function findDefaultLeaseOption(prefs, optionId, asOf = new Date()) {
+  if (!optionId || !String(optionId).trim()) return undefined
+  return listDefaultLeaseOptions(prefs, asOf).find((option) => option.id === optionId)
+}
+
+/**
  * Resolve start/end for newly generated leases.
- * Seasonal Jan 1 / Aug 1 defaults unless the landlord enabled custom calendar dates.
+ * Prefer an explicit option id when provided; otherwise seasonal Jan 1 / Aug 1
+ * (or a legacy single custom pair when still enabled).
  * Existing leases are never rewritten by this helper.
  */
-export function resolveDefaultLeaseDates(prefs, leaseLengthMonths = DEFAULT_LEASE_LENGTH_MONTHS, asOf = new Date()) {
+export function resolveDefaultLeaseDates(
+  prefs,
+  leaseLengthMonths = DEFAULT_LEASE_LENGTH_MONTHS,
+  asOf = new Date(),
+  optionId
+) {
+  if (optionId && String(optionId).trim()) {
+    const option = findDefaultLeaseOption(prefs, optionId, asOf)
+    if (option) {
+      return {
+        leaseStartDate: option.leaseStartDate,
+        leaseEndDate: option.leaseEndDate,
+        leaseLengthMonths: option.leaseLengthMonths,
+        usedCustomDates: option.kind === 'custom',
+      }
+    }
+  }
+
   const months = parseLeaseLengthMonths(leaseLengthMonths)
 
   if (

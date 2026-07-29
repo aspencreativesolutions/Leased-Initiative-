@@ -11,18 +11,15 @@ import {
 
 const stateStyles: Record<LeaseTimelineState, string> = {
   Active:
-    'lease-status-badge--active bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)] [--lease-tag-stroke:var(--deposit-border)]',
+    'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
   // Ending Soon shares Active green — Official Tenants only shows Active / Upcoming by default.
   'Ending Soon':
-    'lease-status-badge--active bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)] [--lease-tag-stroke:var(--deposit-border)]',
-  Upcoming:
-    'bg-surface text-ink-muted [--lease-tag-stroke:color-mix(in_srgb,var(--ink)_15%,transparent)]',
-  Expired:
-    'bg-transparent text-ink-faint [--lease-tag-stroke:var(--line)]',
+    'lease-status-badge--active border-[color:var(--deposit-border)] bg-[color:var(--deposit-bg)] text-[color:var(--deposit-fg)]',
+  Upcoming: 'border-ink/20 bg-surface text-ink-muted',
+  Expired: 'border-[color:var(--line)] bg-transparent text-ink-faint',
 }
 
-const awaitingDepositStyles =
-  'bg-accent-light text-accent [--lease-tag-stroke:color-mix(in_srgb,var(--accent)_35%,transparent)]'
+const awaitingDepositStyles = 'border-accent/40 bg-accent-light text-accent'
 
 interface LeaseStatusBadgeProps {
   details: LeaseStatusDetails
@@ -130,7 +127,7 @@ export function LeaseStatusBadge({
   const tagShell = cn(
     'in-place-hover--lease-tag',
     'items-center justify-center text-center',
-    'rounded-[var(--radius-sm)]',
+    'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
     'text-[10px] font-bold leading-none tracking-tight tabular-nums',
     'transition-colors duration-150',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
@@ -141,23 +138,25 @@ export function LeaseStatusBadge({
       ? awaitingDepositStyles
       : state
         ? stateStyles[state]
-        : 'bg-surface text-ink-muted [--lease-tag-stroke:color-mix(in_srgb,var(--ink)_15%,transparent)]',
+        : 'border-ink/20 bg-surface text-ink-muted',
     nudge && 'lease-status-badge--nudge',
     className
   )
 
   const tagLayerClass =
-    'in-place-hover__lease-label text-center text-[10px] font-bold tracking-tight'
+    'in-place-hover__lease-label text-center text-[10px] font-bold leading-none tracking-tight'
   const leadingIcon = leaseStatusLeadingIcon(details)
 
   if (!hoverDetail) {
     return (
-      <span className={cn(tagShell, 'inline-flex')}>
-        <span className={tagLayerClass}>
-          {leadingIcon}
-          {label}
+      <div className="lease-status-badge-wrap min-w-0 max-w-full">
+        <span className={cn(tagShell, 'inline-flex')}>
+          <span className={tagLayerClass}>
+            {leadingIcon}
+            {label}
+          </span>
         </span>
-      </span>
+      </div>
     )
   }
 

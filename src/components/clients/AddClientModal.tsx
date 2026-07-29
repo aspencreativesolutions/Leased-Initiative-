@@ -10,17 +10,17 @@ import { paymentMethodsTextForProvider } from '@/lib/paymentProvider'
 import { findPropertyByAddress } from '@/lib/properties'
 import { buildResidentialLeaseFields } from '@/lib/residentialLeaseTemplate'
 import {
-  computeLeaseEndDate,
   DEFAULT_LEASE_LENGTH_MONTHS,
+  findDefaultLeaseOption,
   formatLeaseLengthLabel,
-  LEASE_LENGTH_OPTIONS,
-  listUpcomingSeasonalLeaseStarts,
+  listDefaultLeaseOptions,
   resolveScheduleAsOf,
-  type LeaseLengthMonths,
+  seasonalLeaseOptionId,
 } from '@/lib/leaseSchedule'
 import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
 import { generateId } from '@/lib/storage'
 import { requestLeaseAgreementPreview } from '@/lib/leaseAgreementPreview'
+import { formatDate } from '@/lib/utils'
 import type { BusinessSettings, Client, ContractData, ProjectType, Property } from '@/types'
 
 const EMPTY_FORM = {
@@ -28,11 +28,13 @@ const EMPTY_FORM = {
   email: '',
   phone: '',
   propertyAddress: '',
-  leaseStartDate: '',
-  leaseLengthMonths: String(DEFAULT_LEASE_LENGTH_MONTHS),
+  leaseOptionId: seasonalLeaseOptionId(DEFAULT_LEASE_LENGTH_MONTHS),
 }
 
-export type AddClientInitialValues = Partial<typeof EMPTY_FORM>
+export type AddClientInitialValues = Partial<typeof EMPTY_FORM> & {
+  leaseStartDate?: string
+  leaseLengthMonths?: string
+}
 
 interface AddClientModalProps {
   open: boolean
@@ -125,9 +127,12 @@ export function AddClientModal({
   const navigate = useNavigate()
   const location = useLocation()
   const { properties, settings, addClientWithContract } = useApp()
-  const seasonalStarts = listUpcomingSeasonalLeaseStarts(resolveScheduleAsOf())
-  const defaultStart = seasonalStarts[0]?.date ?? ''
-  const [form, setForm] = useState({ ...EMPTY_FORM, leaseStartDate: defaultStart })
+  const leaseOptions = useMemo(
+    () => listDefaultLeaseOptions(settings, resolveScheduleAsOf()),
+    [settings]
+  )
+  const defaultOptionId = seasonalLeaseOptionId(DEFAULT_LEASE_LENGTH_MONTHS)
+  const [form, setForm] = useState({ ...EMPTY_FORM, leaseOptionId: defaultOptionId })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -140,20 +145,53 @@ export function AddClientModal({
     [properties]
   )
 
+  const resolveInitialOptionId = () => {
+    if (initialValues?.leaseOptionId) {
+      const match = findDefaultLeaseOption(
+        settings,
+        initialValues.leaseOptionId,
+        resolveScheduleAsOf()
+      )
+      if (match) return match.id
+    }
+    if (initialValues?.leaseStartDate && initialValues?.leaseLengthMonths) {
+      const months = Number(initialValues.leaseLengthMonths)
+      const seasonalId = seasonalLeaseOptionId(months)
+      if (leaseOptions.some((option) => option.id === seasonalId)) return seasonalId
+      const custom = leaseOptions.find(
+        (option) =>
+          option.kind === 'custom' &&
+          option.leaseStartDate === initialValues.leaseStartDate &&
+          option.leaseLengthMonths === months
+      )
+      if (custom) return custom.id
+    }
+    return defaultOptionId
+  }
+
   useEffect(() => {
     if (!open) return
-    const starts = listUpcomingSeasonalLeaseStarts(resolveScheduleAsOf())
     setForm({
       ...EMPTY_FORM,
       ...initialValues,
-      leaseStartDate: initialValues?.leaseStartDate || starts[0]?.date || '',
+      leaseOptionId: resolveInitialOptionId(),
     })
     setError('')
     setSubmitting(false)
   }, [open, initialValues])
 
   const update = (field: string, value: string) =>
-    setForm((f) => ({ ...f, [field]: value }))
+    setForm((f) => {
+      const next = { ...f, [field]: value }
+      if (field === 'propertyAddress') {
+        const property = findPropertyByAddress(properties, value)
+        const propertyOption = property?.defaultLeaseOptionId?.trim()
+        if (propertyOption && leaseOptions.some((option) => option.id === propertyOption)) {
+          next.leaseOptionId = propertyOption
+        }
+      }
+      return next
+    })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,13 +200,19 @@ export function AddClientModal({
       setError('Choose a property address.')
       return
     }
-    if (!form.leaseStartDate) {
-      setError('Choose a lease start date.')
+    const selected = findDefaultLeaseOption(
+      settings,
+      form.leaseOptionId,
+      resolveScheduleAsOf()
+    )
+    if (!selected) {
+      setError('Choose a default lease option.')
       return
     }
 
-    const leaseLengthMonths = Number(form.leaseLengthMonths) as LeaseLengthMonths
-    const leaseEndDate = computeLeaseEndDate(form.leaseStartDate, leaseLengthMonths)
+    const leaseStartDate = selected.leaseStartDate
+    const leaseEndDate = selected.leaseEndDate
+    const leaseLengthMonths = selected.leaseLengthMonths
     const property = findPropertyByAddress(properties, address) ?? null
 
     setSubmitting(true)
@@ -196,7 +240,7 @@ export function AddClientModal({
             client,
             settings,
             property,
-            form.leaseStartDate,
+            leaseStartDate,
             leaseEndDate,
             leaseLengthMonths
           )
@@ -282,31 +326,40 @@ export function AddClientModal({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
-            label="Lease Start Date"
-            name="leaseStartDate"
+            label="Default lease option"
+            name="leaseOptionId"
             required
-            value={form.leaseStartDate}
-            onChange={(e) => update('leaseStartDate', e.target.value)}
+            value={form.leaseOptionId}
+            onChange={(e) => update('leaseOptionId', e.target.value)}
+            hint="Seasonal lengths and custom eras from Settings → Lease Defaults"
           >
-            {seasonalStarts.map((option) => (
-              <option key={option.date} value={option.date}>
-                {option.label}
+            {leaseOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.kind === 'custom'
+                  ? `Custom · ${option.label}`
+                  : `${formatLeaseLengthLabel(option.leaseLengthMonths)} · ${formatDate(option.leaseStartDate)} – ${formatDate(option.leaseEndDate)}`}
               </option>
             ))}
           </Select>
-          <Select
-            label="Lease Duration"
-            name="leaseLengthMonths"
-            required
-            value={form.leaseLengthMonths}
-            onChange={(e) => update('leaseLengthMonths', e.target.value)}
-          >
-            {LEASE_LENGTH_OPTIONS.map((months) => (
-              <option key={months} value={months}>
-                {formatLeaseLengthLabel(months)}
-              </option>
-            ))}
-          </Select>
+          <div className="rounded-sm border border-line bg-surface px-3 py-2.5 text-sm text-ink-muted sm:self-end">
+            {(() => {
+              const selected = findDefaultLeaseOption(
+                settings,
+                form.leaseOptionId,
+                resolveScheduleAsOf()
+              )
+              if (!selected) return 'Select a lease option to preview dates.'
+              return (
+                <>
+                  Term:{' '}
+                  <span className="font-medium text-ink">
+                    {formatDate(selected.leaseStartDate)} – {formatDate(selected.leaseEndDate)}
+                  </span>{' '}
+                  ({formatLeaseLengthLabel(selected.leaseLengthMonths)})
+                </>
+              )
+            })()}
+          </div>
         </div>
 
         <p className="rounded-sm border border-line bg-surface px-3 py-2.5 text-sm text-ink-muted">

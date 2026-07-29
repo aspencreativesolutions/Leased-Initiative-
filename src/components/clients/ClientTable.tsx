@@ -3,6 +3,7 @@ import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { RemoveClientModal } from './RemoveClientModal'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
@@ -16,13 +17,6 @@ import {
   getTenantAddress,
   isAwaitingDeposit,
 } from '@/lib/clientUtils'
-import {
-  cycleOfficialTenantContactDisplayMode,
-  getOfficialTenantContactDisplayValue,
-  loadOfficialTenantContactDisplayMode,
-  saveOfficialTenantContactDisplayMode,
-  type OfficialTenantContactDisplayMode,
-} from '@/lib/officialTenantContactDisplay'
 import {
   getOfficialTenantLocationDisplayValue,
   getTenantAssignedProperty,
@@ -69,8 +63,6 @@ interface ClientTableProps {
   onArrangeDone?: () => void
   columnOrder?: TenantTableColumnId[]
   onColumnOrderChange?: (order: TenantTableColumnId[]) => void
-  contactDisplayMode?: OfficialTenantContactDisplayMode
-  onContactDisplayModeChange?: (mode: OfficialTenantContactDisplayMode) => void
   /** Mobile tiles per row (1 or 2). Defaults to the shared persisted preference. */
   mobileTileColumns?: MobileTileColumns
   onMobileTileColumnsChange?: (columns: MobileTileColumns) => void
@@ -84,6 +76,11 @@ interface ClientTableProps {
    * Off by default — Display Settings control; not a table column.
    */
   showOccupancyStatus?: boolean
+  /**
+   * Parent already frames the table (e.g. dashboard Card matching Display Settings).
+   * Skips the spreadsheet’s own border/radius so the outer frame is the only chrome.
+   */
+  framed?: boolean
   /** Opens Tenant Details for the selected official tenant. */
   onOpenTenantDetails: (tenantId: string) => void
 }
@@ -135,8 +132,6 @@ function renderCell(
   client: Client,
   contract: ContractData | undefined,
   properties: Property[],
-  contactDisplayMode: OfficialTenantContactDisplayMode,
-  onCycleContactDisplay: () => void,
   onRemove: () => void,
   onOpenTenantDetails: (tenantId: string) => void,
   onConfirmPayment: (clientId: string) => void,
@@ -145,7 +140,6 @@ function renderCell(
   arrangeClassName = ''
 ): ReactNode {
   const addressValue = getFullPropertyAddress(client, contract, properties)
-  const contactValue = getOfficialTenantContactDisplayValue(client, contactDisplayMode)
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
   const occupancyProps = clientOccupancyTagProps(
@@ -172,20 +166,12 @@ function renderCell(
             >
               {client.name}
             </button>
+            <OfficialTenantContactLinks client={client} />
             {showOccupancyStatus ? (
               <div className="mt-1 empty:hidden">
                 <OccupancyPreferenceTag {...occupancyProps} />
               </div>
             ) : null}
-            <div className="mt-1">
-              <LeaseStatusBadge
-                details={leaseStatus}
-                onConfirmPayment={
-                  awaitingDeposit ? () => onConfirmPayment(client.id) : undefined
-                }
-                confirmingPayment={confirmingPayment}
-              />
-            </div>
           </div>
         </td>
       )
@@ -194,26 +180,18 @@ function renderCell(
         <td
           key={columnId}
           className={cn(
-            'hidden px-3 py-2.5 align-middle whitespace-normal break-words text-ink-muted transition-[background-color,box-shadow,opacity] md:table-cell sm:px-4',
+            'hidden px-3 py-2.5 align-middle transition-[background-color,box-shadow,opacity] md:table-cell sm:px-4',
             arrangeClassName
           )}
         >
-          <div className="flex min-w-0 items-center">
-            <button
-              type="button"
-              onClick={onCycleContactDisplay}
-              title={`Click to switch to ${contactDisplayMode === 'email' ? 'phone' : 'email'}`}
-              aria-label={`${contactValue}. Click to switch between email and phone`}
-              className={cn(
-                'min-w-0 max-w-full break-words rounded-sm text-left transition-colors duration-150',
-                'hover:bg-ink/[0.06] hover:text-ink',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45 focus-visible:ring-offset-1 focus-visible:ring-offset-surface'
-              )}
-            >
-              <span key={contactDisplayMode} className="location-display-fade">
-                {contactValue}
-              </span>
-            </button>
+          <div className="min-w-0 overflow-visible">
+            <LeaseStatusBadge
+              details={leaseStatus}
+              onConfirmPayment={
+                awaitingDeposit ? () => onConfirmPayment(client.id) : undefined
+              }
+              confirmingPayment={confirmingPayment}
+            />
           </div>
         </td>
       )
@@ -319,12 +297,11 @@ export function ClientTable({
   onArrangeDone,
   columnOrder: controlledOrder,
   onColumnOrderChange,
-  contactDisplayMode: controlledContactMode,
-  onContactDisplayModeChange,
   mobileTileColumns: controlledMobileColumns,
   onMobileTileColumnsChange: _onMobileTileColumnsChange,
   tileScaleFactor,
   showOccupancyStatus = false,
+  framed = false,
   onOpenTenantDetails,
 }: ClientTableProps) {
   const { getContractForClient, refresh, properties } = useApp()
@@ -332,13 +309,9 @@ export function ClientTable({
   const [confirmingClientId, setConfirmingClientId] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState('')
   const [uncontrolledOrder, setUncontrolledOrder] = useState(loadTenantTableColumnOrder)
-  const [uncontrolledContactMode, setUncontrolledContactMode] = useState(
-    loadOfficialTenantContactDisplayMode
-  )
   const { columns: uncontrolledMobileColumns } = useMobileTileColumns()
 
   const columnOrder = controlledOrder ?? uncontrolledOrder
-  const contactDisplayMode = controlledContactMode ?? uncontrolledContactMode
   const mobileTileColumns = controlledMobileColumns ?? uncontrolledMobileColumns
 
   const handleConfirmPayment = async (clientId: string) => {
@@ -379,13 +352,6 @@ export function ClientTable({
     moveColumn: moveTenantTableColumn,
     isPinned: (id) => id === 'actions',
   })
-
-  const cycleContactDisplay = () => {
-    const next = cycleOfficialTenantContactDisplayMode(contactDisplayMode)
-    saveOfficialTenantContactDisplayMode(next)
-    if (onContactDisplayModeChange) onContactDisplayModeChange(next)
-    else setUncontrolledContactMode(next)
-  }
 
   if (clients.length === 0) {
     return null
@@ -429,7 +395,13 @@ export function ClientTable({
   const tilesHiddenClass =
     showTiles === false ? 'hidden' : showTiles === null ? 'md:hidden' : undefined
   const tileGrid = (
-    <div className={cn('min-w-0', sectionTileGridClassName(mobileTileColumns))}>
+    <div
+      className={cn(
+        'min-w-0',
+        sectionTileGridClassName(mobileTileColumns),
+        'section-tile-grid--fill'
+      )}
+    >
       {clients.map((client) => {
         const highlighted =
           highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
@@ -441,8 +413,6 @@ export function ClientTable({
             client={client}
             contract={getContractForClient(client.id)}
             properties={properties}
-            contactDisplayMode={contactDisplayMode}
-            onCycleContactDisplay={cycleContactDisplay}
             highlighted={highlighted}
             dimmed={dimmed}
             showOccupancyStatus={showOccupancyStatus}
@@ -476,7 +446,9 @@ export function ClientTable({
 
       <div
         className={cn(
-          'min-w-0 overflow-hidden rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
+          'min-w-0 overflow-hidden',
+          !framed &&
+            'rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-[color:var(--card-border,var(--line))] bg-surface-paper',
           showSpreadsheet === false && 'hidden',
           showSpreadsheet === null && 'hidden md:block',
           showSpreadsheet === true && 'block'
@@ -589,8 +561,6 @@ export function ClientTable({
                         client,
                         contract,
                         properties,
-                        contactDisplayMode,
-                        cycleContactDisplay,
                         () => setRemoveTarget(client),
                         onOpenTenantDetails,
                         handleConfirmPayment,

@@ -344,6 +344,7 @@ export function createPropertyRecord({
   addressDetails,
   addressConfirmed,
   units,
+  defaultLeaseOptionId,
 }) {
   const unitsCount = Number(unitCount)
   const beds = Number(bedrooms)
@@ -382,6 +383,9 @@ export function createPropertyRecord({
   if (Array.isArray(units) && units.length > 0) {
     record.units = units
   }
+  const leaseOption =
+    typeof defaultLeaseOptionId === 'string' ? defaultLeaseOptionId.trim() : ''
+  if (leaseOption) record.defaultLeaseOptionId = leaseOption
   const explicitRent = normalizeOptionalPositiveNumber(monthlyRent)
   record.monthlyRent =
     explicitRent != null
@@ -484,6 +488,15 @@ export function updatePropertyRecord(existing, updates) {
   }
   if (updates.entireHomeOnly !== undefined) {
     merged.entireHomeOnly = updates.entireHomeOnly === true
+  }
+  if (updates.defaultLeaseOptionId !== undefined) {
+    if (updates.defaultLeaseOptionId === null || updates.defaultLeaseOptionId === '') {
+      delete merged.defaultLeaseOptionId
+    } else {
+      const optionId = String(updates.defaultLeaseOptionId).trim()
+      if (optionId) merged.defaultLeaseOptionId = optionId
+      else delete merged.defaultLeaseOptionId
+    }
   }
   if (updates.addressDetails !== undefined) {
     const details = normalizeAddressDetails(updates.addressDetails)
@@ -752,6 +765,9 @@ export function validatePropertyInput(body) {
   }
   const utilitiesIncluded = body?.utilitiesIncluded === true
   const entireHomeOnly = body?.entireHomeOnly === true
+  const defaultLeaseOptionRaw =
+    body?.defaultLeaseOptionId == null ? '' : String(body.defaultLeaseOptionId).trim()
+  const defaultLeaseOptionId = defaultLeaseOptionRaw || null
 
   return {
     address,
@@ -766,6 +782,7 @@ export function validatePropertyInput(body) {
     ...(bedroomsLayout ? { bedroomsLayout } : {}),
     ...(monthlyRent != null ? { monthlyRent } : {}),
     ...(depositAmount !== undefined ? { depositAmount } : {}),
+    ...(body?.defaultLeaseOptionId !== undefined ? { defaultLeaseOptionId } : {}),
     addressConfirmed: true,
     addressDetails: normalizeAddressDetails(body?.addressDetails),
     ...(importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),
