@@ -1,11 +1,14 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import {
   DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT,
@@ -72,6 +75,8 @@ function scopeMatches(
 /**
  * Overflow menu for portal / studio top bars.
  * Parent controls viewport visibility (e.g. `md:hidden` for mobile-only).
+ * The panel is portaled to `document.body` so sticky navs and overflow clips
+ * never tuck it behind page chrome.
  */
 export function NavActionsMenu({
   items,
@@ -85,9 +90,11 @@ export function NavActionsMenu({
   const menuId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [open, setOpen] = useState(false)
   const [tourNoticeActive, setTourNoticeActive] = useState(false)
+  const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null)
 
   const flatItems = flattenItems(sections, items)
 
@@ -115,6 +122,47 @@ export function NavActionsMenu({
     return () => window.removeEventListener(DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT, onHighlight)
   }, [tourNoticeScope])
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setPanelStyle(null)
+      return
+    }
+
+    const updatePosition = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      // Hidden twin (mobile vs desktop) — don't leave a floating portaled panel.
+      if (rect.width < 1 && rect.height < 1) {
+        if (!tourNoticeActive) setOpen(false)
+        return
+      }
+      const gap = 6.4
+      const sidePad = 12
+      const maxWidth = tourNoticeActive
+        ? Math.min(14.5 * 16, window.innerWidth - 7.75 * 16)
+        : window.innerWidth - sidePad * 2
+
+      let right = window.innerWidth - rect.right
+      right = Math.max(sidePad, Math.min(right, window.innerWidth - sidePad - 8))
+
+      setPanelStyle({
+        top: Math.min(rect.bottom + gap, window.innerHeight - sidePad),
+        right,
+        maxWidth: `min(${maxWidth}px, calc(100vw - 1.5rem))`,
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    // Capture scroll from nested overflow containers (portal toolbar, etc.).
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open, tourNoticeActive])
+
   useEffect(() => {
     if (!open) return
 
@@ -122,6 +170,7 @@ export function NavActionsMenu({
       if (tourNoticeActive) return
       const target = event.target as Node | null
       if (target && rootRef.current?.contains(target)) return
+      if (target && panelRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKey = (event: KeyboardEvent) => {
@@ -148,10 +197,8 @@ export function NavActionsMenu({
       const frame = window.requestAnimationFrame(() => {
         // Scroll only inside the menu panel — never the document (that left
         // landlord demo landings mid-page when "Take the tour" was revealed).
-        const tourBtn = rootRef.current?.querySelector<HTMLElement>('[data-menu-item="tour"]')
-        const scrollParent = rootRef.current?.querySelector<HTMLElement>(
-          '[role="menu"] .overflow-y-auto'
-        )
+        const tourBtn = panelRef.current?.querySelector<HTMLElement>('[data-menu-item="tour"]')
+        const scrollParent = panelRef.current?.querySelector<HTMLElement>('.overflow-y-auto')
         if (tourBtn && scrollParent) {
           const btnRect = tourBtn.getBoundingClientRect()
           const parentRect = scrollParent.getBoundingClientRect()
@@ -243,10 +290,59 @@ export function NavActionsMenu({
     )
   }
 
+  const menuPanel =
+    open && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={panelRef}
+            id={menuId}
+            role="menu"
+            aria-label={label}
+            onKeyDown={onMenuKeyDown}
+            data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
+            className={cn(
+              // Above sticky navs, page chrome, live-update beacon, and tour overlays.
+              'fixed z-[220] w-fit overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
+              !panelStyle && 'invisible',
+              tourNoticeActive &&
+                'demo-tour-notice-panel max-w-[min(14.5rem,calc(100vw-7.75rem))]'
+            )}
+            style={panelStyle ?? { top: 0, right: 0 }}
+          >
+            <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1">
+              {header ? <div className="mb-1.5 border-b border-line px-2.5 py-2">{header}</div> : null}
+
+              {sections?.length ? (
+                <div className="flex w-fit min-w-0 flex-col gap-0.5">
+                  {sections.map((section, sectionIndex) => (
+                    <div key={section.id} className="w-fit min-w-0">
+                      {sectionIndex > 0 ? (
+                        <div className="mx-2 my-1 border-t border-line" role="separator" />
+                      ) : null}
+                      <p className="whitespace-pre-line px-2.5 pb-0.5 pt-1 text-[10px] font-semibold uppercase leading-tight tracking-caps text-ink-muted">
+                        {section.label}
+                      </p>
+                      <ul className="flex flex-col gap-0.5" role="none">
+                        {section.items.map(renderItem)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-0.5" role="none">
+                  {(items ?? []).map(renderItem)}
+                </ul>
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      : null
+
   return (
     <div
       ref={rootRef}
-      className={cn('relative shrink-0', className)}
+      className={cn('relative shrink-0', open && 'z-[220]', className)}
       data-tour-notice-menu={tourNoticeActive ? 'true' : undefined}
     >
       <button
@@ -278,47 +374,7 @@ export function NavActionsMenu({
         />
       </button>
 
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label={label}
-          onKeyDown={onMenuKeyDown}
-          data-tour-notice-panel={tourNoticeActive ? 'true' : undefined}
-          className={cn(
-            'absolute right-0 top-[calc(100%+0.4rem)] z-50 w-fit max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper text-ink shadow-[0_16px_48px_-20px_rgb(0_0_0_/_0.45)]',
-            // Leave room for the Explore notice card beside the menu on phones.
-            tourNoticeActive &&
-              'z-[96] demo-tour-notice-panel max-w-[min(14.5rem,calc(100vw-7.75rem))]'
-          )}
-        >
-          <div className="max-h-[min(70vh,28rem)] overflow-x-hidden overflow-y-auto overscroll-contain p-1">
-            {header ? <div className="mb-1.5 border-b border-line px-2.5 py-2">{header}</div> : null}
-
-            {sections?.length ? (
-              <div className="flex w-fit min-w-0 flex-col gap-0.5">
-                {sections.map((section, sectionIndex) => (
-                  <div key={section.id} className="w-fit min-w-0">
-                    {sectionIndex > 0 ? (
-                      <div className="mx-2 my-1 border-t border-line" role="separator" />
-                    ) : null}
-                    <p className="whitespace-pre-line px-2.5 pb-0.5 pt-1 text-[10px] font-semibold uppercase leading-tight tracking-caps text-ink-muted">
-                      {section.label}
-                    </p>
-                    <ul className="flex flex-col gap-0.5" role="none">
-                      {section.items.map(renderItem)}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <ul className="flex flex-col gap-0.5" role="none">
-                {(items ?? []).map(renderItem)}
-              </ul>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {menuPanel}
     </div>
   )
 }

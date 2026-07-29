@@ -12,6 +12,7 @@ import {
   writeCachedLiveUpdateEnabled,
   writeLiveUpdateBaseline,
 } from '@/lib/liveUpdate'
+import { isPublicDemoSession, PUBLIC_DEMO_SESSION_KEY } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 /**
@@ -19,7 +20,8 @@ import { cn } from '@/lib/utils'
  * The glowing red dot stays until the admin turns the feature off — above notices,
  * through refreshes, and through brief API blips. Every page load / refresh opens an
  * explanation; dismiss closes it for this view only (click the dot to reopen).
- * When a new build is ready, the explanation offers Refresh.
+ * When a new build is ready, the glowing indicator becomes a refresh button so
+ * visitors can reload in place (demo session stays intact).
  */
 export function LiveUpdateIndicator() {
   const [enabled, setEnabled] = useState(() => readCachedLiveUpdateEnabled())
@@ -144,6 +146,15 @@ export function LiveUpdateIndicator() {
       await new Promise((resolve) => window.setTimeout(resolve, 400))
     }
 
+    // Re-assert demo session so a mid-refresh storage quirk cannot drop immersion.
+    if (isPublicDemoSession()) {
+      try {
+        sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
+      } catch {
+        /* ignore */
+      }
+    }
+
     const version = await fetchLiveUpdateVersion()
     if (version) writeLiveUpdateBaseline(version)
     // Keep the exact path/query/hash the visitor was on.
@@ -154,26 +165,36 @@ export function LiveUpdateIndicator() {
 
   return (
     <>
-      {/* Beacon sits above the notice overlay so the glowing dot is always visible. */}
+      {/* Beacon sits above the notice overlay so the glowing control is always visible. */}
       <div className="pointer-events-none fixed left-3 top-3 z-[110] flex items-start gap-2">
-        <button
-          type="button"
-          onClick={openNotice}
-          className={cn(
-            'live-update-dot pointer-events-auto cursor-pointer border-0 p-0',
-            updateAvailable && 'live-update-dot--update-ready'
-          )}
-          aria-label={
-            updateAvailable
-              ? 'Live updates available — click for details'
-              : 'Live updates in progress — click for details'
-          }
-          title={
-            updateAvailable
-              ? 'New update ready — click for details'
-              : 'Live updates — click for details'
-          }
-        />
+        {updateAvailable ? (
+          <button
+            type="button"
+            onClick={() => {
+              void handleRefresh()
+            }}
+            disabled={refreshing}
+            className="live-update-refresh pointer-events-auto"
+            aria-label={
+              refreshing ? 'Refreshing to load live updates' : 'Refresh to load live updates'
+            }
+            title={refreshing ? 'Refreshing…' : 'New update ready — refresh'}
+          >
+            <RefreshCw
+              className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={openNotice}
+            className="live-update-dot pointer-events-auto cursor-pointer border-0 p-0"
+            aria-label="Live updates in progress — click for details"
+            title="Live updates — click for details"
+          />
+        )}
       </div>
 
       {noticeOpen ? (
@@ -198,12 +219,13 @@ export function LiveUpdateIndicator() {
           >
             <div className="flex items-start gap-2">
               <span className="mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
-                <span
-                  className={cn(
-                    'live-update-dot',
-                    updateAvailable && 'live-update-dot--update-ready'
-                  )}
-                />
+                {updateAvailable ? (
+                  <span className="live-update-refresh live-update-refresh--inline">
+                    <RefreshCw className="h-2.5 w-2.5" strokeWidth={2.5} />
+                  </span>
+                ) : (
+                  <span className="live-update-dot" />
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <h2 id={noticeTitleId} className="text-sm font-semibold text-ink">
