@@ -9,35 +9,37 @@ import {
   fetchPublicLiveUpdateStatus,
   readCachedLiveUpdateEnabled,
   readLiveUpdateBaseline,
+  readLiveUpdateNoticeSeen,
   writeCachedLiveUpdateEnabled,
   writeLiveUpdateBaseline,
+  writeLiveUpdateNoticeSeen,
 } from '@/lib/liveUpdate'
 import { isPublicDemoSession, PUBLIC_DEMO_SESSION_KEY } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 /**
  * Top-left live-update beacon for all visitors while Admin Mode has live updates on.
- * The glowing red dot stays until the admin turns the feature off — above notices,
- * through refreshes, and through brief API blips. Every page load / refresh opens an
- * explanation; dismiss closes it for this view only (click the dot to reopen).
- * When a new build is ready, the glowing indicator becomes a refresh button so
- * visitors can reload in place (demo session stays intact).
+ * The glowing red dot stays visible until the admin turns the feature off — through
+ * refreshes, route changes, and brief API blips. The explanation opens once when
+ * live updates first turns on (or when the visitor clicks the dot); “Got it” keeps
+ * it dismissed across reloads until they open it again. When a new build is ready,
+ * the indicator becomes a refresh button that reloads in place without leaving the
+ * current page / demo session.
  */
 export function LiveUpdateIndicator() {
   const [enabled, setEnabled] = useState(() => readCachedLiveUpdateEnabled())
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const noticedThisLoadRef = useRef(false)
+  const wasEnabledRef = useRef(readCachedLiveUpdateEnabled())
   const noticeTitleId = useId()
   const noticeDescId = useId()
 
-  const turnOn = useCallback((openNotice: boolean) => {
+  const turnOn = useCallback((openNoticeIfUnseen: boolean) => {
     writeCachedLiveUpdateEnabled(true)
     setEnabled(true)
-    if (openNotice && !noticedThisLoadRef.current) {
-      noticedThisLoadRef.current = true
-      clearLiveUpdateNoticeSeen()
+    wasEnabledRef.current = true
+    if (openNoticeIfUnseen && !readLiveUpdateNoticeSeen()) {
       setNoticeOpen(true)
     }
   }, [])
@@ -45,10 +47,11 @@ export function LiveUpdateIndicator() {
   const turnOff = useCallback(() => {
     writeCachedLiveUpdateEnabled(false)
     clearLiveUpdateBaseline()
+    clearLiveUpdateNoticeSeen()
+    wasEnabledRef.current = false
     setEnabled(false)
     setUpdateAvailable(false)
     setNoticeOpen(false)
-    noticedThisLoadRef.current = false
   }, [])
 
   const sync = useCallback(async () => {
@@ -60,11 +63,17 @@ export function LiveUpdateIndicator() {
         return
       }
 
-      turnOn(!noticedThisLoadRef.current)
+      // Fresh on-cycle (missed an off→on while this tab was open): allow one notice.
+      if (!wasEnabledRef.current) {
+        clearLiveUpdateNoticeSeen()
+      }
+
+      // Keep the beacon on; only auto-open the explanation if it hasn’t been dismissed.
+      turnOn(true)
 
       const version = await fetchLiveUpdateVersion()
       if (!version) {
-        setUpdateAvailable(false)
+        // Keep last known update-available state if the version endpoint blips.
         return
       }
 
@@ -82,11 +91,13 @@ export function LiveUpdateIndicator() {
   }, [turnOff, turnOn])
 
   useEffect(() => {
-    // Cached-on: show the load notice immediately, then confirm with the server.
-    if (readCachedLiveUpdateEnabled() && !noticedThisLoadRef.current) {
-      noticedThisLoadRef.current = true
-      clearLiveUpdateNoticeSeen()
-      setNoticeOpen(true)
+    // Cached-on: show the beacon immediately. Only auto-open the explanation if
+    // the visitor has not dismissed it yet for this live-update cycle.
+    if (readCachedLiveUpdateEnabled()) {
+      setEnabled(true)
+      if (!readLiveUpdateNoticeSeen()) {
+        setNoticeOpen(true)
+      }
     }
     void sync()
     const interval = window.setInterval(() => {
@@ -115,8 +126,7 @@ export function LiveUpdateIndicator() {
         turnOff()
         return
       }
-      // Admin just turned live updates on — show the same warning visitors get.
-      noticedThisLoadRef.current = false
+      // Admin just turned live updates on — show the explanation once for this cycle.
       turnOn(true)
       void sync()
     }
@@ -125,6 +135,7 @@ export function LiveUpdateIndicator() {
   }, [sync, turnOff, turnOn])
 
   const dismissNotice = () => {
+    writeLiveUpdateNoticeSeen()
     setNoticeOpen(false)
   }
 

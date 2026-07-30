@@ -4,7 +4,10 @@ export const LIVE_UPDATE_POLL_MS = 4000
 export const LIVE_UPDATE_BASELINE_KEY = 'leased-live-update-baseline'
 /** Sticky client cache so the beacon stays up across reloads / brief API blips. */
 export const LIVE_UPDATE_ENABLED_CACHE_KEY = 'leased-live-update-enabled'
-/** Legacy key — cleared so refresh always re-shows the live-update notice. */
+/**
+ * After the visitor dismisses the explanation (“Got it”), persist so reloads and
+ * route changes do not reopen it. Cleared when live updates is turned off/on.
+ */
 export const LIVE_UPDATE_NOTICE_SEEN_KEY = 'leased-live-update-notice-seen'
 export const LIVE_UPDATE_CHANGED_EVENT = 'leased-live-update-changed'
 
@@ -33,10 +36,9 @@ export async function saveAdminLiveUpdateEnabled(enabled: boolean): Promise<Live
   const nextEnabled = Boolean(result.enabled)
   writeCachedLiveUpdateEnabled(nextEnabled)
   if (typeof window !== 'undefined') {
-    if (nextEnabled) {
-      // Drop any stale “seen” flags so the load/refresh notice can show.
-      clearLiveUpdateNoticeSeen()
-    } else {
+    // New on/off cycle: reset explanation so the next “on” can show it once.
+    clearLiveUpdateNoticeSeen()
+    if (!nextEnabled) {
       clearLiveUpdateBaseline()
     }
     window.dispatchEvent(
@@ -98,6 +100,23 @@ export function writeLiveUpdateBaseline(version: string): void {
 export function clearLiveUpdateBaseline(): void {
   try {
     sessionStorage.removeItem(LIVE_UPDATE_BASELINE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readLiveUpdateNoticeSeen(): boolean {
+  try {
+    return localStorage.getItem(LIVE_UPDATE_NOTICE_SEEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function writeLiveUpdateNoticeSeen(): void {
+  try {
+    localStorage.setItem(LIVE_UPDATE_NOTICE_SEEN_KEY, '1')
+    sessionStorage.removeItem(LIVE_UPDATE_NOTICE_SEEN_KEY)
   } catch {
     /* ignore */
   }
