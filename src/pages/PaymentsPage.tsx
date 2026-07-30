@@ -20,7 +20,10 @@ import {
   formatLeaseLengthLabel,
 } from '@/lib/leaseSchedule'
 import { paymentPartnerLogoByProvider } from '@/lib/paymentPartnerLogos'
-import { paymentProviderLabel } from '@/lib/paymentProvider'
+import {
+  paymentProviderLabel,
+  resolveLastTransactionPaymentProvider,
+} from '@/lib/paymentProvider'
 import {
   loadPaymentVisibleColumns,
   savePaymentVisibleColumns,
@@ -45,6 +48,7 @@ import {
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import { cn, formatDate } from '@/lib/utils'
 import { resolveLandlordSenderName } from '@/lib/publicDemo'
+import { confirmClientPayment } from '@/lib/timelineApi'
 import type { PaymentProvider } from '@/types'
 
 /** Bumped so the new 100% default applies for existing sessions. */
@@ -64,7 +68,7 @@ function readViewModePreference(): PaymentsViewMode {
   }
 }
 
-const PAYMENT_METHOD_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square']
+const PAYMENT_METHOD_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square', 'zelle']
 
 const filterButtonClass =
   'inline-flex h-9 items-center rounded-[var(--radius-sm)] border-2 px-3 text-[10px] font-semibold uppercase tracking-caps transition-colors shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
@@ -91,19 +95,15 @@ function TileDateMeta({
   )
 }
 
-/** Stable pseudo-random method so tiles don’t shuffle on re-render. */
-function paymentMethodForClient(clientId: string): PaymentProvider {
-  let hash = 0
-  for (let i = 0; i < clientId.length; i++) {
-    hash = (hash * 31 + clientId.charCodeAt(i)) >>> 0
-  }
-  return PAYMENT_METHOD_OPTIONS[hash % PAYMENT_METHOD_OPTIONS.length]
+/** Prefer lease contract provider; fall back to last paid invoice provider. */
+function paymentMethodForRow(row: TenantPaymentRow): PaymentProvider {
+  return resolveLastTransactionPaymentProvider(row.client, row.contract)
 }
 
 type PaymentRowWithMethod = TenantPaymentRow & { paymentMethod: PaymentProvider }
 
 export function PaymentsPage() {
-  const { clients, contracts, properties, settings, addNote } = useApp()
+  const { clients, contracts, properties, settings, addNote, refresh } = useApp()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
@@ -168,7 +168,7 @@ export function PaymentsPage() {
     )
     return buildTenantPaymentRows(officialClients, contracts, properties).map((row) => ({
       ...row,
-      paymentMethod: paymentMethodForClient(row.client.id),
+      paymentMethod: paymentMethodForRow(row),
     }))
   }, [clients, contracts, properties])
 
@@ -683,6 +683,40 @@ export function PaymentsPage() {
                         />
                       </div>
                     </Link>
+
+                    {row.client.rentInvoice?.zelleMarkedPaidAt &&
+                    !row.client.rentInvoice?.paidAt ? (
+                      <div className="payment-tile-card__message px-3 pb-3">
+                        <p className="mb-2 text-[11px] text-ink-muted">
+                          Tenant marked Zelle rent as sent
+                          {row.client.rentInvoice.zelleMemo
+                            ? ` · memo ${row.client.rentInvoice.zelleMemo}`
+                            : ''}
+                          . Confirm after funds arrive.
+                        </p>
+                        <button
+                          type="button"
+                          className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface px-3 text-[10px] font-semibold uppercase tracking-caps shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]"
+                          onClick={async () => {
+                            try {
+                              await confirmClientPayment(row.client.id, 'rent')
+                              await refresh()
+                              setSentFeedback((prev) => ({
+                                ...prev,
+                                [row.client.id]: 'Zelle rent confirmed.',
+                              }))
+                            } catch {
+                              setSentFeedback((prev) => ({
+                                ...prev,
+                                [row.client.id]: 'Could not confirm Zelle rent.',
+                              }))
+                            }
+                          }}
+                        >
+                          Confirm Zelle rent
+                        </button>
+                      </div>
+                    ) : null}
 
                     {showMessage && (
                       <div className="payment-tile-card__message">

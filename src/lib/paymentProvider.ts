@@ -1,6 +1,13 @@
 import type { Client, ClientInvoice, ContractData, PaymentProvider } from '@/types'
 
-const PROVIDERS: PaymentProvider[] = ['paypal', 'stripe', 'square']
+export const PAYMENT_PROVIDERS: PaymentProvider[] = [
+  'paypal',
+  'stripe',
+  'square',
+  'zelle',
+]
+
+const PROVIDERS: PaymentProvider[] = PAYMENT_PROVIDERS
 
 export function resolvePaymentProvider(provider?: PaymentProvider): PaymentProvider {
   if (provider && PROVIDERS.includes(provider)) return provider
@@ -34,6 +41,8 @@ export function paymentProviderLabel(provider?: PaymentProvider): string {
       return 'Stripe'
     case 'square':
       return 'Square'
+    case 'zelle':
+      return 'Zelle'
     default:
       return 'PayPal'
   }
@@ -45,6 +54,8 @@ export function portalPayButtonLabel(provider?: PaymentProvider): string {
       return 'Pay with card (Stripe)'
     case 'square':
       return 'Pay with Square'
+    case 'zelle':
+      return 'Pay with Zelle'
     default:
       return 'Pay with PayPal'
   }
@@ -64,7 +75,13 @@ export function paymentMethodsTextForProvider(provider: PaymentProvider): string
       return 'Credit card via Stripe (secure checkout link)'
     case 'square':
       return 'Credit card via Square (secure checkout link)'
+    case 'zelle':
+      return 'Zelle bank transfer (portal pay instructions + landlord confirm)'
     default:
       return 'PayPal (secure checkout link)'
   }
+}
+
+export function isZelleProvider(provider?: PaymentProvider | null): boolean {
+  return resolvePaymentProvider(provider ?? undefined) === 'zelle'
 }

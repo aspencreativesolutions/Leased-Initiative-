@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CreditCard, Loader2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ApiError } from '@/lib/api'
 import { createPortalRentInvoice } from '@/lib/portalRentApi'
-import { portalPayButtonLabel } from '@/lib/paymentProvider'
+import { isZelleProvider, portalPayButtonLabel } from '@/lib/paymentProvider'
 import { formatDate } from '@/lib/utils'
 import type { PortalRentPaymentInfo } from '@/types'
 
@@ -14,11 +15,23 @@ interface PortalPayRentSectionProps {
   embedded?: boolean
 }
 
+function openPayment(paymentLink: string, provider?: PortalRentPaymentInfo['paymentProvider']) {
+  if (isZelleProvider(provider) || paymentLink.includes('/portal/pay/zelle')) {
+    const path = paymentLink.startsWith('http')
+      ? new URL(paymentLink).pathname
+      : paymentLink
+    window.location.assign(path)
+    return
+  }
+  window.open(paymentLink, '_blank', 'noopener,noreferrer')
+}
+
 export function PortalPayRentSection({
   rentPayment,
   onInvoiceCreated,
   embedded = false,
 }: PortalPayRentSectionProps) {
+  const navigate = useNavigate()
   const allowMulti = rentPayment.allowPrepaid && rentPayment.maxMonths > 1
   const [monthCount, setMonthCount] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -40,7 +53,11 @@ export function PortalPayRentSection({
     : 'Your rent payment schedule will appear once lease dates are set.'
 
   const openCheckout = async (paymentLink: string) => {
-    window.open(paymentLink, '_blank', 'noopener,noreferrer')
+    if (isZelleProvider(rentPayment.paymentProvider)) {
+      navigate('/portal/pay/zelle/rent')
+      return
+    }
+    openPayment(paymentLink, rentPayment.paymentProvider)
   }
 
   const handlePay = async () => {
@@ -65,6 +82,8 @@ export function PortalPayRentSection({
       onInvoiceCreated?.()
       if (invoice.paymentLink) {
         await openCheckout(invoice.paymentLink)
+      } else if (isZelleProvider(invoice.paymentProvider ?? rentPayment.paymentProvider)) {
+        navigate('/portal/pay/zelle/rent')
       } else {
         setError('Checkout link was not created. Please try again.')
       }

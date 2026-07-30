@@ -21,7 +21,7 @@ interface PaymentProviderLogoProps {
   className?: string
 }
 
-/** Scaled PayPal / Stripe / Square mark for payment method & processor fields. */
+/** Scaled PayPal / Stripe / Square / Zelle mark for payment method & processor fields. */
 export function PaymentProviderLogo({
   provider,
   size = 'sm',

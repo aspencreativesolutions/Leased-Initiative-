@@ -29,6 +29,10 @@ export const PUBLIC_DEMO_TOUR_NOTICE_LANDLORD_KEY = 'leased-public-demo-tour-not
 export const PUBLIC_DEMO_TOUR_NOTICE_TENANT_KEY = 'leased-public-demo-tour-notice-tenant'
 /** Custom event to open/highlight Menu → Take the tour during the notice. */
 export const DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT = 'leased-demo-tour-notice-highlight'
+/** Request layouts to force-start the guided onboarding tour (demo notice CTA). */
+export const DEMO_TOUR_START_REQUEST_EVENT = 'leased-demo-tour-start-request'
+/** Notice was consumed (e.g. Menu → Take the tour) — host should close without left flicker. */
+export const DEMO_TOUR_NOTICE_CONSUMED_EVENT = 'leased-demo-tour-notice-consumed'
 /** After landlord tour notice dismiss — nudge Official Tenants lease tags on mobile. */
 export const DEMO_LEASE_TAG_NUDGE_EVENT = 'leased-demo-lease-tag-nudge'
 /** Optional visitor first name for personalizing mock messages/docs this demo session. */
@@ -179,6 +183,26 @@ export function setDemoTourNoticeHighlight(
         detail: { active, menuScope },
       })
     )
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Ask AppLayout / PortalLayout to start the guided tour (after dismiss latches are cleared). */
+export function requestDemoTourStart(): void {
+  try {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent(DEMO_TOUR_START_REQUEST_EVENT))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Close the demo tour notice after the visitor starts the tour from Menu. */
+export function notifyDemoTourNoticeConsumed(): void {
+  try {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent(DEMO_TOUR_NOTICE_CONSUMED_EVENT))
   } catch {
     /* ignore */
   }

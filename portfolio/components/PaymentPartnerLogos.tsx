@@ -10,14 +10,22 @@ export function PaymentPartnerLogos() {
       <ul className="footer-payments-logos">
         {paymentPartnerLogos.map((logo) => (
           <li key={logo.src}>
-            <Image
-              src={logo.src}
-              alt={logo.alt}
-              width={160}
-              height={64}
-              className={`footer-payments-logo ${logo.className ?? ""}`}
-              unoptimized
-            />
+            <a
+              href={logo.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Visit ${logo.alt}`}
+              aria-label={`Visit ${logo.alt} (opens in a new tab)`}
+            >
+              <Image
+                src={logo.src}
+                alt={logo.alt}
+                width={160}
+                height={64}
+                className={`footer-payments-logo ${logo.className ?? ""}`}
+                unoptimized
+              />
+            </a>
           </li>
         ))}
       </ul>

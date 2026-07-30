@@ -116,6 +116,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
         invoiceType: 'deposit',
         returnPath: '/portal/payment/success',
         cancelPath: '/portal?payment=cancelled',
+        settings: store.settings,
       })
       generatedInvoice = { ...generatedInvoice, sentToPortalAt: now }
     } catch (err) {
@@ -155,7 +156,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
         ]
         if (generatedInvoice) {
           const linkNote = generatedInvoice.paymentLink
-            ? ' Payment link (PayPal, Stripe, or Square) delivered to their portal.'
+            ? ' Payment link (PayPal, Stripe, Square, or Zelle) delivered to their portal.'
             : ' Payment link could not be attached — check provider credentials and re-send from their profile.'
           notes.push({
             id: generateId(),
@@ -199,7 +200,7 @@ router.post('/:contractId/confirm', authMiddleware, requireRole('client'), async
       next = notifyClientByClientId(next, contract.clientId, {
         type: 'invoice_sent',
         title: 'Deposit invoice ready',
-        message: `Your deposit invoice for ${projectLabel} is ready. Pay from your dashboard via PayPal, Stripe, or Square.`,
+        message: `Your deposit invoice for ${projectLabel} is ready. Pay from your dashboard via PayPal, Stripe, Square, or Zelle.`,
         actionUrl: '/portal',
         relatedId: `invoice-sent-${contract.clientId}-${now.slice(0, 10)}`,
       })

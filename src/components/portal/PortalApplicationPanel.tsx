@@ -745,7 +745,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as PaymentProvider)}
             >
-              {(['stripe', 'paypal', 'square'] as PaymentProvider[]).map((provider) => (
+              {(['stripe', 'paypal', 'square', 'zelle'] as PaymentProvider[]).map((provider) => (
                 <option key={provider} value={provider}>
                   {paymentProviderLabel(provider)}
                 </option>

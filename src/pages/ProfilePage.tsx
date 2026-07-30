@@ -3,6 +3,7 @@ import { KeyRound, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CompanyDetailsPanel } from '@/components/profile/CompanyDetailsPanel'
 import { LeaseUploadSection } from '@/components/profile/LeaseUploadSection'
+import { ZelleReceiveSettings } from '@/components/profile/ZelleReceiveSettings'
 import { ProfileLegalSection } from '@/components/legal/ProfileLegalSection'
 import { Button } from '@/components/ui/Button'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -91,6 +92,8 @@ export function ProfilePage() {
 
       <div className="w-full min-w-0 space-y-6">
         <CompanyDetailsPanel />
+
+        <ZelleReceiveSettings />
 
         <LeaseUploadSection />
 

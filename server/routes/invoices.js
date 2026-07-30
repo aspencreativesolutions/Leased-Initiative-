@@ -29,9 +29,12 @@ router.post('/:clientId/generate', authMiddleware, requireRole('admin'), async (
   }
 
   const provider = getContractPaymentProvider(contract)
-  if (!isPaymentProviderConfigured(provider)) {
+  if (!isPaymentProviderConfigured(provider, store.settings)) {
     return res.status(400).json({
-      error: `${paymentProviderLabel(provider)} is not configured. Check credentials in .env and restart npm run dev.`,
+      error:
+        provider === 'zelle'
+          ? 'Zelle is not connected. Add your Zelle email or phone in Company Profile.'
+          : `${paymentProviderLabel(provider)} is not configured. Check credentials in .env and restart npm run dev.`,
     })
   }
 
@@ -45,7 +48,12 @@ router.post('/:clientId/generate', authMiddleware, requireRole('admin'), async (
   }
 
   try {
-    invoice = await attachPaymentLink(invoice, { contract, clientId, invoiceType: 'deposit' })
+    invoice = await attachPaymentLink(invoice, {
+      contract,
+      clientId,
+      invoiceType: 'deposit',
+      settings: store.settings,
+    })
   } catch (err) {
     console.error('generate invoice payment link', err)
     return res.status(500).json({ error: err.message })
@@ -233,6 +241,7 @@ router.post('/:clientId/generate-final', authMiddleware, requireRole('admin'), a
       contract,
       clientId,
       invoiceType: 'final',
+      settings: store.settings,
     })
   } catch (err) {
     console.error('generate final invoice payment link', err)

@@ -399,6 +399,7 @@ export function ContractForm({ client, existingContract }: ContractFormProps) {
                 <option value="paypal">PayPal</option>
                 <option value="stripe">Stripe</option>
                 <option value="square">Square</option>
+                <option value="zelle">Zelle</option>
               </ContractSelect>
               <ContractSelect
                 label="Prepaid rent"

@@ -8,11 +8,19 @@ export async function fetchClientTimeline(clientId: string) {
   }>(`/api/data/clients/${clientId}/timeline`)
 }
 
-export async function confirmClientPayment(clientId: string) {
-  return apiFetch<{ ok: boolean; depositPaymentConfirmedAt: string }>(
-    `/api/data/clients/${clientId}/confirm-payment`,
-    { method: 'POST' }
-  )
+export async function confirmClientPayment(
+  clientId: string,
+  invoiceType: 'deposit' | 'rent' | 'final' = 'deposit'
+) {
+  return apiFetch<{
+    ok: boolean
+    depositPaymentConfirmedAt?: string
+    confirmedAt?: string
+    invoiceType?: string
+  }>(`/api/data/clients/${clientId}/confirm-payment`, {
+    method: 'POST',
+    body: JSON.stringify({ invoiceType }),
+  })
 }
 
 export async function skipTimelineToStep(

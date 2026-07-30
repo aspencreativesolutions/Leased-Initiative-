@@ -59,6 +59,8 @@ export function buildPortalDepositInvoice(client, contract) {
       description: invoice.description,
       paymentProvider: invoice.paymentProvider,
       paymentLink: invoice.paymentLink,
+      zelleMemo: invoice.zelleMemo,
+      zelleMarkedPaidAt: invoice.zelleMarkedPaidAt,
       sentToPortalAt: invoice.sentToPortalAt,
       invoiceType: 'deposit',
     }
@@ -122,6 +124,8 @@ export function buildPortalFinalInvoice(client) {
       description: invoice.description,
       paymentProvider: invoice.paymentProvider,
       paymentLink: invoice.paymentLink,
+      zelleMemo: invoice.zelleMemo,
+      zelleMarkedPaidAt: invoice.zelleMarkedPaidAt,
       sentToPortalAt: invoice.sentToPortalAt,
       invoiceType: 'final',
     }

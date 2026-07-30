@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { paymentPartnerLogos } from '@/lib/paymentPartnerLogos'
 import { cn } from '@/lib/utils'
 
 /** Dispatched from the home footer “Guided Product Tour” control. */
@@ -11,8 +12,6 @@ const AUTH_PATHS = new Set([
   '/portal/login',
   '/portal/register',
 ])
-
-const PAYMENT_PROVIDERS = ['Stripe', 'PayPal', 'Square'] as const
 
 function isUserDashboardPath(pathname: string): boolean {
   if (AUTH_PATHS.has(pathname)) return false
@@ -30,7 +29,7 @@ function isHomePath(pathname: string): boolean {
 
 /**
  * In-flow site footer on intro / auth / public screens (scroll to see it).
- * Shows Terms, Guided Product Tour, and evenly spaced payment provider names.
+ * Shows Terms, Guided Product Tour, and payment partner logos.
  * Hidden on tenant (`/portal/*`) and landlord (`/studio/*`) dashboards.
  */
 export function PaymentPartnerLogos() {
@@ -83,14 +82,29 @@ export function PaymentPartnerLogos() {
             </p>
             <ul
               className={cn(
-                'grid w-full max-w-lg grid-cols-3 items-center justify-items-center',
-                'text-sm font-semibold tracking-tight text-ink'
+                'grid w-full max-w-xl grid-cols-4 items-center justify-items-center gap-x-2 gap-y-2',
+                'sm:gap-x-4'
               )}
-              aria-label="Stripe, PayPal, or Square"
+              aria-label="Stripe, PayPal, Square, and Zelle"
             >
-              {PAYMENT_PROVIDERS.map((name) => (
-                <li key={name} className="w-full text-center">
-                  {name}
+              {paymentPartnerLogos.map((logo) => (
+                <li key={logo.alt} className="flex w-full items-center justify-center">
+                  <a
+                    href={logo.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`Visit ${logo.alt}`}
+                    aria-label={`Visit ${logo.alt} (opens in a new tab)`}
+                    className="inline-flex items-center justify-center rounded-sm p-1 transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                  >
+                    <img
+                      src={logo.src}
+                      alt={logo.alt}
+                      loading="lazy"
+                      decoding="async"
+                      className={cn('w-auto object-contain object-center', logo.className)}
+                    />
+                  </a>
                 </li>
               ))}
             </ul>

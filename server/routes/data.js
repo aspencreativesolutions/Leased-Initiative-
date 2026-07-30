@@ -67,6 +67,7 @@ import {
 } from '../lib/properties.js'
 import { buildFinalInvoice } from '../lib/invoice.js'
 import { attachPaymentLink } from '../lib/paymentLinks.js'
+import { applyRentPaymentToStore } from '../lib/rentPayments.js'
 import {
   deleteClientAccountFromStore,
   deleteClientUploads,
@@ -499,24 +500,96 @@ router.post('/clients/:clientId/timeline/skip', (req, res) => {
   })
 })
 
-/** Admin manually confirms deposit after verifying on PayPal */
+/** Admin manually confirms deposit (or Zelle rent/final) after verifying funds */
 router.post('/clients/:clientId/confirm-payment', (req, res) => {
   const { clientId } = req.params
+  const invoiceTypeRaw = String(req.body?.invoiceType || 'deposit')
+  const invoiceType =
+    invoiceTypeRaw === 'rent' || invoiceTypeRaw === 'final' ? invoiceTypeRaw : 'deposit'
+
   const store = readStore()
   const client = store.clients.find((c) => c.id === clientId)
   if (!client) return res.status(404).json({ error: 'Client not found' })
 
-  if (client.depositPaymentConfirmedAt || client.invoice?.paidAt) {
-    return res.status(400).json({ error: 'Deposit payment is already confirmed' })
-  }
   if (!client.isOfficialClient) {
     return res.status(400).json({
-      error: 'Tenant must sign the lease before you can confirm the deposit.',
+      error: 'Tenant must sign the lease before you can confirm payment.',
     })
   }
 
   const now = new Date().toISOString()
   const projectLabel = client.projectName || 'your lease'
+
+  if (invoiceType === 'rent') {
+    if (!client.rentInvoice || client.rentInvoice.paidAt) {
+      return res.status(400).json({ error: 'No open rent invoice to confirm' })
+    }
+    updateStore((s) => {
+      let next = applyRentPaymentToStore(s, clientId, {
+        provider: 'zelle',
+        amount: String(client.rentInvoice.amount),
+        currency: client.rentInvoice.currency || 'USD',
+        orderId: `zelle-confirm-${clientId}`,
+        captureId: `zelle-${now}`,
+      })
+      next = notifyClientByClientId(next, clientId, {
+        type: 'status_update',
+        title: 'Rent payment confirmed',
+        message: `Your landlord confirmed your Zelle rent payment for ${projectLabel}.`,
+        actionUrl: '/portal',
+        relatedId: `zelle-rent-confirmed-${clientId}-${now.slice(0, 10)}`,
+      })
+      return next
+    })
+    return res.json({ ok: true, invoiceType: 'rent', confirmedAt: now })
+  }
+
+  if (invoiceType === 'final') {
+    if (!client.finalInvoice || client.finalInvoice.paidAt) {
+      return res.status(400).json({ error: 'No open final invoice to confirm' })
+    }
+    updateStore((s) => {
+      let next = {
+        ...s,
+        clients: s.clients.map((c) =>
+          c.id === clientId
+            ? {
+                ...c,
+                paymentStatus: 'Paid',
+                finalInvoice: {
+                  ...c.finalInvoice,
+                  paymentProvider: c.finalInvoice.paymentProvider ?? 'zelle',
+                  paidAt: now,
+                },
+                notes: [
+                  ...(c.notes ?? []),
+                  {
+                    id: generateId(),
+                    text: `Final balance confirmed via Zelle on ${new Date(now).toLocaleDateString()}.`,
+                    category: 'Payment',
+                    createdAt: now,
+                  },
+                ],
+              }
+            : c
+        ),
+      }
+      next = notifyClientByClientId(next, clientId, {
+        type: 'status_update',
+        title: 'Final payment confirmed',
+        message: `Your landlord confirmed your Zelle final payment for ${projectLabel}.`,
+        actionUrl: '/portal',
+        relatedId: `zelle-final-confirmed-${clientId}-${now.slice(0, 10)}`,
+      })
+      return next
+    })
+    return res.json({ ok: true, invoiceType: 'final', confirmedAt: now })
+  }
+
+  if (client.depositPaymentConfirmedAt || client.invoice?.paidAt) {
+    return res.status(400).json({ error: 'Deposit payment is already confirmed' })
+  }
+
   updateStore((s) => {
     let next = {
       ...s,
@@ -527,7 +600,12 @@ router.post('/clients/:clientId/confirm-payment', (req, res) => {
               paymentStatus: 'Deposit Paid',
               depositPaymentConfirmedAt: now,
               invoice: c.invoice
-                ? { ...c.invoice, paidAt: now, sentToPortalAt: c.invoice.sentToPortalAt ?? now }
+                ? {
+                    ...c.invoice,
+                    paidAt: now,
+                    sentToPortalAt: c.invoice.sentToPortalAt ?? now,
+                    paymentProvider: c.invoice.paymentProvider,
+                  }
                 : c.invoice,
               notes: [
                 ...(c.notes ?? []),
@@ -686,6 +764,7 @@ router.post('/clients/:clientId/complete-project', async (req, res) => {
       contract,
       clientId,
       invoiceType: 'final',
+      settings: store.settings,
     })
   } catch (err) {
     if (process.env.E2E_TEST === '1') {
@@ -981,7 +1060,7 @@ router.post('/accept-registration/:userId', (req, res) => {
   const property = findPropertyForLease(store, propertyAddress)
   const reusableLease = findReusableLeaseAtAddress(store, propertyAddress)
   const reusedLease = Boolean(reusableLease)
-  const preferredPaymentMethod = ['paypal', 'stripe', 'square'].includes(
+  const preferredPaymentMethod = ['paypal', 'stripe', 'square', 'zelle'].includes(
     user.preferredPaymentMethod
   )
     ? user.preferredPaymentMethod

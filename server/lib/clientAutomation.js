@@ -4,6 +4,8 @@ import {
   getClientUserForClient,
 } from './clientNotifications.js'
 import { isEmailConfigured, sendClientReminderEmail } from './email.js'
+import { getContractPaymentProvider } from './paymentLinks.js'
+import { listUnpaidRentMonths } from './rentPayments.js'
 
 export const DEFAULT_AUTOMATION = {
   enabled: true,
@@ -154,6 +156,56 @@ export function runClientAutomation() {
         notificationsCreated++
       }
     }
+
+    const contract = next.contracts?.find((c) => c.clientId === client.id)
+    if (
+      client.isOfficialClient &&
+      contract &&
+      getContractPaymentProvider(contract) === 'zelle'
+    ) {
+      const unpaid = listUnpaidRentMonths(client, contract)
+      const nextDue = unpaid[0]?.dueDate
+      if (nextDue) {
+        const days = daysUntil(nextDue)
+        if (days >= 0 && days <= automation.deadlineReminderDays) {
+          const relatedId = `zelle-rent-${client.id}-${nextDue}`
+          if (
+            !hasRecentReminder(
+              next.clientNotifications,
+              user.id,
+              'deadline_reminder',
+              relatedId
+            )
+          ) {
+            const cadence = contract.zelleCadence === 'automatic' ? 'automatic' : 'manual'
+            const message =
+              days === 0
+                ? cadence === 'automatic'
+                  ? `Rent is due today via Zelle. If you scheduled a recurring transfer in your bank app, confirm it sent — then mark paid in your portal.`
+                  : `Rent is due today via Zelle. Open your pay page to send the transfer and mark it as paid.`
+                : cadence === 'automatic'
+                  ? `Zelle rent is due in ${days} day${days === 1 ? '' : 's'} (${nextDue}). Confirm your bank-app recurring transfer is set.`
+                  : `Zelle rent is due in ${days} day${days === 1 ? '' : 's'} (${nextDue}). Pay from your portal when ready.`
+            next = pushClientNotification(next, {
+              userId: user.id,
+              clientId: client.id,
+              type: 'deadline_reminder',
+              title: 'Zelle rent reminder',
+              message,
+              actionUrl: '/portal',
+              relatedId,
+            })
+            notificationsCreated++
+            emailQueue.push({
+              user,
+              title: 'Zelle rent reminder',
+              message,
+              portalUrlPath: '/portal',
+            })
+          }
+        }
+      }
+    }
   }
 
   if (notificationsCreated > 0) {
@@ -168,7 +220,7 @@ export function runClientAutomation() {
         name: item.user.name,
         title: item.title,
         message: item.message,
-        portalUrl: `${appUrl}/portal`,
+        portalUrl: `${appUrl}${item.portalUrlPath || '/portal'}`,
       }).catch((err) => console.error('client reminder email', err.message))
     }
   }

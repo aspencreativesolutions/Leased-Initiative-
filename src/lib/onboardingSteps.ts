@@ -88,7 +88,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
       '[data-onboarding="portal-pay-rent"], [data-onboarding="portal-payment-schedule"], [data-onboarding="portal-dashboard-overview"]',
     title: 'Pay rent anytime',
     description:
-      'See what’s next due, then tap Pay Rent — PayPal, Stripe, or Square. If rent is past due, your landlord may text a reminder; reply from your phone and pay here anytime.',
+      'See what’s next due, then tap Pay Rent — PayPal, Stripe, Square, or Zelle. For Zelle, follow the portal steps in your bank app and mark the payment as sent. If rent is past due, your landlord may text a reminder; reply from your phone and pay here anytime.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
@@ -98,7 +98,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-invoice"]',
     title: 'Pay your deposit',
     description:
-      'Your deposit invoice and payment link appear here after you sign. Pay from the link so your landlord can confirm and move you toward move-in.',
+      'Your deposit invoice and payment link appear here after you sign. Pay from the link (or Zelle pay page) so your landlord can confirm and move you toward move-in.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true && ctx.hasInvoice === true,
@@ -229,7 +229,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Switch Tile or Spreadsheet View in Display Settings, filter for Overdue Rent or Paid Early, then Send Message to Tenant when someone is past due. Replies stay on your phone.',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Switch Tile or Spreadsheet View in Display Settings, filter for Overdue Rent, Paid Early, or Payment Method (including Zelle). Confirm Zelle transfers when tenants mark them sent. Connect your Zelle handle in Company Profile. Replies to overdue messages stay on your phone.',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',

@@ -36,6 +36,7 @@ import { PortalDashboardPage } from '@/pages/portal/PortalDashboardPage'
 import { PortalTimelinePage } from '@/pages/portal/PortalTimelinePage'
 import { PortalContractPage } from '@/pages/portal/PortalContractPage'
 import { PortalPaymentSuccessPage } from '@/pages/portal/PortalPaymentSuccessPage'
+import { PortalZellePayPage } from '@/pages/portal/PortalZellePayPage'
 import { PortalProfilePage } from '@/pages/portal/PortalProfilePage'
 import { PortalReportPage } from '@/pages/portal/PortalReportPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -139,6 +140,7 @@ export default function App() {
                       <Route path="/portal/report" element={<PortalReportPage />} />
                       <Route path="/portal/contracts/:contractId" element={<PortalContractPage />} />
                       <Route path="/portal/payment/success" element={<PortalPaymentSuccessPage />} />
+                      <Route path="/portal/pay/zelle/:invoiceType" element={<PortalZellePayPage />} />
                     </Route>
                   </Route>
 

@@ -206,7 +206,7 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     leaseStart: 'August 1, 2026',
     leaseTerm: '12 months',
     monthlyRent: '$2,200 / month',
-    paymentMethod: 'Square (portal checkout)',
+    paymentMethod: 'Zelle (portal pay page)',
     paymentStatus: 'Deposit paid · August rent paid early',
     statusPoints: [
       'Lease Signed',

@@ -34,7 +34,10 @@ export type NoteCategory = 'General' | 'Payment' | 'Contract' | 'Project' | 'Fol
 
 export type ServiceTier = 'Launch' | 'Studio' | 'Summit'
 
-export type PaymentProvider = 'paypal' | 'stripe' | 'square'
+export type PaymentProvider = 'paypal' | 'stripe' | 'square' | 'zelle'
+
+/** How a Zelle tenant pays each month (bank-app scheduled vs manual each due date). */
+export type ZelleCadence = 'manual' | 'automatic'
 
 /** How a tenant occupies a rental (shown on Tenant Details). */
 export type OccupancyArrangement =
@@ -126,8 +129,12 @@ export interface ClientInvoice {
   squarePaymentLinkId?: string
   squareOrderId?: string
   squarePaymentId?: string
-  /** Hosted checkout URL (PayPal approve link, Stripe Checkout, or Square) */
+  /** Hosted checkout URL (PayPal / Stripe / Square) or portal Zelle pay page */
   paymentLink?: string
+  /** Memo the tenant should include on the Zelle transfer for matching */
+  zelleMemo?: string
+  /** When the tenant marked a Zelle transfer as sent (awaiting landlord confirm) */
+  zelleMarkedPaidAt?: string
   createdAt: string
   paidAt?: string
   /** When admin delivered the invoice link to the client portal */
@@ -146,6 +153,8 @@ export interface PortalInvoice {
   description: string
   paymentProvider?: PaymentProvider
   paymentLink?: string
+  zelleMemo?: string
+  zelleMarkedPaidAt?: string
   sentToPortalAt?: string
   paidAt?: string
   dueDate?: string
@@ -374,6 +383,13 @@ export interface ContractData {
   paymentProvider?: PaymentProvider
   /** When true (default), tenants may pay multiple consecutive months upfront */
   allowPrepaidRent?: boolean
+  /**
+   * Zelle only: manual each month vs guided bank-app recurring.
+   * Not a charge token — authorization of intent only.
+   */
+  zelleCadence?: ZelleCadence
+  /** When the tenant completed the Zelle automatic-payment setup guide */
+  zelleAutoGuidedAt?: string
   paymentMethods: string
   latePaymentPolicy: string
   revisionCount: string
@@ -1033,6 +1049,15 @@ export interface BusinessSettings {
    * - invite_only: tenants must use a connection link or code
    */
   tenantDiscoveryMode?: TenantDiscoveryMode
+  /**
+   * Zelle destination enrolled with the landlord’s bank (email or US mobile).
+   * Shown only on authenticated portal pay pages — never on public invite pages.
+   */
+  zelleHandle?: string
+  /** Optional display name tenants see next to the Zelle handle */
+  zelleDisplayName?: string
+  /** ISO timestamp when the landlord last confirmed their Zelle handle */
+  zelleConnectedAt?: string
   /** Default lease agreement template from the Lease Agreement Templates library */
   defaultLeaseTemplateId?: string
   /** Display name of the active default template */

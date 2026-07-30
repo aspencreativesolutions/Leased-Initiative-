@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom'
 import { ChevronDown, type LucideIcon } from 'lucide-react'
 import {
   DEMO_TOUR_NOTICE_HIGHLIGHT_EVENT,
+  notifyDemoTourNoticeConsumed,
   type DemoTourNoticeHighlightDetail,
 } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
@@ -267,7 +268,9 @@ export function NavActionsMenu({
           data-menu-item={id}
           data-tour-notice-item={highlightItem ? 'true' : undefined}
           onClick={() => {
-            if (tourNoticeActive && isTourItem) return
+            if (tourNoticeActive && isTourItem) {
+              notifyDemoTourNoticeConsumed()
+            }
             setOpen(false)
             onSelect()
           }}

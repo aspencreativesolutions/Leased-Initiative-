@@ -22,7 +22,7 @@ import {
 import { paymentProviderLabel } from '@/lib/paymentProvider'
 import type { PaymentProvider } from '@/types'
 
-const PAYMENT_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square']
+const PAYMENT_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square', 'zelle']
 
 export function InviteClaimPage() {
   const { token: tokenParam } = useParams<{ token: string }>()

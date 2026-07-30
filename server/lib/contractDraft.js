@@ -176,7 +176,8 @@ export function createDraftContract(client, settings, leaseOptions = {}) {
     paymentProvider:
       leaseOptions.paymentProvider === 'stripe' ||
       leaseOptions.paymentProvider === 'square' ||
-      leaseOptions.paymentProvider === 'paypal'
+      leaseOptions.paymentProvider === 'paypal' ||
+      leaseOptions.paymentProvider === 'zelle'
         ? leaseOptions.paymentProvider
         : 'paypal',
     allowPrepaidRent: true,

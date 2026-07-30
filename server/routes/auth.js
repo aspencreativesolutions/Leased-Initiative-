@@ -145,7 +145,7 @@ router.get('/invite-code/:code', (req, res) => {
   }
 })
 
-const PAYMENT_METHODS = new Set(['paypal', 'stripe', 'square'])
+const PAYMENT_METHODS = new Set(['paypal', 'stripe', 'square', 'zelle'])
 
 /**
  * Streamlined invite claim: no password / full signup.
@@ -189,7 +189,7 @@ router.post('/claim-invite', async (req, res) => {
     }
     if (!PAYMENT_METHODS.has(preferredPaymentMethod)) {
       return res.status(400).json({
-        error: 'Choose a payment method (PayPal, Stripe, or Square)',
+        error: 'Choose a payment method (PayPal, Stripe, Square, or Zelle)',
       })
     }
 

@@ -1,8 +1,9 @@
 import { CheckCircle, CreditCard, Receipt } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { trackPaymentLinkClick } from '@/lib/portalApi'
-import { portalPayButtonLabel } from '@/lib/paymentProvider'
+import { isZelleProvider, portalPayButtonLabel } from '@/lib/paymentProvider'
 import { cn, formatDate } from '@/lib/utils'
 import type { PortalInvoice } from '@/types'
 
@@ -15,6 +16,7 @@ export function PortalInvoiceSection({
   invoice,
   title = 'Invoice',
 }: PortalInvoiceSectionProps) {
+  const navigate = useNavigate()
   if (!invoice) return null
 
   const isDeposit = invoice.invoiceType !== 'final'
@@ -58,6 +60,8 @@ export function PortalInvoiceSection({
 
   if (!invoice.paymentLink) return null
 
+  const zelleType = invoice.invoiceType === 'final' ? 'final' : 'deposit'
+
   return (
     <section className="mb-8" data-onboarding={isDeposit ? 'portal-invoice' : undefined}>
       <h2
@@ -93,6 +97,12 @@ export function PortalInvoiceSection({
             Issued {formatDate(invoice.sentToPortalAt)}
           </p>
         )}
+        {invoice.zelleMarkedPaidAt ? (
+          <p className="mt-3 text-sm text-ink">
+            Marked as sent via Zelle on {formatDate(invoice.zelleMarkedPaidAt)}. Waiting for
+            landlord confirmation.
+          </p>
+        ) : null}
         <Button
           className="mt-4"
           onClick={async () => {
@@ -101,6 +111,10 @@ export function PortalInvoiceSection({
             } catch {
               /* still open checkout if tracking fails */
             }
+            if (isZelleProvider(invoice.paymentProvider)) {
+              navigate(`/portal/pay/zelle/${zelleType}`)
+              return
+            }
             window.open(invoice.paymentLink, '_blank', 'noopener,noreferrer')
           }}
         >
@@ -108,7 +122,9 @@ export function PortalInvoiceSection({
           {portalPayButtonLabel(invoice.paymentProvider)}
         </Button>
         <p className="mt-3 text-xs text-ink-muted">
-          You&apos;ll return here automatically after payment. Your landlord will be notified.
+          {isZelleProvider(invoice.paymentProvider)
+            ? 'Follow the Zelle steps, then mark the payment as sent so your landlord can confirm.'
+            : "You'll return here automatically after payment. Your landlord will be notified."}
         </p>
       </Card>
     </section>

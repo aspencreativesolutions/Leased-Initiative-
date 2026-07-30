@@ -110,6 +110,8 @@ export function buildPortalRentPayment(client, contract, asOf, store) {
       description: pending.description,
       paymentProvider: pending.paymentProvider,
       paymentLink: pending.paymentLink,
+      zelleMemo: pending.zelleMemo,
+      zelleMarkedPaidAt: pending.zelleMarkedPaidAt,
       sentToPortalAt: pending.sentToPortalAt ?? pending.createdAt,
       invoiceType: 'rent',
       monthCount: pending.monthCount,
@@ -187,7 +189,9 @@ export function applyRentPaymentToStore(store, clientId, capture) {
       ? 'Stripe'
       : capture.provider === 'square'
         ? 'Square'
-        : 'PayPal'
+        : capture.provider === 'zelle'
+          ? 'Zelle'
+          : 'PayPal'
   const dueDates = new Set(client.rentInvoice.dueDates ?? [])
   const monthCount = client.rentInvoice.monthCount ?? dueDates.size ?? 1
   const paidAtYmd = resolveServerScheduleAsOf().toISOString().slice(0, 10)
@@ -205,11 +209,15 @@ export function applyRentPaymentToStore(store, clientId, capture) {
             squareOrderId: capture.orderId,
             squarePaymentId: capture.captureId,
           }
-        : {
-            paymentProvider: 'paypal',
-            paypalOrderId: capture.orderId,
-            paypalCaptureId: capture.captureId,
-          }
+        : capture.provider === 'zelle'
+          ? {
+              paymentProvider: 'zelle',
+            }
+          : {
+              paymentProvider: 'paypal',
+              paypalOrderId: capture.orderId,
+              paypalCaptureId: capture.captureId,
+            }
 
   const rentInvoice = {
     ...client.rentInvoice,

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Compass, FileText, GitBranch, LogOut, Palette, UserCircle } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -16,7 +16,7 @@ import { NavActionsMenu } from '@/components/layout/NavActionsMenu'
 import { Button } from '@/components/ui/Button'
 import { useClientNotifications } from '@/hooks/useClientNotifications'
 import { usePortalDashboard } from '@/hooks/usePortalDashboard'
-import { exitPublicDemo } from '@/lib/publicDemo'
+import { DEMO_TOUR_START_REQUEST_EVENT, exitPublicDemo } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 export function PortalNavbar({ onStartTour }: { onStartTour?: () => void }) {
@@ -206,6 +206,12 @@ export function PortalLayout() {
   const { data } = usePortalDashboard()
   const { notifications, refresh } = useClientNotifications()
   const [tourStart, setTourStart] = useState(false)
+
+  useEffect(() => {
+    const onStart = () => setTourStart(true)
+    window.addEventListener(DEMO_TOUR_START_REQUEST_EVENT, onStart)
+    return () => window.removeEventListener(DEMO_TOUR_START_REQUEST_EVENT, onStart)
+  }, [])
 
   const onboardingContext = useMemo(
     () => ({

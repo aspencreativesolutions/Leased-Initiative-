@@ -34,7 +34,7 @@ import {
  * @property {string} [leaseEndDate] Optional YYYY-MM-DD override (e.g. final rent in August)
  * @property {number} monthlyRent
  * @property {number} [currentPeriodAmountPaid] Partial payment toward the current period
- * @property {'paypal' | 'stripe' | 'square'} [paymentProvider] Checkout processor for this lease
+ * @property {'paypal' | 'stripe' | 'square' | 'zelle'} [paymentProvider] Checkout processor for this lease
  * @property {string} [paymentStatus]
  * @property {string} [contractStatus] Canonical landlord workflow status
  * @property {string} [projectStatus]

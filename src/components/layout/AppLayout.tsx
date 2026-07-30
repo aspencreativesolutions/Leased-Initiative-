@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Navbar } from './Navbar'
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour'
+import { DEMO_TOUR_START_REQUEST_EVENT } from '@/lib/publicDemo'
 
 export function AppLayout() {
   const [tourStart, setTourStart] = useState(false)
+
+  useEffect(() => {
+    const onStart = () => setTourStart(true)
+    window.addEventListener(DEMO_TOUR_START_REQUEST_EVENT, onStart)
+    return () => window.removeEventListener(DEMO_TOUR_START_REQUEST_EVENT, onStart)
+  }, [])
 
   return (
     <div className="min-h-screen w-full max-w-full bg-surface font-sans text-ink">

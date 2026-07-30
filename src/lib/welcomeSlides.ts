@@ -41,7 +41,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: FileText,
     title: 'Review and sign lease agreements',
     description:
-      'When your landlord accepts you and sends a lease agreement, open it here, review the terms, and sign by drawing your signature with a mouse or touchscreen. Your drawn signature is saved with your name to complete the agreement. After you sign, both you and your landlord are notified, and your deposit invoice appears automatically with a PayPal, Stripe, or Square payment link.',
+      'When your landlord accepts you and sends a lease agreement, open it here, review the terms, and sign by drawing your signature with a mouse or touchscreen. Your drawn signature is saved with your name to complete the agreement. After you sign, both you and your landlord are notified, and your deposit invoice appears automatically with a PayPal, Stripe, Square, or Zelle payment link.',
   },
   {
     id: 'tenant-payments',
@@ -49,7 +49,7 @@ export const TENANT_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: Wallet,
     title: 'Pay rent anytime',
     description:
-      'Your dashboard shows when rent is next due. Tap Pay Rent — or pay several consecutive months upfront when your lease allows — via PayPal, Stripe, or Square.',
+      'Your dashboard shows when rent is next due. Tap Pay Rent — or pay several consecutive months upfront when your lease allows — via PayPal, Stripe, Square, or Zelle. For Zelle, follow the portal pay steps in your bank app, then mark the payment as sent so your landlord can confirm.',
   },
   {
     id: 'tenant-reminders',
@@ -84,7 +84,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: LayoutDashboard,
     title: 'Your landlord workspace',
     description:
-      'Manage tenants from sign-up through an active lease — registrations, Official Tenants (check or clock beside each name; Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method logo (Stripe, PayPal, or Square) and other statuses in full — no hover needed; an Overdue tag opens Payments overdue for that tenant; Confirm Payment Complete in the row when awaiting deposit; on mobile, scrollable tiles two-across by default; on larger screens, Spreadsheet View by default in Display Settings — switch to Tile View with a Tenant tile size slider like Lease Agreements, Edit Columns in Spreadsheet View, Show Occupancy Status for optional tags under each name, or Filter by Lease Progress (Any, Not Started, Ongoing, Ending Soon) and Building Type (Apartment, Duplex, Condo, and more); when a lease ends, a Lease Complete tag appears with Remove Tenant — Archive to Past Tenants in Company Profile (labeled Archived) or Delete; click a name for Tenant Details with processor logos and a clickable Overdue status), lease agreements with Sent / Signed status and term progress (mobile tiles by default; Tile or Spreadsheet View in Display Settings on larger screens with a Lease tile size slider in Tile View; Edit Columns in Spreadsheet View; cycle Lease Status through Any, Signed, or Sent; cycle Lease Progress through Any, Not Started, Ongoing, or Ending Soon; filter by State like Rentals, plus area code or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
+      'Manage tenants from sign-up through an active lease — registrations, Official Tenants (check or clock beside each name; Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method logo (Stripe, PayPal, Square, or Zelle) and other statuses in full — no hover needed; an Overdue tag opens Payments overdue for that tenant; Confirm Payment Complete in the row when awaiting deposit; on mobile, scrollable tiles two-across by default; on larger screens, Spreadsheet View by default in Display Settings — switch to Tile View with a Tenant tile size slider like Lease Agreements, Edit Columns in Spreadsheet View, Show Occupancy Status for optional tags under each name, or Filter by Lease Progress (Any, Not Started, Ongoing, Ending Soon) and Building Type (Apartment, Duplex, Condo, and more); when a lease ends, a Lease Complete tag appears with Remove Tenant — Archive to Past Tenants in Company Profile (labeled Archived) or Delete; click a name for Tenant Details with processor logos and a clickable Overdue status), lease agreements with Sent / Signed status and term progress (mobile tiles by default; Tile or Spreadsheet View in Display Settings on larger screens with a Lease tile size slider in Tile View; Edit Columns in Spreadsheet View; cycle Lease Status through Any, Signed, or Sent; cycle Lease Progress through Any, Not Started, Ongoing, or Ending Soon; filter by State like Rentals, plus area code or group), and deadlines in one place. Track vacant units and renewals under Rentals → Upcoming Openings.',
   },
   {
     id: 'landlord-properties',
@@ -116,7 +116,7 @@ export const LANDLORD_FEATURE_SLIDES: WelcomeSlide[] = [
     icon: AlertTriangle,
     title: 'Overdue rent messaging',
     description:
-      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings for Tile or Spreadsheet View (Payment tile size slider in Tile View; Edit Columns in Spreadsheet View), or filter → Overdue Rent to focus past-due tiles. Send Message to Tenant opens a compact composer panel under the payment summary — pick a template or write your own; replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square) the same way.',
+      'On Payments, each tile shows unit rent, the tenant’s monthly share (equal split for roommates, or a custom amount), paid vs remaining balance, next due date, and status. Use Display Settings for Tile or Spreadsheet View (Payment tile size slider in Tile View; Edit Columns in Spreadsheet View), or filter → Overdue Rent to focus past-due tiles. Send Message to Tenant opens a compact composer panel under the payment summary — pick a template or write your own; replies stay on your phone. Filter by Paid Early or Payment Method (Stripe, PayPal, Square, Zelle) the same way. Connect your Zelle email or phone in Company Profile → Receive Zelle so tenants who prefer Zelle can pay from guided portal instructions; confirm when funds arrive.',
   },
   {
     id: 'landlord-tenant-alerts',

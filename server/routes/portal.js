@@ -961,7 +961,8 @@ router.post('/claim-invite', (req, res) => {
           phone: invite.phone || u.phone || '',
           applicationSubmittedAt: new Date().toISOString(),
           ...(startDate ? { preferredLeaseStartDate: startDate } : {}),
-          ...(preferredPaymentMethod
+          ...(preferredPaymentMethod &&
+          ['paypal', 'stripe', 'square', 'zelle'].includes(String(preferredPaymentMethod))
             ? { preferredPaymentMethod: String(preferredPaymentMethod) }
             : {}),
         }
@@ -1021,9 +1022,12 @@ router.post('/rent-invoice', async (req, res) => {
     monthCount = Math.min(monthCount, unpaid.length)
 
     const provider = getContractPaymentProvider(contract)
-    if (!isPaymentProviderConfigured(provider)) {
+    if (!isPaymentProviderConfigured(provider, store.settings)) {
       return res.status(400).json({
-        error: `${paymentProviderLabel(provider)} is not configured. Ask your landlord to set up checkout.`,
+        error:
+          provider === 'zelle'
+            ? 'Zelle is not connected. Ask your landlord to add their Zelle email or phone in Company Profile.'
+            : `${paymentProviderLabel(provider)} is not configured. Ask your landlord to set up checkout.`,
       })
     }
 
@@ -1046,6 +1050,7 @@ router.post('/rent-invoice', async (req, res) => {
       invoiceType: 'rent',
       returnPath: '/portal/payment/success',
       cancelPath: '/portal?payment=cancelled',
+      settings: store.settings,
     })
 
     if (!invoice.paymentLink) {
@@ -1082,6 +1087,8 @@ router.post('/rent-invoice', async (req, res) => {
         description: invoice.description,
         paymentProvider: invoice.paymentProvider,
         paymentLink: invoice.paymentLink,
+        zelleMemo: invoice.zelleMemo,
+        zelleMarkedPaidAt: invoice.zelleMarkedPaidAt,
         sentToPortalAt: invoice.sentToPortalAt,
         invoiceType: 'rent',
         monthCount: invoice.monthCount,
@@ -1092,6 +1099,192 @@ router.post('/rent-invoice', async (req, res) => {
     console.error('portal rent-invoice', err)
     res.status(500).json({ error: err.message || 'Could not create rent invoice' })
   }
+})
+
+function resolveZelleInvoice(client, invoiceType) {
+  if (invoiceType === 'deposit') return client.invoice
+  if (invoiceType === 'final') return client.finalInvoice
+  return client.rentInvoice
+}
+
+function setZelleInvoiceOnClient(client, invoiceType, invoice) {
+  if (invoiceType === 'deposit') return { ...client, invoice }
+  if (invoiceType === 'final') return { ...client, finalInvoice: invoice }
+  return { ...client, rentInvoice: invoice }
+}
+
+/**
+ * Authenticated Zelle pay page payload — handle is only exposed here (not public invites).
+ */
+router.get('/zelle/:invoiceType', (req, res) => {
+  const invoiceTypeRaw = String(req.params.invoiceType || 'rent')
+  const invoiceType =
+    invoiceTypeRaw === 'deposit' || invoiceTypeRaw === 'final' ? invoiceTypeRaw : 'rent'
+
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+
+  const contract = store.contracts.find((c) => c.clientId === clientId)
+  const provider = getContractPaymentProvider(contract)
+  if (provider !== 'zelle') {
+    return res.status(400).json({
+      error: 'This lease is not set up for Zelle payments.',
+    })
+  }
+
+  const handle = store.settings?.zelleHandle?.trim()
+  if (!handle) {
+    return res.status(400).json({
+      error: 'Your landlord has not connected a Zelle handle yet.',
+    })
+  }
+
+  let invoice = resolveZelleInvoice(client, invoiceType)
+  if (!invoice || invoice.paidAt) {
+    return res.status(404).json({
+      error:
+        invoiceType === 'rent'
+          ? 'No open rent invoice. Start Pay Rent from your dashboard first.'
+          : 'No open invoice found for this payment.',
+    })
+  }
+
+  res.json({
+    invoiceType,
+    amount: invoice.amount,
+    currency: invoice.currency || 'USD',
+    description: invoice.description,
+    dueDates: invoice.dueDates ?? [],
+    monthCount: invoice.monthCount,
+    zelleMemo: invoice.zelleMemo,
+    zelleMarkedPaidAt: invoice.zelleMarkedPaidAt,
+    paidAt: invoice.paidAt,
+    zelleHandle: handle,
+    zelleDisplayName: store.settings?.zelleDisplayName?.trim() || null,
+    zelleCadence: contract?.zelleCadence ?? 'manual',
+    zelleAutoGuidedAt: contract?.zelleAutoGuidedAt ?? null,
+    landlordName:
+      store.settings?.businessName?.trim() ||
+      store.settings?.ownerName?.trim() ||
+      'your landlord',
+  })
+})
+
+/** Tenant marks a Zelle transfer as sent (awaiting landlord confirm). */
+router.post('/zelle/:invoiceType/mark-paid', (req, res) => {
+  const invoiceTypeRaw = String(req.params.invoiceType || 'rent')
+  const invoiceType =
+    invoiceTypeRaw === 'deposit' || invoiceTypeRaw === 'final' ? invoiceTypeRaw : 'rent'
+
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+
+  const contract = store.contracts.find((c) => c.clientId === clientId)
+  if (getContractPaymentProvider(contract) !== 'zelle') {
+    return res.status(400).json({ error: 'This lease is not set up for Zelle payments.' })
+  }
+
+  const invoice = resolveZelleInvoice(client, invoiceType)
+  if (!invoice || invoice.paidAt) {
+    return res.status(400).json({ error: 'No open Zelle invoice to mark as paid.' })
+  }
+
+  const now = new Date().toISOString()
+  updateStore((s) => {
+    let next = {
+      ...s,
+      clients: s.clients.map((c) => {
+        if (c.id !== clientId) return c
+        const nextInvoice = {
+          ...invoice,
+          zelleMarkedPaidAt: now,
+          paymentLinkClickedAt: invoice.paymentLinkClickedAt ?? now,
+        }
+        const updated = setZelleInvoiceOnClient(c, invoiceType, nextInvoice)
+        return {
+          ...updated,
+          paymentStatus:
+            invoiceType === 'deposit' && c.paymentStatus === 'Unpaid'
+              ? 'Pay Link Clicked'
+              : c.paymentStatus,
+          notes: [
+            ...(c.notes ?? []),
+            {
+              id: generateId(),
+              text: `Tenant marked Zelle ${invoiceType} payment as sent ($${Number(invoice.amount).toFixed(2)}) on ${new Date(now).toLocaleDateString()}. Awaiting landlord confirmation.`,
+              category: 'Payment',
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    }
+    next = pushAdminNotification(next, {
+      type: 'payment_link_clicked',
+      title: 'Zelle payment marked sent',
+      message: `${client.name} marked a Zelle ${invoiceType} payment of $${Number(invoice.amount).toFixed(2)} as sent. Confirm after funds arrive.`,
+      relatedId: `zelle-marked-${clientId}-${invoiceType}-${now.slice(0, 10)}`,
+      actionUrl: '/studio/payments',
+    })
+    return next
+  })
+
+  res.json({ ok: true, zelleMarkedPaidAt: now })
+})
+
+/** Tenant chooses manual vs automatic Zelle cadence (+ marks auto guide complete). */
+router.post('/zelle/cadence', (req, res) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+
+  const cadence = req.body?.cadence === 'automatic' ? 'automatic' : 'manual'
+  const completeGuide = req.body?.completeGuide === true
+
+  const store = readStore()
+  const contract = store.contracts.find((c) => c.clientId === clientId)
+  if (!contract) return res.status(404).json({ error: 'Lease not found' })
+  if (getContractPaymentProvider(contract) !== 'zelle') {
+    return res.status(400).json({ error: 'This lease is not set up for Zelle payments.' })
+  }
+
+  const now = new Date().toISOString()
+  updateStore((s) => ({
+    ...s,
+    contracts: s.contracts.map((c) =>
+      c.clientId === clientId
+        ? {
+            ...c,
+            zelleCadence: cadence,
+            ...(completeGuide && cadence === 'automatic'
+              ? { zelleAutoGuidedAt: now }
+              : {}),
+          }
+        : c
+    ),
+  }))
+
+  res.json({
+    ok: true,
+    zelleCadence: cadence,
+    zelleAutoGuidedAt:
+      completeGuide && cadence === 'automatic'
+        ? now
+        : contract.zelleAutoGuidedAt ?? null,
+  })
 })
 
 /** Client-facing project timeline — mirrors admin view */
