@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { FeatureGuideModal } from '@/components/legal/FeatureGuideModal'
 import { paymentPartnerLogos } from '@/lib/paymentPartnerLogos'
 import { cn } from '@/lib/utils'
 
@@ -29,12 +31,13 @@ function isHomePath(pathname: string): boolean {
 
 /**
  * In-flow site footer on intro / auth / public screens (scroll to see it).
- * Shows Terms, Guided Product Tour, and payment partner logos.
+ * Shows Terms, Guided Product Tour, Feature Guide, and payment partner logos.
  * Hidden on tenant (`/portal/*`) and landlord (`/studio/*`) dashboards.
  */
 export function PaymentPartnerLogos() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [featureGuideOpen, setFeatureGuideOpen] = useState(false)
   const visible = !isUserDashboardPath(pathname)
 
   if (!visible) return null
@@ -47,6 +50,9 @@ export function PaymentPartnerLogos() {
     navigate('/', { state: { openDemoCode: true } })
   }
 
+  const linkClass =
+    'font-semibold underline-offset-2 transition-colors hover:text-ink hover:underline'
+
   return (
     <>
       {/* Keeps the footer below the fold with a little extra scroll room. */}
@@ -58,21 +64,25 @@ export function PaymentPartnerLogos() {
       >
         <div className="mx-auto flex w-full max-w-6xl flex-col items-stretch gap-3 text-xs leading-none text-ink-muted sm:gap-3.5 sm:text-[13px]">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:gap-x-4">
-            <Link
-              to="/terms"
-              className="font-semibold underline-offset-2 transition-colors hover:text-ink hover:underline"
-            >
+            <Link to="/terms" className={linkClass}>
               Terms of Service
             </Link>
             <span className="text-ink-faint" aria-hidden>
               ·
             </span>
+            <button type="button" onClick={openGuidedTour} className={linkClass}>
+              Guided Product Tour
+            </button>
+            <span className="text-ink-faint" aria-hidden>
+              ·
+            </span>
             <button
               type="button"
-              onClick={openGuidedTour}
-              className="font-semibold underline-offset-2 transition-colors hover:text-ink hover:underline"
+              onClick={() => setFeatureGuideOpen(true)}
+              className={linkClass}
+              aria-haspopup="dialog"
             >
-              Guided Product Tour
+              Feature Guide
             </button>
           </div>
 
@@ -111,6 +121,11 @@ export function PaymentPartnerLogos() {
           </div>
         </div>
       </footer>
+
+      <FeatureGuideModal
+        open={featureGuideOpen}
+        onClose={() => setFeatureGuideOpen(false)}
+      />
     </>
   )
 }

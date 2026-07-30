@@ -15,19 +15,23 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 - Waiting to Connect → Pending → Official, with clear next steps at each stage
 - Accept & Draft Lease in one move
 - Occupancy tags: entire home, roommates, private or shared room
+- Student or Standard renter tags when applicants choose a category
 - Add tenants manually or send invite shortcuts from the dashboard
+- Lease Complete prompts Request Key Return within your grace period
 - Archive finished leases to Past Tenants — or delete when you’re done
 
 ## Rentals & Portfolio
 
 *Your addresses, beds, and openings — organized like inventory.*
 
-- Add rentals with furnished status, room/bed pricing, deposits, and utilities
+- Add rentals as Student Housing or Standard Rental, then furnished status, room/bed pricing, deposits, and utilities
 - Max occupancy calculated from beds; total rent and cost at full occupancy stored for applications
 - Color-coded occupancy: open beds vs. full homes at a glance
 - Expand a rental to see who’s there; open Tenant Details from a name
 - Assign tenants to bedroom and bed
-- Filter by state, town, and custom groups (including map radius)
+- Take Off Market to gray out a unit (optional reason) without deleting it; View Off-Market Rentals beside Map
+- U.S. portfolio Map with a pin for every rental — Define Group by clicking pins or setting a radius
+- Filter by state, town, and Groups (pen icon to edit groups, including map radius); sort by distance from a place
 - Tile or Spreadsheet View, with editable columns and tile size controls
 - Upcoming Openings: vacant units and leases ending soon
 - Send Re-sign Message or Generate Invite Code from each opening row
@@ -44,6 +48,7 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 - Upload PDF or Word templates; Confirm as default
 - Apply a new style to pending or official tenants — rent, personal info, and signatures stay intact
 - Seasonal options, custom lease eras, payment terms, and footers that prefill on draft
+- Key-return wording and tenant-photo clause from Preferences carry into drafts and imports
 - Import existing leases (PDF, image, or spreadsheet) → Scan → Add to Official Tenants or Confirm to Pending
 
 ## Payments & Money Flow
@@ -51,11 +56,12 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 *Deposits, rent, balances, and overdue — all in one place.*
 
 - Deposit invoice and payment link auto-appear after lease signing
-- Pay with PayPal, Stripe, or Square
+- Pay with PayPal, Stripe, Square, or Zelle
+- Connect a Zelle email or phone in Company Profile so tenants can pay from guided portal steps
 - Payment Status shows Deposit Paid with the processor logo — readable without hovering
 - Confirm Payment Complete to move Awaiting Deposit → Upcoming → Active
 - Track unit rent, roommate share (equal split or custom), paid vs. remaining, and next due date
-- Filter by Overdue Rent, Paid Early, or payment method
+- Filter by Overdue Rent, Paid Early, or payment method (including Zelle)
 - Tenants pay rent anytime — including several consecutive months upfront when the lease allows
 - Overdue tag on a tenant jumps straight to that person’s overdue payments
 
@@ -68,24 +74,29 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 - Client Automation: reminders and status updates for overdue rent and lease milestones
 - Tenant alerts by email and in-portal when something needs attention
 
-## Maintenance & Alerts
+## Maintenance, Inspections & Alerts
 
-*Photo in. Problem clear. Dispatch ready.*
+*Photo in. Problem clear. Inspection on record. Dispatch ready.*
 
 - Tenants Request Maintenance with a required photo and optional note
-- Requests land in Tenant Alerts (desktop nav or mobile Menu)
-- Assess and dispatch from one focused queue
+- Move-in / move-out Condition Reports — required or optional, with due windows you set (override per rental)
+- Tenants rate rooms and fixtures, add notes or photos, and submit electronically
+- Requests and condition reports land in Tenant Alerts (desktop nav or mobile Menu)
+- Assess repairs and approve or request changes on inspection checklists from one queue
 
 ## Tenant Portal
 
 *Apply, sign, pay, share, and stay on schedule — from one home base.*
 
-- Start Application: pick a landlord, address, furnished bed/room, and roommate preference
+- Start Application: pick a landlord, address, furnished bed/room, roommate preference, and optional student/standard category
 - Or join with an invite link/code and a pre-filled confirmation form
 - Dashboard: greeting, rent due dates, Pay Rent, leases, and deposit invoices
 - Review and sign lease agreements in-portal
+- Pay with PayPal, Stripe, Square, or Zelle (mark Zelle sent so your landlord can confirm)
+- Complete Condition Reports on move-in and before move-out when required
 - Share files and short notes with your landlord
 - Follow lease milestones on the project timeline (dashboard + Timeline page)
+- Property details: housemates, payment statuses, and Extra Bedroom Available invites that lower rent share
 - Choose Style and manage My profile from Menu
 - Restart the product tour anytime
 
@@ -95,10 +106,12 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 
 - Spreadsheet or Tile View for tenants, leases, rentals, and payments
 - Edit Columns: rearrange, hide, or restore fields
-- Filter Official Tenants by lease progress and building type
+- Filter Official Tenants by lease progress, tenant type, and building type
 - Filter leases by status, progress, state, area code, or group
 - Show Arrangements adds an Arrangement column beside Tenant when you want it (Sole Tenant or Co-Tenant with Entire Home / roommate count and Open to Roommates; numbered bedroom roster with rent status dots and clickable occupants)
+- Lease duration, dates, and deposit method stay visible — no hover required
 - Highlight last import after bringing in existing leases
+- Live Updates quietly refreshes the app when a new build is ready
 - Mobile-friendly scrollable tiles; Display Settings on larger screens
 
 ## Company, Settings & Style
@@ -106,6 +119,8 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 *Set the defaults once. Run the portfolio every day.*
 
 - Company Profile: name, rental and renter counts, Past Tenants (Archived)
+- Receive Zelle: save the email or phone tenants should pay
+- Automatic key-return notifications, Require Tenant Photo, and Require Condition Report (with due windows)
 - Business Information for lease headers and contact details
 - Lease Defaults and Lease Agreement Templates in one Settings hub
 - App Style previews that apply instantly to the landlord studio
@@ -124,7 +139,8 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 | Signed | Drawn signature locks the agreement |
 | Official | Deposit invoice out; confirm when paid |
 | Active | Rent schedule, payments, and timeline live |
-| Alerts | Maintenance and overdue outreach stay in view |
+| Inspect | Condition reports on move-in and before move-out |
+| Alerts | Maintenance, inspections, and overdue outreach stay in view |
 
 ---
 
@@ -133,7 +149,7 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 - **Clear** — Status and next steps stay visible.
 - **Fair** — Both sides share the same information.
 - **Practical** — Import leases, track overdue rent, message in place.
-- **Accountable** — Signatures and payments leave a trail.
+- **Accountable** — Signatures, inspections, and payments leave a trail.
 - **Calm** — Clean UI, focus on the work.
 
 ---

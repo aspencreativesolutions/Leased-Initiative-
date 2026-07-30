@@ -178,7 +178,7 @@ const READY_SLIDE: WelcomeSlide = {
   icon: CheckCircle2,
   title: 'You are ready to begin',
   description:
-    'Create an account to get started, or explore with a host access code or company demo link — changes in the demo are not saved.',
+    'Create an account to get started, or explore with a host access code or company demo link — changes in the demo are not saved. On the home footer, open Feature Guide anytime for a view-only product overview (reading online only — download and share are turned off).',
 }
 
 export const ROLE_SLIDE: WelcomeSlide = {

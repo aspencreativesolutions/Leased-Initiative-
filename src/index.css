@@ -4706,3 +4706,22 @@ button.live-update-dot {
     animation: none;
   }
 }
+
+/* Feature Guide in-app PDF viewer — discourage casual copy / print / drag-save */
+.feature-guide-viewer {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.feature-guide-viewer__frame {
+  border: 0;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+@media print {
+  .feature-guide-viewer,
+  .feature-guide-viewer__frame {
+    display: none !important;
+  }
+}
