@@ -69,7 +69,6 @@ import {
   getRentalTownFilterLabel,
   nextOptionalLocationFilter,
   RENTAL_GROUP_FILTER_ANY_LABEL,
-  RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
   RENTAL_GROUP_FILTER_CYCLE_MAX,
   RENTAL_LOCATION_FILTER_BUTTON_WIDTH_CLASS,
   RENTAL_STATE_FILTER_ANY_LABEL,
@@ -719,6 +718,70 @@ export function PropertiesPage() {
                 label="Rental tile size"
               />
             ) : null}
+
+            {effectiveViewMode === 'tile' ? (
+              <div
+                className={cn(
+                  'inline-flex h-9 min-w-0 max-w-full flex-none items-center gap-1.5 rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper px-2.5',
+                  'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
+                )}
+              >
+                <label
+                  htmlFor="rental-distance-from-tiles"
+                  className="shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint whitespace-nowrap"
+                >
+                  Sort by distance from
+                </label>
+                <input
+                  id="rental-distance-from-tiles"
+                  type="text"
+                  value={distanceFromQuery}
+                  onChange={(e) => {
+                    setDistanceFromQuery(e.target.value)
+                    setDistanceFromError('')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      void handleDistanceFromSubmit()
+                    }
+                  }}
+                  placeholder="Address or city"
+                  disabled={distanceFromLoading}
+                  title={
+                    distanceFromPoint
+                      ? `Nearest → farthest from ${distanceFromPoint.label}`
+                      : undefined
+                  }
+                  className="h-6 w-[7.5rem] min-w-0 rounded-[calc(var(--radius-sm)-2px)] border border-line bg-surface-paper px-1.5 text-[11px] text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none sm:w-[9rem]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleDistanceFromSubmit()
+                  }}
+                  disabled={distanceFromLoading || !distanceFromQuery.trim()}
+                  className="shrink-0 rounded-[calc(var(--radius-sm)-2px)] border border-ink bg-ink px-2 py-0.5 text-[9px] font-semibold uppercase tracking-caps text-surface-paper disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {distanceFromLoading ? '…' : 'Go'}
+                </button>
+                {distanceFromPoint ? (
+                  <button
+                    type="button"
+                    onClick={handleDistanceFromClear}
+                    className="shrink-0 rounded-[calc(var(--radius-sm)-2px)] border border-line px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-caps text-ink-muted hover:border-ink hover:text-ink"
+                    aria-label="Clear distance sort"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+                {distanceFromError ? (
+                  <span className="max-w-[8rem] truncate text-[9px] text-accent" role="alert">
+                    {distanceFromError}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {filterBarOpen ? (
@@ -735,64 +798,46 @@ export function PropertiesPage() {
                     {stateOptions.length}{' '}
                     {stateOptions.length === 1 ? 'State' : 'States'}
                   </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {cycleState ? (
-                      <button
-                        type="button"
-                        onClick={cycleStateFilter}
-                        aria-label={`State filter: ${stateFilterLabel}. Click to cycle available states.`}
-                        title={
-                          stateFilter
-                            ? stateFilterLabel
-                            : stateOptions.length > 0
-                              ? `Click to cycle: ${RENTAL_STATE_FILTER_ANY_LABEL} → ${stateOptions.join(' → ')}`
-                              : RENTAL_STATE_FILTER_ANY_LABEL
-                        }
-                        className={cn(
-                          locationFilterControlClass,
-                          'inline-flex items-center',
-                          locationFilterToneClass(Boolean(stateFilter))
-                        )}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{stateFilterLabel}</span>
-                      </button>
-                    ) : (
-                      <select
-                        aria-label="State filter"
-                        title={stateFilterLabel}
-                        value={stateFilter}
-                        onChange={(e) => setStateFilter(e.target.value)}
-                        className={cn(
-                          locationFilterControlClass,
-                          'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
-                          locationFilterToneClass(Boolean(stateFilter))
-                        )}
-                      >
-                        <option value="">{RENTAL_STATE_FILTER_ANY_LABEL}</option>
-                        {stateOptions.map((state) => (
-                          <option key={state} value={state}>
-                            {state}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                  {cycleState ? (
                     <button
                       type="button"
-                      onClick={() => setStateFilter('')}
-                      disabled={!stateFilter}
-                      aria-label="Reset state filter"
-                      title="Reset Filters"
-                      className={cn(
-                        filterButtonClass,
-                        'shrink-0',
+                      onClick={cycleStateFilter}
+                      aria-label={`State filter: ${stateFilterLabel}. Click to cycle available states.`}
+                      title={
                         stateFilter
-                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                          ? stateFilterLabel
+                          : stateOptions.length > 0
+                            ? `Click to cycle: ${RENTAL_STATE_FILTER_ANY_LABEL} → ${stateOptions.join(' → ')}`
+                            : RENTAL_STATE_FILTER_ANY_LABEL
+                      }
+                      className={cn(
+                        locationFilterControlClass,
+                        'inline-flex items-center',
+                        locationFilterToneClass(Boolean(stateFilter))
                       )}
                     >
-                      Reset Filters
+                      <span className="min-w-0 flex-1 truncate">{stateFilterLabel}</span>
                     </button>
-                  </div>
+                  ) : (
+                    <select
+                      aria-label="State filter"
+                      title={stateFilterLabel}
+                      value={stateFilter}
+                      onChange={(e) => setStateFilter(e.target.value)}
+                      className={cn(
+                        locationFilterControlClass,
+                        'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                        locationFilterToneClass(Boolean(stateFilter))
+                      )}
+                    >
+                      <option value="">{RENTAL_STATE_FILTER_ANY_LABEL}</option>
+                      {stateOptions.map((state) => (
+                        <option key={state} value={state}>
+                          {state}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -803,168 +848,133 @@ export function PropertiesPage() {
                     {townOptions.length}{' '}
                     {townOptions.length === 1 ? 'Town' : 'Towns'}
                   </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {cycleTown ? (
-                      <button
-                        type="button"
-                        onClick={cycleTownFilter}
-                        aria-label={`Town filter: ${townFilterLabel}. Click to cycle available towns.`}
-                        title={
-                          townFilter
-                            ? townFilterLabel
-                            : townOptions.length > 0
-                              ? `Click to cycle: ${RENTAL_TOWN_FILTER_ANY_LABEL} → ${townOptions.join(' → ')}`
-                              : RENTAL_TOWN_FILTER_ANY_LABEL
-                        }
-                        className={cn(
-                          locationFilterControlClass,
-                          'inline-flex items-center',
-                          locationFilterToneClass(Boolean(townFilter))
-                        )}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{townFilterLabel}</span>
-                      </button>
-                    ) : (
-                      <select
-                        aria-label="Town filter"
-                        title={townFilterLabel}
-                        value={
-                          townOptions.find((town) => townsMatch(town, townFilter)) ??
-                          ''
-                        }
-                        onChange={(e) => setTownFilter(e.target.value)}
-                        className={cn(
-                          locationFilterControlClass,
-                          'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
-                          locationFilterToneClass(Boolean(townFilter))
-                        )}
-                      >
-                        <option value="">{RENTAL_TOWN_FILTER_ANY_LABEL}</option>
-                        {townOptions.map((town) => (
-                          <option key={town} value={town}>
-                            {town}
-                          </option>
-                        ))}
-                      </select>
-                    )}
+                  {cycleTown ? (
                     <button
                       type="button"
-                      onClick={() => setTownFilter('')}
-                      disabled={!townFilter}
-                      aria-label="Reset town filter"
-                      title="Reset Filters"
-                      className={cn(
-                        filterButtonClass,
-                        'shrink-0',
+                      onClick={cycleTownFilter}
+                      aria-label={`Town filter: ${townFilterLabel}. Click to cycle available towns.`}
+                      title={
                         townFilter
-                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                          ? townFilterLabel
+                          : townOptions.length > 0
+                            ? `Click to cycle: ${RENTAL_TOWN_FILTER_ANY_LABEL} → ${townOptions.join(' → ')}`
+                            : RENTAL_TOWN_FILTER_ANY_LABEL
+                      }
+                      className={cn(
+                        locationFilterControlClass,
+                        'inline-flex items-center',
+                        locationFilterToneClass(Boolean(townFilter))
                       )}
                     >
-                      Reset Filters
+                      <span className="min-w-0 flex-1 truncate">{townFilterLabel}</span>
                     </button>
-                  </div>
+                  ) : (
+                    <select
+                      aria-label="Town filter"
+                      title={townFilterLabel}
+                      value={
+                        townOptions.find((town) => townsMatch(town, townFilter)) ??
+                        ''
+                      }
+                      onChange={(e) => setTownFilter(e.target.value)}
+                      className={cn(
+                        locationFilterControlClass,
+                        'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                        locationFilterToneClass(Boolean(townFilter))
+                      )}
+                    >
+                      <option value="">{RENTAL_TOWN_FILTER_ANY_LABEL}</option>
+                      {townOptions.map((town) => (
+                        <option key={town} value={town}>
+                          {town}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <p
-                    className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
-                    aria-label={`${groupOptions.length} groups`}
-                  >
-                    {groupOptions.length}{' '}
-                    {groupOptions.length === 1 ? 'Group' : 'Groups'}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <div
-                      role="group"
-                      aria-label="Rental groups"
-                      className={segmentedShellClass}
-                    >
-                      {cycleGroup ? (
-                        <button
-                          type="button"
-                          onClick={cycleGroupFilter}
-                          aria-label={`Group filter: ${groupFilterLabel}. Click to cycle available groups.`}
-                          title={
-                            groupFilter
-                              ? groupFilterLabel
-                              : groupOptions.length > 0
-                                ? `Click to cycle: ${RENTAL_GROUP_FILTER_ANY_LABEL} → ${groupOptions.map((o) => o.label).join(' → ')}`
-                                : RENTAL_GROUP_FILTER_ANY_LABEL
-                          }
-                          aria-pressed={Boolean(groupFilter)}
-                          className={cn(
-                            segmentedSegmentClass,
-                            RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
-                            'min-w-0',
-                            groupFilter
-                              ? 'bg-brand text-surface-paper'
-                              : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-                          )}
-                        >
-                          <span className="truncate">{groupFilterLabel}</span>
-                        </button>
-                      ) : (
-                        <select
-                          aria-label="Group filter"
-                          title={groupFilterLabel}
-                          value={groupFilter}
-                          onChange={(e) => setGroupFilter(e.target.value)}
-                          className={cn(
-                            segmentedSegmentClass,
-                            RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
-                            'min-w-0 appearance-none truncate border-0 pr-5',
-                            'bg-no-repeat bg-[length:0.5rem_0.5rem] bg-[position:right_0.3rem_center]',
-                            'bg-[url(\'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23737373" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="m6 9 6 6 6-6"/%3E%3C/svg%3E\')]',
-                            'focus:outline-none',
-                            groupFilter
-                              ? 'bg-brand text-surface-paper'
-                              : 'bg-transparent text-ink-muted hover:bg-ink/5 hover:text-ink'
-                          )}
-                        >
-                          <option value="">{RENTAL_GROUP_FILTER_ANY_LABEL}</option>
-                          {groupOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <button
-                        type="button"
-                        title="Edit Groups"
-                        aria-label="Edit Groups"
-                        aria-pressed={regionsOpen}
-                        onClick={() => setRegionsOpen(true)}
-                        className={cn(
-                          segmentedSegmentClass,
-                          'shrink-0 whitespace-nowrap',
-                          regionsOpen
-                            ? 'bg-ink/10 text-ink'
-                            : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-                        )}
-                      >
-                        Edit Groups
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+                      Groups
+                    </p>
                     <button
                       type="button"
-                      onClick={() => setGroupFilter('')}
-                      disabled={!groupFilter}
-                      aria-label="Reset group filter"
-                      title="Reset Filters"
+                      title="Add or edit groups"
+                      aria-label="Edit Groups"
+                      aria-pressed={regionsOpen}
+                      onClick={() => setRegionsOpen(true)}
                       className={cn(
-                        filterButtonClass,
-                        'shrink-0',
-                        groupFilter
-                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                        'inline-flex h-4 w-4 items-center justify-center rounded-full text-ink-faint transition-colors',
+                        'hover:bg-brand/15 hover:text-brand focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand',
+                        regionsOpen && 'bg-brand/15 text-brand'
                       )}
                     >
-                      Reset Filters
+                      <Pencil className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
                     </button>
                   </div>
+                  {cycleGroup ? (
+                    <button
+                      type="button"
+                      onClick={cycleGroupFilter}
+                      aria-label={`Group filter: ${groupFilterLabel}. Click to cycle available groups.`}
+                      title={
+                        groupFilter
+                          ? groupFilterLabel
+                          : groupOptions.length > 0
+                            ? `Click to cycle: ${RENTAL_GROUP_FILTER_ANY_LABEL} → ${groupOptions.map((o) => o.label).join(' → ')}`
+                            : RENTAL_GROUP_FILTER_ANY_LABEL
+                      }
+                      className={cn(
+                        locationFilterControlClass,
+                        'inline-flex items-center',
+                        locationFilterToneClass(Boolean(groupFilter))
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{groupFilterLabel}</span>
+                    </button>
+                  ) : (
+                    <select
+                      aria-label="Group filter"
+                      title={groupFilterLabel}
+                      value={groupFilter}
+                      onChange={(e) => setGroupFilter(e.target.value)}
+                      className={cn(
+                        locationFilterControlClass,
+                        'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                        locationFilterToneClass(Boolean(groupFilter))
+                      )}
+                    >
+                      <option value="">{RENTAL_GROUP_FILTER_ANY_LABEL}</option>
+                      {groupOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStateFilter('')
+                    setTownFilter('')
+                    setGroupFilter('')
+                  }}
+                  disabled={!stateFilter && !townFilter && !groupFilter}
+                  aria-label="Reset all location filters"
+                  title="Reset Filters"
+                  className={cn(
+                    filterButtonClass,
+                    'shrink-0 self-end',
+                    stateFilter || townFilter || groupFilter
+                      ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                  )}
+                >
+                  Reset Filters
+                </button>
               </div>
             </div>
           ) : null}
@@ -1104,68 +1114,6 @@ export function PropertiesPage() {
                 }}
               />
             ) : (
-              <div className="space-y-3">
-                <div className="w-full max-w-sm rounded-[var(--radius-sm)] border border-ink/15 bg-surface-paper p-2.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.55)]">
-                  <label
-                    htmlFor="rental-distance-from-tiles"
-                    className="block text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
-                  >
-                    Sort By: Distance From
-                  </label>
-                  <div className="mt-1 flex items-center gap-1">
-                    <input
-                      id="rental-distance-from-tiles"
-                      type="text"
-                      value={distanceFromQuery}
-                      onChange={(e) => {
-                        setDistanceFromQuery(e.target.value)
-                        setDistanceFromError('')
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          void handleDistanceFromSubmit()
-                        }
-                      }}
-                      placeholder="Address or city"
-                      disabled={distanceFromLoading}
-                      className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      onClick={() => {
-                        void handleDistanceFromSubmit()
-                      }}
-                      disabled={distanceFromLoading || !distanceFromQuery.trim()}
-                      className="!px-2.5"
-                    >
-                      {distanceFromLoading ? '…' : 'Go'}
-                    </Button>
-                    {distanceFromPoint ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleDistanceFromClear}
-                        className="!px-2.5"
-                      >
-                        Clear
-                      </Button>
-                    ) : null}
-                  </div>
-                  {distanceFromPoint ? (
-                    <p className="mt-1 truncate text-[10px] text-ink-muted">
-                      Nearest → farthest from {distanceFromPoint.label}
-                    </p>
-                  ) : null}
-                  {distanceFromError ? (
-                    <p className="mt-1 text-[10px] text-accent" role="alert">
-                      {distanceFromError}
-                    </p>
-                  ) : null}
-                </div>
               <div
                 className="tile-scale-root"
                 style={leaseTileScaleStyle(factor)}
@@ -1283,87 +1231,90 @@ export function PropertiesPage() {
                                 ) : null}
                               </div>
                             ) : null}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="lease-tile-card__icon" aria-hidden>
-                                <Building2 strokeWidth={1.75} />
+                            <div className="lease-tile-card__top">
+                              <div className="flex w-full items-start justify-between gap-2">
+                                <div className="lease-tile-card__icon" aria-hidden>
+                                  <Building2 strokeWidth={1.75} />
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <RentalCategoryTag
+                                    category={row.rentalCategory}
+                                    resolveMissing
+                                  />
+                                  <button
+                                    type="button"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface hover:text-brand"
+                                    title={`Edit ${row.address}`}
+                                    aria-label={`Edit ${row.address}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      setEditingPropertyId(row.id)
+                                    }}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex shrink-0 flex-col items-end gap-1">
-                                <RentalCategoryTag
-                                  category={row.rentalCategory}
-                                  resolveMissing
-                                />
-                                <button
-                                  type="button"
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface hover:text-brand"
-                                  title={`Edit ${row.address}`}
-                                  aria-label={`Edit ${row.address}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation()
-                                    setEditingPropertyId(row.id)
-                                  }}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
-                                </button>
-                              </div>
+
+                              <h3 className="tile-card__title tile-card__address-static">
+                                <AddressText address={row.address} hangingIndent={false} />
+                              </h3>
+
+                              <p className="tile-card__body font-semibold text-ink">
+                                {row.propertyType}
+                              </p>
+                              <span
+                                className={
+                                  row.furnished
+                                    ? 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-brand/30 bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-brand'
+                                    : 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-line bg-surface-paper px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted'
+                                }
+                              >
+                                {furnishedStatusLabel(row.furnished)}
+                              </span>
+
+                              <p className="tile-card__meta tabular-nums">
+                                Monthly Rent: {formatUsd(row.monthlyRent)}
+                                {row.unitLabel ? ` · ${row.unitLabel}` : ''}
+                              </p>
+                              {row.surfacesBeds &&
+                              row.tenantShare != null &&
+                              row.currentTenants > 1 ? (
+                                <p className="tile-card__meta tabular-nums">
+                                  Per bed share: {formatUsd(row.tenantShare)}/month
+                                </p>
+                              ) : null}
+                              {row.surfacesBeds ? (
+                                <p className="tile-card__meta tabular-nums text-ink-muted">
+                                  Beds: {row.occupiedBeds} of {row.totalBeds} occupied
+                                </p>
+                              ) : (
+                                <p className="tile-card__meta text-ink-muted">
+                                  {row.currentTenants > 0
+                                    ? WHOLE_UNIT_LEASE_LABEL
+                                    : 'Entire home available'}
+                                </p>
+                              )}
                             </div>
 
-                            <h3 className="tile-card__title tile-card__address-static">
-                              <AddressText address={row.address} hangingIndent={false} />
-                            </h3>
-
-                            <p className="tile-card__body font-semibold text-ink">
-                              {row.propertyType}
-                            </p>
-                            <span
-                              className={
-                                row.furnished
-                                  ? 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-brand/30 bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-brand'
-                                  : 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-line bg-surface-paper px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted'
-                              }
-                            >
-                              {furnishedStatusLabel(row.furnished)}
-                            </span>
-
-                            <p className="tile-card__meta tabular-nums">
-                              Monthly Rent: {formatUsd(row.monthlyRent)}
-                              {row.unitLabel ? ` · ${row.unitLabel}` : ''}
-                            </p>
-                            {row.surfacesBeds &&
-                            row.tenantShare != null &&
-                            row.currentTenants > 1 ? (
-                              <p className="tile-card__meta tabular-nums">
-                                Per bed share: {formatUsd(row.tenantShare)}/month
-                              </p>
-                            ) : null}
-                            {row.surfacesBeds ? (
-                              <p className="tile-card__meta tabular-nums text-ink-muted">
-                                Beds: {row.occupiedBeds} of {row.totalBeds} occupied
-                              </p>
-                            ) : (
-                              <p className="tile-card__meta text-ink-muted">
-                                {row.currentTenants > 0
-                                  ? WHOLE_UNIT_LEASE_LABEL
-                                  : 'Entire home available'}
-                              </p>
-                            )}
-
-                            <BedsOccupancyTag
-                              bedrooms={row.bedrooms}
-                              currentTenants={row.currentTenants}
-                              maxTenants={row.maxTenants}
-                              occupants={occupants}
-                              onOccupantClick={setDetailsTenantId}
-                              className="mt-0.5"
-                            />
-                            <RentalInterestCue
-                              propertyId={row.id}
-                              applicantCount={
-                                interestByPropertyId.get(row.id)?.applicantCount ?? 0
-                              }
-                              pendingTenantCount={
-                                interestByPropertyId.get(row.id)?.pendingTenantCount ?? 0
-                              }
-                            />
+                            <div className="rental-tile__occupancy">
+                              <BedsOccupancyTag
+                                bedrooms={row.bedrooms}
+                                currentTenants={row.currentTenants}
+                                maxTenants={row.maxTenants}
+                                occupants={occupants}
+                                onOccupantClick={setDetailsTenantId}
+                              />
+                              <RentalInterestCue
+                                propertyId={row.id}
+                                applicantCount={
+                                  interestByPropertyId.get(row.id)?.applicantCount ?? 0
+                                }
+                                pendingTenantCount={
+                                  interestByPropertyId.get(row.id)?.pendingTenantCount ?? 0
+                                }
+                              />
+                            </div>
                           </div>
 
                           <div className="lease-tile-card__actions">
@@ -1418,7 +1369,6 @@ export function PropertiesPage() {
                     )
                   })}
                 </div>
-              </div>
               </div>
             )}
           </div>

@@ -9,7 +9,10 @@ import {
   formatRegionRadiusSummary,
   isValidRegionRadius,
 } from '@/lib/contractLocationFilters'
-import { resolvePropertyCoordinates } from '@/lib/geocodeAddress'
+import {
+  readStoredPropertyCoordinates,
+  resolvePropertyCoordinates,
+} from '@/lib/geocodeAddress'
 import { getGoogleMaps, getMapsApiKey, loadGoogleMaps } from '@/lib/googleMaps'
 import { generateId } from '@/lib/storage'
 import { cn } from '@/lib/utils'
@@ -25,6 +28,17 @@ const US_BOUNDS = {
   south: 24.4,
   west: -125.0,
   east: -66.9,
+}
+
+/** Stable fingerprint so pin resolve re-runs when coords/addresses change, not on every parent render. */
+function propertyPinsFingerprint(properties: Property[]): string {
+  return properties
+    .map((property) => {
+      const lat = property.addressDetails?.lat ?? ''
+      const lng = property.addressDetails?.lng ?? ''
+      return `${property.id}\0${property.address}\0${lat}\0${lng}`
+    })
+    .join('\n')
 }
 
 interface GoogleLatLng {
@@ -179,6 +193,11 @@ export function PropertiesMapModal({
   radiusRef.current = radius && isValidRegionRadius(radius) ? radius : null
   pinsRef.current = pins
 
+  const propertiesFingerprint = useMemo(
+    () => propertyPinsFingerprint(properties),
+    [properties]
+  )
+
   const resetDefineState = () => {
     setDefining(false)
     setDefineMode('select')
@@ -216,10 +235,35 @@ export function PropertiesMapModal({
   }, [open, apiKey])
 
   useEffect(() => {
-    if (!open || !mapsReady) return
+    if (!open) return
     let cancelled = false
     setPinsLoading(true)
     ;(async () => {
+      const needsGeocode = properties.some(
+        (property) => !readStoredPropertyCoordinates(property)
+      )
+      // Wait for Maps before geocoding missing pins so we don't cache null failures.
+      if (needsGeocode && !mapsReady) {
+        const storedOnly = properties.flatMap((property) => {
+          const point = readStoredPropertyCoordinates(property)
+          if (!point) return []
+          return [
+            {
+              id: property.id,
+              address: property.address,
+              lat: point.lat,
+              lng: point.lng,
+            } satisfies MapPropertyPin,
+          ]
+        })
+        if (!cancelled) {
+          setPins(storedOnly)
+          // Keep locating until Maps can geocode the rest.
+          setPinsLoading(true)
+        }
+        return
+      }
+
       const resolved = await Promise.all(
         properties.map(async (property) => {
           const point = await resolvePropertyCoordinates(property)
@@ -239,7 +283,9 @@ export function PropertiesMapModal({
     return () => {
       cancelled = true
     }
-  }, [open, mapsReady, properties])
+    // propertiesFingerprint covers id/address/lat/lng; avoid identity churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mapsReady, propertiesFingerprint])
 
   const highlightedIds = useMemo(() => {
     if (!defining) return new Set<string>()

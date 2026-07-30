@@ -60,6 +60,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Steubenville',
       state: 'OH',
       zip: '43952',
+      lat: 40.3712,
+      lng: -80.6358,
     },
   },
   {
@@ -80,6 +82,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Weirton',
       state: 'WV',
       zip: '26062',
+      lat: 40.4211,
+      lng: -80.5912,
     },
   },
   {
@@ -100,6 +104,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Wheeling',
       state: 'WV',
       zip: '26003',
+      lat: 40.0664,
+      lng: -80.7218,
     },
   },
   {
@@ -120,6 +126,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Weirton',
       state: 'WV',
       zip: '26062',
+      lat: 40.4165,
+      lng: -80.5871,
     },
   },
   {
@@ -140,6 +148,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'St. Clairsville',
       state: 'OH',
       zip: '43950',
+      lat: 40.0798,
+      lng: -80.9004,
     },
   },
   {
@@ -161,6 +171,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Wellsburg',
       state: 'WV',
       zip: '26070',
+      lat: 40.2736,
+      lng: -80.6105,
     },
   },
   {
@@ -181,6 +193,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Steubenville',
       state: 'OH',
       zip: '43953',
+      lat: 40.3589,
+      lng: -80.6482,
     },
   },
   {
@@ -201,6 +215,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Wintersville',
       state: 'OH',
       zip: '43953',
+      lat: 40.3798,
+      lng: -80.7041,
     },
   },
   {
@@ -221,6 +237,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Steubenville',
       state: 'OH',
       zip: '43952',
+      lat: 40.3755,
+      lng: -80.6288,
     },
   },
   {
@@ -242,6 +260,8 @@ export const DEFAULT_SEED_PROPERTIES = [
       city: 'Steubenville',
       state: 'OH',
       zip: '43952',
+      lat: 40.3759,
+      lng: -80.6282,
     },
   },
 ]
@@ -631,7 +651,12 @@ function applySeedFields(property, seedEntry) {
   if (Array.isArray(seedEntry.bedroomsLayout) && seedEntry.bedroomsLayout.length > 0) {
     next.bedroomsLayout = seedEntry.bedroomsLayout
   }
-  if (seedDetails) next.addressDetails = seedDetails
+  if (seedDetails) {
+    // Merge so seed street/city updates keep existing map pins when the seed
+    // omits lat/lng, and seed coordinates backfill onto older store records.
+    const existing = normalizeAddressDetails(property.addressDetails) ?? {}
+    next.addressDetails = { ...existing, ...seedDetails }
+  }
   if (property.addressConfirmed !== true) next.addressConfirmed = true
   return next
 }

@@ -81,21 +81,25 @@ export async function geocodeAddress(query: string): Promise<GeocodedPoint | nul
   return point
 }
 
+/** Read finite lat/lng from property address details when present. */
+export function readStoredPropertyCoordinates(property: {
+  addressDetails?: { lat?: number | string; lng?: number | string }
+}): { lat: number; lng: number } | null {
+  const lat = Number(property.addressDetails?.lat)
+  const lng = Number(property.addressDetails?.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  return { lat, lng }
+}
+
 /** Resolve property coordinates from stored details, or geocode the address. */
 export async function resolvePropertyCoordinates(property: {
   id: string
   address: string
-  addressDetails?: { lat?: number; lng?: number }
+  addressDetails?: { lat?: number | string; lng?: number | string }
 }): Promise<GeocodedPoint | null> {
-  const lat = property.addressDetails?.lat
-  const lng = property.addressDetails?.lng
-  if (
-    lat != null &&
-    lng != null &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng)
-  ) {
-    return { lat, lng, label: property.address }
+  const stored = readStoredPropertyCoordinates(property)
+  if (stored) {
+    return { ...stored, label: property.address }
   }
   return geocodeAddress(property.address)
 }

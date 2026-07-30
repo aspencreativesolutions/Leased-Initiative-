@@ -297,6 +297,26 @@
     color: var(--ink-muted);
   }
 
+  /*
+   * Occupancy tag row — pinned under the growing top block so every tile in a
+   * stretched grid row shares the same vertical baseline for “X of Y people”.
+   */
+  .rental-tile__occupancy {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: max(0.35rem, calc(0.35rem * var(--tile-scale)));
+    margin-top: auto;
+    padding-top: max(0.15rem, calc(0.1rem * var(--tile-scale)));
+  }
+
+  .rental-tile__occupancy .rental-interest-cue {
+    margin-top: 0;
+  }
+
   .lease-tile-card__action-item--primary {
     flex: 1 1 0;
   }
@@ -3698,6 +3718,7 @@ span.in-place-hover--lease-tag.inline-flex {
   position: relative;
   display: flex;
   width: 100%;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
   gap: 0.35rem;
@@ -3709,9 +3730,11 @@ span.in-place-hover--lease-tag.inline-flex {
 }
 
 .beds-occupancy-tag__trigger {
+  box-sizing: border-box;
   position: relative;
   display: inline-flex;
   max-width: 100%;
+  min-height: calc((var(--tile-meta, 0.6875rem) * 1.25) + 0.56rem);
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
@@ -3734,6 +3757,8 @@ span.in-place-hover--lease-tag.inline-flex {
 .beds-occupancy-tag__trigger--swap {
   display: inline-grid;
   justify-items: center;
+  align-items: center;
+  width: min(100%, 12.5rem);
   min-width: min(100%, 12.5rem);
 }
 
