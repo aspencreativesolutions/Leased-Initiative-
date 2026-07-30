@@ -28,6 +28,9 @@ import {
   retrieveStripeCheckoutSession,
   constructStripeWebhookEvent,
 } from './lib/stripe.js'
+
+/** Changes on every process start so live-update clients can detect backend restarts. */
+const SERVER_BOOT_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 import {
   isSquareConfigured,
   verifySquareOrderPayment,
@@ -153,7 +156,7 @@ app.post('/api/square/webhook', express.raw({ type: 'application/json' }), async
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
+  res.json({ ok: true, bootId: SERVER_BOOT_ID })
 })
 
 app.get('/api/smtp/health', async (_req, res) => {

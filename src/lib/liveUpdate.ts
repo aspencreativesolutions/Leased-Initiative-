@@ -1,7 +1,9 @@
 import { apiFetch } from '@/lib/api'
+import { isPublicDemoSession, PUBLIC_DEMO_SESSION_KEY } from '@/lib/publicDemo'
 
 export const LIVE_UPDATE_POLL_MS = 4000
 export const LIVE_UPDATE_BASELINE_KEY = 'leased-live-update-baseline'
+export const LIVE_UPDATE_BOOT_BASELINE_KEY = 'leased-live-update-boot-baseline'
 /** Sticky client cache so the beacon stays up across reloads / brief API blips. */
 export const LIVE_UPDATE_ENABLED_CACHE_KEY = 'leased-live-update-enabled'
 /**
@@ -13,6 +15,13 @@ export const LIVE_UPDATE_CHANGED_EVENT = 'leased-live-update-changed'
 
 export type LiveUpdateStatus = {
   enabled: boolean
+}
+
+export type LiveUpdateRevision = {
+  /** Frontend / file-watch version from /live-update-version.json */
+  version: string | null
+  /** Backend process boot id from /api/health */
+  bootId: string | null
 }
 
 export async function fetchPublicLiveUpdateStatus(): Promise<LiveUpdateStatus> {
@@ -61,6 +70,23 @@ export async function fetchLiveUpdateVersion(): Promise<string | null> {
   }
 }
 
+/** Backend boot id — changes whenever the API process restarts. */
+export async function fetchLiveUpdateBootId(): Promise<string | null> {
+  try {
+    const res = await fetch('/api/health', { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = (await res.json()) as { bootId?: string }
+    return typeof data.bootId === 'string' && data.bootId ? data.bootId : null
+  } catch {
+    return null
+  }
+}
+
+export async function fetchLiveUpdateRevision(): Promise<LiveUpdateRevision> {
+  const [version, bootId] = await Promise.all([fetchLiveUpdateVersion(), fetchLiveUpdateBootId()])
+  return { version, bootId }
+}
+
 export function readCachedLiveUpdateEnabled(): boolean {
   try {
     return localStorage.getItem(LIVE_UPDATE_ENABLED_CACHE_KEY) === '1'
@@ -97,9 +123,61 @@ export function writeLiveUpdateBaseline(version: string): void {
   }
 }
 
+export function readLiveUpdateBootBaseline(): string | null {
+  try {
+    return sessionStorage.getItem(LIVE_UPDATE_BOOT_BASELINE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function writeLiveUpdateBootBaseline(bootId: string): void {
+  try {
+    sessionStorage.setItem(LIVE_UPDATE_BOOT_BASELINE_KEY, bootId)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function writeLiveUpdateRevisionBaseline(revision: LiveUpdateRevision): void {
+  if (revision.version) writeLiveUpdateBaseline(revision.version)
+  if (revision.bootId) writeLiveUpdateBootBaseline(revision.bootId)
+}
+
+/**
+ * True when we have a prior baseline and either the frontend version or the
+ * backend boot id has changed since then.
+ */
+export function isLiveUpdateRevisionNewer(revision: LiveUpdateRevision): boolean {
+  const versionBaseline = readLiveUpdateBaseline()
+  const bootBaseline = readLiveUpdateBootBaseline()
+
+  // First successful read for each signal — establish baseline, not an update.
+  let sawChange = false
+
+  if (revision.version) {
+    if (!versionBaseline) {
+      writeLiveUpdateBaseline(revision.version)
+    } else if (revision.version !== versionBaseline) {
+      sawChange = true
+    }
+  }
+
+  if (revision.bootId) {
+    if (!bootBaseline) {
+      writeLiveUpdateBootBaseline(revision.bootId)
+    } else if (revision.bootId !== bootBaseline) {
+      sawChange = true
+    }
+  }
+
+  return sawChange
+}
+
 export function clearLiveUpdateBaseline(): void {
   try {
     sessionStorage.removeItem(LIVE_UPDATE_BASELINE_KEY)
+    sessionStorage.removeItem(LIVE_UPDATE_BOOT_BASELINE_KEY)
   } catch {
     /* ignore */
   }
@@ -129,4 +207,44 @@ export function clearLiveUpdateNoticeSeen(): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Preserve demo immersion and current URL, then reload once the API is healthy. */
+export async function performLiveUpdateRefresh(options?: {
+  onWaiting?: () => void
+}): Promise<void> {
+  options?.onWaiting?.()
+
+  // Wait for the API so auth rehydration keeps the current route
+  // (avoids demo recover → home during live-update server restarts).
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      const res = await fetch('/api/health', { cache: 'no-store' })
+      if (res.ok) {
+        const data = (await res.json()) as { bootId?: string }
+        if (typeof data.bootId === 'string' && data.bootId) {
+          writeLiveUpdateBootBaseline(data.bootId)
+        }
+        break
+      }
+    } catch {
+      /* retry */
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 400))
+  }
+
+  const version = await fetchLiveUpdateVersion()
+  if (version) writeLiveUpdateBaseline(version)
+
+  // Re-assert demo session so a mid-refresh storage quirk cannot drop immersion.
+  if (typeof window !== 'undefined' && isPublicDemoSession()) {
+    try {
+      sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Keep the exact path/query/hash the visitor was on.
+  window.location.reload()
 }

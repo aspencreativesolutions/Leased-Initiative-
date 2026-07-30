@@ -426,7 +426,7 @@ function AdminModeFabInner() {
       setLiveUpdateEnabled(result.enabled)
       setMessage(
         result.enabled
-          ? 'Live updates on — visitors see a red indicator until you turn this off.'
+          ? 'Live updates on — visitors see a red indicator and auto-refresh when changes land.'
           : 'Live updates off — the red indicator is hidden on the live site.'
       )
     } catch (err) {
@@ -528,8 +528,8 @@ function AdminModeFabInner() {
                   </span>
                   <span className="mt-0.5 block text-[10px] leading-snug text-ink-muted">
                     When on, visitors see a pulsing red dot while you deploy. They can click it for an
-                    explanation, and refresh from there when a new build is ready. Turn off when
-                    you&apos;re done.
+                    explanation. When new changes land, the page refreshes for them automatically —
+                    same page, demo intact. Turn off when you&apos;re done.
                   </span>
                 </span>
               </button>

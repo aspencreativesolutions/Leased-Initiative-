@@ -5,16 +5,15 @@ import {
   LIVE_UPDATE_POLL_MS,
   clearLiveUpdateBaseline,
   clearLiveUpdateNoticeSeen,
-  fetchLiveUpdateVersion,
+  fetchLiveUpdateRevision,
   fetchPublicLiveUpdateStatus,
+  isLiveUpdateRevisionNewer,
+  performLiveUpdateRefresh,
   readCachedLiveUpdateEnabled,
-  readLiveUpdateBaseline,
   readLiveUpdateNoticeSeen,
   writeCachedLiveUpdateEnabled,
-  writeLiveUpdateBaseline,
   writeLiveUpdateNoticeSeen,
 } from '@/lib/liveUpdate'
-import { isPublicDemoSession, PUBLIC_DEMO_SESSION_KEY } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
 /**
@@ -22,9 +21,10 @@ import { cn } from '@/lib/utils'
  * The glowing red dot stays visible until the admin turns the feature off — through
  * refreshes, route changes, and brief API blips. The explanation opens once when
  * live updates first turns on (or when the visitor clicks the dot); “Got it” keeps
- * it dismissed across reloads until they open it again. When a new build is ready,
- * the indicator becomes a refresh button that reloads in place without leaving the
- * current page / demo session.
+ * it dismissed across reloads until they open it again.
+ *
+ * When a frontend or backend revision changes, the beacon becomes a spinning refresh
+ * control and the page reloads automatically in place — same URL, demo session intact.
  */
 export function LiveUpdateIndicator() {
   const [enabled, setEnabled] = useState(() => readCachedLiveUpdateEnabled())
@@ -32,6 +32,7 @@ export function LiveUpdateIndicator() {
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const wasEnabledRef = useRef(readCachedLiveUpdateEnabled())
+  const refreshStartedRef = useRef(false)
   const noticeTitleId = useId()
   const noticeDescId = useId()
 
@@ -49,9 +50,25 @@ export function LiveUpdateIndicator() {
     clearLiveUpdateBaseline()
     clearLiveUpdateNoticeSeen()
     wasEnabledRef.current = false
+    refreshStartedRef.current = false
     setEnabled(false)
     setUpdateAvailable(false)
     setNoticeOpen(false)
+    setRefreshing(false)
+  }, [])
+
+  const startSeamlessRefresh = useCallback(async () => {
+    if (refreshStartedRef.current) return
+    refreshStartedRef.current = true
+    setUpdateAvailable(true)
+    setRefreshing(true)
+    try {
+      await performLiveUpdateRefresh()
+    } catch {
+      // Allow another attempt on the next poll if reload never happened.
+      refreshStartedRef.current = false
+      setRefreshing(false)
+    }
   }, [])
 
   const sync = useCallback(async () => {
@@ -71,24 +88,25 @@ export function LiveUpdateIndicator() {
       // Keep the beacon on; only auto-open the explanation if it hasn’t been dismissed.
       turnOn(true)
 
-      const version = await fetchLiveUpdateVersion()
-      if (!version) {
-        // Keep last known update-available state if the version endpoint blips.
+      if (refreshStartedRef.current) return
+
+      const revision = await fetchLiveUpdateRevision()
+      if (!revision.version && !revision.bootId) {
+        // Keep last known update-available state if both signals blip.
         return
       }
 
-      const baseline = readLiveUpdateBaseline()
-      if (!baseline) {
-        writeLiveUpdateBaseline(version)
-        setUpdateAvailable(false)
+      if (isLiveUpdateRevisionNewer(revision)) {
+        setUpdateAvailable(true)
+        void startSeamlessRefresh()
         return
       }
 
-      setUpdateAvailable(version !== baseline)
+      setUpdateAvailable(false)
     } catch {
       // Keep last known UI (and sticky cache) if the poll fails briefly.
     }
-  }, [turnOff, turnOn])
+  }, [startSeamlessRefresh, turnOff, turnOn])
 
   useEffect(() => {
     // Cached-on: show the beacon immediately. Only auto-open the explanation if
@@ -143,56 +161,27 @@ export function LiveUpdateIndicator() {
     setNoticeOpen(true)
   }
 
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    // Wait for the API to be reachable so auth rehydration keeps the current route
-    // (avoids demo recover → home during live-update server restarts).
-    for (let attempt = 0; attempt < 12; attempt++) {
-      try {
-        const res = await fetch('/api/health', { cache: 'no-store' })
-        if (res.ok) break
-      } catch {
-        /* retry */
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 400))
-    }
-
-    // Re-assert demo session so a mid-refresh storage quirk cannot drop immersion.
-    if (isPublicDemoSession()) {
-      try {
-        sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
-      } catch {
-        /* ignore */
-      }
-    }
-
-    const version = await fetchLiveUpdateVersion()
-    if (version) writeLiveUpdateBaseline(version)
-    // Keep the exact path/query/hash the visitor was on.
-    window.location.reload()
-  }
-
   if (!enabled) return null
+
+  const showRefreshControl = updateAvailable || refreshing
 
   return (
     <>
       {/* Beacon sits above the notice overlay so the glowing control is always visible. */}
       <div className="pointer-events-none fixed left-3 top-3 z-[110] flex items-start gap-2">
-        {updateAvailable ? (
+        {showRefreshControl ? (
           <button
             type="button"
             onClick={() => {
-              void handleRefresh()
+              void startSeamlessRefresh()
             }}
             disabled={refreshing}
             className="live-update-refresh pointer-events-auto"
-            aria-label={
-              refreshing ? 'Refreshing to load live updates' : 'Refresh to load live updates'
-            }
-            title={refreshing ? 'Refreshing…' : 'New update ready — refresh'}
+            aria-label="Refreshing to load live updates"
+            title="Refreshing to load live updates…"
           >
             <RefreshCw
-              className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+              className={cn('h-3.5 w-3.5', 'animate-spin')}
               strokeWidth={2.5}
               aria-hidden
             />
@@ -230,9 +219,9 @@ export function LiveUpdateIndicator() {
           >
             <div className="flex items-start gap-2">
               <span className="mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
-                {updateAvailable ? (
+                {showRefreshControl ? (
                   <span className="live-update-refresh live-update-refresh--inline">
-                    <RefreshCw className="h-2.5 w-2.5" strokeWidth={2.5} />
+                    <RefreshCw className="h-2.5 w-2.5 animate-spin" strokeWidth={2.5} />
                   </span>
                 ) : (
                   <span className="live-update-dot" />
@@ -244,8 +233,9 @@ export function LiveUpdateIndicator() {
                 </h2>
                 <p id={noticeDescId} className="mt-1 text-[12px] leading-snug text-ink-muted">
                   The developer has turned live update on, meaning active changes are being made.
-                  The glowing red dot turns into a refresh icon when the page should be refreshed.
-                  This stays until updates are finished.
+                  The page refreshes automatically when new changes are ready — you stay on this
+                  page. The glowing red dot turns into a refresh icon while that happens. This
+                  stays until updates are finished.
                 </p>
               </div>
               <button
@@ -258,22 +248,11 @@ export function LiveUpdateIndicator() {
               </button>
             </div>
             <div className="mt-3 flex flex-col gap-2">
-              {updateAvailable ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleRefresh()
-                  }}
-                  disabled={refreshing}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-[#ff1744] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                >
-                  <RefreshCw
-                    className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
-                    strokeWidth={2.5}
-                    aria-hidden
-                  />
-                  {refreshing ? 'Refreshing…' : 'Refresh page'}
-                </button>
+              {showRefreshControl ? (
+                <p className="flex w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-[#ff1744] px-3 py-2 text-xs font-semibold text-white">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" strokeWidth={2.5} aria-hidden />
+                  Refreshing…
+                </p>
               ) : null}
               <button
                 type="button"
