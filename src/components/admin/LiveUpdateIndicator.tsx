@@ -11,6 +11,7 @@ import {
   performLiveUpdateRefresh,
   readCachedLiveUpdateEnabled,
   readLiveUpdateNoticeSeen,
+  settleLiveUpdateAfterRefresh,
   writeCachedLiveUpdateEnabled,
   writeLiveUpdateNoticeSeen,
 } from '@/lib/liveUpdate'
@@ -93,6 +94,13 @@ export function LiveUpdateIndicator() {
       const revision = await fetchLiveUpdateRevision()
       if (!revision.version && !revision.bootId) {
         // Keep last known update-available state if both signals blip.
+        return
+      }
+
+      // Right after a seamless reload: lock in the current revision so the
+      // refresh control does not immediately reappear for the same push.
+      if (settleLiveUpdateAfterRefresh(revision)) {
+        setUpdateAvailable(false)
         return
       }
 

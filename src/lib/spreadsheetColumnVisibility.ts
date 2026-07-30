@@ -30,6 +30,36 @@ export function moveSpreadsheetColumn<T extends string>(
 }
 
 /**
+ * Swap a column one slot earlier (`-1`) or later (`1`), skipping pinned ids.
+ * Used by Edit Columns up/down header controls.
+ */
+export function nudgeSpreadsheetColumn<T extends string>(
+  visible: readonly T[],
+  columnId: T,
+  direction: -1 | 1,
+  isPinned: (id: T) => boolean = () => false
+): T[] {
+  const index = visible.indexOf(columnId)
+  if (index === -1 || isPinned(columnId)) return [...visible]
+
+  let targetIndex = index + direction
+  while (
+    targetIndex >= 0 &&
+    targetIndex < visible.length &&
+    isPinned(visible[targetIndex])
+  ) {
+    targetIndex += direction
+  }
+  if (targetIndex < 0 || targetIndex >= visible.length) return [...visible]
+
+  const next = [...visible]
+  const current = next[index]
+  next[index] = next[targetIndex]
+  next[targetIndex] = current
+  return next
+}
+
+/**
  * Restore a hidden column into the closest valid position according to
  * `defaultOrder`. Prefers inserting after the rightmost still-visible
  * predecessor; otherwise before the leftmost still-visible successor;

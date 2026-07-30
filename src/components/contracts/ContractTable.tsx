@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
+import { EditColumnsReorderButtons } from '@/components/ui/EditColumnsReorderButtons'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { useArrangeTableColumns } from '@/hooks/useArrangeTableColumns'
@@ -16,6 +17,7 @@ import {
   hiddenContractTableColumns,
   hideContractTableColumn,
   moveContractTableColumn,
+  nudgeContractTableColumn,
   resetContractTableColumns,
   restoreContractTableColumn,
   type ContractSortColumn,
@@ -320,6 +322,15 @@ export function ContractTable({
     setVisibleColumns(next)
   }
 
+  const handleNudgeColumn = (
+    columnId: ContractTableColumnId,
+    direction: -1 | 1
+  ) => {
+    const next = nudgeContractTableColumn(visibleColumns, columnId, direction)
+    if (next.join() === visibleColumns.join()) return
+    setVisibleColumns(next)
+  }
+
   const cellAlign = (columnAlign: 'left' | 'center' | 'right') => {
     if (leftAlign || columnAlign === 'left') return 'text-left'
     if (columnAlign === 'right') return 'text-right'
@@ -371,7 +382,7 @@ export function ContractTable({
           </colgroup>
           <thead>
             <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
-              {columns.map((column) => {
+              {columns.map((column, columnIndex) => {
                 const active = sortColumn === column.id
                 const isSelected =
                   arrangeColumns && selectedColumnId === column.id
@@ -419,6 +430,15 @@ export function ContractTable({
                           <SortIcon active={active} direction={sortDirection} />
                         </button>
                       )}
+                      {arrangeColumns ? (
+                        <EditColumnsReorderButtons
+                          columnLabel={column.label}
+                          canMoveUp={columnIndex > 0}
+                          canMoveDown={columnIndex < columns.length - 1}
+                          onMoveUp={() => handleNudgeColumn(column.id, -1)}
+                          onMoveDown={() => handleNudgeColumn(column.id, 1)}
+                        />
+                      ) : null}
                       {showRemove ? (
                         <EditColumnsRemoveButton
                           columnLabel={column.label}

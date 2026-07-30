@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Bell, Eye, KeyRound, Plus, Send, FileText, Trash2, Users, Home } from 'lucide-react'
+import { ArrowLeft, Bell, Eye, KeyRound, Plus, Send, FileText, Trash2, Users, Home, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/FormField'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
 import { FurnishedPlacementPanel } from '@/components/portal/FurnishedPlacementPanel'
+import { PaymentProviderLogo } from '@/components/payments/PaymentProviderLogo'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import {
@@ -20,6 +21,10 @@ import {
   type CanonicalOccupancyMode,
   type FurnishedPlacement,
 } from '@/lib/furnishedOccupancy'
+import {
+  applicantPartyLabel,
+  isCoupleCompanionComplete,
+} from '@/lib/applicantParty'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   earliestFutureLeaseStartDate,
@@ -38,7 +43,7 @@ import {
   utilitiesIncludedLabel,
 } from '@/lib/propertyListingDisplay'
 import { cn } from '@/lib/utils'
-import type { PaymentProvider, PortalDashboard } from '@/types'
+import type { ApplicantPartyType, PaymentProvider, PortalDashboard } from '@/types'
 import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
 
 type AgencyOption = {
@@ -78,6 +83,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   const [roommatePhones, setRoommatePhones] = useState<string[]>([''])
   const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
   const [furnishedPanelOpen, setFurnishedPanelOpen] = useState(false)
+  const [applicantPartyType, setApplicantPartyType] = useState<ApplicantPartyType | ''>('')
+  const [companionName, setCompanionName] = useState('')
+  const [companionEmail, setCompanionEmail] = useState('')
+  const [companionPhone, setCompanionPhone] = useState('')
 
   const [inviteCode, setInviteCode] = useState('')
   const [invite, setInvite] = useState<PublicTenantInvite | null>(null)
@@ -245,6 +254,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
+    setApplicantPartyType('')
+    setCompanionName('')
+    setCompanionEmail('')
+    setCompanionPhone('')
     setError('')
   }
 
@@ -265,6 +278,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
+    setApplicantPartyType('')
+    setCompanionName('')
+    setCompanionEmail('')
+    setCompanionPhone('')
   }
 
   const handlePropertyChange = (address: string) => {
@@ -273,6 +290,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
+    setApplicantPartyType('')
+    setCompanionName('')
+    setCompanionEmail('')
+    setCompanionPhone('')
   }
 
   const handleLookupInvite = async () => {
@@ -338,6 +359,24 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
       setError('Select a landlord and property address.')
       return
     }
+    if (applicantPartyType !== 'solo' && applicantPartyType !== 'couple') {
+      setError('Select whether you are applying solo or as a couple.')
+      return
+    }
+    if (applicantPartyType === 'couple') {
+      if (
+        !isCoupleCompanionComplete({
+          name: companionName,
+          email: companionEmail,
+          phone: companionPhone,
+        })
+      ) {
+        setError(
+          'For a couple application, enter the other person’s name and either an email or a 10-digit phone number.'
+        )
+        return
+      }
+    }
     const phones = isRoommateStyle
       ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
       : []
@@ -376,6 +415,15 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         preferredBedroomId: selectedPlacement?.bedroomId,
         preferredBedId: selectedPlacement?.bedId,
         roommateInvitePhones: phones,
+        applicantPartyType,
+        coupleCompanion:
+          applicantPartyType === 'couple'
+            ? {
+                name: companionName.trim(),
+                email: companionEmail.trim() || undefined,
+                phone: companionPhone.trim() || undefined,
+              }
+            : undefined,
       })
       finishSubmit(next)
     } catch (err) {
@@ -491,7 +539,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                   Payment method
                 </dt>
                 <dd className="mt-0.5 text-ink">
-                  {paymentProviderLabel(data.application.preferredPaymentMethod)}
+                  <PaymentProviderLogo
+                    provider={data.application.preferredPaymentMethod}
+                    size="sm"
+                  />
                 </dd>
               </div>
             ) : null}
@@ -503,6 +554,21 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 <dd className="mt-0.5 text-ink">
                   {occupancyPreferenceLabel(data.application.preferredOccupancyMode) ??
                     data.application.preferredOccupancyMode}
+                </dd>
+              </div>
+            ) : null}
+            {data.application.applicantPartyType ? (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-caps text-ink-muted">
+                  Applying as
+                </dt>
+                <dd className="mt-0.5 text-ink">
+                  {applicantPartyLabel(data.application.applicantPartyType) ??
+                    data.application.applicantPartyType}
+                  {data.application.applicantPartyType === 'couple' &&
+                  data.application.coupleCompanion?.name
+                    ? ` · with ${data.application.coupleCompanion.name}`
+                    : null}
                 </dd>
               </div>
             ) : null}
@@ -770,6 +836,86 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
 
         {propertyAddress.trim() ? (
           <div className="space-y-3 rounded-[var(--radius-sm)] border border-line bg-surface px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-caps text-ink-muted">
+              Are you applying solo or as a couple?
+            </p>
+            <div role="group" aria-label="Solo or couple" className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                aria-pressed={applicantPartyType === 'solo'}
+                onClick={() => {
+                  setApplicantPartyType('solo')
+                  setCompanionName('')
+                  setCompanionEmail('')
+                  setCompanionPhone('')
+                }}
+                className={
+                  applicantPartyType === 'solo'
+                    ? 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-3 text-left'
+                    : 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-3 text-left hover:border-brand/40'
+                }
+              >
+                <User className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                <span>
+                  <span className="block text-sm font-semibold text-ink">Solo</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">
+                    You’re the only person on this application. A queen bed counts as one
+                    occupied spot.
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                aria-pressed={applicantPartyType === 'couple'}
+                onClick={() => setApplicantPartyType('couple')}
+                className={
+                  applicantPartyType === 'couple'
+                    ? 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-3 text-left'
+                    : 'flex items-start gap-2 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-3 text-left hover:border-brand/40'
+                }
+              >
+                <Users className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+                <span>
+                  <span className="block text-sm font-semibold text-ink">Couple</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">
+                    Two people share one bed when capacity allows. Only you are the official
+                    tenant.
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            {applicantPartyType === 'couple' ? (
+              <div className="space-y-3 border-t border-line pt-3">
+                <p className="text-xs text-ink-muted">
+                  Provide the other person’s name and contact. They are listed on the
+                  application only — you remain the single official tenant on the lease.
+                </p>
+                <Input
+                  label="Other person’s name"
+                  value={companionName}
+                  onChange={(e) => setCompanionName(e.target.value)}
+                  required
+                  autoComplete="off"
+                />
+                <Input
+                  label="Other person’s email"
+                  type="email"
+                  value={companionEmail}
+                  onChange={(e) => setCompanionEmail(e.target.value)}
+                  autoComplete="off"
+                  hint="Email or phone is required"
+                />
+                <Input
+                  label="Other person’s phone"
+                  type="tel"
+                  value={companionPhone}
+                  onChange={(e) => setCompanionPhone(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            ) : null}
+
             <p className="text-xs font-semibold uppercase tracking-caps text-ink-muted">
               How will you occupy this rental?
             </p>

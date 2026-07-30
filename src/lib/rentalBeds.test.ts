@@ -91,6 +91,7 @@ describe('rentalBeds', () => {
         name: 'Olivia',
         bedroomId: 'br1',
         bedId: 'bed1',
+        applicantPartyType: 'solo',
       }),
     ]
     const occ = buildRentalBedOccupancy(property, tenants)
@@ -98,7 +99,48 @@ describe('rentalBeds', () => {
     expect(occ.occupiedBeds).toBe(1)
     expect(occ.availableBeds).toBe(2)
     expect(occ.currentOccupants).toBe(1)
-    expect(occ.maxOccupancy).toBe(4)
+    // Solo exclusive claim on the Queen shrinks that bed’s display max from 2 → 1
+    expect(occ.maxOccupancy).toBe(3)
+  })
+
+  it('shows 1 of 1 when a solo applicant claims the only queen bed', () => {
+    const layout: PropertyBedroom[] = [
+      {
+        id: 'br1',
+        label: 'Bedroom 1',
+        beds: [{ id: 'bed1', size: 'queen', capacity: 2 }],
+      },
+    ]
+    const property = prop({ bedroomsLayout: layout, bedrooms: 1, maxTenants: 2 })
+    const empty = buildRentalBedOccupancy(property, [])
+    expect(empty.currentOccupants).toBe(0)
+    expect(empty.maxOccupancy).toBe(2)
+    expect(empty.availableBeds).toBe(1)
+
+    const solo = buildRentalBedOccupancy(property, [
+      client({
+        id: 'c1',
+        bedroomId: 'br1',
+        bedId: 'bed1',
+        applicantPartyType: 'solo',
+      }),
+    ])
+    expect(solo.currentOccupants).toBe(1)
+    expect(solo.maxOccupancy).toBe(1)
+    expect(solo.availableBeds).toBe(0)
+
+    const couple = buildRentalBedOccupancy(property, [
+      client({
+        id: 'c1',
+        bedroomId: 'br1',
+        bedId: 'bed1',
+        applicantPartyType: 'couple',
+        coupleCompanion: { name: 'Alex', phone: '5551234567' },
+      }),
+    ])
+    expect(couple.currentOccupants).toBe(2)
+    expect(couple.maxOccupancy).toBe(2)
+    expect(couple.availableBeds).toBe(0)
   })
 
   it('counts two tenants on one queen as two occupants and one occupied bed', () => {

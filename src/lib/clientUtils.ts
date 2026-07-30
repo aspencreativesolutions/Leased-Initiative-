@@ -445,19 +445,46 @@ export function isLeaseCurrentlyInTerm(
   return state === 'Active' || state === 'Ending Soon'
 }
 
+/** Tenant moved to Past Tenants via Archive (not hard-deleted). */
+export function isTenantArchived(client: Pick<Client, 'archivedAt'>): boolean {
+  return Boolean(client.archivedAt?.trim())
+}
+
 /**
  * Official Tenants directory: signed leases that are upcoming or currently in term.
- * Expired leases are omitted so the list reflects active (and soon-to-start) occupancy.
+ * Expired and archived tenants are omitted (expired appear via lease-complete until archived).
  */
 export function shouldShowInOfficialTenants(
   client: Client,
   contract?: ContractData,
   asOf?: Date
 ): boolean {
-  if (!client.isOfficialClient) return false
+  if (!client.isOfficialClient || isTenantArchived(client)) return false
   const state = getLeaseStatusDetails(client, contract, asOf).state
   if (!state) return true
   return state !== 'Expired'
+}
+
+/**
+ * Lease term finished but not yet archived — shown on the Tenant Dashboard with
+ * a Lease Complete tag and Remove Tenant (archive or delete).
+ */
+export function shouldShowLeaseCompleteTenant(
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): boolean {
+  if (!client.isOfficialClient || isTenantArchived(client)) return false
+  return getLeaseStatusDetails(client, contract, asOf).state === 'Expired'
+}
+
+/** True when the lease term has ended and the tenant is still on the dashboard. */
+export function isLeaseCompleteTenant(
+  client: Client,
+  contract?: ContractData,
+  asOf?: Date
+): boolean {
+  return shouldShowLeaseCompleteTenant(client, contract, asOf)
 }
 
 const SIGNED_CONTRACT_STATUSES = ['Signed', 'Completed'] as const

@@ -19,6 +19,7 @@ import { AddClientModal } from '@/components/clients/AddClientModal'
 import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
 import { SendInviteModal } from '@/components/clients/SendInviteModal'
 import { OccupancyPreferenceTag } from '@/components/clients/OccupancyPreferenceTag'
+import { ApplicantPartyTag } from '@/components/clients/ApplicantPartyTag'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
 import {
   clientNameMarkersClass,
@@ -627,7 +628,7 @@ export function TenantPipelineSections({
     <section
       id="tenants-waiting-connect"
       data-onboarding="tenants-waiting-connect"
-      className="min-w-0 scroll-mt-28 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5"
+      className="min-w-0 scroll-mt-28"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -821,7 +822,7 @@ export function TenantPipelineSections({
       id={pendingSectionId}
       data-onboarding={pendingSectionId}
       className={cn(
-        'min-w-0 scroll-mt-28 rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-line bg-surface/40 p-4 sm:p-5',
+        'min-w-0 scroll-mt-28',
         pendingHighlightName && 'pending-tenants-section--demo-highlight'
       )}
     >
@@ -853,10 +854,10 @@ export function TenantPipelineSections({
             size="sm"
             variant="secondary"
             data-onboarding="pending-change-lease-styles"
-            title="Open Lease Agreement Templates to change style and apply to pending or official tenants"
+            title="Open Lease Agreement Templates to upload a new lease template and apply it to pending or official tenants"
             onClick={() => navigate(leaseTemplatesSettingsHref(true))}
           >
-            Change Lease Style
+            Replace Template
           </Button>
           <SectionHelpIcon label={PENDING_TENANTS_HELP} />
         </div>
@@ -903,10 +904,10 @@ export function TenantPipelineSections({
           </Card>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
+        <div className="overflow-x-auto rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper">
           <table className="w-full min-w-[320px] text-left text-sm">
             <thead>
-              <tr className="border-b border-line text-xs font-semibold uppercase tracking-wide text-ink-faint">
+              <tr className="border-b-[length:var(--border-width)] border-ink bg-surface text-xs font-semibold uppercase tracking-wide text-ink-faint">
                 {styleSelecting ? (
                   <th className="w-10 px-2 py-3 sm:px-3">
                     <span className="sr-only">Select</span>
@@ -964,7 +965,7 @@ export function TenantPipelineSections({
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {error && (
         <p className="rounded-sm border-2 border-accent bg-accent-light px-3 py-2 text-sm text-accent">
           {error}
@@ -972,7 +973,7 @@ export function TenantPipelineSections({
       )}
 
       {showWaitingToConnect ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start lg:gap-6">
           {waitingSection}
           {pendingSection}
         </div>
@@ -1145,6 +1146,7 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
           <PendingClientBadge />
         </div>
         <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
+        <ApplicantPartyTag partyType={registration.applicantPartyType} />
         <p className="truncate text-sm text-ink-muted">{registration.email}</p>
       </div>
 
@@ -1159,6 +1161,19 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
               Landlord: {registration.preferredLandlordCompany}
             </p>
           )}
+          {registration.applicantPartyType === 'couple' &&
+          registration.coupleCompanion?.name ? (
+            <p className="pt-1 text-xs text-ink-muted">
+              Couple companion: {registration.coupleCompanion.name}
+              {registration.coupleCompanion.phone
+                ? ` · ${registration.coupleCompanion.phone}`
+                : registration.coupleCompanion.email
+                  ? ` · ${registration.coupleCompanion.email}`
+                  : ''}
+              {' '}
+              (not the official tenant)
+            </p>
+          ) : null}
           {inviteNote ? (
             <p className="pt-1 text-xs font-medium text-brand">{inviteNote}</p>
           ) : null}
@@ -1234,6 +1249,7 @@ function WaitingConnectListRow(props: WaitingConnectItemProps) {
             <p className="min-w-0 truncate text-sm text-ink-muted">{registration.email}</p>
           </div>
           <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
+          <ApplicantPartyTag partyType={registration.applicantPartyType} />
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <p className="min-w-0 truncate text-sm font-medium text-ink" title={displayAddress}>
               {displayAddress}
@@ -1408,6 +1424,7 @@ function ProspectiveApplicantRow({
           mode={user.preferredOccupancyMode}
           arrangement={user.occupancyArrangement}
         />
+        <ApplicantPartyTag className="mt-1" partyType={user.applicantPartyType} />
         <p className="text-xs text-ink-muted">{user.email}</p>
         <p className="mt-0.5 text-xs text-ink-muted sm:hidden">
           {user.propertyAddress || user.projectName}

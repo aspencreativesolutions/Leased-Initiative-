@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { OccupancyPreferenceTag } from '@/components/clients/OccupancyPreferenceTag'
+import { ApplicantPartyTag } from '@/components/clients/ApplicantPartyTag'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -272,7 +273,10 @@ export function NewRegistrationsModal({
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="font-semibold text-ink">{registration.name}</p>
-                    <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
+                    <div className="flex flex-wrap gap-1">
+                      <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
+                      <ApplicantPartyTag partyType={registration.applicantPartyType} />
+                    </div>
                     <p className="truncate text-sm text-ink-muted">{registration.email}</p>
                     {registration.preferredLandlordCompany && (
                       <p className="text-sm text-ink">

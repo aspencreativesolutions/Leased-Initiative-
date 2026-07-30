@@ -3,6 +3,7 @@ import {
   hiddenSpreadsheetColumns,
   loadVisibleSpreadsheetColumns,
   moveSpreadsheetColumn,
+  nudgeSpreadsheetColumn,
   normalizeVisibleSpreadsheetColumns,
   redistributeColumnWidths,
   restoreSpreadsheetColumn,
@@ -105,6 +106,16 @@ export function moveRentalTableColumn(
 ): RentalTableColumnId[] {
   return normalizeRentalTableColumns(
     moveSpreadsheetColumn(order, fromId, toId)
+  )
+}
+
+export function nudgeRentalTableColumn(
+  order: readonly RentalTableColumnId[],
+  columnId: RentalTableColumnId,
+  direction: -1 | 1
+): RentalTableColumnId[] {
+  return normalizeRentalTableColumns(
+    nudgeSpreadsheetColumn(order, columnId, direction)
   )
 }
 

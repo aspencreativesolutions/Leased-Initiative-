@@ -7,6 +7,7 @@ import { useApp } from '@/context/AppContext'
 import { ApiError } from '@/lib/api'
 import {
   getTenantAddress,
+  isTenantArchived,
   shouldShowInOfficialTenants,
 } from '@/lib/clientUtils'
 import {
@@ -30,7 +31,7 @@ import type {
 type LeaseDurationFilter = 'all' | (typeof LEASE_LENGTH_OPTIONS)[number]
 type GetContract = (clientId: string) => ContractData | undefined
 type RentalFilter = 'all' | PropertyHousingType
-type RenterGroup = 'all' | 'official' | 'pending' | 'waiting'
+type RenterGroup = 'all' | 'official' | 'pending' | 'waiting' | 'past'
 
 function matchesLeaseFilter(months: number, filter: LeaseDurationFilter): boolean {
   if (filter === 'all') return true
@@ -76,7 +77,10 @@ export function CompanyDetailsPanel() {
   }, [])
 
   const clientsPipelineKey = clients
-    .map((c) => `${c.id}:${c.isOfficialClient ? 1 : 0}:${c.contractStatus}`)
+    .map(
+      (c) =>
+        `${c.id}:${c.isOfficialClient ? 1 : 0}:${c.contractStatus}:${c.archivedAt ?? ''}`
+    )
     .join('|')
 
   useEffect(() => {
@@ -89,6 +93,11 @@ export function CompanyDetailsPanel() {
         shouldShowInOfficialTenants(client, getContractForClient(client.id))
       ),
     [clients, getContractForClient]
+  )
+
+  const pastTenants = useMemo(
+    () => clients.filter((client) => isTenantArchived(client)),
+    [clients]
   )
 
   const rentalTypeCounts = useMemo(() => {
@@ -107,9 +116,19 @@ export function CompanyDetailsPanel() {
       official: officialTenants.length,
       pending: pendingApplicants.length,
       waiting: waiting.length,
-      all: officialTenants.length + pendingApplicants.length + waiting.length,
+      past: pastTenants.length,
+      all:
+        officialTenants.length +
+        pendingApplicants.length +
+        waiting.length +
+        pastTenants.length,
     }),
-    [officialTenants.length, pendingApplicants.length, waiting.length]
+    [
+      officialTenants.length,
+      pendingApplicants.length,
+      waiting.length,
+      pastTenants.length,
+    ]
   )
 
   const filteredProperties = useMemo(() => {
@@ -133,6 +152,12 @@ export function CompanyDetailsPanel() {
       matchesLeaseFilter(parseLeaseLengthMonths(client.leaseLengthMonths), leaseFilter)
     )
   }, [officialTenants, leaseFilter])
+
+  const filteredPastTenants = useMemo(() => {
+    return pastTenants.filter((client) =>
+      matchesLeaseFilter(parseLeaseLengthMonths(client.leaseLengthMonths), leaseFilter)
+    )
+  }, [pastTenants, leaseFilter])
 
   const filteredPending = useMemo(() => {
     if (leaseFilter === 'all') return pendingApplicants
@@ -183,7 +208,9 @@ export function CompanyDetailsPanel() {
           ? 'Pending tenants'
           : activeRenterGroup === 'waiting'
             ? 'Waiting to connect'
-            : ''
+            : activeRenterGroup === 'past'
+              ? 'Past tenants'
+              : ''
 
   return (
     <Card data-onboarding="admin-company-details">
@@ -276,6 +303,12 @@ export function CompanyDetailsPanel() {
               onClick={() => toggleRenterGroup('waiting')}
               loading={pipelineLoading}
             />
+            <CountChip
+              label="Past tenants"
+              count={renterCounts.past}
+              selected={activeRenterGroup === 'past'}
+              onClick={() => toggleRenterGroup('past')}
+            />
           </div>
           {pipelineError && (
             <p className="mt-2 text-xs text-accent" role="alert">
@@ -316,7 +349,9 @@ export function CompanyDetailsPanel() {
                   ? 'Accepted renters who have not signed a lease yet'
                   : activeRenterGroup === 'official'
                     ? 'Active or soon-to-start signed leases'
-                    : 'Official, pending, and waiting-to-connect renters'
+                    : activeRenterGroup === 'past'
+                      ? 'Archived tenants whose leases have ended'
+                      : 'Official, pending, waiting, and past renters'
             }
             leaseFilter={leaseFilter}
             onLeaseFilterChange={setLeaseFilter}
@@ -326,6 +361,7 @@ export function CompanyDetailsPanel() {
             official={filteredOfficialTenants}
             pending={filteredPending}
             waiting={filteredWaiting}
+            past={filteredPastTenants}
             clients={clients}
             getContractForClient={getContractForClient}
             leaseFilter={leaseFilter}
@@ -518,6 +554,7 @@ function RenterDetailList({
   official,
   pending,
   waiting,
+  past,
   clients,
   getContractForClient,
   leaseFilter,
@@ -527,6 +564,7 @@ function RenterDetailList({
   official: Client[]
   pending: PortalUserAccepted[]
   waiting: PendingRegistration[]
+  past: Client[]
   clients: Client[]
   getContractForClient: GetContract
   leaseFilter: LeaseDurationFilter
@@ -535,13 +573,15 @@ function RenterDetailList({
   const showOfficial = group === 'all' || group === 'official'
   const showPending = group === 'all' || group === 'pending'
   const showWaiting = group === 'all' || group === 'waiting'
+  const showPast = group === 'all' || group === 'past'
 
   const isEmpty =
     (!showOfficial || official.length === 0) &&
     (!showPending || pending.length === 0) &&
-    (!showWaiting || waiting.length === 0)
+    (!showWaiting || waiting.length === 0) &&
+    (!showPast || past.length === 0)
 
-  if (loading && group !== 'official' && (showPending || showWaiting)) {
+  if (loading && group !== 'official' && group !== 'past' && (showPending || showWaiting)) {
     return <p className="text-sm text-ink-muted">Loading renters…</p>
   }
 
@@ -549,7 +589,9 @@ function RenterDetailList({
     return (
       <p className="text-sm text-ink-muted">
         {leaseFilter === 'all'
-          ? 'No renters in this group yet.'
+          ? group === 'past'
+            ? 'No past tenants yet. Archive a lease-complete tenant from Official Tenants to see them here.'
+            : 'No renters in this group yet.'
           : `No renters match ${formatLeaseLengthLabel(leaseFilter)} leases.`}
       </p>
     )
@@ -570,6 +612,11 @@ function RenterDetailList({
       {showWaiting && waiting.length > 0 && (
         <RenterGroupBlock title={group === 'all' ? 'Waiting to connect' : undefined}>
           <WaitingRenterList waiting={waiting} />
+        </RenterGroupBlock>
+      )}
+      {showPast && past.length > 0 && (
+        <RenterGroupBlock title={group === 'all' ? 'Past tenants' : undefined}>
+          <PastTenantList tenants={past} getContractForClient={getContractForClient} />
         </RenterGroupBlock>
       )}
     </div>
@@ -618,6 +665,54 @@ function OfficialTenantList({
               <p className="mt-0.5 text-xs text-ink-muted">
                 {address || 'No address on file'}
                 {tenant.email ? ` · ${tenant.email}` : ''}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-[var(--radius-sm)] border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
+              {formatLeaseLengthLabel(months)}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function PastTenantList({
+  tenants,
+  getContractForClient,
+}: {
+  tenants: Client[]
+  getContractForClient: GetContract
+}) {
+  return (
+    <ul className="divide-y divide-line rounded-[var(--radius-sm)] border border-line">
+      {tenants.map((tenant) => {
+        const months = parseLeaseLengthMonths(tenant.leaseLengthMonths)
+        const address = getTenantAddress(tenant, getContractForClient(tenant.id))
+        const archivedLabel = tenant.archivedAt
+          ? `Archived ${formatDate(tenant.archivedAt)}`
+          : 'Archived'
+        return (
+          <li
+            key={tenant.id}
+            className="flex flex-wrap items-start justify-between gap-2 px-3 py-2.5 text-sm"
+          >
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/studio/clients/${tenant.id}`}
+                  className="font-medium text-ink hover:text-brand hover:underline"
+                >
+                  {tenant.name}
+                </Link>
+                <span className="shrink-0 rounded-[var(--radius-sm)] border-2 border-ink/25 bg-surface px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-caps text-ink-muted">
+                  Archived
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {address || 'No address on file'}
+                {tenant.email ? ` · ${tenant.email}` : ''}
+                {` · ${archivedLabel}`}
               </p>
             </div>
             <span className="shrink-0 rounded-[var(--radius-sm)] border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">

@@ -32,7 +32,12 @@ function columnIdFromEvent<T extends string>(
 ): T | null {
   const target = event.target
   if (!(target instanceof Element)) return null
-  if (target.closest('[data-edit-columns-remove]')) return null
+  if (
+    target.closest('[data-edit-columns-remove]') ||
+    target.closest('[data-edit-columns-reorder]')
+  ) {
+    return null
+  }
   const cell = target.closest('th, td')
   if (!(cell instanceof HTMLTableCellElement) || !table.contains(cell)) {
     return null

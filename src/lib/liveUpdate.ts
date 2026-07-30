@@ -1,9 +1,18 @@
 import { apiFetch } from '@/lib/api'
-import { isPublicDemoSession, PUBLIC_DEMO_SESSION_KEY } from '@/lib/publicDemo'
+import {
+  isPublicDemoSession,
+  PUBLIC_DEMO_RECOVER_HOME_KEY,
+  PUBLIC_DEMO_SESSION_KEY,
+} from '@/lib/publicDemo'
 
 export const LIVE_UPDATE_POLL_MS = 4000
 export const LIVE_UPDATE_BASELINE_KEY = 'leased-live-update-baseline'
 export const LIVE_UPDATE_BOOT_BASELINE_KEY = 'leased-live-update-boot-baseline'
+/**
+ * Set just before a seamless reload so the next boot adopts the current revision
+ * as baseline (no immediate re-prompt while the server is still settling).
+ */
+export const LIVE_UPDATE_JUST_REFRESHED_KEY = 'leased-live-update-just-refreshed'
 /** Sticky client cache so the beacon stays up across reloads / brief API blips. */
 export const LIVE_UPDATE_ENABLED_CACHE_KEY = 'leased-live-update-enabled'
 /**
@@ -12,6 +21,9 @@ export const LIVE_UPDATE_ENABLED_CACHE_KEY = 'leased-live-update-enabled'
  */
 export const LIVE_UPDATE_NOTICE_SEEN_KEY = 'leased-live-update-notice-seen'
 export const LIVE_UPDATE_CHANGED_EVENT = 'leased-live-update-changed'
+
+const LIVE_UPDATE_HEALTH_ATTEMPTS = 30
+const LIVE_UPDATE_HEALTH_DELAY_MS = 400
 
 export type LiveUpdateStatus = {
   enabled: boolean
@@ -178,8 +190,24 @@ export function clearLiveUpdateBaseline(): void {
   try {
     sessionStorage.removeItem(LIVE_UPDATE_BASELINE_KEY)
     sessionStorage.removeItem(LIVE_UPDATE_BOOT_BASELINE_KEY)
+    sessionStorage.removeItem(LIVE_UPDATE_JUST_REFRESHED_KEY)
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * After a seamless refresh reload: adopt the current revision as baseline once
+ * so the refresh/notice does not immediately reappear for the same push.
+ */
+export function settleLiveUpdateAfterRefresh(revision: LiveUpdateRevision): boolean {
+  try {
+    if (sessionStorage.getItem(LIVE_UPDATE_JUST_REFRESHED_KEY) !== '1') return false
+    sessionStorage.removeItem(LIVE_UPDATE_JUST_REFRESHED_KEY)
+    writeLiveUpdateRevisionBaseline(revision)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -217,29 +245,46 @@ export async function performLiveUpdateRefresh(options?: {
 
   // Wait for the API so auth rehydration keeps the current route
   // (avoids demo recover → home during live-update server restarts).
-  for (let attempt = 0; attempt < 20; attempt++) {
+  let healthy = false
+  let healthyBootId: string | null = null
+  for (let attempt = 0; attempt < LIVE_UPDATE_HEALTH_ATTEMPTS; attempt++) {
     try {
       const res = await fetch('/api/health', { cache: 'no-store' })
       if (res.ok) {
         const data = (await res.json()) as { bootId?: string }
-        if (typeof data.bootId === 'string' && data.bootId) {
-          writeLiveUpdateBootBaseline(data.bootId)
-        }
+        healthyBootId =
+          typeof data.bootId === 'string' && data.bootId ? data.bootId : null
+        healthy = true
         break
       }
     } catch {
       /* retry */
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 400))
+    if (attempt < LIVE_UPDATE_HEALTH_ATTEMPTS - 1) {
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, LIVE_UPDATE_HEALTH_DELAY_MS)
+      )
+    }
   }
+
+  if (!healthy) {
+    throw new Error('API is not ready for refresh')
+  }
+
+  if (healthyBootId) writeLiveUpdateBootBaseline(healthyBootId)
 
   const version = await fetchLiveUpdateVersion()
   if (version) writeLiveUpdateBaseline(version)
 
-  // Re-assert demo session so a mid-refresh storage quirk cannot drop immersion.
-  if (typeof window !== 'undefined' && isPublicDemoSession()) {
+  // Re-assert demo immersion and clear any stale “re-enter code” flag from a
+  // mid-restart auth blip so reload stays on this page in demo mode.
+  if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
+      if (isPublicDemoSession()) {
+        sessionStorage.setItem(PUBLIC_DEMO_SESSION_KEY, '1')
+        sessionStorage.removeItem(PUBLIC_DEMO_RECOVER_HOME_KEY)
+      }
+      sessionStorage.setItem(LIVE_UPDATE_JUST_REFRESHED_KEY, '1')
     } catch {
       /* ignore */
     }

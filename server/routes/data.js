@@ -80,8 +80,12 @@ import {
 import { applyDemoLeaseFixturesToStore } from '../lib/applyDemoLeaseFixtures.js'
 import { reconcileClientContractStatus } from '../lib/contractReview.js'
 import { DEFAULT_SERVICE_TIER } from '../lib/serviceTier.js'
-import { sendOverdueRentSms, sendSms } from '../lib/sms.js'
-import { sendBugReportEmail } from '../lib/email.js'
+import { sendOverdueRentSms, sendSms, isSmsConfigured } from '../lib/sms.js'
+import { sendBugReportEmail, sendTenantSetupNotifyEmail, isEmailConfigured } from '../lib/email.js'
+import {
+  buildAccountSetupUrl,
+  buildTenantSetupSmsBody,
+} from '../lib/tenantSetupNotify.js'
 
 const router = Router()
 
@@ -92,6 +96,7 @@ const CLIENT_PRESERVE_FIELDS = [
   'invoice',
   'finalInvoice',
   'officialClientSince',
+  'archivedAt',
   'timelineStepSkips',
   'projectChecklistCompleted',
 ]
@@ -988,6 +993,13 @@ router.post('/accept-registration/:userId', (req, res) => {
     `Preferred lease: ${formatLeaseLengthLabel(leaseLengthMonths)}`,
     `Lease ${leaseStartDate} → ${leaseEndDate}`,
     preferredPaymentMethod ? `Preferred payment: ${preferredPaymentMethod}` : null,
+    user.applicantPartyType === 'couple'
+      ? `Applying as a couple${
+          user.coupleCompanion?.name ? ` with ${user.coupleCompanion.name}` : ''
+        } (one official tenant)`
+      : user.applicantPartyType === 'solo'
+        ? 'Applying solo'
+        : null,
     'Monthly rent due on the 1st.',
     reusedLease
       ? 'Existing lease agreement found for this address — generating a copy for this tenant.'
@@ -1052,6 +1064,12 @@ router.post('/accept-registration/:userId', (req, res) => {
       : {}),
     ...(occupancyArrangement === 'entire_home'
       ? { unitOrRoomLabel: 'Entire unit' }
+      : {}),
+    ...(user.applicantPartyType === 'solo' || user.applicantPartyType === 'couple'
+      ? { applicantPartyType: user.applicantPartyType }
+      : {}),
+    ...(user.applicantPartyType === 'couple' && user.coupleCompanion
+      ? { coupleCompanion: user.coupleCompanion }
       : {}),
     notes: [
       {
@@ -1135,6 +1153,117 @@ router.get('/registrations', (_req, res) => {
     }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   res.json({ registrations, count: registrations.length })
+})
+
+/**
+ * After Add Tenant → Generate Agreement & Notify: send a setup link by email,
+ * SMS, or both. Uses the tenant contact details from the request body.
+ */
+router.post('/notify-tenant-setup', async (req, res) => {
+  try {
+    const channelsRaw = typeof req.body?.channels === 'string' ? req.body.channels.trim() : ''
+    const channels =
+      channelsRaw === 'email' || channelsRaw === 'phone' || channelsRaw === 'both'
+        ? channelsRaw
+        : null
+    if (!channels) {
+      return res.status(400).json({ error: 'Choose Email, Phone, or Both.' })
+    }
+
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : ''
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
+    const phone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : ''
+    const propertyAddress =
+      typeof req.body?.propertyAddress === 'string' ? req.body.propertyAddress.trim() : ''
+    const store = readStore()
+    const landlordCompany =
+      (typeof req.body?.landlordCompany === 'string' && req.body.landlordCompany.trim()) ||
+      store.settings?.businessName?.trim() ||
+      'Your landlord'
+
+    const wantsEmail = channels === 'email' || channels === 'both'
+    const wantsPhone = channels === 'phone' || channels === 'both'
+
+    if (wantsEmail && !email) {
+      return res.status(400).json({ error: 'Email is required to notify by email.' })
+    }
+    if (wantsPhone && !phone) {
+      return res.status(400).json({ error: 'Phone number is required to notify by text.' })
+    }
+
+    const configHints = []
+    if (wantsEmail && !isEmailConfigured()) {
+      configHints.push(
+        'Email: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM in .env, then restart the API.'
+      )
+    }
+    if (wantsPhone && !isSmsConfigured()) {
+      configHints.push(
+        'SMS: set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER (E.164) in .env, then restart the API.'
+      )
+    }
+    if (configHints.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: `Notification could not be sent until messaging is configured. ${configHints.join(' ')}`,
+        configured: { email: isEmailConfigured(), sms: isSmsConfigured() },
+        setupUrl: buildAccountSetupUrl(),
+      })
+    }
+
+    const setupUrl = buildAccountSetupUrl()
+    const result = {
+      ok: true,
+      setupUrl,
+      email: null,
+      sms: null,
+      configured: {
+        email: isEmailConfigured(),
+        sms: isSmsConfigured(),
+      },
+    }
+
+    if (wantsEmail) {
+      result.email = await sendTenantSetupNotifyEmail({
+        to: email,
+        name,
+        landlordCompany,
+        propertyAddress,
+        setupUrl,
+      })
+      if (!result.email.sent) {
+        return res.status(400).json({
+          ...result,
+          ok: false,
+          error: result.email.error || 'Could not send the setup email.',
+        })
+      }
+    }
+
+    if (wantsPhone) {
+      const body = buildTenantSetupSmsBody({
+        name,
+        landlordCompany,
+        propertyAddress,
+        setupUrl,
+      })
+      result.sms = await sendSms({ to: phone, body })
+      if (!result.sms.sent || result.sms.devMode) {
+        return res.status(400).json({
+          ...result,
+          ok: false,
+          error:
+            result.sms.error ||
+            'Could not send the setup text. Check Twilio credentials in .env.',
+        })
+      }
+    }
+
+    res.json(result)
+  } catch (err) {
+    console.error('notify-tenant-setup', err)
+    res.status(500).json({ error: err.message || 'Could not send setup notification' })
+  }
 })
 
 /** Create a tenant invite link (property, lease term, custom code) and optionally text it. */
@@ -1533,6 +1662,34 @@ router.post('/bug-reports', async (req, res) => {
     message:
       'Thank you! Your bug report has been submitted. Aspen Creative Solutions will review your report and respond as needed, typically within 1–2 business days.',
   })
+})
+
+/** Archive expired official tenant → Past Tenants (keeps history; labeled Archived). */
+router.post('/clients/:clientId/archive', (req, res) => {
+  const { clientId } = req.params
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) {
+    return res.status(404).json({ error: 'Client not found' })
+  }
+  if (client.archivedAt) {
+    return res.json({
+      ok: true,
+      client: { id: client.id, archivedAt: client.archivedAt },
+    })
+  }
+
+  const archivedAt = new Date().toISOString()
+  updateStore((s) => ({
+    ...s,
+    clients: s.clients.map((c) =>
+      c.id === clientId
+        ? { ...c, archivedAt, isOfficialClient: false }
+        : c
+    ),
+  }))
+
+  res.json({ ok: true, client: { id: clientId, archivedAt } })
 })
 
 /** Remove client from roster; portal account is kept and unlinked */

@@ -1,17 +1,24 @@
-import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { ApplicantPartyTag } from './ApplicantPartyTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { TenantLeaseStateIcon } from './TenantLeaseStateIcon'
-import { getLeaseStatusDetails, getTenantAddress, isAwaitingDeposit } from '@/lib/clientUtils'
+import {
+  getLeaseStatusDetails,
+  getTenantAddress,
+  isAwaitingDeposit,
+  isLeaseCompleteTenant,
+} from '@/lib/clientUtils'
 import {
   getOfficialTenantLocationDisplayValue,
   getTenantAssignedProperty,
   LOCATION_DISPLAY_MISSING,
 } from '@/lib/officialTenantLocationDisplay'
+import { officialTenantTileAnchorId } from '@/lib/officialTenantSpotlight'
 import { cn } from '@/lib/utils'
-import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
+import { tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import type { Client, ContractData, Property } from '@/types'
 
 interface ClientTableMobileCardProps {
@@ -50,6 +57,11 @@ function galleryNameLines(fullName: string): { given: string; family: string | n
   }
 }
 
+const leaseCompleteTagClass = [
+  'shrink-0 rounded-[var(--radius-sm)] border-2 border-ink/25 bg-surface px-1.5 py-0.5',
+  'text-[8px] font-black uppercase leading-none tracking-caps text-ink-muted',
+].join(' ')
+
 /** Compact Official Tenants tile for mobile 1- or 2-column grids. */
 export function ClientTableMobileCard({
   client,
@@ -66,19 +78,31 @@ export function ClientTableMobileCard({
   const addressValue = getFullPropertyAddress(client, contract, properties)
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
+  const leaseComplete = isLeaseCompleteTenant(client, contract)
   const { given, family } = galleryNameLines(client.name)
 
   return (
     <article
+      id={officialTenantTileAnchorId(client.id)}
       className={cn(
-        'official-tenant-tile flex h-full min-w-0 flex-col rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
+        'official-tenant-tile relative flex h-full min-w-0 flex-col rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
         'transition-[background-color,opacity,box-shadow]',
-        highlighted && 'bg-brand/10 ring-1 ring-inset ring-brand/40',
-        dimmed && 'opacity-40'
+        highlighted && 'official-tenant-tile--spotlight bg-brand/10 ring-1 ring-inset ring-brand/40',
+        dimmed && 'opacity-40',
+        leaseComplete && 'border-ink/20'
       )}
     >
+      {leaseComplete ? (
+        <span
+          className={cn(leaseCompleteTagClass, 'absolute right-0 top-0 z-[1]')}
+          title="Lease term has ended"
+        >
+          Lease Complete
+        </span>
+      ) : null}
+
       <div className="flex min-w-0 items-start justify-between gap-1.5">
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', leaseComplete && 'pr-[5.75rem]')}>
           <button
             type="button"
             onClick={() => onOpenTenantDetails(client.id)}
@@ -93,25 +117,17 @@ export function ClientTableMobileCard({
           </button>
           <OfficialTenantContactLinks client={client} compact />
           {showOccupancyStatus ? (
-            <div className="mt-1 empty:hidden">
+            <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
               <OccupancyPreferenceTag
                 {...clientOccupancyTagProps(
                   client,
                   getTenantAssignedProperty(client, contract, properties)
                 )}
               />
+              <ApplicantPartyTag partyType={client.applicantPartyType} />
             </div>
           ) : null}
         </div>
-        <button
-          type="button"
-          className={tableRemoveButtonClass}
-          onClick={onRemove}
-          title={`Remove ${client.name}`}
-          aria-label={`Remove ${client.name}`}
-        >
-          <UserMinus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-        </button>
       </div>
 
       <div className="mt-2 min-w-0 overflow-visible">
@@ -167,6 +183,17 @@ export function ClientTableMobileCard({
                 <CheckCircle2 className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
               )}
               Confirm Payment Complete
+            </button>
+          ) : null}
+          {leaseComplete ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
+              title={`Remove ${client.name}`}
+              aria-label={`Remove tenant ${client.name}`}
+            >
+              Remove Tenant
             </button>
           ) : null}
           <button

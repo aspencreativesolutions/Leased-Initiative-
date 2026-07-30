@@ -3,15 +3,18 @@ import { RentalInterestCue } from '@/components/properties/RentalInterestCue'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
+import { EditColumnsReorderButtons } from '@/components/ui/EditColumnsReorderButtons'
 import { useArrangeTableColumns } from '@/hooks/useArrangeTableColumns'
 import { columnArrangeOutlineClass } from '@/lib/columnArrangeOutline'
 import type { RentalInterestCounts } from '@/lib/properties'
 import { formatUsd } from '@/lib/rentalRent'
+import { furnishedStatusLabel } from '@/lib/propertyListingDisplay'
 import {
   DEFAULT_RENTAL_TABLE_COLUMNS,
   hiddenRentalTableColumns,
   hideRentalTableColumn,
   moveRentalTableColumn,
+  nudgeRentalTableColumn,
   RENTAL_TABLE_COLUMN_LABELS,
   RENTAL_TABLE_COLUMNS,
   resetRentalTableColumns,
@@ -29,6 +32,7 @@ export interface PropertyTableRow {
   id: string
   address: string
   propertyType: PropertyHousingType
+  furnished?: boolean
   bedrooms: number
   maxTenants: number
   currentTenants: number
@@ -202,7 +206,17 @@ function PropertyCell({
             outlineClass
           )}
         >
-          {row.propertyType}
+          <span className="block">{row.propertyType}</span>
+          <span
+            className={cn(
+              'mt-0.5 inline-flex rounded-[var(--radius-sm)] border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps',
+              row.furnished
+                ? 'border-brand/30 bg-brand/10 text-brand'
+                : 'border-line bg-surface-paper text-ink-muted'
+            )}
+          >
+            {furnishedStatusLabel(row.furnished)}
+          </span>
         </td>
       )
     case 'monthlyRent':
@@ -229,9 +243,15 @@ function PropertyCell({
           <span className="block">
             {row.currentTenants} of {row.maxTenants} people
           </span>
-          <span className="mt-0.5 block text-[10px] text-ink-muted">
-            Beds: {row.occupiedBeds} of {row.totalBeds} occupied
-          </span>
+          {row.surfacesBeds ? (
+            <span className="mt-0.5 block text-[10px] text-ink-muted">
+              Beds: {row.occupiedBeds} of {row.totalBeds} occupied
+            </span>
+          ) : (
+            <span className="mt-0.5 block text-[10px] text-ink-muted">
+              Entire unit
+            </span>
+          )}
           {interest ? (
             <RentalInterestCue
               propertyId={row.id}
@@ -384,6 +404,15 @@ export function PropertyTable({
     setVisibleColumns(next)
   }
 
+  const handleNudgeColumn = (
+    columnId: RentalTableColumnId,
+    direction: -1 | 1
+  ) => {
+    const next = nudgeRentalTableColumn(visibleColumns, columnId, direction)
+    if (next.join() === visibleColumns.join()) return
+    setVisibleColumns(next)
+  }
+
   const cellAlign = (columnAlign: 'left' | 'center' | 'right') => {
     if (columnAlign === 'left') return 'text-left'
     if (columnAlign === 'right') return 'text-right'
@@ -434,7 +463,7 @@ export function PropertyTable({
           </colgroup>
           <thead>
             <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
-              {columns.map((column) => {
+              {columns.map((column, columnIndex) => {
                 const active = sortColumn === column.id
                 const isSelected = arrangeColumns && selectedColumnId === column.id
                 const showRemove = isSelected && canRemoveSelected
@@ -481,6 +510,15 @@ export function PropertyTable({
                           <SortIcon active={active} direction={sortDirection} />
                         </button>
                       )}
+                      {arrangeColumns ? (
+                        <EditColumnsReorderButtons
+                          columnLabel={column.label}
+                          canMoveUp={columnIndex > 0}
+                          canMoveDown={columnIndex < columns.length - 1}
+                          onMoveUp={() => handleNudgeColumn(column.id, -1)}
+                          onMoveDown={() => handleNudgeColumn(column.id, 1)}
+                        />
+                      ) : null}
                       {showRemove ? (
                         <EditColumnsRemoveButton
                           columnLabel={column.label}

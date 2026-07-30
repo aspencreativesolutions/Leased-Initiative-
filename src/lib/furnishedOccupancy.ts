@@ -8,6 +8,7 @@ import type {
   PropertyBedroom,
   PropertyPricingStructure,
 } from '@/types'
+import { occupantHeadcount } from '@/lib/applicantParty'
 import {
   BED_SIZE_LABELS,
   ensurePropertyBedLayout,
@@ -227,7 +228,10 @@ function personMonthlyRent(property: Property): number | null {
  */
 export function buildFurnishedPlacementInventory(
   property: Property,
-  occupants: Pick<Client, 'id' | 'bedroomId' | 'bedId' | 'occupancyArrangement'>[]
+  occupants: Pick<
+    Client,
+    'id' | 'bedroomId' | 'bedId' | 'occupancyArrangement' | 'applicantPartyType'
+  >[]
 ): FurnishedPlacementInventory {
   const ensured = ensurePropertyBedLayout(property)
   const pricingStructure: PropertyPricingStructure =
@@ -238,17 +242,18 @@ export function buildFurnishedPlacementInventory(
       ? Math.round(Number(ensured.monthlyRent) * 100) / 100
       : null
 
-  const assignedByBed = new Map<string, number>()
-  const assignedByRoom = new Map<string, number>()
+  const assignedByBed = new Map<string, typeof occupants>()
+  const assignedByRoom = new Map<string, typeof occupants>()
   for (const occupant of occupants) {
     if (occupant.bedId) {
-      assignedByBed.set(occupant.bedId, (assignedByBed.get(occupant.bedId) ?? 0) + 1)
+      const list = assignedByBed.get(occupant.bedId) ?? []
+      list.push(occupant)
+      assignedByBed.set(occupant.bedId, list)
     }
     if (occupant.bedroomId) {
-      assignedByRoom.set(
-        occupant.bedroomId,
-        (assignedByRoom.get(occupant.bedroomId) ?? 0) + 1
-      )
+      const list = assignedByRoom.get(occupant.bedroomId) ?? []
+      list.push(occupant)
+      assignedByRoom.set(occupant.bedroomId, list)
     }
   }
 
@@ -260,13 +265,13 @@ export function buildFurnishedPlacementInventory(
     const roomPlacements: FurnishedPlacement[] = []
 
     if (pricingStructure === 'room') {
-      const assigned = assignedByRoom.get(bedroom.id) ?? 0
+      const assigned = assignedByRoom.get(bedroom.id) ?? []
       const roomCap = Math.max(
         1,
         (bedroom.beds ?? []).reduce((sum, b) => sum + b.capacity, 0)
       )
       // Room pricing: one placement per bedroom; occupied when anyone is assigned.
-      const occupied = assigned > 0
+      const occupied = assigned.length > 0
       const placement: FurnishedPlacement = {
         id: `room:${bedroom.id}`,
         kind: 'room',
@@ -277,16 +282,17 @@ export function buildFurnishedPlacementInventory(
         monthlyRent: roomMonthlyRent(ensured, bedroom),
         occupied,
         openSlots: occupied ? 0 : 1,
-        assignedCount: assigned,
+        assignedCount: assigned.length,
         possibleRoommates: privacy === 'shared' ? Math.max(0, roomCap - 1) : 0,
       }
       roomPlacements.push(placement)
       placements.push(placement)
     } else {
       for (const bed of bedroom.beds ?? []) {
-        const assigned = assignedByBed.get(bed.id) ?? 0
-        const openSlots = Math.max(0, bed.capacity - assigned)
-        const occupied = openSlots === 0
+        const assigned = assignedByBed.get(bed.id) ?? []
+        // Solo or couple claims the bed exclusively — second unrelated applicant cannot share.
+        const occupied = assigned.length > 0
+        const openSlots = occupied ? 0 : 1
         const monthlyRent =
           pricingStructure === 'bed'
             ? resolveBedMonthlyRent(ensured, bed)
@@ -304,11 +310,8 @@ export function buildFurnishedPlacementInventory(
           monthlyRent,
           occupied,
           openSlots,
-          assignedCount: assigned,
-          possibleRoommates:
-            privacy === 'shared'
-              ? Math.max(0, bed.capacity - 1 + ((bedroom.beds?.length ?? 1) - 1))
-              : Math.max(0, bed.capacity - 1),
+          assignedCount: assigned.length,
+          possibleRoommates: 0,
         }
         roomPlacements.push(placement)
         placements.push(placement)
@@ -323,16 +326,20 @@ export function buildFurnishedPlacementInventory(
     })
   }
 
-  const maxTenants = Math.max(1, Number(ensured.maxTenants) || 1)
-  const occupiedPeople = occupants.length
-  const availableSpots = Math.max(0, maxTenants - occupiedPeople)
+  const layoutMax = Math.max(1, Number(ensured.maxTenants) || 1)
+  const occupiedPeople = occupants.reduce(
+    (sum, occupant) => sum + occupantHeadcount(occupant),
+    0
+  )
+  // Available applicant households = open bed/room placements (not raw person capacity).
+  const availableSpots = placements.reduce((sum, p) => sum + (p.occupied ? 0 : p.openSlots), 0)
 
   return {
     pricingStructure,
     entireHomeOnly,
     totalRent,
     utilitiesIncluded: ensured.utilitiesIncluded === true,
-    maxTenants,
+    maxTenants: layoutMax,
     occupied: occupiedPeople,
     availableSpots,
     bedrooms,

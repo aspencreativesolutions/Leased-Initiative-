@@ -19,6 +19,7 @@ import { PaymentPartnerLogos } from '@/components/auth/PaymentPartnerLogos'
 import { isAccountCreationEnabled } from '@/lib/accountCreation'
 import { HomePage } from '@/pages/HomePage'
 import { TermsOfServicePage } from '@/pages/TermsOfServicePage'
+import { AccountSetupUnavailablePage } from '@/pages/AccountSetupUnavailablePage'
 import { DemoPovPage } from '@/pages/demo/DemoPovPage'
 import { CompanyDemoLinkPage } from '@/pages/demo/CompanyDemoLinkPage'
 import { RoleSelectPage } from '@/pages/auth/RoleSelectPage'
@@ -74,16 +75,25 @@ export default function App() {
                   <Route path="/demo/company/:token" element={<CompanyDemoLinkPage />} />
                   <Route path="/welcome" element={<RoleSelectPage />} />
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/account-setup" element={<AccountSetupUnavailablePage />} />
                   <Route
                     path="/invite/:token"
                     element={
-                      isAccountCreationEnabled() ? <InviteClaimPage /> : <Navigate to="/" replace />
+                      isAccountCreationEnabled() ? (
+                        <InviteClaimPage />
+                      ) : (
+                        <AccountSetupUnavailablePage />
+                      )
                     }
                   />
                   <Route
                     path="/invite"
                     element={
-                      isAccountCreationEnabled() ? <InviteClaimPage /> : <Navigate to="/" replace />
+                      isAccountCreationEnabled() ? (
+                        <InviteClaimPage />
+                      ) : (
+                        <AccountSetupUnavailablePage />
+                      )
                     }
                   />
                   <Route

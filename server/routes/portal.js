@@ -58,6 +58,11 @@ import {
   propertyOccupancyDetail,
 } from '../lib/tenantInvites.js'
 import { availableApplicantSlotsAtAddress } from '../lib/rentalOccupancy.js'
+import {
+  isCoupleCompanionComplete,
+  normalizeApplicantPartyType,
+  normalizeCoupleCompanion,
+} from '../lib/applicantParty.js'
 import { sendSms } from '../lib/sms.js'
 import {
   buildPortalRentPayment,
@@ -366,6 +371,8 @@ function buildUnlinkedApplicationPayload(user) {
           preferredBedroomId: user.preferredBedroomId ?? null,
           preferredBedId: user.preferredBedId ?? null,
           roommateInvitePhones: user.roommateInvitePhones ?? [],
+          applicantPartyType: user.applicantPartyType ?? null,
+          coupleCompanion: user.coupleCompanion ?? null,
         }
       : null,
     client: null,
@@ -417,6 +424,13 @@ function notifyAdminOfPortalApplication(user) {
       : user.preferredOccupancyMode === 'full_rent' ||
           user.preferredOccupancyMode === 'entire_home'
         ? 'Occupancy: entire home'
+        : null,
+    user.applicantPartyType === 'couple'
+      ? `Applying as a couple${
+          user.coupleCompanion?.name ? ` with ${user.coupleCompanion.name}` : ''
+        } (one official tenant)`
+      : user.applicantPartyType === 'solo'
+        ? 'Applying solo'
         : null,
   ]
     .filter(Boolean)
@@ -736,6 +750,23 @@ router.post('/application', async (req, res) => {
       })
     }
 
+    const applicantPartyType = normalizeApplicantPartyType(req.body?.applicantPartyType)
+    if (!applicantPartyType) {
+      return res.status(400).json({
+        error: 'Select whether you are applying solo or as a couple.',
+      })
+    }
+    let coupleCompanion = null
+    if (applicantPartyType === 'couple') {
+      coupleCompanion = normalizeCoupleCompanion(req.body?.coupleCompanion)
+      if (!isCoupleCompanionComplete(coupleCompanion)) {
+        return res.status(400).json({
+          error:
+            'For a couple application, provide the other person’s name and either an email or phone number. Only you will be the official tenant.',
+        })
+      }
+    }
+
     const preferredLeaseStartDate = resolved.invite?.leaseStartDate
       ? String(resolved.invite.leaseStartDate).trim()
       : computeLeaseStartDate()
@@ -795,6 +826,8 @@ router.post('/application', async (req, res) => {
           preferredBedroomId,
           preferredBedId,
           roommateInvitePhones,
+          applicantPartyType,
+          coupleCompanion: applicantPartyType === 'couple' ? coupleCompanion : undefined,
           registrationDismissed: false,
           preferredLeaseStartDate,
           applicationSubmittedAt: new Date().toISOString(),

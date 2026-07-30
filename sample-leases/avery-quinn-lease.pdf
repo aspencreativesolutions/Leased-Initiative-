@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 705 >>
+stream
+BT
+/F1 16 Tf
+50 750 Td
+(LEASE AGREEMENT) Tj
+0 -28 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+(Tenant: Avery Quinn) Tj
+0 -16 Td
+(Address: 10 Pine St, Austin, TX 78701) Tj
+0 -16 Td
+(Security deposit: $3,700) Tj
+0 -16 Td
+(Monthly rent: $1,850) Tj
+0 -16 Td
+(Lease start date: 02/01/2026) Tj
+0 -16 Td
+(Lease end date: 01/31/2027) Tj
+0 -16 Td
+(Lease term: 12 months) Tj
+0 -16 Td
+(Phone: \(512\) 555-0177) Tj
+0 -16 Td
+(Email: avery.quinn@example.com) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Bedroom assignment: Private room, Queen bed.) Tj
+0 -16 Td
+(Utilities included: water and trash.) Tj
+0 -16 Td
+(Tenant pays electricity separately.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(IN WITNESS WHEREOF, the parties have executed this lease.) Tj
+0 -16 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000997 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1067
+%%EOF

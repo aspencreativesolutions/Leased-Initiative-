@@ -14,6 +14,7 @@ import {
   clearPublicDemoSession,
   isPublicDemoSession,
   markPublicDemoRecoverHome,
+  PUBLIC_DEMO_RECOVER_HOME_KEY,
   tokenLooksLikePublicDemo,
 } from '@/lib/publicDemo'
 
@@ -172,6 +173,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await fetchCurrentUserWithRetry()
       setUser(me)
+      if (me.publicDemo === true || isPublicDemoSession()) {
+        try {
+          sessionStorage.removeItem(PUBLIC_DEMO_RECOVER_HOME_KEY)
+        } catch {
+          /* ignore */
+        }
+      }
       return me
     } catch {
       failSession(token)
@@ -198,7 +206,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     fetchCurrentUserWithRetry()
       .then((me) => {
-        if (!cancelled) setUser(me)
+        if (cancelled) return
+        setUser(me)
+        if (me.publicDemo === true || isPublicDemoSession()) {
+          try {
+            sessionStorage.removeItem(PUBLIC_DEMO_RECOVER_HOME_KEY)
+          } catch {
+            /* ignore */
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) failSession(token)

@@ -466,7 +466,7 @@ export function applyDemoLeaseAmounts(contract, scenario) {
 /**
  * Merge demo scenario onto an existing client (deadlines, lease length, payment status).
  * Non-payment deadlines are preserved.
- * Expired demo leases are cleared from Official Tenants; upcoming signed leases stay official.
+ * Expired demo leases stay official until archived (Lease Complete on the dashboard).
  * Canonical contractStatus / projectStatus from the scenario always win so drifted stores
  * (e.g. James stuck on Sent) are repaired on boot / data load.
  */
@@ -478,11 +478,6 @@ export function applyDemoScenarioToClient(client, scenario, generateId) {
   )
   const nonPayment = (client.deadlines ?? []).filter((d) => d.type !== 'payment')
   const { leaseStartDate, leaseEndDate } = scenarioLeaseDates(scenario)
-  const asOf = getDemoAsOfDate()
-  const end = parseYmd(leaseEndDate)
-  const asOfDay = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate())
-  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate())
-  const leaseExpired = asOfDay > endDay
 
   const contractStatus = scenario.contractStatus ?? client.contractStatus
   const projectStatus = scenario.projectStatus ?? client.projectStatus
@@ -493,8 +488,8 @@ export function applyDemoScenarioToClient(client, scenario, generateId) {
     projectStatus === 'Contract Signed' ||
     projectStatus === 'In Progress'
 
-  // Keep signed upcoming/in-term tenants official; drop expired completed terms.
-  const isOfficialClient = signedLike && !leaseExpired
+  // Keep signed leases official (including expired) until the landlord archives/deletes.
+  const isOfficialClient = Boolean(client.archivedAt) ? false : signedLike
 
   return {
     ...client,
@@ -508,7 +503,7 @@ export function applyDemoScenarioToClient(client, scenario, generateId) {
     isOfficialClient,
     officialClientSince: isOfficialClient
       ? client.officialClientSince ?? getDemoAsOfIso()
-      : undefined,
+      : client.officialClientSince,
     ...(scenario.currentPeriodAmountPaid != null
       ? { currentPeriodAmountPaid: scenario.currentPeriodAmountPaid }
       : {}),

@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { LeaseStatusBadge } from '@/components/clients/LeaseStatusBadge'
+import { PaymentProviderLogo } from '@/components/payments/PaymentProviderLogo'
 import { TenantBedAssignmentPicker } from '@/components/properties/TenantBedAssignmentPicker'
 import { getLeaseStatusDetails } from '@/lib/clientUtils'
 import {
   isWholeUnitSingleTenantLease,
   WHOLE_UNIT_LEASE_LABEL,
 } from '@/lib/furnishedOccupancy'
+import { paymentToneTagClass } from '@/lib/paymentStatusPresentation'
+import { paymentTenantRemindHref } from '@/lib/paymentTenantRows'
 import {
   findPropertyByAddress,
   tenantsAtProperty,
@@ -14,6 +18,7 @@ import {
 import {
   findBedInLayout,
   formatBedAssignmentLabel,
+  resolveFurnishedFlag,
 } from '@/lib/rentalBeds'
 import {
   buildTenantDetailsProfile,
@@ -30,7 +35,7 @@ function DetailStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <p className="label-caps text-ink-faint">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold text-ink">{value}</p>
+      <div className="mt-0.5 text-sm font-semibold text-ink">{value}</div>
     </div>
   )
 }
@@ -135,9 +140,13 @@ function ProfileBody({
             <p className="mt-0.5 text-sm font-medium text-ink">
               {WHOLE_UNIT_LEASE_LABEL}
             </p>
-          ) : bedFound ? (
+          ) : bedFound && property ? (
             <p className="mt-0.5 text-sm font-medium text-ink">
-              {formatBedAssignmentLabel(bedFound.bedroom, bedFound.bed)}
+              {formatBedAssignmentLabel(
+                bedFound.bedroom,
+                bedFound.bed,
+                resolveFurnishedFlag(property)
+              )}
             </p>
           ) : null}
         </div>
@@ -158,7 +167,10 @@ function ProfileBody({
               value={formatLongDate(profile.officialSince)}
             />
           ) : null}
-          <DetailStat label="Preferred payment method" value={profile.preferredPaymentMethod} />
+          <DetailStat
+            label="Preferred payment method"
+            value={<PaymentProviderLogo provider={profile.paymentProvider} size="md" />}
+          />
           <DetailStat label="Tenant status" value={profile.tenantStatus} />
         </div>
       </Section>
@@ -186,6 +198,18 @@ function ProfileBody({
             />
           ) : null}
           <DetailStat label="Occupancy" value={profile.propertyOccupancyStatement} />
+          {profile.client.applicantPartyType === 'couple' ? (
+            <DetailStat
+              label="Registration"
+              value={
+                profile.client.coupleCompanion?.name
+                  ? `Couple · with ${profile.client.coupleCompanion.name} (not official tenant)`
+                  : 'Couple (one official tenant)'
+              }
+            />
+          ) : profile.client.applicantPartyType === 'solo' ? (
+            <DetailStat label="Registration" value="Solo" />
+          ) : null}
           {wholeUnitLease ? (
             <DetailStat label="Lease coverage" value={WHOLE_UNIT_LEASE_LABEL} />
           ) : null}
@@ -213,6 +237,24 @@ function ProfileBody({
       </Section>
 
       <Section title="Household and Roommates">
+        {profile.client.applicantPartyType === 'couple' &&
+        profile.client.coupleCompanion?.name ? (
+          <div className="mb-3 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-3 py-2.5 text-sm text-ink">
+            <p className="font-semibold">Couple companion</p>
+            <p className="mt-0.5 text-ink-muted">
+              {profile.client.coupleCompanion.name}
+              {profile.client.coupleCompanion.email
+                ? ` · ${profile.client.coupleCompanion.email}`
+                : ''}
+              {profile.client.coupleCompanion.phone
+                ? ` · ${profile.client.coupleCompanion.phone}`
+                : ''}
+            </p>
+            <p className="mt-1 text-xs text-ink-faint">
+              Listed on the application only — not an official tenant account.
+            </p>
+          </div>
+        ) : null}
         {profile.livesAlone ? (
           <p className="text-sm font-medium text-ink">Lives alone</p>
         ) : (
@@ -291,8 +333,14 @@ function ProfileBody({
             label="Monthly rent"
             value={profile.monthlyRent != null ? formatUsd(profile.monthlyRent) : null}
           />
-          <DetailStat label="Preferred payment method" value={profile.preferredPaymentMethod} />
-          <DetailStat label="Payment processor" value={profile.paymentProcessor} />
+          <DetailStat
+            label="Preferred payment method"
+            value={<PaymentProviderLogo provider={profile.paymentProvider} size="md" />}
+          />
+          <DetailStat
+            label="Payment processor"
+            value={<PaymentProviderLogo provider={profile.paymentProvider} size="md" />}
+          />
           {profile.lastPaymentDate ? (
             <DetailStat
               label="Most recent payment"
@@ -313,7 +361,31 @@ function ProfileBody({
               }
             />
           ) : null}
-          <DetailStat label="Payment status" value={profile.paymentStatusLabel} />
+          <DetailStat
+            label="Payment status"
+            value={
+              profile.paymentDisplay === 'Overdue' ? (
+                <Link
+                  to={paymentTenantRemindHref(profile.client.id)}
+                  className={cn(
+                    'inline-flex max-w-full items-center justify-center',
+                    'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
+                    'px-2 py-0.5 text-[11px] font-semibold leading-snug tracking-tight',
+                    'transition-colors duration-150',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45',
+                    'focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
+                    'cursor-pointer hover:opacity-90',
+                    paymentToneTagClass('error')
+                  )}
+                  aria-label={`${profile.paymentStatusLabel}. Open overdue payments for ${profile.fullName}.`}
+                >
+                  {profile.paymentStatusLabel}
+                </Link>
+              ) : (
+                profile.paymentStatusLabel
+              )
+            }
+          />
           <DetailStat label="Payments made" value={String(profile.paymentsMadeCount)} />
           <DetailStat label="Late payments" value={String(profile.latePaymentsCount)} />
           {profile.outstandingBalance != null ? (
@@ -347,7 +419,9 @@ function ProfileBody({
                     <td className="px-3 py-2 text-ink">{formatLongDate(row.paidAt)}</td>
                     <td className="px-3 py-2 text-ink">{row.daysLate}</td>
                     <td className="px-3 py-2 text-ink">{formatUsd(row.amount)}</td>
-                    <td className="px-3 py-2 text-ink">{row.paymentMethod}</td>
+                    <td className="px-3 py-2 text-ink">
+                      <PaymentProviderLogo provider={row.paymentProvider} size="sm" />
+                    </td>
                   </tr>
                 ))}
               </tbody>

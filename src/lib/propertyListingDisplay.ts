@@ -8,12 +8,17 @@ export type PropertyListingDetail = {
   utilitiesIncluded?: boolean
 }
 
+/** Rentals tile / table / portal tag — one label everywhere. */
+export function furnishedStatusLabel(furnished: boolean | undefined): string {
+  return furnished === true ? 'Furnished' : 'Unfurnished'
+}
+
 /**
  * Compact one-line description under a Desired Address option:
  * Furnished · $X total · $Y/person at full occupancy · Utilities included|not included
  */
 export function formatPropertyListingDescription(detail: PropertyListingDetail): string {
-  const parts: string[] = [detail.furnished ? 'Furnished' : 'Unfurnished']
+  const parts: string[] = [furnishedStatusLabel(detail.furnished)]
   if (detail.monthlyRent != null && detail.monthlyRent > 0) {
     parts.push(`${formatUsd(detail.monthlyRent)} total`)
   }

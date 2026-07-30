@@ -2,6 +2,7 @@ import {
   hideSpreadsheetColumn,
   hiddenSpreadsheetColumns,
   moveSpreadsheetColumn,
+  nudgeSpreadsheetColumn,
   normalizeVisibleSpreadsheetColumns,
   redistributeColumnWidths,
   restoreSpreadsheetColumn,
@@ -121,6 +122,18 @@ export function moveTenantTableColumn(
   const reorderable = order.filter((id) => id !== 'actions')
   return normalizeTenantTableColumns(
     moveSpreadsheetColumn(reorderable, fromId, toId)
+  )
+}
+
+export function nudgeTenantTableColumn(
+  order: readonly TenantTableColumnId[],
+  columnId: TenantTableColumnId,
+  direction: -1 | 1
+): TenantTableColumnId[] {
+  if (columnId === 'actions') return normalizeTenantTableColumns(order)
+  const reorderable = order.filter((id) => id !== 'actions')
+  return normalizeTenantTableColumns(
+    nudgeSpreadsheetColumn(reorderable, columnId, direction)
   )
 }
 

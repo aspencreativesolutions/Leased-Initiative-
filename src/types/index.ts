@@ -56,6 +56,19 @@ export type PreferredOccupancyMode =
   | 'full_rent'
   | 'roommates'
 
+/**
+ * Whether the applicant is registering alone or with a partner.
+ * Couples share one bed when capacity allows; only one person is the official tenant.
+ */
+export type ApplicantPartyType = 'solo' | 'couple'
+
+/** Non-official partner listed on a couple application (contact only). */
+export interface CoupleCompanion {
+  name: string
+  email?: string
+  phone?: string
+}
+
 export type LeaseRenewalStatus =
   | 'renewal_offered'
   | 're_sign_pending'
@@ -191,6 +204,10 @@ export interface User {
   preferredBedId?: string
   /** Phones invited as potential roommates at application */
   roommateInvitePhones?: string[]
+  /** Solo vs couple registration (Start Application) */
+  applicantPartyType?: ApplicantPartyType
+  /** Partner contact when applying as a couple (not an official tenant) */
+  coupleCompanion?: CoupleCompanion
   phone?: string
   /** Claimed via streamlined invite link (no password signup) */
   inviteClaimed?: boolean
@@ -238,6 +255,11 @@ export interface Client {
   /** True after you confirm them post–signed contract */
   isOfficialClient: boolean
   officialClientSince?: string
+  /**
+   * When set, the tenant is archived (Past Tenants in Company Profile).
+   * Cleared from Official Tenants; labeled Archived in Past Tenants.
+   */
+  archivedAt?: string
   invoice?: ClientInvoice
   /** Remaining balance invoice — auto-generated when project is marked complete */
   finalInvoice?: ClientInvoice
@@ -297,6 +319,10 @@ export interface Client {
   bedroomId?: string
   /** Specific bed within that bedroom */
   bedId?: string
+  /** Solo vs couple (preserved from application; couple companion is not a second Client) */
+  applicantPartyType?: ApplicantPartyType
+  /** Non-official partner contact for couple registrations */
+  coupleCompanion?: CoupleCompanion
   /** Renewal / re-sign outreach state when applicable */
   leaseRenewalStatus?: LeaseRenewalStatus
   /** Created via Company Profile “Import existing leases” */
@@ -486,6 +512,10 @@ export interface PendingRegistration {
   roommateInvitePhones?: string[]
   /** Count of roommate invite phones with digits (friends invited) */
   roommateInviteCount?: number
+  /** Solo vs couple registration */
+  applicantPartyType?: ApplicantPartyType
+  /** Partner contact when applying as a couple */
+  coupleCompanion?: CoupleCompanion
 }
 
 export interface PortalUserAccepted {
@@ -510,6 +540,8 @@ export interface PortalUserAccepted {
   preferredOccupancyMode?: PreferredOccupancyMode
   preferredBedroomId?: string
   preferredBedId?: string
+  applicantPartyType?: ApplicantPartyType
+  coupleCompanion?: CoupleCompanion
   occupancyArrangement?: OccupancyArrangement
   acceptedAt: string
   handlerName: string
@@ -677,6 +709,8 @@ export interface PortalDashboard {
     preferredBedroomId?: string | null
     preferredBedId?: string | null
     roommateInvitePhones?: string[]
+    applicantPartyType?: ApplicantPartyType | null
+    coupleCompanion?: CoupleCompanion | null
   } | null
   client: {
     id: string

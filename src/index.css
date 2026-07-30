@@ -2552,9 +2552,9 @@ a.in-place-hover {
   opacity: 1;
 }
 
-/* Expand-to-fit hover: host tracks compact→full width so siblings (e.g. Notify)
- * shift with the face; overlay mode reserves compact only and grows in place.
- * Both labels are absolutely centered in the face so copy never clips. */
+/* Expand-to-fit hover: host tracks compact→full width; overlay mode reserves
+ * compact only and grows in place. Both labels are absolutely centered in the
+ * face so copy never clips. */
 .in-place-hover-expand-host {
   position: relative;
   display: inline-grid;
@@ -2774,16 +2774,13 @@ a.in-place-hover {
  * Official Tenants payment tags — CSS-locked compact shell so On Time /
  * Overdue / Deposit Paid / Awaiting Deposit share identical geometry
  * (origin, size, padding). Right-aligned in the payment column. Hover swaps
- * label text in place; the bordered shell never grows. Notify sits to the
- * right of that fixed shell without shifting on hover.
+ * label text in place; the bordered shell never grows.
  */
 .payment-status-tag-cell {
   --payment-status-tag-compact-w: var(--status-tag-compact-w);
   --payment-status-tag-compact-h: var(--status-tag-compact-h);
   --payment-status-tag-pad-y: var(--status-tag-pad-y);
   --payment-status-tag-pad-x: var(--status-tag-pad-x);
-  --payment-status-tag-notify-gap: 0.375rem;
-  --payment-status-tag-notify-reserve: 3.25rem;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -2792,17 +2789,6 @@ a.in-place-hover {
   max-width: 100%;
   min-height: var(--payment-status-tag-compact-h);
   overflow: visible;
-}
-
-/* Keep Notify inside the cell when the badge is pinned to the right edge. */
-.payment-status-tag-cell:has(.payment-status-notify) {
-  padding-right: 0;
-}
-
-.payment-status-tag-cell .in-place-hover-expand-host--overlay:has(> .payment-status-notify) {
-  margin-right: calc(
-    var(--payment-status-tag-notify-reserve) + var(--payment-status-tag-notify-gap)
-  );
 }
 
 .in-place-hover--payment-tag,
@@ -2897,52 +2883,6 @@ a.in-place-hover {
   overflow: visible;
   text-align: center;
   white-space: nowrap;
-}
-
-/*
- * Sibling of the face inside the expand host — sits to the right of the fixed
- * compact shell without affecting badge layout or shifting on hover.
- */
-.payment-status-notify {
-  position: absolute;
-  left: calc(var(--payment-status-tag-compact-w) + var(--payment-status-tag-notify-gap));
-  top: 0;
-  z-index: 21;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  height: var(--payment-status-tag-compact-h);
-  margin: 0;
-  transform: none;
-  white-space: nowrap;
-}
-
-/*
- * Narrow Official Tenants tiles: Overdue badge + Notify can’t fit side-by-side,
- * so Notify drops to the next line under the badge.
- * ~ badge (6.75rem) + gap + Notify (~3.25rem) + tile padding.
- */
-@container tenant-tile (max-width: 15rem) {
-  .payment-status-tag-cell .in-place-hover-expand-host--overlay:has(> .payment-status-notify) {
-    margin-right: 0;
-    width: var(--payment-status-tag-compact-w);
-    min-width: min(100%, var(--payment-status-tag-compact-w));
-    max-width: 100%;
-    height: calc(var(--payment-status-tag-compact-h) + 1.35rem);
-    min-height: calc(var(--payment-status-tag-compact-h) + 1.35rem);
-    max-height: none;
-  }
-
-  .payment-status-tag-cell:has(.payment-status-notify) {
-    min-height: calc(var(--payment-status-tag-compact-h) + 1.35rem);
-  }
-
-  .payment-status-notify {
-    left: auto;
-    right: 0;
-    top: calc(var(--payment-status-tag-compact-h) + 0.25rem);
-    height: auto;
-  }
 }
 
 /*
@@ -3111,8 +3051,7 @@ span.in-place-hover--lease-tag.inline-flex {
   .in-place-hover--expand,
   .in-place-hover-expand-host,
   .in-place-hover--expand-ready .in-place-hover__layer--primary,
-  .in-place-hover--expand-ready .in-place-hover__layer--secondary-expand,
-  .payment-status-notify {
+  .in-place-hover--expand-ready .in-place-hover__layer--secondary-expand {
     transition: none;
   }
 }
@@ -3920,6 +3859,38 @@ span.in-place-hover--lease-tag.inline-flex {
     animation: none;
     background-color: color-mix(in srgb, #15803d 18%, var(--surface-paper));
     box-shadow: inset 3px 0 0 0 #15803d;
+  }
+}
+
+/* Official Tenants — spotlight after lease import (and re-highlight) */
+@keyframes official-tenant-spotlight-fade {
+  0% {
+    background-color: color-mix(in srgb, var(--brand) 22%, var(--surface-paper));
+    box-shadow: inset 3px 0 0 0 var(--brand);
+  }
+
+  55% {
+    background-color: color-mix(in srgb, var(--brand) 14%, var(--surface-paper));
+    box-shadow: inset 3px 0 0 0 color-mix(in srgb, var(--brand) 75%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 0 transparent;
+  }
+}
+
+.official-tenant-row--spotlight,
+.official-tenant-tile--spotlight {
+  animation: official-tenant-spotlight-fade 2.8s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .official-tenant-row--spotlight,
+  .official-tenant-tile--spotlight {
+    animation: none;
+    background-color: color-mix(in srgb, var(--brand) 14%, var(--surface-paper));
+    box-shadow: inset 3px 0 0 0 var(--brand);
   }
 }
 

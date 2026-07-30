@@ -3,6 +3,7 @@ import {
   hideSpreadsheetColumn,
   hiddenSpreadsheetColumns,
   moveSpreadsheetColumn,
+  nudgeSpreadsheetColumn,
   normalizeVisibleSpreadsheetColumns,
   redistributeColumnWidths,
   restoreSpreadsheetColumn,
@@ -84,6 +85,40 @@ describe('moveSpreadsheetColumn', () => {
     expect(moveSpreadsheetColumn(visible, 'tenant', 'tenant')).toEqual([
       'tenant',
       'address',
+    ])
+  })
+})
+
+describe('nudgeSpreadsheetColumn', () => {
+  it('swaps one slot later', () => {
+    expect(
+      nudgeSpreadsheetColumn(
+        ['tenant', 'address', 'leaseStatus'],
+        'tenant',
+        1
+      )
+    ).toEqual(['address', 'tenant', 'leaseStatus'])
+  })
+
+  it('swaps one slot earlier', () => {
+    expect(
+      nudgeSpreadsheetColumn(
+        ['tenant', 'address', 'leaseStatus'],
+        'leaseStatus',
+        -1
+      )
+    ).toEqual(['tenant', 'leaseStatus', 'address'])
+  })
+
+  it('skips pinned columns and no-ops at edges', () => {
+    const order = ['tenant', 'address', 'actions'] as const
+    expect(
+      nudgeSpreadsheetColumn(order, 'address', 1, (id) => id === 'actions')
+    ).toEqual(['tenant', 'address', 'actions'])
+    expect(nudgeSpreadsheetColumn(order, 'tenant', -1)).toEqual([
+      'tenant',
+      'address',
+      'actions',
     ])
   })
 })

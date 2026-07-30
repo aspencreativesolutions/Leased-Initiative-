@@ -14,7 +14,7 @@ interface EditColumnsArrangeBannerProps {
   onDone?: () => void
 }
 
-/** Toolbar for inline Edit Columns mode — Reset, removed-column tags, Done. */
+/** Toolbar for inline Edit Columns mode — instruction + removed tags, Reset/Done on the right. */
 export function EditColumnsArrangeBanner({
   removedColumns,
   onRestore,
@@ -22,21 +22,12 @@ export function EditColumnsArrangeBanner({
   onDone,
 }: EditColumnsArrangeBannerProps) {
   return (
-    <div className="border-b border-line bg-surface px-3 py-1.5 sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onReset}
-            title="Restore the default column order and visibility."
-            aria-label="Restore the default column order and visibility."
-            className="shrink-0"
-          >
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            Reset
-          </Button>
+    <div className="border-b border-line bg-surface px-3 py-2 sm:px-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="text-[12px] leading-snug text-ink-muted">
+            Hover over columns and click and drag to rearrange them.
+          </p>
           {removedColumns.length > 0 ? (
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
               <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.14em] text-ink-faint">
@@ -71,20 +62,34 @@ export function EditColumnsArrangeBanner({
             </div>
           ) : null}
         </div>
-        {onDone ? (
+        <div className="flex shrink-0 items-center gap-2 self-start">
           <Button
             type="button"
-            variant="primary"
+            variant="outline"
             size="sm"
-            onClick={onDone}
-            title="Done editing columns"
-            aria-label="Done editing columns"
-            className="shrink-0 shadow-sm"
+            onClick={onReset}
+            title="Restore the default column order and visibility."
+            aria-label="Restore the default column order and visibility."
+            className="shrink-0"
           >
-            <Check className="h-3.5 w-3.5" aria-hidden />
-            Done
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            Reset
           </Button>
-        ) : null}
+          {onDone ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={onDone}
+              title="Done editing columns"
+              aria-label="Done editing columns"
+              className="shrink-0 shadow-sm"
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Done
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

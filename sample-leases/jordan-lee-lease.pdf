@@ -1,0 +1,80 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1133 >>
+stream
+BT
+/F1 16 Tf
+50 750 Td
+(RESIDENTIAL LEASE AGREEMENT) Tj
+0 -28 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+(Tenant: Jordan Lee) Tj
+0 -16 Td
+(Property: 1420 Maple Street, Austin, TX 78701) Tj
+0 -16 Td
+(Monthly rent: $1,850.00) Tj
+0 -16 Td
+(Security deposit: $1,850.00) Tj
+0 -16 Td
+(Lease start date: 01/01/2026) Tj
+0 -16 Td
+(Lease end date: 12/31/2026) Tj
+0 -16 Td
+(Lease term: 12 months) Tj
+0 -16 Td
+(Next rent payment due: 08/01/2026) Tj
+0 -16 Td
+(Phone: \(512\) 555-0142) Tj
+0 -16 Td
+(Email: jordan.lee@example.com) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(1. Premises. Landlord leases the premises listed above to Tenant.) Tj
+0 -16 Td
+(2. Rent. Tenant shall pay monthly rent on the first of each month.) Tj
+0 -16 Td
+(3. Term. This lease runs for the term stated above unless renewed.) Tj
+0 -16 Td
+(4. Utilities. Tenant is responsible for electricity and internet.) Tj
+0 -16 Td
+(5. Occupancy. Premises shall be used only as a private residence.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Landlord: Aspen Creative Solutions) Tj
+0 -16 Td
+(Signed: ________________________     Date: __________) Tj
+0 -16 Td
+(Tenant: _________________________     Date: __________) Tj
+0 -16 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001426 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1496
+%%EOF

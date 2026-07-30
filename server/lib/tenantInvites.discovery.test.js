@@ -84,6 +84,31 @@ describe('tenant discovery + invites', () => {
     expect(past.error).toMatch(/future/i)
   })
 
+  it('reports one household slot for an empty queen (not two person slots)', () => {
+    const store = {
+      properties: [
+        {
+          id: 'p1',
+          address: '10 Main St',
+          bedrooms: 1,
+          furnished: true,
+          bedroomsLayout: [
+            {
+              id: 'br1',
+              label: 'Bedroom 1',
+              beds: [{ id: 'bed1', label: 'Bed 1', size: 'queen', capacity: 2 }],
+            },
+          ],
+          maxTenants: 2,
+        },
+      ],
+      clients: [],
+    }
+    const result = availableApplicantSlotsAtAddress(store, '10 Main St')
+    expect(result.available).toBe(true)
+    expect(result.slots).toBe(1)
+  })
+
   it('reports no occupancy when official tenants fill maxTenants', () => {
     const store = {
       properties: [

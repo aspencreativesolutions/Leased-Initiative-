@@ -52,6 +52,7 @@ export function UpcomingOpeningsPanel() {
       >
         <CardHeader
           dense
+          noBorder
           title="Upcoming Openings"
           subtitle="Available now, opening soon, approaching lease end, or ready for a renewal decision — send a re-sign message or generate an invite code from any row"
         />

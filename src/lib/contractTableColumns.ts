@@ -3,6 +3,7 @@ import {
   hiddenSpreadsheetColumns,
   loadVisibleSpreadsheetColumns,
   moveSpreadsheetColumn,
+  nudgeSpreadsheetColumn,
   normalizeVisibleSpreadsheetColumns,
   redistributeColumnWidths,
   restoreSpreadsheetColumn,
@@ -95,6 +96,16 @@ export function moveContractTableColumn(
 ): ContractTableColumnId[] {
   return normalizeContractTableColumns(
     moveSpreadsheetColumn(order, fromId, toId)
+  )
+}
+
+export function nudgeContractTableColumn(
+  order: readonly ContractTableColumnId[],
+  columnId: ContractTableColumnId,
+  direction: -1 | 1
+): ContractTableColumnId[] {
+  return normalizeContractTableColumns(
+    nudgeSpreadsheetColumn(order, columnId, direction)
   )
 }
 

@@ -4,6 +4,10 @@ import {
   formatLeaseStatusHoverDate,
   getLeaseStatusDetails,
   getLeaseStatusHoverDetail,
+  isLeaseCompleteTenant,
+  isTenantArchived,
+  shouldShowInOfficialTenants,
+  shouldShowLeaseCompleteTenant,
 } from '@/lib/clientUtils'
 import type { Client, ContractData } from '@/types'
 
@@ -197,5 +201,50 @@ describe('getLeaseStatusHoverDetail', () => {
       summaryLine: '18 Mo · 06/15/26 - 12/14/27',
       lines: ['18 Mo', '06/15/26 – 12/14/27'],
     })
+  })
+})
+
+describe('lease complete and archive visibility', () => {
+  const asOf = new Date('2026-07-15T12:00:00')
+
+  it('treats an ended term as lease-complete until archived', () => {
+    const client = makeClient({
+      id: 't-done',
+      name: 'Done',
+      email: 'done@example.com',
+      demoLeaseStartDate: '2026-06-20',
+      leaseLengthMonths: 1,
+    })
+    const contract = makeContract({
+      clientId: 't-done',
+      startDate: '2026-06-20',
+      completionDate: '2026-06-30',
+    })
+
+    expect(getLeaseStatusDetails(client, contract, asOf).state).toBe('Expired')
+    expect(shouldShowLeaseCompleteTenant(client, contract, asOf)).toBe(true)
+    expect(isLeaseCompleteTenant(client, contract, asOf)).toBe(true)
+    expect(shouldShowInOfficialTenants(client, contract, asOf)).toBe(false)
+  })
+
+  it('hides archived tenants from the dashboard and marks them archived', () => {
+    const client = makeClient({
+      id: 't-arch',
+      name: 'Archived',
+      email: 'arch@example.com',
+      archivedAt: '2026-07-01T00:00:00.000Z',
+      isOfficialClient: false,
+      demoLeaseStartDate: '2026-06-20',
+      leaseLengthMonths: 1,
+    })
+    const contract = makeContract({
+      clientId: 't-arch',
+      startDate: '2026-06-20',
+      completionDate: '2026-06-30',
+    })
+
+    expect(isTenantArchived(client)).toBe(true)
+    expect(shouldShowLeaseCompleteTenant(client, contract, asOf)).toBe(false)
+    expect(shouldShowInOfficialTenants(client, contract, asOf)).toBe(false)
   })
 })

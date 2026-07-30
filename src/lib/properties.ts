@@ -108,8 +108,8 @@ export function officialTenantsAtProperty(
 }
 
 /**
- * Remaining tenant capacity (people): max occupancy minus active occupants.
- * Whole-unit leases report 0 remaining while occupied (home is taken).
+ * Remaining tenant capacity (people / household display):
+ * bed-surfaced rentals use open beds; whole-unit leases report 0 while occupied.
  * Prefer availableBedsForRental for vacancy / “full” (bed-based).
  */
 export function remainingTenantCapacity(
@@ -122,11 +122,12 @@ export function remainingTenantCapacity(
   if (!propertySurfacesBedAssignment(ensured, active)) {
     return active.length > 0 ? 0 : 1
   }
-  return Math.max(0, ensured.maxTenants - active.length)
+  return rentalBedOccupancyForProperty(ensured, clients, getContract).availableBeds
 }
 
 /**
- * Available applicant slots from maxTenants minus Official Tenants at the rental.
+ * Available applicant household slots (open beds), not raw person capacity.
+ * A solo claim on a Queen fills that bed — couples do not open a second applicant slot.
  * Matches Waiting to Connect “Requesting 1 of N available units” badges.
  * Whole-unit / entire-home occupancy reports 0 while occupied.
  */
@@ -140,7 +141,7 @@ export function availableUnitsForApplicant(
   if (!propertySurfacesBedAssignment(ensured, official)) {
     return official.length > 0 ? 0 : 1
   }
-  return Math.max(0, ensured.maxTenants - official.length)
+  return buildRentalBedOccupancy(ensured, official).availableBeds
 }
 
 /** Bed + people occupancy snapshot for a rental. */

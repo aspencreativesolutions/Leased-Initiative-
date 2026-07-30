@@ -42,7 +42,7 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
       'Send to reach Waiting to Connect',
     ],
     details: [
-      'Demo flow: Start Application → landlord company → address (furnished / unfurnished) → Send',
+      'Demo flow: Start Application → landlord company → address (furnished / unfurnished) → Solo or Couple → Send',
       'Or enter an invite code instead of public discovery',
       'After Send: Application sent + Switch to Landlord POV (direct) → Accept & Draft Lease → Lease Drafted → Review & Send',
     ],

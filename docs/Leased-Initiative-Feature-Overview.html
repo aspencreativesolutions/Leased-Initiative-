@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Leased Initiative — Feature Overview</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 0.65in 0.7in;
+    }
+
+    :root {
+      --navy: #0f2744;
+      --ink: #1a2b3c;
+      --muted: #5a6b7c;
+      --line: #d8dee6;
+      --panel: #f4f7fa;
+      --accent: #2b7bb9;
+      --green: #2f8f6b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cover {
+      border-bottom: 3px solid var(--navy);
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 9pt;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin: 0 0 6px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 26pt;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--ink);
+      font-size: 12pt;
+      max-width: 38em;
+    }
+
+    .lede strong { color: var(--navy); }
+
+    .sub {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 10.5pt;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 18px;
+    }
+
+    .card {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      border: 1px solid var(--line);
+      background: white;
+      padding: 12px 14px 10px;
+    }
+
+    .card.full {
+      grid-column: 1 / -1;
+    }
+
+    .card h2 {
+      margin: 0 0 4px;
+      color: var(--navy);
+      font-size: 13pt;
+      line-height: 1.2;
+    }
+
+    .tagline {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-style: italic;
+      font-size: 9.5pt;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.1em;
+    }
+
+    li {
+      margin: 0 0 3px;
+    }
+
+    .section-title {
+      grid-column: 1 / -1;
+      margin: 8px 0 0;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      color: var(--navy);
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10pt;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel);
+      color: var(--navy);
+      font-weight: 700;
+      width: 22%;
+    }
+
+    .values {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .values li {
+      margin: 0;
+      padding: 8px 10px;
+      background: var(--panel);
+      border-left: 3px solid var(--accent);
+    }
+
+    .values strong {
+      color: var(--navy);
+    }
+
+    .values li:nth-child(5) {
+      border-left-color: var(--green);
+    }
+
+    footer {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 2px solid var(--navy);
+      color: var(--muted);
+      font-size: 9pt;
+    }
+
+    footer p { margin: 0 0 4px; }
+  </style>
+</head>
+<body>
+  <header class="cover">
+    <p class="eyebrow">Feature pamphlet</p>
+    <h1>Leased Initiative</h1>
+    <p class="lede"><strong>Run the full lease lifecycle</strong> — from sign-up and approvals to signed leases, rent, and maintenance.</p>
+    <p class="sub">One dual-sided app. Landlords work in the studio. Tenants work in the portal. Same source of truth.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Tenant Pipeline</h2>
+      <p class="tagline">Keep every applicant moving — no more “where did they go?”</p>
+      <ul>
+        <li>Invite by link or one-time code (texted to their phone)</li>
+        <li>Public Discovery or Invite-Only — you choose how tenants find you</li>
+        <li>Waiting to Connect → Pending → Official, with clear next steps</li>
+        <li>Accept &amp; Draft Lease in one move</li>
+        <li>Occupancy tags: entire home, roommates, private or shared room</li>
+        <li>Add tenants manually or send invite shortcuts from the dashboard</li>
+        <li>Archive finished leases to Past Tenants — or delete when you’re done</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Rentals &amp; Portfolio</h2>
+      <p class="tagline">Your addresses, beds, and openings — organized like inventory.</p>
+      <ul>
+        <li>Add rentals with furnished status, room/bed pricing, deposits, and utilities</li>
+        <li>Max occupancy from beds; total rent and full-occupancy cost for applications</li>
+        <li>Color-coded occupancy: open beds vs. full homes at a glance</li>
+        <li>Expand a rental to see who’s there; open Tenant Details from a name</li>
+        <li>Assign tenants to bedroom and bed</li>
+        <li>Filter by state, town, and custom groups (including map radius)</li>
+        <li>Tile or Spreadsheet View, with editable columns and tile size</li>
+        <li>Upcoming Openings: vacant units and leases ending soon</li>
+        <li>Send Re-sign Message or Generate Invite Code from each row</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Lease Agreements</h2>
+      <p class="tagline">Draft, send, sign, restyle — without losing the paper trail.</p>
+      <ul>
+        <li>Draft from Accept &amp; Draft Lease or your default template</li>
+        <li>Preview, download, upload a replacement, then send when ready</li>
+        <li>Optional Auto-send from Pending Tenants</li>
+        <li>Tenants review and sign with a drawn signature</li>
+        <li>Sent / Signed status and term progress on every agreement</li>
+        <li>Upload PDF or Word templates; Confirm as default</li>
+        <li>Apply a new style to pending or official tenants — details and signatures stay intact</li>
+        <li>Seasonal options, custom lease eras, payment terms, and footers</li>
+        <li>Import existing leases → Scan → Add to Official Tenants or Confirm to Pending</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Payments &amp; Money Flow</h2>
+      <p class="tagline">Deposits, rent, balances, and overdue — all in one place.</p>
+      <ul>
+        <li>Deposit invoice and payment link auto-appear after signing</li>
+        <li>Pay with PayPal, Stripe, or Square</li>
+        <li>Payment Status shows Deposit Paid with the processor logo</li>
+        <li>Confirm Payment Complete: Awaiting Deposit → Upcoming → Active</li>
+        <li>Track unit rent, roommate share, balance, and next due date</li>
+        <li>Filter by Overdue Rent, Paid Early, or payment method</li>
+        <li>Tenants pay anytime — including months upfront when allowed</li>
+        <li>Overdue tag jumps straight to that tenant’s overdue payments</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Outreach &amp; Reminders</h2>
+      <p class="tagline">Nudge overdue rent without leaving the app — replies stay on your phone.</p>
+      <ul>
+        <li>Send Message to Tenant from Payments with templates or your own copy</li>
+        <li>Overdue rent messaging that keeps the conversation on SMS</li>
+        <li>Client Automation for overdue rent and lease milestone nudges</li>
+        <li>Tenant alerts by email and in-portal when something needs attention</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Maintenance &amp; Alerts</h2>
+      <p class="tagline">Photo in. Problem clear. Dispatch ready.</p>
+      <ul>
+        <li>Tenants Request Maintenance with a required photo and optional note</li>
+        <li>Requests land in Tenant Alerts (desktop nav or mobile Menu)</li>
+        <li>Assess and dispatch from one focused queue</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Tenant Portal</h2>
+      <p class="tagline">Apply, sign, pay, share, and stay on schedule — from one home base.</p>
+      <ul>
+        <li>Start Application: landlord, address, furnished bed/room, roommate preference</li>
+        <li>Or join with an invite link/code and a pre-filled form</li>
+        <li>Dashboard: rent due dates, Pay Rent, leases, and deposit invoices</li>
+        <li>Review and sign lease agreements in-portal</li>
+        <li>Share files and short notes with your landlord</li>
+        <li>Follow lease milestones on the project timeline</li>
+        <li>Choose Style and manage My profile from Menu</li>
+        <li>Restart the product tour anytime</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Views, Filters &amp; Clarity</h2>
+      <p class="tagline">See what matters — hide what doesn’t.</p>
+      <ul>
+        <li>Spreadsheet or Tile View for tenants, leases, rentals, and payments</li>
+        <li>Edit Columns: rearrange, hide, or restore fields</li>
+        <li>Filter Official Tenants by lease progress and building type</li>
+        <li>Filter leases by status, progress, state, area code, or group</li>
+        <li>Show Occupancy Status tags under tenant names when you want them</li>
+        <li>Highlight last import after bringing in existing leases</li>
+        <li>Mobile-friendly tiles; Display Settings on larger screens</li>
+      </ul>
+    </section>
+
+    <section class="card full">
+      <h2>Company, Settings &amp; Style</h2>
+      <p class="tagline">Set the defaults once. Run the portfolio every day.</p>
+      <ul>
+        <li>Company Profile: name, rental and renter counts, Past Tenants (Archived)</li>
+        <li>Business Information for lease headers and contact details</li>
+        <li>Lease Defaults and Lease Agreement Templates in one Settings hub</li>
+        <li>App Style previews that apply instantly to the landlord studio</li>
+        <li>In-app tour with section jump bar — restart from Menu anytime</li>
+        <li>Demo mode with host access codes and landlord/tenant POV switching (changes aren’t saved)</li>
+      </ul>
+    </section>
+
+    <p class="section-title">At a glance — the lifecycle</p>
+    <section class="card full">
+      <table>
+        <thead>
+          <tr><th>Stage</th><th>What happens</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>Sign-up</th><td>Tenant applies or claims an invite</td></tr>
+          <tr><th>Waiting</th><td>Landlord reviews and accepts</td></tr>
+          <tr><th>Pending</th><td>Lease drafted, previewed, sent</td></tr>
+          <tr><th>Signed</th><td>Drawn signature locks the agreement</td></tr>
+          <tr><th>Official</th><td>Deposit invoice out; confirm when paid</td></tr>
+          <tr><th>Active</th><td>Rent schedule, payments, and timeline live</td></tr>
+          <tr><th>Alerts</th><td>Maintenance and overdue outreach stay in view</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="section-title">Brand values</p>
+    <section class="card full">
+      <ul class="values">
+        <li><strong>Clear</strong> — Status and next steps stay visible.</li>
+        <li><strong>Fair</strong> — Both sides share the same information.</li>
+        <li><strong>Practical</strong> — Import leases, track overdue rent, message in place.</li>
+        <li><strong>Accountable</strong> — Signatures and payments leave a trail.</li>
+        <li><strong>Calm</strong> — Clean UI, focus on the work.</li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    <p><strong>Leased Initiative</strong> — dual-sided rental operations for landlords and tenants.</p>
+    <p>Lift any section for decks, one-pagers, landing pages, or sales threads.</p>
+  </footer>
+</body>
+</html>

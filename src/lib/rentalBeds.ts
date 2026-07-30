@@ -6,6 +6,7 @@ import type {
   PropertyBedroom,
 } from '@/types'
 import { BED_SIZES } from '@/types'
+import { occupantHeadcount } from '@/lib/applicantParty'
 
 export const BED_SIZE_LABELS: Record<BedSize, string> = {
   twin: 'Twin / Single',
@@ -100,12 +101,38 @@ export function findBedInLayout(
   return null
 }
 
+/**
+ * Bed size names (Queen, King, …) describe furniture. Only show them when the
+ * rental is furnished — otherwise occupancy still uses beds, without furniture labels.
+ */
+export function formatBedSizeLabel(
+  bed: Pick<PropertyBed, 'size' | 'label'>,
+  furnished: boolean | undefined
+): string {
+  if (furnished === true) return BED_SIZE_LABELS[bed.size]
+  return bed.label?.trim() || 'Bed'
+}
+
 export function formatBedAssignmentLabel(
   bedroom: PropertyBedroom,
-  bed: PropertyBed
+  bed: PropertyBed,
+  furnished?: boolean
 ): string {
-  const sizeLabel = BED_SIZE_LABELS[bed.size]
-  return `${bedroom.label} · ${sizeLabel} Bed`
+  if (furnished === false) {
+    return `${bedroom.label} · ${bed.label?.trim() || 'Bed'}`
+  }
+  return `${bedroom.label} · ${BED_SIZE_LABELS[bed.size]} Bed`
+}
+
+/**
+ * Sized beds (Queen, King, …) are furniture. Prefer the stored flag / bed pricing.
+ * Callers must hide Queen/King size labels when this returns false.
+ */
+export function resolveFurnishedFlag(
+  property: Pick<Property, 'furnished' | 'pricingStructure'>
+): boolean {
+  if (property.pricingStructure === 'bed') return true
+  return property.furnished === true
 }
 
 /** Sync bedrooms count + maxTenants from layout; migrate missing layouts. */
@@ -144,9 +171,13 @@ export function ensurePropertyBedLayout(property: Property): Property {
 
   const bedrooms = layout.length
   const maxTenants = Math.max(1, maxOccupancyFromLayout(layout))
+  // Per-bed pricing requires furniture; otherwise respect the landlord flag.
+  const furnished =
+    property.pricingStructure === 'bed' ? true : property.furnished === true
 
   return {
     ...property,
+    furnished,
     bedroomsLayout: layout,
     bedrooms,
     maxTenants,
@@ -173,8 +204,24 @@ export interface RentalBedOccupancy {
 }
 
 /**
+ * Display capacity for one bed given who has claimed it.
+ * Empty couple-capacity beds still advertise full sleeping capacity (e.g. Queen = 2).
+ * A solo claim on a couple bed locks the bed exclusively → display max 1 (“1 of 1”).
+ * A couple claim (or two co-tenants) uses the people headcount.
+ */
+export function bedDisplayCapacity(
+  bed: Pick<PropertyBed, 'capacity'>,
+  assigned: Pick<Client, 'applicantPartyType'>[]
+): number {
+  if (assigned.length === 0) return Math.max(1, bed.capacity)
+  const heads = assigned.reduce((sum, tenant) => sum + occupantHeadcount(tenant), 0)
+  return Math.max(1, heads)
+}
+
+/**
  * Bed is occupied when ≥1 assigned tenant in `occupants`.
- * People occupancy counts every occupant (assigned + unassigned).
+ * People occupancy counts every occupant (assigned + unassigned), with couples as 2.
+ * Display max shrinks when a solo applicant exclusively claims a couple-capacity bed.
  * Pass active/official tenants from the caller (avoids circular imports).
  */
 export function buildRentalBedOccupancy(
@@ -189,13 +236,13 @@ export function buildRentalBedOccupancy(
     tenantsByBedId.set(bed.id, [])
   }
 
-  let assignedCount = 0
+  let assignedHeadcount = 0
   for (const tenant of occupants) {
     if (!tenant.bedId) continue
     const list = tenantsByBedId.get(tenant.bedId)
     if (list) {
       list.push(tenant)
-      assignedCount += 1
+      assignedHeadcount += occupantHeadcount(tenant)
     }
   }
 
@@ -203,12 +250,21 @@ export function buildRentalBedOccupancy(
   const unassigned = occupants.filter(
     (t) => !t.bedId || !tenantsByBedId.has(t.bedId)
   )
-  const currentOccupants = assignedCount + unassigned.length
+  const unassignedHeadcount = unassigned.reduce(
+    (sum, tenant) => sum + occupantHeadcount(tenant),
+    0
+  )
+  const currentOccupants = assignedHeadcount + unassignedHeadcount
 
   let occupiedBeds = 0
-  for (const list of tenantsByBedId.values()) {
+  let displayMax = 0
+  for (const bed of beds) {
+    const list = tenantsByBedId.get(bed.id) ?? []
     if (list.length > 0) occupiedBeds += 1
+    displayMax += bedDisplayCapacity(bed, list)
   }
+  // Unassigned people still need capacity in the denominator.
+  displayMax += unassignedHeadcount
 
   const totalBeds = beds.length
   return {
@@ -216,7 +272,7 @@ export function buildRentalBedOccupancy(
     occupiedBeds,
     availableBeds: Math.max(0, totalBeds - occupiedBeds),
     currentOccupants,
-    maxOccupancy: Math.max(1, maxOccupancyFromLayout(ensured.bedroomsLayout)),
+    maxOccupancy: Math.max(1, displayMax || maxOccupancyFromLayout(ensured.bedroomsLayout)),
     tenantsByBedId,
   }
 }
@@ -381,7 +437,9 @@ export function bedsWithOpenCapacity(
       if (options?.ignoreClientId) {
         assigned = assigned.filter((t) => t.id !== options.ignoreClientId)
       }
-      const openSlots = Math.max(0, bed.capacity - assigned.length)
+      // Couple-capacity beds are claimed exclusively by one household (solo or couple).
+      // A second unrelated applicant cannot take the remaining sleeping space.
+      const openSlots = assigned.length > 0 ? 0 : 1
       results.push({ bedroom, bed, assigned, openSlots })
     }
   }

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
+  BadgeCheck,
   Check,
   FileUp,
   Link2,
@@ -37,6 +39,10 @@ import {
   type ScanFieldKey,
   type ScannedLeaseRow,
 } from '@/lib/leaseScan'
+import {
+  buildOfficialTenantHighlightQuery,
+  writeOfficialTenantSpotlightIds,
+} from '@/lib/officialTenantSpotlight'
 import { paymentMethodsTextForProvider } from '@/lib/paymentProvider'
 import { createTenantInvite, markTenantInviteDelivered } from '@/lib/portalUsersApi'
 import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
@@ -75,7 +81,8 @@ interface WorkingRow extends ScannedLeaseRow {
   inviteSentAt?: string
   reveal: boolean
   showCheck: boolean
-  selectedForDedupe: boolean
+  /** Selected for bulk official add or duplicate merge. */
+  selected: boolean
 }
 
 type InviteChannel = 'email' | 'sms'
@@ -201,8 +208,17 @@ function FieldScanValue({
 }
 
 export function LeaseUploadSection() {
-  const { settings, properties, addClient, addProperty, saveContract, updateClient } = useApp()
+  const {
+    settings,
+    properties,
+    addClient,
+    addClientWithContract,
+    addProperty,
+    saveContract,
+    updateClient,
+  } = useApp()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const inputRef = useRef<HTMLInputElement>(null)
   const replaceInputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -234,7 +250,9 @@ export function LeaseUploadSection() {
   const companyName = settings.businessName?.trim() || 'Your landlord'
   const reviewRows = rows.filter((r) => r.status !== 'dismissed')
   const confirmableRows = reviewRows.filter((r) => r.status === 'review')
-  const selectedDedupe = reviewRows.filter((r) => r.selectedForDedupe)
+  const selectedRows = confirmableRows.filter((r) => r.selected)
+  const allConfirmableSelected =
+    confirmableRows.length > 0 && selectedRows.length === confirmableRows.length
 
   useEffect(() => {
     return () => {
@@ -411,7 +429,7 @@ export function LeaseUploadSection() {
               pendingFields: new Set(event.pendingFields),
               reveal: true,
               showCheck: false,
-              selectedForDedupe: false,
+              selected: false,
             }
             setRows((prev) => [...prev, working])
             setScanProgress((prev) => ({ ...prev, found: prev.found + 1 }))
@@ -435,7 +453,7 @@ export function LeaseUploadSection() {
                       status: 'review',
                       pendingFields: new Set(),
                       reveal: true,
-                      selectedForDedupe: false,
+                      selected: false,
                     }
                   : r
               )
@@ -452,7 +470,7 @@ export function LeaseUploadSection() {
                   pendingFields: new Set<ScanFieldKey>(),
                   reveal: true,
                   showCheck: existing?.showCheck ?? false,
-                  selectedForDedupe: false,
+                  selected: false,
                   clientId: existing?.clientId,
                   inviteUrl: existing?.inviteUrl,
                   inviteId: existing?.inviteId,
@@ -585,25 +603,31 @@ export function LeaseUploadSection() {
   }
 
   const dismissRow = (id: string) => {
-    updateRow(id, { status: 'dismissed', selectedForDedupe: false })
+    updateRow(id, { status: 'dismissed', selected: false })
   }
 
   const dismissAllReview = () => {
     setRows((prev) =>
       prev.map((r) =>
         r.status === 'review' || r.status === 'scanning'
-          ? { ...r, status: 'dismissed', selectedForDedupe: false }
+          ? { ...r, status: 'dismissed', selected: false }
           : r
       )
     )
   }
 
+  const setAllConfirmableSelected = (selected: boolean) => {
+    setRows((prev) =>
+      prev.map((r) => (r.status === 'review' ? { ...r, selected } : r))
+    )
+  }
+
   const mergeSelectedDuplicates = () => {
-    if (selectedDedupe.length < 2) {
+    if (selectedRows.length < 2) {
       setScanError('Select at least two records to mark as duplicates.')
       return
     }
-    const [primary, ...rest] = selectedDedupe
+    const [primary, ...rest] = selectedRows
     const mergedFiles = Array.from(
       new Set([
         ...primary.sourceFileNames,
@@ -631,16 +655,120 @@ export function LeaseUploadSection() {
       sourceFileNames: mergedFiles,
       sourceFileName: mergedFiles[0] || primary.sourceFileName,
       possibleDuplicateOf: undefined,
-      selectedForDedupe: false,
+      selected: false,
       status: 'review',
     }
     const dropIds = new Set(rest.map((r) => r.id))
     setRows((prev) =>
       prev
         .filter((r) => !dropIds.has(r.id))
-        .map((r) => (r.id === primary.id ? merged : { ...r, selectedForDedupe: false }))
+        .map((r) => (r.id === primary.id ? merged : { ...r, selected: false }))
     )
     setScanError('')
+  }
+
+  const addRowAsOfficial = async (row: WorkingRow, knownAddresses?: Set<string>) => {
+    if (
+      row.status === 'confirming' ||
+      row.status === 'confirmed' ||
+      row.status === 'inviteReady' ||
+      row.status === 'linkSent'
+    ) {
+      return null
+    }
+    if (!row.tenantName.trim()) {
+      setScanError('Add a tenant name before adding to Official Tenants.')
+      return null
+    }
+    updateRow(row.id, { status: 'confirming', selected: false })
+    const addressSet =
+      knownAddresses ??
+      new Set(properties.map((p) => p.address.trim().toLowerCase()))
+    const now = new Date().toISOString()
+    try {
+      if (row.address.trim()) {
+        await ensureProperty(row.address, addressSet)
+      }
+      const sourceFiles = row.sourceFileNames.length
+        ? row.sourceFileNames
+        : [row.sourceFileName]
+      const client = await addClientWithContract(
+        {
+          name: row.tenantName.trim(),
+          businessName: row.tenantName.trim(),
+          email: row.email.trim(),
+          phone: row.phone.trim(),
+          projectType: 'Apartment',
+          projectName: row.address.trim() || `${row.tenantName.trim()} property`,
+          projectDescription: `Imported from lease scan (${sourceFiles.join(', ')})`,
+          projectStatus: 'In Progress',
+          contractStatus: 'Signed',
+          paymentStatus: 'Unpaid',
+          isOfficialClient: true,
+          officialClientSince: now,
+          serviceTier: DEFAULT_SERVICE_TIER,
+          leaseLengthMonths: row.leaseLengthMonths ?? undefined,
+          importedFromLeaseScan: true,
+          importSourceFiles: sourceFiles,
+          importedAt: now,
+          importConfirmedBy: user?.email || user?.name || 'landlord',
+          profileNotes: [
+            row.rentAmount ? `Scanned monthly rent: $${row.rentAmount}` : null,
+            row.leaseStartDate ? `Lease start: ${row.leaseStartDate}` : null,
+            row.leaseEndDate ? `Lease end: ${row.leaseEndDate}` : null,
+            row.nextPaymentDueDate ? `Next payment due: ${row.nextPaymentDueDate}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        },
+        (created) => ({
+          ...buildDraftFromScan(created, row, settings),
+          signedAt: now,
+          confirmedByClient: true,
+        })
+      )
+      updateRow(row.id, {
+        status: 'confirmed',
+        clientId: client.id,
+        showCheck: true,
+        selected: false,
+      })
+      window.setTimeout(() => {
+        updateRow(row.id, { status: 'inviteReady' })
+      }, 900)
+      return client.id
+    } catch (err) {
+      updateRow(row.id, { status: 'review' })
+      setScanError(
+        err instanceof ApiError ? err.message : 'Could not add tenant to Official Tenants'
+      )
+      return null
+    }
+  }
+
+  const addSelectedToOfficialTenants = async () => {
+    if (selectedRows.length === 0) {
+      setScanError('Select one or more reviewed tenants to add to Official Tenants.')
+      return
+    }
+    const missingName = selectedRows.find((r) => !r.tenantName.trim())
+    if (missingName) {
+      setScanError('Add a tenant name to every selected record before adding.')
+      return
+    }
+    setScanError('')
+    const knownAddresses = new Set(
+      properties.map((p) => p.address.trim().toLowerCase())
+    )
+    const addedIds: string[] = []
+    for (const row of selectedRows) {
+      const id = await addRowAsOfficial(row, knownAddresses)
+      if (id) addedIds.push(id)
+    }
+    if (addedIds.length === 0) return
+    writeOfficialTenantSpotlightIds(addedIds)
+    const highlight = buildOfficialTenantHighlightQuery(addedIds)
+    navigate(highlight ? `/studio?${highlight}` : '/studio')
   }
 
   const openInviteForRow = async (row: WorkingRow) => {
@@ -734,7 +862,7 @@ export function LeaseUploadSection() {
       <Card data-onboarding="admin-lease-upload">
         <CardHeader
           title="Import existing leases"
-          subtitle="Upload lease documents, scan for tenant and lease details, review every field, then confirm before anything is added to your dashboard."
+          subtitle="Upload lease documents, scan for tenant and lease details, select who to keep, then Add to Official Tenants — or Confirm to Pending."
         />
 
         <div
@@ -959,8 +1087,8 @@ export function LeaseUploadSection() {
               <div>
                 <p className="label-caps">Proposed tenant records</p>
                 <p className="mt-1 text-xs text-ink-muted">
-                  Review every field, edit anything that looks wrong, then confirm. Nothing is saved
-                  until you confirm.
+                  Review every field, select the tenants you want, then Add to Official Tenants —
+                  or Confirm one to keep them in Pending. Nothing is saved until you choose.
                 </p>
               </div>
               {scanComplete && (
@@ -968,11 +1096,22 @@ export function LeaseUploadSection() {
                   <Button
                     type="button"
                     size="sm"
+                    disabled={selectedRows.length === 0 || scanning}
+                    onClick={() => void addSelectedToOfficialTenants()}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Add to Official Tenants
+                    {selectedRows.length > 0 ? ` (${selectedRows.length})` : ''}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
                     disabled={confirmableRows.length === 0 || scanning}
                     onClick={() => void confirmAllReviewed()}
                   >
                     <Check className="h-3.5 w-3.5" />
-                    Confirm All Reviewed
+                    Confirm All to Pending
                   </Button>
                   <Button
                     type="button"
@@ -1008,14 +1147,27 @@ export function LeaseUploadSection() {
               )}
             </div>
 
-            {selectedDedupe.length >= 2 && (
+            {confirmableRows.length > 0 && scanComplete && (
               <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-line bg-surface px-3 py-2">
-                <p className="text-xs text-ink-muted">
-                  {selectedDedupe.length} records selected as possible duplicates
-                </p>
-                <Button type="button" size="sm" onClick={mergeSelectedDuplicates}>
-                  Mark as duplicates & merge
-                </Button>
+                <label className="inline-flex items-center gap-2 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    className="accent-[var(--brand)]"
+                    checked={allConfirmableSelected}
+                    onChange={(e) => setAllConfirmableSelected(e.target.checked)}
+                  />
+                  Select all ({confirmableRows.length})
+                </label>
+                {selectedRows.length > 0 && (
+                  <p className="text-xs text-ink-muted">
+                    {selectedRows.length} selected
+                  </p>
+                )}
+                {selectedRows.length >= 2 && (
+                  <Button type="button" size="sm" variant="outline" onClick={mergeSelectedDuplicates}>
+                    Mark as duplicates & merge
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1026,7 +1178,8 @@ export function LeaseUploadSection() {
                   'lease-scan-row rounded-[var(--radius-md)] border border-line bg-surface-paper p-4',
                   row.reveal && 'lease-scan-row--revealed',
                   row.status === 'inviteReady' && 'lease-scan-row--invite-ready',
-                  row.possibleDuplicateOf && 'ring-1 ring-amber-300/70'
+                  row.possibleDuplicateOf && 'ring-1 ring-amber-300/70',
+                  row.selected && row.status === 'review' && 'ring-1 ring-brand/50'
                 )}
               >
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -1239,16 +1392,16 @@ export function LeaseUploadSection() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {row.status === 'review' && (
                     <>
-                      <label className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-line px-2.5 py-1.5 text-xs text-ink-muted">
+                      <label className="inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-line px-2.5 py-1.5 text-xs text-ink">
                         <input
                           type="checkbox"
                           className="accent-[var(--brand)]"
-                          checked={row.selectedForDedupe}
+                          checked={row.selected}
                           onChange={(e) =>
-                            updateRow(row.id, { selectedForDedupe: e.target.checked })
+                            updateRow(row.id, { selected: e.target.checked })
                           }
                         />
-                        Mark duplicate
+                        Select
                       </label>
                       <Button
                         type="button"
@@ -1256,7 +1409,7 @@ export function LeaseUploadSection() {
                         onClick={() => void confirmRow(row)}
                       >
                         <Check className="h-3.5 w-3.5" />
-                        Confirm
+                        Confirm to Pending
                       </Button>
                       <Button
                         type="button"

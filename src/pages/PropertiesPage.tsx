@@ -49,9 +49,11 @@ import {
   WHOLE_UNIT_LEASE_LABEL,
   isWholeUnitSingleTenantLease,
 } from '@/lib/furnishedOccupancy'
+import { furnishedStatusLabel } from '@/lib/propertyListingDisplay'
 import {
   findBedInLayout,
   formatBedAssignmentLabel,
+  resolveFurnishedFlag,
 } from '@/lib/rentalBeds'
 import { buildRentalPricingSummary, formatUsd } from '@/lib/rentalRent'
 import {
@@ -296,6 +298,7 @@ export function PropertiesPage() {
         id: property.id,
         address: property.address,
         propertyType: property.propertyType,
+        furnished: resolveFurnishedFlag(property),
         bedrooms: property.bedrooms,
         maxTenants: vacancy.surfacesBeds
           ? vacancy.maxOccupancy
@@ -859,11 +862,20 @@ export function PropertiesPage() {
                           property,
                           activeOccupants
                         )
+                      const partyLabel =
+                        tenant.applicantPartyType === 'couple'
+                          ? tenant.coupleCompanion?.name
+                            ? `Couple · with ${tenant.coupleCompanion.name}`
+                            : 'Couple'
+                          : tenant.applicantPartyType === 'solo'
+                            ? 'Solo'
+                            : undefined
                       if (wholeUnit) {
                         return {
                           id: tenant.id,
                           name: tenant.name,
                           bedLabel: WHOLE_UNIT_LEASE_LABEL,
+                          partyLabel,
                         }
                       }
                       const found = findBedInLayout(
@@ -875,8 +887,13 @@ export function PropertiesPage() {
                         id: tenant.id,
                         name: tenant.name,
                         bedLabel: found
-                          ? formatBedAssignmentLabel(found.bedroom, found.bed)
+                          ? formatBedAssignmentLabel(
+                              found.bedroom,
+                              found.bed,
+                              resolveFurnishedFlag(property!)
+                            )
                           : tenant.unitOrRoomLabel,
+                        partyLabel,
                       }
                     })
                     return (
@@ -928,6 +945,15 @@ export function PropertiesPage() {
                             <p className="tile-card__body font-semibold text-ink">
                               {row.propertyType}
                             </p>
+                            <span
+                              className={
+                                row.furnished
+                                  ? 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-brand/30 bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-brand'
+                                  : 'mt-1 inline-flex w-fit rounded-[var(--radius-sm)] border border-line bg-surface-paper px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted'
+                              }
+                            >
+                              {furnishedStatusLabel(row.furnished)}
+                            </span>
 
                             <p className="tile-card__meta tabular-nums">
                               Monthly Rent: {formatUsd(row.monthlyRent)}

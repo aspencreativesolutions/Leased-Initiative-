@@ -7,6 +7,8 @@ export type BedsOccupancyOccupant = {
   id: string
   name: string
   bedLabel?: string
+  /** Solo / Couple (and companion name when applicable) */
+  partyLabel?: string
 }
 
 type BedsOccupancyTagProps = {
@@ -118,6 +120,11 @@ export function BedsOccupancyTag({
                   }}
                 >
                   {occupant.name}
+                  {occupant.partyLabel ? (
+                    <span className="block text-[10px] font-normal text-ink-muted">
+                      {occupant.partyLabel}
+                    </span>
+                  ) : null}
                   {occupant.bedLabel ? (
                     <span className="block text-[10px] font-normal text-ink-muted">
                       {occupant.bedLabel}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatPropertyListingDescription,
+  furnishedStatusLabel,
   utilitiesIncludedLabel,
 } from '@/lib/propertyListingDisplay'
 
@@ -25,6 +26,14 @@ describe('formatPropertyListingDescription', () => {
         utilitiesIncluded: false,
       })
     ).toBe('Unfurnished · $2,150 total · $538/person at full occupancy · Utilities not included')
+  })
+})
+
+describe('furnishedStatusLabel', () => {
+  it('labels furnished vs unfurnished for Rentals tags', () => {
+    expect(furnishedStatusLabel(true)).toBe('Furnished')
+    expect(furnishedStatusLabel(false)).toBe('Unfurnished')
+    expect(furnishedStatusLabel(undefined)).toBe('Unfurnished')
   })
 })
 

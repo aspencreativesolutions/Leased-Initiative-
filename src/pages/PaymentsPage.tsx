@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Clock, DollarSign } from 'lucide-react'
+import { Clock, Columns3, DollarSign, LayoutGrid, LayoutList } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { OverdueAmountIndicator } from '@/components/payments/OverdueAmountIndicator'
+import {
+  PaymentTable,
+  type PaymentSortColumn,
+} from '@/components/payments/PaymentTable'
 import { SendTenantMessageSection } from '@/components/payments/SendTenantMessageSection'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -17,6 +21,11 @@ import {
 } from '@/lib/leaseSchedule'
 import { paymentPartnerLogoByProvider } from '@/lib/paymentPartnerLogos'
 import { paymentProviderLabel } from '@/lib/paymentProvider'
+import {
+  loadPaymentVisibleColumns,
+  savePaymentVisibleColumns,
+  type PaymentTableColumnId,
+} from '@/lib/paymentTableColumns'
 import {
   buildTenantPaymentRows,
   displayBadgeLabel,
@@ -33,16 +42,29 @@ import {
   paymentTileScaleStyle,
   useTileScale,
 } from '@/lib/tileScale'
+import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import { cn, formatDate } from '@/lib/utils'
 import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import type { PaymentProvider } from '@/types'
 
 /** Bumped so the new 100% default applies for existing sessions. */
 const PAYMENTS_TILE_SCALE_KEY = 'payments-tile-scale-v2'
+const PAYMENTS_VIEW_KEY = 'payments-view-mode'
+
+type PaymentsViewMode = 'tile' | 'spreadsheet'
+type StatusFilter = 'overdue' | 'paid_early'
+
+function readViewModePreference(): PaymentsViewMode {
+  try {
+    return localStorage.getItem(PAYMENTS_VIEW_KEY) === 'spreadsheet'
+      ? 'spreadsheet'
+      : 'tile'
+  } catch {
+    return 'tile'
+  }
+}
 
 const PAYMENT_METHOD_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square']
-
-type StatusFilter = 'overdue' | 'paid_early'
 
 const filterButtonClass =
   'inline-flex h-9 items-center rounded-[var(--radius-sm)] border-2 px-3 text-[10px] font-semibold uppercase tracking-caps transition-colors shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
@@ -95,10 +117,46 @@ export function PaymentsPage() {
   const [methodFilterOpen, setMethodFilterOpen] = useState(false)
   const [methodFilter, setMethodFilter] = useState<PaymentProvider | ''>('')
   const [sentFeedback, setSentFeedback] = useState<Record<string, string>>({})
+  const [viewMode, setViewMode] = useState<PaymentsViewMode>(readViewModePreference)
+  const [arrangeColumns, setArrangeColumns] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState<PaymentTableColumnId[]>(
+    loadPaymentVisibleColumns
+  )
+  const [sortColumn, setSortColumn] = useState<PaymentSortColumn>('tenant')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const isMobile = useIsMobileViewport()
+  const effectiveViewMode: PaymentsViewMode = isMobile ? 'tile' : viewMode
   const { scale, setScale, factor } = useTileScale(
     PAYMENTS_TILE_SCALE_KEY,
     PAYMENT_TILE_SCALE_DEFAULT
   )
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PAYMENTS_VIEW_KEY, viewMode)
+    } catch {
+      /* ignore */
+    }
+    if (viewMode !== 'spreadsheet') {
+      setArrangeColumns(false)
+    }
+  }, [viewMode])
+
+  useEffect(() => {
+    if (isMobile) setArrangeColumns(false)
+  }, [isMobile])
+
+  useEffect(() => {
+    savePaymentVisibleColumns(visibleColumns)
+  }, [visibleColumns])
+
+  useEffect(() => {
+    if (visibleColumns.includes(sortColumn)) return
+    const fallback = visibleColumns[0]
+    if (!fallback) return
+    setSortColumn(fallback)
+    setSortDirection('asc')
+  }, [visibleColumns, sortColumn])
 
   const rows = useMemo<PaymentRowWithMethod[]>(() => {
     // Same cohort as Official Tenants — every paying tenant must appear in both places
@@ -122,6 +180,47 @@ export function PaymentsPage() {
       return true
     })
   }, [rows, statusFilter, methodFilter])
+
+  const sortedRows = useMemo(() => {
+    const dir = sortDirection === 'asc' ? 1 : -1
+    return [...filteredRows].sort((a, b) => {
+      const cmp = (left: string | number | null | undefined, right: string | number | null | undefined) => {
+        if (left == null && right == null) return 0
+        if (left == null) return 1
+        if (right == null) return -1
+        if (typeof left === 'number' && typeof right === 'number') {
+          return (left - right) * dir
+        }
+        return String(left).localeCompare(String(right), undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        }) * dir
+      }
+      switch (sortColumn) {
+        case 'tenant':
+          return cmp(a.client.name, b.client.name)
+        case 'address':
+          return cmp(a.address, b.address)
+        case 'status':
+          return cmp(a.statusLabel, b.statusLabel)
+        case 'amount':
+          return cmp(
+            a.remainingBalance ?? a.overdueAmount ?? a.monthlyRent,
+            b.remainingBalance ?? b.overdueAmount ?? b.monthlyRent
+          )
+        case 'method':
+          return cmp(a.paymentMethod, b.paymentMethod)
+        case 'lastPayment':
+          return cmp(a.lastPaymentMadeOn, b.lastPaymentMadeOn)
+        case 'nextDue':
+          return cmp(a.nextDueDate, b.nextDueDate)
+        case 'leaseEnds':
+          return cmp(a.leaseEndDate, b.leaseEndDate)
+        default:
+          return 0
+      }
+    })
+  }, [filteredRows, sortColumn, sortDirection])
 
   const totals = useMemo(() => summarizePaymentRows(rows), [rows])
 
@@ -192,6 +291,15 @@ export function PaymentsPage() {
     })
   }
 
+  function handleSortChange(column: PaymentSortColumn) {
+    if (sortColumn === column) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortColumn(column)
+    setSortDirection('asc')
+  }
+
   function handleMessageSent(clientId: string, tenantLabel: string, message: string) {
     const preview = message.length > 120 ? `${message.slice(0, 117)}…` : message
     addNote(clientId, {
@@ -213,13 +321,72 @@ export function PaymentsPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            <TileScaleControl
-              variant="row"
-              value={scale}
-              onChange={setScale}
-              label="Payment tile size"
-              className="min-w-[12.5rem] flex-none"
-            />
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Payment tile size"
+                className="min-w-[12.5rem] flex-none"
+              />
+            ) : null}
+
+            <div
+              role="group"
+              aria-label="Payments display"
+              className="hidden h-9 shrink-0 items-center rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper p-0.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] md:inline-flex"
+            >
+              <button
+                type="button"
+                title="Tile View"
+                aria-label="Tile View"
+                aria-pressed={viewMode === 'tile'}
+                onClick={() => setViewMode('tile')}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-[calc(var(--radius-sm)-2px)] px-2 text-[10px] font-semibold uppercase tracking-caps transition-colors',
+                  viewMode === 'tile'
+                    ? 'bg-brand text-surface-paper'
+                    : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Tile</span>
+              </button>
+              <button
+                type="button"
+                title="Spreadsheet View"
+                aria-label="Spreadsheet View"
+                aria-pressed={viewMode === 'spreadsheet'}
+                onClick={() => setViewMode('spreadsheet')}
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-[calc(var(--radius-sm)-2px)] px-2 text-[10px] font-semibold uppercase tracking-caps transition-colors',
+                  viewMode === 'spreadsheet'
+                    ? 'bg-brand text-surface-paper'
+                    : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                )}
+              >
+                <LayoutList className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Spreadsheet</span>
+              </button>
+            </div>
+
+            {effectiveViewMode === 'spreadsheet' && !arrangeColumns ? (
+              <button
+                type="button"
+                onClick={() => setArrangeColumns(true)}
+                aria-pressed={false}
+                title="Edit Columns"
+                aria-label="Edit Columns"
+                className={cn(
+                  filterButtonClass,
+                  'hidden gap-1.5 md:inline-flex',
+                  'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                )}
+              >
+                <Columns3 className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Edit Columns</span>
+              </button>
+            ) : null}
 
             <button
               type="button"
@@ -313,6 +480,18 @@ export function PaymentsPage() {
           icon={DollarSign}
           title="No payments match this filter"
           description="Try clearing Overdue Rent, Paid Early, or Payment Method — or choose another method."
+        />
+      ) : effectiveViewMode === 'spreadsheet' ? (
+        <PaymentTable
+          rows={sortedRows}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          highlightedId={highlightedId}
+          visibleColumns={visibleColumns}
+          onVisibleColumnsChange={setVisibleColumns}
+          arrangeColumns={arrangeColumns}
+          onArrangeDone={() => setArrangeColumns(false)}
         />
       ) : (
         <div className="tile-scale-root" style={paymentTileScaleStyle(factor)}>

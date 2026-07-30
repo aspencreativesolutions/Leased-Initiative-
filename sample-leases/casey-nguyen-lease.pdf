@@ -1,0 +1,68 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 721 >>
+stream
+BT
+/F1 16 Tf
+50 750 Td
+(RESIDENTIAL LEASE AGREEMENT) Tj
+0 -28 Td
+/F1 11 Tf
+() Tj
+0 -16 Td
+(Tenant: Casey Nguyen) Tj
+0 -16 Td
+(Property: 204 Barton Springs Rd Apt 3B, Austin, TX 78704) Tj
+0 -16 Td
+(Monthly rent: $2,450.00) Tj
+0 -16 Td
+(Security deposit: $2,450.00) Tj
+0 -16 Td
+(Lease start date: 09/01/2026) Tj
+0 -16 Td
+(Lease end date: 08/31/2027) Tj
+0 -16 Td
+(Lease term: 12 months) Tj
+0 -16 Td
+(Next rent payment due: 09/01/2026) Tj
+0 -16 Td
+(Phone: \(737\) 555-0133) Tj
+0 -16 Td
+(Email: casey.nguyen@example.com) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Entire-home rental. Max occupancy: 2 adults.) Tj
+0 -16 Td
+(Parking: one assigned space included.) Tj
+0 -16 Td
+(Early termination requires 60 days notice and fee.) Tj
+0 -16 Td
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001013 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1083
+%%EOF

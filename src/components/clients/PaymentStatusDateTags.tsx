@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { PaymentProviderLogo } from '@/components/payments/PaymentProviderLogo'
 import { getLeaseStatusDetails, isDepositInvoicePaid } from '@/lib/clientUtils'
 import { getLeaseRentSchedule } from '@/lib/leaseSchedule'
 import { resolveLastTransactionPaymentProvider, paymentProviderLabel } from '@/lib/paymentProvider'
@@ -12,7 +13,6 @@ import {
   paymentTenantHref,
   paymentTenantRemindHref,
 } from '@/lib/paymentTenantRows'
-import { tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import { cn } from '@/lib/utils'
 import type { Client, ContractData } from '@/types'
 
@@ -26,7 +26,8 @@ interface PaymentStatusDateTagsProps {
 
 /**
  * Official Tenants payment column — always shows status text (no hover swap).
- * Deposit Paid / On Time include the payment method when known.
+ * Deposit Paid / On Time include the payment method logo when known.
+ * Overdue tags deep-link to Payments overdue; no separate Notify control.
  */
 export function PaymentStatusDateTags({
   client,
@@ -54,22 +55,15 @@ export function PaymentStatusDateTags({
   })
 
   const canConfirm = column.kind === 'awaiting_deposit' && Boolean(onConfirmPayment)
-  const providerLabel = paymentProviderLabel(paymentProvider)
+  const showProviderLogo =
+    column.kind === 'deposit_paid' || column.kind === 'on_time'
 
   const displayLabel = (() => {
     if (confirmingPayment && canConfirm) return 'Confirming…'
-    if (column.kind === 'deposit_paid') {
-      return `Deposit Paid · ${providerLabel}`
-    }
-    if (column.kind === 'on_time') {
-      return `On Time · ${providerLabel}`
-    }
-    if (column.kind === 'overdue') {
-      return column.tagHoverLabel
-    }
-    if (column.kind === 'awaiting_deposit') {
-      return 'Awaiting Deposit'
-    }
+    if (column.kind === 'deposit_paid') return 'Deposit Paid'
+    if (column.kind === 'on_time') return 'On Time'
+    if (column.kind === 'overdue') return column.tagHoverLabel
+    if (column.kind === 'awaiting_deposit') return 'Awaiting Deposit'
     return column.tagLabel
   })()
 
@@ -83,7 +77,7 @@ export function PaymentStatusDateTags({
           : paymentTenantHref(client.id)
 
   const tagShell = cn(
-    'inline-flex max-w-full items-center justify-center gap-0.5 text-center',
+    'inline-flex max-w-full items-center justify-center gap-1 text-center',
     'rounded-[var(--radius-sm)] border border-[length:var(--border-width)]',
     'px-1.5 py-1 text-[10px] font-semibold leading-snug tracking-tight tabular-nums',
     'transition-colors duration-150',
@@ -93,27 +87,31 @@ export function PaymentStatusDateTags({
     paymentToneTagClass(column.tone)
   )
 
-  const notify =
-    column.kind === 'overdue' ? (
-      <Link
-        to={paymentTenantRemindHref(client.id)}
-        className={cn(tableViewLinkSubtleClass, 'payment-status-notify')}
-        title={`Notify ${client.name} about overdue payment`}
-        aria-label={`Notify ${client.name} about overdue payment`}
-      >
-        Notify
-        <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
-      </Link>
-    ) : null
-
   const inner = (
     <>
       {canConfirm ? (
         <Check className="h-2.5 w-2.5 shrink-0" strokeWidth={2.75} aria-hidden />
       ) : null}
       <span className="min-w-0 text-left">{displayLabel}</span>
+      {showProviderLogo ? (
+        <PaymentProviderLogo
+          provider={paymentProvider}
+          size="xs"
+          className="shrink-0"
+        />
+      ) : null}
     </>
   )
+
+  const providerLabel = paymentProviderLabel(paymentProvider)
+  const openLabel =
+    column.kind === 'overdue'
+      ? `${column.ariaLabel} Open overdue payments for ${client.name}.`
+      : `${column.ariaLabel} Open Payments for ${client.name}.`
+  const confirmLabel = `${column.ariaLabel} Confirm Payment for ${client.name}.`
+  const staticLabel = showProviderLogo
+    ? `${column.ariaLabel} Paid via ${providerLabel}.`
+    : column.ariaLabel
 
   return (
     <div
@@ -128,7 +126,7 @@ export function PaymentStatusDateTags({
           type="button"
           className={tagShell}
           disabled={confirmingPayment}
-          aria-label={`${column.ariaLabel} Confirm Payment for ${client.name}.`}
+          aria-label={confirmLabel}
           onClick={() => {
             if (!confirmingPayment) onConfirmPayment?.()
           }}
@@ -136,19 +134,14 @@ export function PaymentStatusDateTags({
           {inner}
         </button>
       ) : paymentsHref ? (
-        <Link
-          to={paymentsHref}
-          className={tagShell}
-          aria-label={`${column.ariaLabel} Open Payments for ${client.name}.`}
-        >
+        <Link to={paymentsHref} className={tagShell} aria-label={openLabel}>
           {inner}
         </Link>
       ) : (
-        <span className={tagShell} aria-label={column.ariaLabel}>
+        <span className={tagShell} aria-label={staticLabel}>
           {inner}
         </span>
       )}
-      {notify}
     </div>
   )
 }

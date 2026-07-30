@@ -25,6 +25,7 @@ export function CardHeader({
   help,
   action,
   dense = false,
+  noBorder = false,
   children,
 }: {
   title: string
@@ -33,12 +34,14 @@ export function CardHeader({
   help?: string
   action?: ReactNode
   dense?: boolean
+  /** Hide the rule under the header (seamless with content below). */
+  noBorder?: boolean
   children?: ReactNode
 }) {
   return (
     <div
       className={cn(
-        'border-b-[length:var(--border-width)] border-line',
+        !noBorder && 'border-b-[length:var(--border-width)] border-line',
         dense ? 'mb-2.5 pb-2 sm:mb-3' : 'mb-3 pb-2 sm:mb-4 sm:pb-3'
       )}
     >

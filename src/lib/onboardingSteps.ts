@@ -58,7 +58,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-application"]',
     title: 'Start your application',
     description:
-      'Choose a landlord, pick an available address, set entire-home or roommate preference, then Send — or enter an invite code your landlord texted you.',
+      'Choose a landlord, pick an available address, select Solo or Couple, set entire-home or roommate preference, then Send — or enter an invite code your landlord texted you.',
     placement: 'bottom',
     route: '/portal',
     when: (ctx) => ctx.linked !== true,
@@ -169,7 +169,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="tenants-waiting-connect"]',
     title: 'Waiting to Connect',
     description:
-      'People who claimed an invite or registered but aren’t connected yet. Review their property and lease start, then Accept & Draft Lease — or dismiss them.',
+      'People who claimed an invite or registered but aren’t connected yet. Review Solo/Couple tags, property, and lease start, then Accept & Draft Lease — or dismiss them.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -179,7 +179,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="dashboard-pending-tenants-list"]',
     title: 'Pending Tenants',
     description:
-      'Accepted or manually added tenants stay here until their lease is signed. Status starts as Lease Drafted — preview to download, upload a replacement, or send when ready. Use Auto-send in the header, or Change Lease Style to open Templates and apply to pending or official tenants. After e-sign they move to Official Tenants as Awaiting Deposit; confirm payment to mark them Upcoming until the lease starts.',
+      'Accepted or manually added tenants stay here until their lease is signed. Status starts as Lease Drafted — preview to download, upload a replacement, or send when ready. Use Auto-send in the header, or Replace Template to open Templates and apply to pending or official tenants. After e-sign they move to Official Tenants as Awaiting Deposit; confirm payment to mark them Upcoming until the lease starts.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -189,7 +189,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
     description:
-      'Signed leases that are active or starting soon appear here. A check or clock icon sits beside each name. Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method (and other statuses in full — no hover needed). Click a name for Tenant Details. Confirm payment to move Awaiting Deposit to Upcoming, then Active when the lease starts.',
+      'Signed leases that are active or starting soon appear here — including tenants you Add to Official Tenants from lease import. A check or clock icon sits beside each name. Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method logo (and other statuses in full — no hover needed). Click an Overdue tag to open that tenant on Payments overdue. After an import, rows flash; use Highlight last import anytime to spot them again. Click a name for Tenant Details (processor logos and a clickable Overdue status). Confirm payment to move Awaiting Deposit to Upcoming, then Active when the lease starts. When a lease ends, a Lease Complete tag appears with Remove Tenant — Archive (Past Tenants in Company Profile, labeled Archived) or Delete. In Display Settings, Filter by Lease Progress (Any, Not Started, Ongoing, Ending Soon) or Building Type (Apartment, Duplex, Condo, and more).',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -199,7 +199,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio. Add addresses with furnished status, pricing, beds, deposit, and utilities — occupancy is calculated from beds. Expand a tile to see who’s there or open Tenant Details. On mobile, use scrollable tiles; on larger screens, switch Tile or Spreadsheet View in Display Settings. Filter by State, Town, and Group.',
+      'Your rental portfolio. Add addresses with furnished status, pricing, beds, deposit, and utilities — occupancy is calculated from beds (solo on a queen shows 1 of 1). Each tile shows Furnished or Unfurnished under the rental type; Queen and other bed-size names appear only on furnished rentals. Expand a tile to see who’s there or open Tenant Details. On mobile, use scrollable tiles; on larger screens, switch Tile or Spreadsheet View in Display Settings. Filter by State, Town, and Group.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -229,7 +229,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Filter for Overdue Rent or Paid Early, then Send Message to Tenant when someone is past due. Replies stay on your phone.',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Switch Tile or Spreadsheet View in Display Settings, filter for Overdue Rent or Paid Early, then Send Message to Tenant when someone is past due. Replies stay on your phone.',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',
@@ -259,7 +259,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-company-details"]',
     title: 'Company Profile',
     description:
-      'Review your company name and rental or renter counts. Tap a count to explore that group, and filter by lease duration when needed.',
+      'Review your company name and rental or renter counts — including Past Tenants (archived, labeled Archived). Tap a count to explore that group, and filter by lease duration when needed.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',
@@ -269,7 +269,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-lease-upload"]',
     title: 'Import existing leases',
     description:
-      'Queue lease PDFs, images, or spreadsheets, then Scan Files. Review the records, confirm what looks right, and send invite links by email or text.',
+      'Queue lease PDFs, images, or spreadsheets, then Scan Files. Select one or more proposed tenants and Add to Official Tenants to jump to the dashboard with them highlighted — or Confirm to Pending and send invite links by email or text.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',

@@ -20,10 +20,11 @@ import {
   resolveLeaseEndYmd,
 } from '@/lib/properties'
 import {
-  BED_SIZE_LABELS,
   ensurePropertyBedLayout,
   findBedInLayout,
   formatBedAssignmentLabel,
+  formatBedSizeLabel,
+  resolveFurnishedFlag,
 } from '@/lib/rentalBeds'
 import {
   buildRentalPricingSummary,
@@ -31,6 +32,7 @@ import {
   resolvePropertyMonthlyRent,
 } from '@/lib/rentalRent'
 import { getRentalTypeDescription } from '@/lib/rentalTypes'
+import { furnishedStatusLabel } from '@/lib/propertyListingDisplay'
 import { formatDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import type { Property } from '@/types'
@@ -56,6 +58,7 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
   if (!property) return null
 
   const ensured = ensurePropertyBedLayout(property)
+  const furnished = resolveFurnishedFlag(ensured)
   const currentTenants = activeTenantsAtProperty(ensured, clients, getContractForClient)
   const vacancy = rentalVacancySnapshot(ensured, clients, getContractForClient)
   const bedOcc = rentalBedOccupancyForProperty(ensured, clients, getContractForClient)
@@ -94,6 +97,15 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
           <div className="sm:col-span-2 lg:col-span-3">
             <p className="label-caps text-ink-faint">Rental Type</p>
             <p className="mt-0.5 text-sm font-semibold text-ink">{ensured.propertyType}</p>
+            <span
+              className={
+                furnished
+                  ? 'mt-1 inline-flex rounded-[var(--radius-sm)] border border-brand/30 bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-brand'
+                  : 'mt-1 inline-flex rounded-[var(--radius-sm)] border border-line bg-surface-paper px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted'
+              }
+            >
+              {furnishedStatusLabel(furnished)}
+            </span>
             {typeDescription ? (
               <p className="mt-0.5 text-xs text-ink-muted">{typeDescription}</p>
             ) : null}
@@ -165,12 +177,16 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                       return (
                         <li key={bed.id} className="text-xs text-ink">
                           <span className="font-medium">
-                            {bed.label ?? 'Bed'} · {BED_SIZE_LABELS[bed.size]}
+                            {furnished
+                              ? `${bed.label ?? 'Bed'} · ${formatBedSizeLabel(bed, true)}`
+                              : `${bed.label ?? 'Bed'} · sleeping capacity ${bed.capacity}`}
                           </span>
-                          <span className="text-ink-muted">
-                            {' '}
-                            (capacity {bed.capacity})
-                          </span>
+                          {furnished ? (
+                            <span className="text-ink-muted">
+                              {' '}
+                              (capacity {bed.capacity})
+                            </span>
+                          ) : null}
                           {assignees.length === 0 ? (
                             <span className="ml-1 text-ink-faint">— open</span>
                           ) : (
@@ -259,7 +275,11 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                           </p>
                         ) : bedFound ? (
                           <p className="mt-0.5 text-xs font-medium text-ink">
-                            {formatBedAssignmentLabel(bedFound.bedroom, bedFound.bed)}
+                            {formatBedAssignmentLabel(
+                              bedFound.bedroom,
+                              bedFound.bed,
+                              furnished
+                            )}
                           </p>
                         ) : tenant.unitOrRoomLabel && surfacesBeds ? (
                           <p className="mt-0.5 text-xs text-ink-muted">{tenant.unitOrRoomLabel}</p>

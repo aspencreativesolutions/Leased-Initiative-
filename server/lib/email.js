@@ -148,6 +148,83 @@ export async function sendClientUpdateEmail({ to, name, title, message, portalUr
   return sendClientReminderEmail({ to, name, title, message, portalUrl })
 }
 
+/** Lease-ready / account-setup invite for Add Tenant → Generate Agreement & Notify. */
+export async function sendTenantSetupNotifyEmail({
+  to,
+  name,
+  landlordCompany,
+  propertyAddress,
+  setupUrl,
+}) {
+  const fromAddress =
+    process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@leased.app'
+  const fromName = process.env.MAIL_FROM_NAME || 'Leased Initiative'
+  const who = name?.trim() || 'there'
+  const landlord = landlordCompany?.trim() || 'your landlord'
+  const address = propertyAddress?.trim()
+  const addressLine = address
+    ? `They prepared a lease agreement for ${escapeHtml(address)}.`
+    : 'They prepared a lease agreement for you.'
+
+  const subject = `${landlord} — set up your tenant account`
+  const text = [
+    `Hi ${who},`,
+    '',
+    `${landlord} invited you to set up your tenant account.`,
+    address
+      ? `They prepared a lease agreement for ${address}.`
+      : 'They prepared a lease agreement for you.',
+    '',
+    'Open this link to continue:',
+    setupUrl,
+    '',
+    'If you were not expecting this message, you can ignore it.',
+  ].join('\n')
+
+  const html = `
+    <p>Hi ${escapeHtml(who)},</p>
+    <p><strong>${escapeHtml(landlord)}</strong> invited you to set up your tenant account.</p>
+    <p>${addressLine}</p>
+    <p style="margin:24px 0">
+      <a href="${setupUrl}" style="display:inline-block;padding:12px 20px;background:#1e4d6b;color:#ffffff;text-decoration:none;font-weight:600;border-radius:4px">
+        Set up your account
+      </a>
+    </p>
+    <p style="font-size:14px;color:#555">Or copy this link into your browser:<br><a href="${setupUrl}">${escapeHtml(setupUrl)}</a></p>
+    <p style="font-size:13px;color:#777">If you were not expecting this message, you can ignore it.</p>
+  `
+
+  const transport = getTransport()
+  if (!transport) {
+    console.log('[dev] SMTP not configured — tenant setup notify (not emailed):')
+    console.log(`  To: ${to}`)
+    console.log(`  Setup URL: ${setupUrl}`)
+    return { sent: false, devMode: true, setupUrl, error: 'SMTP is not configured in .env' }
+  }
+
+  try {
+    await transport.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to,
+      subject,
+      text,
+      html,
+    })
+    return { sent: true, setupUrl }
+  } catch (err) {
+    console.error('Tenant setup email failed:', err.message)
+    console.log('[dev] Falling back to console setup link after SMTP failure:')
+    console.log(setupUrl)
+    return {
+      sent: false,
+      devMode: true,
+      setupUrl,
+      error: err.message || 'Could not send email',
+      smtpError: err.message,
+    }
+  }
+}
+
 const ASPEN_SUPPORT_EMAIL =
   process.env.BUG_REPORT_EMAIL?.trim() || 'sophie@aspencreativesolutions.com'
 

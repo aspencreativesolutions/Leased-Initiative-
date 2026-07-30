@@ -12,6 +12,7 @@ import {
 import {
   buildTenantPaymentRows,
   getLastPaymentMadeOn,
+  type PaymentDisplay,
   type TenantPaymentRow,
 } from '@/lib/paymentTenantRows'
 import { addressesMatch, findPropertyByAddress } from '@/lib/properties'
@@ -22,6 +23,7 @@ import type {
   ContractData,
   LeaseRenewalStatus,
   OccupancyArrangement,
+  PaymentProvider,
   PortalRentPayment,
   Property,
 } from '@/types'
@@ -54,6 +56,7 @@ export interface LatePaymentRecord {
   daysLate: number
   amount: number
   paymentMethod: string
+  paymentProvider: PaymentProvider
 }
 
 export interface TenantDetailsProfile {
@@ -66,6 +69,8 @@ export interface TenantDetailsProfile {
   accountCreatedAt: string
   officialSince: string | null
   preferredPaymentMethod: string
+  /** Resolved checkout / last-transaction provider for logo display. */
+  paymentProvider: PaymentProvider
   tenantStatus: string
   propertyAddress: string
   unitNumber: string | null
@@ -96,6 +101,7 @@ export interface TenantDetailsProfile {
   nextPaymentDate: string | null
   nextPaymentAmount: number | null
   paymentStatusLabel: string
+  paymentDisplay: PaymentDisplay | null
   paymentsMadeCount: number
   latePaymentsCount: number
   outstandingBalance: number | null
@@ -204,9 +210,10 @@ function buildLeaseBeganLabel(
 function latePaymentsFromSchedule(
   payments: PortalRentPayment[],
   monthlyRent: number | null,
-  paymentMethod: string
+  paymentProvider: PaymentProvider
 ): LatePaymentRecord[] {
   const amount = monthlyRent ?? 0
+  const paymentMethod = paymentProviderLabel(paymentProvider)
   return payments
     .filter((p) => p.status === 'paid_late' && p.paidAt)
     .map((p) => {
@@ -218,6 +225,7 @@ function latePaymentsFromSchedule(
         daysLate: Math.max(1, daysBetween(dueDate, paidAt)),
         amount,
         paymentMethod,
+        paymentProvider,
       }
     })
     .sort((a, b) => b.dueDate.localeCompare(a.dueDate))
@@ -276,7 +284,7 @@ export function buildTenantDetailsProfile(
   const completed = payments.filter((p) =>
     p.status === 'paid' || p.status === 'paid_early' || p.status === 'paid_late'
   )
-  const latePayments = latePaymentsFromSchedule(payments, monthlyRent, processorLabel)
+  const latePayments = latePaymentsFromSchedule(payments, monthlyRent, provider)
   const lastPaymentDate =
     paymentRow?.lastPaymentMadeOn ?? getLastPaymentMadeOn(payments, client)
   const lastCompleted = [...completed].sort((a, b) =>
@@ -303,6 +311,7 @@ export function buildTenantDetailsProfile(
     accountCreatedAt: client.createdAt,
     officialSince: client.officialClientSince ?? null,
     preferredPaymentMethod: preferredMethod,
+    paymentProvider: provider,
     tenantStatus: resolveTenantStatus(client, lease.state),
     propertyAddress: address,
     unitNumber,
@@ -353,6 +362,9 @@ export function buildTenantDetailsProfile(
     nextPaymentDate: paymentRow?.nextDueDate ?? nextUnpaid?.dueDate ?? null,
     nextPaymentAmount: nextUnpaid || paymentRow?.nextDueDate ? monthlyRent : null,
     paymentStatusLabel: paymentRow?.statusLabel ?? client.paymentStatus,
+    paymentDisplay:
+      paymentRow?.display ??
+      (client.paymentStatus === 'Overdue' ? 'Overdue' : null),
     paymentsMadeCount: completed.length,
     latePaymentsCount: latePayments.length,
     outstandingBalance:

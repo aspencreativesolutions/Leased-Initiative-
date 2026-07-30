@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { FormLabel } from '@/components/ui/FormField'
 import {
-  BED_SIZE_LABELS,
   bedsWithOpenCapacity,
   formatBedAssignmentLabel,
+  formatBedSizeLabel,
+  resolveFurnishedFlag,
 } from '@/lib/rentalBeds'
 import { cn } from '@/lib/utils'
 import type { Client, Property } from '@/types'
@@ -38,6 +39,7 @@ export function TenantBedAssignmentPicker({
   error,
   className,
 }: TenantBedAssignmentPickerProps) {
+  const furnished = resolveFurnishedFlag(property)
   const options = useMemo(
     () => bedsWithOpenCapacity(property, occupants, { ignoreClientId: clientId }),
     [property, occupants, clientId]
@@ -74,7 +76,11 @@ export function TenantBedAssignmentPicker({
             propertyId: property.id,
             bedroomId: match.bedroom.id,
             bedId: match.bed.id,
-            unitOrRoomLabel: formatBedAssignmentLabel(match.bedroom, match.bed),
+            unitOrRoomLabel: formatBedAssignmentLabel(
+              match.bedroom,
+              match.bed,
+              furnished
+            ),
           })
         }}
       >
@@ -95,10 +101,11 @@ export function TenantBedAssignmentPicker({
                 : assigned.length > 0
                   ? ' (occupied)'
                   : ' (open)'
+          const sizeOrBed = formatBedSizeLabel(bed, furnished)
           return (
             <option key={key} value={key} disabled={disabled}>
-              {bedroom.label} · {BED_SIZE_LABELS[bed.size]}
-              {bed.label ? ` (${bed.label})` : ''}
+              {bedroom.label} · {sizeOrBed}
+              {furnished && bed.label ? ` (${bed.label})` : ''}
               {availability}
               {names}
             </option>
@@ -111,8 +118,9 @@ export function TenantBedAssignmentPicker({
         </p>
       ) : (
         <p className="text-xs text-ink-muted">
-          Couples may share a Full, Queen, or King. Twin beds hold one person. Shared beds
-          still count as one rentable bed space.
+          {furnished
+            ? 'Couples may share a Full, Queen, or King. Twin beds hold one person. Shared beds still count as one rentable bed space.'
+            : 'Assign tenants to sleeping spaces by occupancy capacity. Couples may share a two-person space.'}
         </p>
       )}
     </div>

@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react'
-import { UserMinus, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
 import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { ApplicantPartyTag } from './ApplicantPartyTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { TenantLeaseStateIcon } from './TenantLeaseStateIcon'
@@ -10,6 +11,7 @@ import { RemoveClientModal } from './RemoveClientModal'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
+import { EditColumnsReorderButtons } from '@/components/ui/EditColumnsReorderButtons'
 import { useApp } from '@/context/AppContext'
 import { useArrangeTableColumns } from '@/hooks/useArrangeTableColumns'
 import { columnArrangeOutlineClass } from '@/lib/columnArrangeOutline'
@@ -17,6 +19,7 @@ import {
   getLeaseStatusDetails,
   getTenantAddress,
   isAwaitingDeposit,
+  isLeaseCompleteTenant,
 } from '@/lib/clientUtils'
 import {
   getOfficialTenantLocationDisplayValue,
@@ -28,6 +31,7 @@ import {
   hideTenantTableColumn,
   loadTenantTableColumnOrder,
   moveTenantTableColumn,
+  nudgeTenantTableColumn,
   resetTenantTableColumnOrder,
   restoreTenantTableColumn,
   saveTenantTableColumnOrder,
@@ -44,8 +48,11 @@ import { leaseTileScaleStyle } from '@/lib/tileScale'
 import { confirmClientPayment } from '@/lib/timelineApi'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { tableRemoveButtonClass, tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
+import { tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
 import { matchesDashboardFilter, type DashboardFilter } from '@/lib/dashboardFilters'
+import {
+  officialTenantRowAnchorId,
+} from '@/lib/officialTenantSpotlight'
 import type { Client, ContractData, Property } from '@/types'
 
 export type ClientTableViewMode = 'tile' | 'spreadsheet'
@@ -53,6 +60,8 @@ export type ClientTableViewMode = 'tile' | 'spreadsheet'
 interface ClientTableProps {
   clients: Client[]
   highlightFilter?: DashboardFilter | null
+  /** Client IDs to spotlight (lease import / re-highlight). Dims non-matching when set. */
+  highlightedIds?: ReadonlySet<string> | null
   /**
    * When set, shows only tiles or only the spreadsheet (same tenant data).
    * When omitted, tiles show below `md` and the spreadsheet at `md+`.
@@ -98,7 +107,7 @@ function headerVisibilityClass(columnId: TenantTableColumnId): string {
 function headerAlignClass(columnId: TenantTableColumnId): string {
   switch (columnId) {
     case 'paymentStatus':
-      return 'text-right'
+      return 'text-center'
     case 'actions':
       return 'text-right'
     default:
@@ -143,6 +152,7 @@ function renderCell(
   const addressValue = getFullPropertyAddress(client, contract, properties)
   const leaseStatus = getLeaseStatusDetails(client, contract)
   const awaitingDeposit = isAwaitingDeposit(client, contract)
+  const leaseComplete = isLeaseCompleteTenant(client, contract)
   const occupancyProps = clientOccupancyTagProps(
     client,
     getTenantAssignedProperty(client, contract, properties)
@@ -159,19 +169,30 @@ function renderCell(
           )}
         >
           <div className="min-w-0">
-            <button
-              type="button"
-              onClick={() => onOpenTenantDetails(client.id)}
-              className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-base font-semibold text-ink hover:text-brand hover:underline"
-              title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
-            >
-              <TenantLeaseStateIcon details={leaseStatus} />
-              <span className="min-w-0 truncate">{client.name}</span>
-            </button>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenTenantDetails(client.id)}
+                className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-base font-semibold text-ink hover:text-brand hover:underline"
+                title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
+              >
+                <TenantLeaseStateIcon details={leaseStatus} />
+                <span className="min-w-0 truncate">{client.name}</span>
+              </button>
+              {leaseComplete ? (
+                <span
+                  className="shrink-0 rounded-[var(--radius-sm)] border-2 border-ink/25 bg-surface px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-caps text-ink-muted"
+                  title="Lease term has ended"
+                >
+                  Lease Complete
+                </span>
+              ) : null}
+            </div>
             <OfficialTenantContactLinks client={client} />
             {showOccupancyStatus ? (
-              <div className="mt-1 empty:hidden">
+              <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
                 <OccupancyPreferenceTag {...occupancyProps} />
+                <ApplicantPartyTag partyType={client.applicantPartyType} />
               </div>
             ) : null}
           </div>
@@ -267,15 +288,17 @@ function renderCell(
                 Confirm Payment Complete
               </button>
             ) : null}
-            <button
-              type="button"
-              className={tableRemoveButtonClass}
-              onClick={onRemove}
-              title={`Remove ${client.name}`}
-              aria-label={`Remove ${client.name}`}
-            >
-              <UserMinus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
-            </button>
+            {leaseComplete ? (
+              <button
+                type="button"
+                className={cn(tableViewLinkSubtleClass, 'text-accent hover:text-accent')}
+                onClick={onRemove}
+                title={`Remove ${client.name}`}
+                aria-label={`Remove tenant ${client.name}`}
+              >
+                Remove Tenant
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => onOpenTenantDetails(client.id)}
@@ -294,6 +317,7 @@ function renderCell(
 export function ClientTable({
   clients,
   highlightFilter = null,
+  highlightedIds = null,
   viewMode,
   arrangeColumns = false,
   onArrangeDone,
@@ -382,6 +406,15 @@ export function ClientTable({
     setColumnOrder(next)
   }
 
+  const handleNudgeColumn = (
+    columnId: TenantTableColumnId,
+    direction: -1 | 1
+  ) => {
+    const next = nudgeTenantTableColumn(columnOrder, columnId, direction)
+    if (next.join() === columnOrder.join()) return
+    setColumnOrder(next)
+  }
+
   const removedColumns = arrangeColumns
     ? hiddenTenantTableColumns(columnOrder).map((id) => ({
         id,
@@ -391,6 +424,7 @@ export function ClientTable({
   const visibleDataColumnCount = columnOrder.filter((id) => id !== 'actions').length
   const canRemoveSelected = visibleDataColumnCount > 1
   const columnWidths = tenantTableColumnWidths(columnOrder)
+  const reorderableColumnIds = columnOrder.filter((id) => id !== 'actions')
 
   const showTiles = viewMode ? viewMode === 'tile' : null
   const showSpreadsheet = viewMode ? viewMode === 'spreadsheet' : null
@@ -405,9 +439,13 @@ export function ClientTable({
       )}
     >
       {clients.map((client) => {
-        const highlighted =
+        const idSpotlight = Boolean(highlightedIds?.has(client.id))
+        const filterSpotlight =
           highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
-        const dimmed = highlightFilter !== null && !highlighted
+        const highlighted = idSpotlight || filterSpotlight
+        const dimmed =
+          (highlightedIds != null && highlightedIds.size > 0 && !idSpotlight) ||
+          (highlightFilter !== null && !filterSpotlight)
 
         return (
           <ClientTableMobileCard
@@ -496,6 +534,9 @@ export function ClientTable({
                   const canArrange = arrangeColumns && columnId !== 'actions'
                   const isSelected = arrangeColumns && selectedColumnId === columnId
                   const showRemove = isSelected && canRemoveSelected
+                  const reorderIndex = reorderableColumnIds.findIndex(
+                    (id) => id === columnId
+                  )
                   return (
                     <th
                       key={columnId}
@@ -523,6 +564,18 @@ export function ClientTable({
                         )}
                       >
                         {renderHeaderLabel(columnId)}
+                        {canArrange ? (
+                          <EditColumnsReorderButtons
+                            columnLabel={TENANT_TABLE_COLUMN_LABELS[columnId]}
+                            canMoveUp={reorderIndex > 0}
+                            canMoveDown={
+                              reorderIndex >= 0 &&
+                              reorderIndex < reorderableColumnIds.length - 1
+                            }
+                            onMoveUp={() => handleNudgeColumn(columnId, -1)}
+                            onMoveDown={() => handleNudgeColumn(columnId, 1)}
+                          />
+                        ) : null}
                         {showRemove ? (
                           <EditColumnsRemoveButton
                             columnLabel={TENANT_TABLE_COLUMN_LABELS[columnId]}
@@ -543,18 +596,28 @@ export function ClientTable({
             >
               {clients.map((client) => {
                 const contract = getContractForClient(client.id)
-                const highlighted =
+                const idSpotlight = Boolean(highlightedIds?.has(client.id))
+                const filterSpotlight =
                   highlightFilter !== null && matchesDashboardFilter(client, highlightFilter)
-                const dimmed = highlightFilter !== null && !highlighted
+                const highlighted = idSpotlight || filterSpotlight
+                const dimmed =
+                  (highlightedIds != null && highlightedIds.size > 0 && !idSpotlight) ||
+                  (highlightFilter !== null && !filterSpotlight)
                 return (
                   <tr
                     key={client.id}
+                    id={officialTenantRowAnchorId(client.id)}
                     className={cn(
                       'transition-[background-color,opacity,box-shadow]',
+                      idSpotlight && 'official-tenant-row--spotlight',
                       highlighted &&
+                        !idSpotlight &&
                         'bg-brand/10 ring-1 ring-inset ring-brand/40 hover:bg-brand/15',
                       dimmed && 'opacity-40 hover:bg-surface/80 hover:opacity-55',
-                      !highlightFilter && !arrangeColumns && 'hover:bg-surface'
+                      !highlightFilter &&
+                        !(highlightedIds && highlightedIds.size > 0) &&
+                        !arrangeColumns &&
+                        'hover:bg-surface'
                     )}
                   >
                     {columnOrder.map((columnId) =>
