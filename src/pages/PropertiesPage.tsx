@@ -4,8 +4,10 @@ import {
   Building2,
   ChevronDown,
   Columns3,
+  EyeOff,
   LayoutGrid,
   LayoutList,
+  Map as MapIcon,
   Pencil,
 } from 'lucide-react'
 import { EditRegionsModal } from '@/components/contracts/EditRegionsModal'
@@ -13,6 +15,7 @@ import {
   AddRentalButton,
   AddRentalModal,
 } from '@/components/properties/AddPropertyModal'
+import { PropertiesMapModal } from '@/components/properties/PropertiesMapModal'
 import {
   PropertyTable,
   type PropertySortColumn,
@@ -20,19 +23,23 @@ import {
 } from '@/components/properties/PropertyTable'
 import { BedsOccupancyTag } from '@/components/properties/BedsOccupancyTag'
 import { RentalInterestCue } from '@/components/properties/RentalInterestCue'
+import { RentalCategoryTag } from '@/components/properties/RentalCategoryTag'
 import { RentalDetailModal } from '@/components/properties/RentalDetailModal'
+import { TakeOffMarketModal } from '@/components/properties/TakeOffMarketModal'
 import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { UpcomingOpeningsPanel } from '@/components/dashboard/UpcomingOpeningsPanel'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { AddressText } from '@/components/ui/AddressText'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
 import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import {
   contractMatchesLocationFilter,
+  distanceMiles,
   getAddressCity,
   getAddressState,
   uniqueSorted,
@@ -87,8 +94,11 @@ import {
   useTileScale,
 } from '@/lib/tileScale'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
+import { geocodeAddress } from '@/lib/geocodeAddress'
+import { propertyToWriteInput } from '@/lib/propertiesApi'
 import { type Property } from '@/types'
 import { cn } from '@/lib/utils'
+import { ApiError } from '@/lib/api'
 
 const RENTALS_VIEW_KEY = 'rentals-view-mode'
 const RENTALS_TILE_SCALE_KEY = 'rentals-tile-scale'
@@ -185,21 +195,34 @@ function propertyTown(row: PropertyTableRow, property: Property | undefined): st
 }
 
 export function PropertiesPage() {
-  const { properties, clients, getContractForClient, settings } = useApp()
+  const { properties, clients, getContractForClient, settings, updateProperty } =
+    useApp()
   const { registrations } = usePendingRegistrations()
   const [searchParams, setSearchParams] = useSearchParams()
   const [addOpen, setAddOpen] = useState(false)
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [regionsOpen, setRegionsOpen] = useState(false)
+  const [mapOpen, setMapOpen] = useState(false)
+  const [viewOffMarketOnly, setViewOffMarketOnly] = useState(false)
+  const [offMarketPropertyId, setOffMarketPropertyId] = useState<string | null>(null)
   const [selectedRental, setSelectedRental] = useState<Property | null>(null)
   const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState('')
+  const [bringingBackId, setBringingBackId] = useState<string | null>(null)
   const [stateFilter, setStateFilter] = useState('')
   const [townFilter, setTownFilter] = useState('')
   const [groupFilter, setGroupFilter] = useState('')
   const [filterBarOpen, setFilterBarOpen] = useState(false)
   const [sortColumn, setSortColumn] = useState<PropertySortColumn>('address')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [distanceFromQuery, setDistanceFromQuery] = useState('')
+  const [distanceFromPoint, setDistanceFromPoint] = useState<{
+    lat: number
+    lng: number
+    label: string
+  } | null>(null)
+  const [distanceFromLoading, setDistanceFromLoading] = useState(false)
+  const [distanceFromError, setDistanceFromError] = useState('')
   const [viewMode, setViewMode] = useState<RentalsViewMode>(readViewModePreference)
   const [arrangeColumns, setArrangeColumns] = useState(false)
   const [visibleColumns, setVisibleColumns] = useState<RentalTableColumnId[]>(
@@ -217,7 +240,17 @@ export function PropertiesPage() {
 
   const companyName = settings.businessName?.trim() || 'your company'
   const regions = settings.contractRegions ?? []
-  const rentalsHelp = `Manage the rental portfolio for ${companyName}. Rentals here appear in tenant signup, invitations, leases, and Upcoming Openings. Select any rental to view property details, current tenants, lease information, occupancy, and related records.`
+  const rentalsHelp = `Manage the rental portfolio for ${companyName}. Rentals here appear in tenant signup, invitations, leases, and Upcoming Openings. Use Take Off Market to gray out a unit without deleting it — off-market rentals stay in the list and under View Off-Market Rentals, but tenants cannot apply. Select any rental to view property details, current tenants, lease information, occupancy, and related records.`
+
+  const offMarketCount = useMemo(
+    () => properties.filter((property) => property.offMarket === true).length,
+    [properties]
+  )
+
+  const offMarketProperty = useMemo(
+    () => properties.find((property) => property.id === offMarketPropertyId) ?? null,
+    [properties, offMarketPropertyId]
+  )
 
   useEffect(() => {
     try {
@@ -298,6 +331,7 @@ export function PropertiesPage() {
         id: property.id,
         address: property.address,
         propertyType: property.propertyType,
+        rentalCategory: property.rentalCategory,
         furnished: resolveFurnishedFlag(property),
         bedrooms: property.bedrooms,
         maxTenants: vacancy.surfacesBeds
@@ -312,6 +346,8 @@ export function PropertiesPage() {
         tenantShare: pricing.tenantShare,
         unitLabel: pricing.unitLabel,
         surfacesBeds: vacancy.surfacesBeds,
+        offMarket: property.offMarket === true,
+        offMarketReason: property.offMarketReason?.trim() || undefined,
       }
     })
   }, [properties, clients, getContractForClient])
@@ -375,6 +411,7 @@ export function PropertiesPage() {
 
   const filteredSortedRows = useMemo(() => {
     const filtered = rows.filter((row) => {
+      if (viewOffMarketOnly && !row.offMarket) return false
       const property = propertyById.get(row.id)
       const state = propertyState(row, property)
       const town = propertyTown(row, property)
@@ -386,6 +423,7 @@ export function PropertiesPage() {
           state,
           lat: property?.addressDetails?.lat ?? null,
           lng: property?.addressDetails?.lng ?? null,
+          propertyId: property?.id ?? row.id,
         },
         { kind: groupFilter ? 'region' : null, value: groupFilter },
         regions
@@ -393,19 +431,82 @@ export function PropertiesPage() {
       return matchesState && matchesTown && matchesGroup
     })
 
+    if (distanceFromPoint) {
+      return [...filtered].sort((a, b) => {
+        const aProperty = propertyById.get(a.id)
+        const bProperty = propertyById.get(b.id)
+        const aLat = aProperty?.addressDetails?.lat
+        const aLng = aProperty?.addressDetails?.lng
+        const bLat = bProperty?.addressDetails?.lat
+        const bLng = bProperty?.addressDetails?.lng
+        const aDist =
+          aLat != null && aLng != null && Number.isFinite(aLat) && Number.isFinite(aLng)
+            ? distanceMiles({ lat: aLat, lng: aLng }, distanceFromPoint)
+            : Number.POSITIVE_INFINITY
+        const bDist =
+          bLat != null && bLng != null && Number.isFinite(bLat) && Number.isFinite(bLng)
+            ? distanceMiles({ lat: bLat, lng: bLng }, distanceFromPoint)
+            : Number.POSITIVE_INFINITY
+        if (aDist !== bDist) return aDist - bDist
+        return compareRows(a, b, 'address', 'asc')
+      })
+    }
+
     return [...filtered].sort((a, b) =>
       compareRows(a, b, sortColumn, sortDirection)
     )
   }, [
     rows,
+    propertyById,
     stateFilter,
     townFilter,
     groupFilter,
     regions,
-    propertyById,
     sortColumn,
     sortDirection,
+    distanceFromPoint,
+    viewOffMarketOnly,
   ])
+
+  const handleDistanceFromSubmit = async () => {
+    const query = distanceFromQuery.trim()
+    setDistanceFromError('')
+    if (!query) {
+      setDistanceFromError('Enter an address or city.')
+      return
+    }
+    setDistanceFromLoading(true)
+    try {
+      const point = await geocodeAddress(query)
+      if (!point) {
+        setDistanceFromError('No matching place found. Try a different address.')
+        setDistanceFromPoint(null)
+        return
+      }
+      setDistanceFromPoint(point)
+      setDistanceFromQuery(point.label)
+    } finally {
+      setDistanceFromLoading(false)
+    }
+  }
+
+  const handleDistanceFromClear = () => {
+    setDistanceFromQuery('')
+    setDistanceFromPoint(null)
+    setDistanceFromError('')
+  }
+
+  const handleSortChange = (column: PropertySortColumn) => {
+    if (distanceFromPoint) handleDistanceFromClear()
+    if (column === sortColumn) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortColumn(column)
+    setSortDirection(
+      column === 'address' || column === 'propertyType' ? 'asc' : 'desc'
+    )
+  }
 
   const cycleStateFilter = () => {
     setStateFilter((current) => nextOptionalLocationFilter(current, stateOptions))
@@ -455,15 +556,6 @@ export function PropertiesPage() {
     if (!stillValid) setGroupFilter('')
   }, [groupFilter, groupOptions])
 
-  const handleSortChange = (column: PropertySortColumn) => {
-    if (column === sortColumn) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
-      return
-    }
-    setSortColumn(column)
-    setSortDirection(column === 'address' || column === 'propertyType' ? 'asc' : 'desc')
-  }
-
   const handleAdded = () => {
     setSuccessMessage('Rental added successfully.')
     window.setTimeout(() => setSuccessMessage(''), 3000)
@@ -474,13 +566,42 @@ export function PropertiesPage() {
     setSelectedRental(property)
   }
 
-  const locationFilterActive = Boolean(stateFilter || townFilter || groupFilter)
+  const handleBringBackOnMarket = async (property: Property) => {
+    if (bringingBackId) return
+    setBringingBackId(property.id)
+    try {
+      await updateProperty(
+        property.id,
+        propertyToWriteInput(property, {
+          offMarket: false,
+          offMarketReason: null,
+          offMarketAt: null,
+        })
+      )
+      setSuccessMessage('Rental is back on market.')
+      window.setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (err) {
+      setSuccessMessage(
+        err instanceof ApiError
+          ? err.message
+          : 'Could not bring this rental back on market.'
+      )
+      window.setTimeout(() => setSuccessMessage(''), 4000)
+    } finally {
+      setBringingBackId(null)
+    }
+  }
+
+  const locationFilterActive = Boolean(
+    stateFilter || townFilter || groupFilter || viewOffMarketOnly
+  )
   const locationFilterSummary = [
     stateFilter || null,
     townFilter || null,
     groupFilter
       ? getRentalGroupFilterLabel(groupFilter, regions)
       : null,
+    viewOffMarketOnly ? 'Off-Market' : null,
   ].filter(Boolean)
 
   const stateFilterLabel = getRentalStateFilterLabel(stateFilter)
@@ -496,16 +617,6 @@ export function PropertiesPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            {effectiveViewMode === 'tile' && !isMobile ? (
-              <TileScaleControl
-                variant="row"
-                value={scale}
-                onChange={setScale}
-                label="Rental tile size"
-                className="min-w-[12.5rem] flex-none"
-              />
-            ) : null}
-
             <button
               type="button"
               onClick={() => setFilterBarOpen((open) => !open)}
@@ -599,6 +710,15 @@ export function PropertiesPage() {
                 <span className="hidden sm:inline">Edit Columns</span>
               </button>
             ) : null}
+
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Rental tile size"
+              />
+            ) : null}
           </div>
 
           {filterBarOpen ? (
@@ -606,166 +726,244 @@ export function PropertiesPage() {
               id="rentals-filter-options"
               className="flex flex-col gap-1.5 border-t border-ink/10 pt-1.5"
             >
-              <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
-                Location
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {cycleState ? (
-                  <button
-                    type="button"
-                    onClick={cycleStateFilter}
-                    aria-label={`State filter: ${stateFilterLabel}. Click to cycle available states.`}
-                    title={
-                      stateFilter
-                        ? stateFilterLabel
-                        : stateOptions.length > 0
-                          ? `Click to cycle: ${RENTAL_STATE_FILTER_ANY_LABEL} → ${stateOptions.join(' → ')}`
-                          : RENTAL_STATE_FILTER_ANY_LABEL
-                    }
-                    className={cn(
-                      locationFilterControlClass,
-                      'inline-flex items-center',
-                      locationFilterToneClass(Boolean(stateFilter))
-                    )}
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <p
+                    className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${stateOptions.length} states`}
                   >
-                    <span className="min-w-0 flex-1 truncate">{stateFilterLabel}</span>
-                  </button>
-                ) : (
-                  <select
-                    aria-label="State filter"
-                    title={stateFilterLabel}
-                    value={stateFilter}
-                    onChange={(e) => setStateFilter(e.target.value)}
-                    className={cn(
-                      locationFilterControlClass,
-                      'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
-                      locationFilterToneClass(Boolean(stateFilter))
+                    {stateOptions.length}{' '}
+                    {stateOptions.length === 1 ? 'State' : 'States'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {cycleState ? (
+                      <button
+                        type="button"
+                        onClick={cycleStateFilter}
+                        aria-label={`State filter: ${stateFilterLabel}. Click to cycle available states.`}
+                        title={
+                          stateFilter
+                            ? stateFilterLabel
+                            : stateOptions.length > 0
+                              ? `Click to cycle: ${RENTAL_STATE_FILTER_ANY_LABEL} → ${stateOptions.join(' → ')}`
+                              : RENTAL_STATE_FILTER_ANY_LABEL
+                        }
+                        className={cn(
+                          locationFilterControlClass,
+                          'inline-flex items-center',
+                          locationFilterToneClass(Boolean(stateFilter))
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{stateFilterLabel}</span>
+                      </button>
+                    ) : (
+                      <select
+                        aria-label="State filter"
+                        title={stateFilterLabel}
+                        value={stateFilter}
+                        onChange={(e) => setStateFilter(e.target.value)}
+                        className={cn(
+                          locationFilterControlClass,
+                          'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                          locationFilterToneClass(Boolean(stateFilter))
+                        )}
+                      >
+                        <option value="">{RENTAL_STATE_FILTER_ANY_LABEL}</option>
+                        {stateOptions.map((state) => (
+                          <option key={state} value={state}>
+                            {state}
+                          </option>
+                        ))}
+                      </select>
                     )}
-                  >
-                    <option value="">{RENTAL_STATE_FILTER_ANY_LABEL}</option>
-                    {stateOptions.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {cycleTown ? (
-                  <button
-                    type="button"
-                    onClick={cycleTownFilter}
-                    aria-label={`Town filter: ${townFilterLabel}. Click to cycle available towns.`}
-                    title={
-                      townFilter
-                        ? townFilterLabel
-                        : townOptions.length > 0
-                          ? `Click to cycle: ${RENTAL_TOWN_FILTER_ANY_LABEL} → ${townOptions.join(' → ')}`
-                          : RENTAL_TOWN_FILTER_ANY_LABEL
-                    }
-                    className={cn(
-                      locationFilterControlClass,
-                      'inline-flex items-center',
-                      locationFilterToneClass(Boolean(townFilter))
-                    )}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{townFilterLabel}</span>
-                  </button>
-                ) : (
-                  <select
-                    aria-label="Town filter"
-                    title={townFilterLabel}
-                    value={
-                      townOptions.find((town) => townsMatch(town, townFilter)) ??
-                      ''
-                    }
-                    onChange={(e) => setTownFilter(e.target.value)}
-                    className={cn(
-                      locationFilterControlClass,
-                      'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
-                      locationFilterToneClass(Boolean(townFilter))
-                    )}
-                  >
-                    <option value="">{RENTAL_TOWN_FILTER_ANY_LABEL}</option>
-                    {townOptions.map((town) => (
-                      <option key={town} value={town}>
-                        {town}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                <div
-                  role="group"
-                  aria-label="Rental groups"
-                  className={segmentedShellClass}
-                >
-                  {cycleGroup ? (
                     <button
                       type="button"
-                      onClick={cycleGroupFilter}
-                      aria-label={`Group filter: ${groupFilterLabel}. Click to cycle available groups.`}
-                      title={
-                        groupFilter
-                          ? groupFilterLabel
-                          : groupOptions.length > 0
-                            ? `Click to cycle: ${RENTAL_GROUP_FILTER_ANY_LABEL} → ${groupOptions.map((o) => o.label).join(' → ')}`
-                            : RENTAL_GROUP_FILTER_ANY_LABEL
-                      }
-                      aria-pressed={Boolean(groupFilter)}
+                      onClick={() => setStateFilter('')}
+                      disabled={!stateFilter}
+                      aria-label="Reset state filter"
+                      title="Reset Filters"
                       className={cn(
-                        segmentedSegmentClass,
-                        RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
-                        'min-w-0',
-                        groupFilter
-                          ? 'bg-brand text-surface-paper'
-                          : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                        filterButtonClass,
+                        'shrink-0',
+                        stateFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
                       )}
                     >
-                      <span className="truncate">{groupFilterLabel}</span>
+                      Reset Filters
                     </button>
-                  ) : (
-                    <select
-                      aria-label="Group filter"
-                      title={groupFilterLabel}
-                      value={groupFilter}
-                      onChange={(e) => setGroupFilter(e.target.value)}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p
+                    className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${townOptions.length} towns`}
+                  >
+                    {townOptions.length}{' '}
+                    {townOptions.length === 1 ? 'Town' : 'Towns'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {cycleTown ? (
+                      <button
+                        type="button"
+                        onClick={cycleTownFilter}
+                        aria-label={`Town filter: ${townFilterLabel}. Click to cycle available towns.`}
+                        title={
+                          townFilter
+                            ? townFilterLabel
+                            : townOptions.length > 0
+                              ? `Click to cycle: ${RENTAL_TOWN_FILTER_ANY_LABEL} → ${townOptions.join(' → ')}`
+                              : RENTAL_TOWN_FILTER_ANY_LABEL
+                        }
+                        className={cn(
+                          locationFilterControlClass,
+                          'inline-flex items-center',
+                          locationFilterToneClass(Boolean(townFilter))
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{townFilterLabel}</span>
+                      </button>
+                    ) : (
+                      <select
+                        aria-label="Town filter"
+                        title={townFilterLabel}
+                        value={
+                          townOptions.find((town) => townsMatch(town, townFilter)) ??
+                          ''
+                        }
+                        onChange={(e) => setTownFilter(e.target.value)}
+                        className={cn(
+                          locationFilterControlClass,
+                          'appearance-none truncate focus:outline-none focus:ring-1 focus:ring-brand',
+                          locationFilterToneClass(Boolean(townFilter))
+                        )}
+                      >
+                        <option value="">{RENTAL_TOWN_FILTER_ANY_LABEL}</option>
+                        {townOptions.map((town) => (
+                          <option key={town} value={town}>
+                            {town}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setTownFilter('')}
+                      disabled={!townFilter}
+                      aria-label="Reset town filter"
+                      title="Reset Filters"
                       className={cn(
-                        segmentedSegmentClass,
-                        RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
-                        'min-w-0 appearance-none truncate border-0 pr-5',
-                        'bg-no-repeat bg-[length:0.5rem_0.5rem] bg-[position:right_0.3rem_center]',
-                        'bg-[url(\'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23737373" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="m6 9 6 6 6-6"/%3E%3C/svg%3E\')]',
-                        'focus:outline-none',
-                        groupFilter
-                          ? 'bg-brand text-surface-paper'
-                          : 'bg-transparent text-ink-muted hover:bg-ink/5 hover:text-ink'
+                        filterButtonClass,
+                        'shrink-0',
+                        townFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
                       )}
                     >
-                      <option value="">{RENTAL_GROUP_FILTER_ANY_LABEL}</option>
-                      {groupOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <button
-                    type="button"
-                    title="Edit Groups"
-                    aria-label="Edit Groups"
-                    aria-pressed={regionsOpen}
-                    onClick={() => setRegionsOpen(true)}
-                    className={cn(
-                      segmentedSegmentClass,
-                      'shrink-0 whitespace-nowrap',
-                      regionsOpen
-                        ? 'bg-ink/10 text-ink'
-                        : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
-                    )}
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p
+                    className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${groupOptions.length} groups`}
                   >
-                    Edit Groups
-                  </button>
+                    {groupOptions.length}{' '}
+                    {groupOptions.length === 1 ? 'Group' : 'Groups'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div
+                      role="group"
+                      aria-label="Rental groups"
+                      className={segmentedShellClass}
+                    >
+                      {cycleGroup ? (
+                        <button
+                          type="button"
+                          onClick={cycleGroupFilter}
+                          aria-label={`Group filter: ${groupFilterLabel}. Click to cycle available groups.`}
+                          title={
+                            groupFilter
+                              ? groupFilterLabel
+                              : groupOptions.length > 0
+                                ? `Click to cycle: ${RENTAL_GROUP_FILTER_ANY_LABEL} → ${groupOptions.map((o) => o.label).join(' → ')}`
+                                : RENTAL_GROUP_FILTER_ANY_LABEL
+                          }
+                          aria-pressed={Boolean(groupFilter)}
+                          className={cn(
+                            segmentedSegmentClass,
+                            RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
+                            'min-w-0',
+                            groupFilter
+                              ? 'bg-brand text-surface-paper'
+                              : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                          )}
+                        >
+                          <span className="truncate">{groupFilterLabel}</span>
+                        </button>
+                      ) : (
+                        <select
+                          aria-label="Group filter"
+                          title={groupFilterLabel}
+                          value={groupFilter}
+                          onChange={(e) => setGroupFilter(e.target.value)}
+                          className={cn(
+                            segmentedSegmentClass,
+                            RENTAL_GROUP_FILTER_BUTTON_WIDTH_CLASS,
+                            'min-w-0 appearance-none truncate border-0 pr-5',
+                            'bg-no-repeat bg-[length:0.5rem_0.5rem] bg-[position:right_0.3rem_center]',
+                            'bg-[url(\'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23737373" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="m6 9 6 6 6-6"/%3E%3C/svg%3E\')]',
+                            'focus:outline-none',
+                            groupFilter
+                              ? 'bg-brand text-surface-paper'
+                              : 'bg-transparent text-ink-muted hover:bg-ink/5 hover:text-ink'
+                          )}
+                        >
+                          <option value="">{RENTAL_GROUP_FILTER_ANY_LABEL}</option>
+                          {groupOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        title="Edit Groups"
+                        aria-label="Edit Groups"
+                        aria-pressed={regionsOpen}
+                        onClick={() => setRegionsOpen(true)}
+                        className={cn(
+                          segmentedSegmentClass,
+                          'shrink-0 whitespace-nowrap',
+                          regionsOpen
+                            ? 'bg-ink/10 text-ink'
+                            : 'text-ink-muted hover:bg-ink/5 hover:text-ink'
+                        )}
+                      >
+                        Edit Groups
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGroupFilter('')}
+                      disabled={!groupFilter}
+                      aria-label="Reset group filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        groupFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -788,7 +986,49 @@ export function PropertiesPage() {
       <PageHeader
         title="Rentals"
         help={rentalsHelp}
-        action={<AddRentalButton onClick={() => setAddOpen(true)} />}
+        action={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMapOpen(true)}
+              disabled={properties.length === 0}
+              aria-label="Open map of all rentals"
+              title="Map"
+              data-onboarding="rentals-map"
+            >
+              <MapIcon className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+              Map
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setViewOffMarketOnly((prev) => !prev)}
+              disabled={properties.length === 0}
+              aria-pressed={viewOffMarketOnly}
+              aria-label={
+                viewOffMarketOnly
+                  ? 'Showing off-market rentals only. Click to show all rentals.'
+                  : 'View off-market rentals'
+              }
+              title="View Off-Market Rentals"
+              data-onboarding="rentals-off-market"
+              className={cn(
+                viewOffMarketOnly &&
+                  'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+              )}
+            >
+              <EyeOff className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+              View Off-Market Rentals
+              {offMarketCount > 0 ? (
+                <span className="tabular-nums text-ink-muted">({offMarketCount})</span>
+              ) : null}
+            </Button>
+            <AddRentalButton onClick={() => setAddOpen(true)} />
+          </div>
+        }
         below={displaySettings}
       />
 
@@ -811,8 +1051,28 @@ export function PropertiesPage() {
             {filteredSortedRows.length === 0 ? (
               <EmptyState
                 icon={Building2}
-                title="No matching rentals"
-                description="Clear location filters or adjust Display Settings."
+                title={
+                  viewOffMarketOnly
+                    ? 'No off-market rentals'
+                    : 'No matching rentals'
+                }
+                description={
+                  viewOffMarketOnly
+                    ? 'Take a rental off market from its tile to list it here. Off-market units stay in your portfolio but are closed to new applications.'
+                    : 'Clear location filters or adjust Display Settings.'
+                }
+                action={
+                  viewOffMarketOnly ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewOffMarketOnly(false)}
+                    >
+                      Show all rentals
+                    </Button>
+                  ) : undefined
+                }
               />
             ) : effectiveViewMode === 'spreadsheet' ? (
               <PropertyTable
@@ -828,8 +1088,84 @@ export function PropertiesPage() {
                 onVisibleColumnsChange={setVisibleColumns}
                 arrangeColumns={arrangeColumns}
                 onArrangeDone={() => setArrangeColumns(false)}
+                distanceFrom={{
+                  query: distanceFromQuery,
+                  onQueryChange: (value) => {
+                    setDistanceFromQuery(value)
+                    setDistanceFromError('')
+                  },
+                  onSubmit: () => {
+                    void handleDistanceFromSubmit()
+                  },
+                  onClear: handleDistanceFromClear,
+                  activeLabel: distanceFromPoint?.label ?? null,
+                  loading: distanceFromLoading,
+                  error: distanceFromError,
+                }}
               />
             ) : (
+              <div className="space-y-3">
+                <div className="w-full max-w-sm rounded-[var(--radius-sm)] border border-ink/15 bg-surface-paper p-2.5 shadow-[1px_1px_0_0_rgba(17,17,17,0.55)]">
+                  <label
+                    htmlFor="rental-distance-from-tiles"
+                    className="block text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                  >
+                    Sort By: Distance From
+                  </label>
+                  <div className="mt-1 flex items-center gap-1">
+                    <input
+                      id="rental-distance-from-tiles"
+                      type="text"
+                      value={distanceFromQuery}
+                      onChange={(e) => {
+                        setDistanceFromQuery(e.target.value)
+                        setDistanceFromError('')
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          void handleDistanceFromSubmit()
+                        }
+                      }}
+                      placeholder="Address or city"
+                      disabled={distanceFromLoading}
+                      className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-2 py-1.5 text-xs text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      onClick={() => {
+                        void handleDistanceFromSubmit()
+                      }}
+                      disabled={distanceFromLoading || !distanceFromQuery.trim()}
+                      className="!px-2.5"
+                    >
+                      {distanceFromLoading ? '…' : 'Go'}
+                    </Button>
+                    {distanceFromPoint ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleDistanceFromClear}
+                        className="!px-2.5"
+                      >
+                        Clear
+                      </Button>
+                    ) : null}
+                  </div>
+                  {distanceFromPoint ? (
+                    <p className="mt-1 truncate text-[10px] text-ink-muted">
+                      Nearest → farthest from {distanceFromPoint.label}
+                    </p>
+                  ) : null}
+                  {distanceFromError ? (
+                    <p className="mt-1 text-[10px] text-accent" role="alert">
+                      {distanceFromError}
+                    </p>
+                  ) : null}
+                </div>
               <div
                 className="tile-scale-root"
                 style={leaseTileScaleStyle(factor)}
@@ -838,6 +1174,7 @@ export function PropertiesPage() {
                   {filteredSortedRows.map((row) => {
                     const isHighlighted = highlightedId === row.id
                     const property = propertyById.get(row.id)
+                    const isOffMarket = row.offMarket === true
                     const occupancyTone = rentalOccupancyTone(
                       row.openUnits,
                       row.totalBeds
@@ -903,7 +1240,11 @@ export function PropertiesPage() {
                         padding="none"
                         role="button"
                         tabIndex={0}
-                        aria-label={`${row.address}. ${occupancyLabel}. Open rental details`}
+                        aria-label={`${row.address}. ${
+                          isOffMarket
+                            ? 'Property off market.'
+                            : `${occupancyLabel}.`
+                        } Open rental details`}
                         onClick={() => handleRowClick(row)}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
@@ -913,33 +1254,61 @@ export function PropertiesPage() {
                         }}
                         className={cn(
                           'tile-card lease-tile-card scroll-mt-28 cursor-pointer transition-colors',
-                          `rental-tile--${occupancyTone}`,
+                          isOffMarket
+                            ? 'rental-tile--off-market'
+                            : `rental-tile--${occupancyTone}`,
                           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
                           isHighlighted && 'property-table-row--highlight'
                         )}
                       >
                         <div className="lease-tile-card__body">
-                          <div className="lease-tile-card__content">
+                          <div
+                            className={cn(
+                              'lease-tile-card__content',
+                              isOffMarket && 'rental-tile__content--off-market'
+                            )}
+                          >
+                            {isOffMarket ? (
+                              <div
+                                className="rental-tile__off-market-overlay"
+                                aria-hidden
+                              >
+                                <p className="rental-tile__off-market-status">
+                                  Property Off Market
+                                </p>
+                                {row.offMarketReason ? (
+                                  <p className="rental-tile__off-market-reason">
+                                    {row.offMarketReason}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
                             <div className="flex items-start justify-between gap-2">
                               <div className="lease-tile-card__icon" aria-hidden>
                                 <Building2 strokeWidth={1.75} />
                               </div>
-                              <button
-                                type="button"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface hover:text-brand"
-                                title={`Edit ${row.address}`}
-                                aria-label={`Edit ${row.address}`}
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  setEditingPropertyId(row.id)
-                                }}
-                              >
-                                <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
-                              </button>
+                              <div className="flex shrink-0 flex-col items-end gap-1">
+                                <RentalCategoryTag
+                                  category={row.rentalCategory}
+                                  resolveMissing
+                                />
+                                <button
+                                  type="button"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-ink-muted transition-colors hover:bg-surface hover:text-brand"
+                                  title={`Edit ${row.address}`}
+                                  aria-label={`Edit ${row.address}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setEditingPropertyId(row.id)
+                                  }}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+                                </button>
+                              </div>
                             </div>
 
                             <h3 className="tile-card__title tile-card__address-static">
-                              {row.address}
+                              <AddressText address={row.address} hangingIndent={false} />
                             </h3>
 
                             <p className="tile-card__body font-semibold text-ink">
@@ -998,12 +1367,42 @@ export function PropertiesPage() {
                           </div>
 
                           <div className="lease-tile-card__actions">
-                            <div className="lease-tile-card__action-item">
+                            <div className="lease-tile-card__action-item lease-tile-card__action-item--primary">
+                              {isOffMarket && property ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="lease-tile-card__action-btn !px-2 !py-1.5 !text-[length:var(--tile-meta)]"
+                                  disabled={bringingBackId === property.id}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    void handleBringBackOnMarket(property)
+                                  }}
+                                >
+                                  Back on Market
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="lease-tile-card__action-btn !px-2 !py-1.5 !text-[length:var(--tile-meta)]"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setOffMarketPropertyId(row.id)
+                                  }}
+                                >
+                                  Take Off Market
+                                </Button>
+                              )}
+                            </div>
+                            <div className="lease-tile-card__action-item lease-tile-card__action-item--half">
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="lease-tile-card__action-btn !px-2.5 !py-1.5 !text-[length:var(--tile-meta)]"
+                                className="lease-tile-card__action-btn !px-2 !py-1.5 !text-[length:var(--tile-meta)]"
                                 onClick={(event) => {
                                   event.stopPropagation()
                                   handleRowClick(row)
@@ -1019,6 +1418,7 @@ export function PropertiesPage() {
                     )
                   })}
                 </div>
+              </div>
               </div>
             )}
           </div>
@@ -1042,10 +1442,33 @@ export function PropertiesPage() {
 
       <EditRegionsModal open={regionsOpen} onClose={() => setRegionsOpen(false)} />
 
+      <PropertiesMapModal
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        properties={properties}
+        onGroupSaved={(groupId) => {
+          setGroupFilter(groupId)
+          setFilterBarOpen(true)
+          setMapOpen(false)
+          setSuccessMessage('Group saved. Filtering rentals by the new group.')
+          window.setTimeout(() => setSuccessMessage(''), 4000)
+        }}
+      />
+
       <RentalDetailModal
         property={selectedRental}
         open={Boolean(selectedRental)}
         onClose={() => setSelectedRental(null)}
+      />
+
+      <TakeOffMarketModal
+        property={offMarketProperty}
+        open={Boolean(offMarketProperty)}
+        onClose={() => setOffMarketPropertyId(null)}
+        onSaved={() => {
+          setSuccessMessage('Rental taken off market.')
+          window.setTimeout(() => setSuccessMessage(''), 3000)
+        }}
       />
 
       <TenantDetailsModal

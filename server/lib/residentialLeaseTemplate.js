@@ -9,6 +9,7 @@ import {
   parseLeaseLengthMonths,
   resolveDefaultLeaseDates,
 } from './leaseSchedule.js'
+import { withLeasePreferenceClauses } from './leasePreferenceClauses.js'
 
 export const PLACEHOLDER_MARKER = '[To be customized]'
 
@@ -148,7 +149,10 @@ export function buildResidentialLeaseFields({
     portfolioRights: landlordBlock
       ? `Landlord / company information:\n${landlordBlock}`
       : blankField('Confirm landlord company and contact details'),
-    terminationTerms: RESIDENTIAL_LEASE_DEFAULTS.renewalAndTermination,
+    terminationTerms: withLeasePreferenceClauses(
+      RESIDENTIAL_LEASE_DEFAULTS.renewalAndTermination,
+      settings
+    ),
     noticesTerms: RESIDENTIAL_LEASE_DEFAULTS.notices,
   }
 }

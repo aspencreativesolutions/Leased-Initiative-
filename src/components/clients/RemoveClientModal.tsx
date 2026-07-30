@@ -29,21 +29,28 @@ export function RemoveClientModal({
 }: RemoveClientModalProps) {
   const [busy, setBusy] = useState<BusyAction>(null)
   const [error, setError] = useState('')
+  const [needsForceArchive, setNeedsForceArchive] = useState(false)
 
-  const handleArchive = async () => {
+  const handleArchive = async (force = false) => {
     setBusy('archive')
     setError('')
     try {
-      await archiveClientRecord(clientId)
+      await archiveClientRecord(clientId, { force })
+      setNeedsForceArchive(false)
       onArchived?.()
       onRemoved()
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Could not archive tenant'
-      setError(
-        message.includes('API route not found')
-          ? 'Server needs a restart to load the latest API. Stop the app (Ctrl+C) and run npm run dev again.'
-          : message
-      )
+      if (err instanceof ApiError && err.status === 409 && err.code === 'condition_report_pending') {
+        setNeedsForceArchive(true)
+        setError(err.message)
+      } else {
+        const message = err instanceof ApiError ? err.message : 'Could not archive tenant'
+        setError(
+          message.includes('API route not found')
+            ? 'Server needs a restart to load the latest API. Stop the app (Ctrl+C) and run npm run dev again.'
+            : message
+        )
+      }
     } finally {
       setBusy(null)
     }
@@ -94,14 +101,29 @@ export function RemoveClientModal({
         <Button variant="outline" disabled={busy !== null} onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="outline" disabled={busy !== null} onClick={handleArchive}>
-          {busy === 'archive' ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Archive className="h-4 w-4" />
-          )}
-          Archive
-        </Button>
+        {needsForceArchive ? (
+          <Button
+            variant="outline"
+            disabled={busy !== null}
+            onClick={() => void handleArchive(true)}
+          >
+            {busy === 'archive' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            Archive anyway
+          </Button>
+        ) : (
+          <Button variant="outline" disabled={busy !== null} onClick={() => void handleArchive()}>
+            {busy === 'archive' ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            Archive
+          </Button>
+        )}
         <Button variant="danger" disabled={busy !== null} onClick={handleDelete}>
           {busy === 'delete' ? (
             <Loader2 className="h-4 w-4 animate-spin" />

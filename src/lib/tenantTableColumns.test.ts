@@ -10,6 +10,7 @@ import {
   restoreTenantTableColumn,
   saveTenantTableColumnOrder,
   tenantTableColumnWidths,
+  withTenantArrangementColumn,
   type TenantTableColumnId,
 } from '@/lib/tenantTableColumns'
 
@@ -47,6 +48,19 @@ describe('normalizeTenantTableColumns', () => {
     ).toEqual(['tenant', 'contact', 'address', 'paymentStatus', 'actions'])
   })
 
+  it('never persists arrangement in saved layouts', () => {
+    expect(
+      normalizeTenantTableColumns([
+        'tenant',
+        'arrangement',
+        'contact',
+        'address',
+        'paymentStatus',
+        'actions',
+      ])
+    ).toEqual(['tenant', 'contact', 'address', 'paymentStatus', 'actions'])
+  })
+
   it('falls back to defaults for empty or invalid input', () => {
     expect(normalizeTenantTableColumns(null)).toEqual([...DEFAULT_TENANT_TABLE_COLUMNS])
     expect(normalizeTenantTableColumns([])).toEqual([...DEFAULT_TENANT_TABLE_COLUMNS])
@@ -62,6 +76,55 @@ describe('normalizeTenantTableColumns', () => {
   })
 })
 
+describe('withTenantArrangementColumn', () => {
+  it('inserts Arrangement immediately after Tenant when enabled', () => {
+    expect(
+      withTenantArrangementColumn([...DEFAULT_TENANT_TABLE_COLUMNS], true)
+    ).toEqual([
+      'tenant',
+      'arrangement',
+      'contact',
+      'address',
+      'paymentStatus',
+      'actions',
+    ])
+  })
+
+  it('follows Tenant when the user reorders columns', () => {
+    expect(
+      withTenantArrangementColumn(
+        ['contact', 'tenant', 'address', 'paymentStatus', 'actions'],
+        true
+      )
+    ).toEqual([
+      'contact',
+      'tenant',
+      'arrangement',
+      'address',
+      'paymentStatus',
+      'actions',
+    ])
+  })
+
+  it('strips Arrangement when Show Arrangements is off', () => {
+    expect(
+      withTenantArrangementColumn(
+        ['tenant', 'arrangement', 'contact', 'actions'],
+        false
+      )
+    ).toEqual(['tenant', 'contact', 'actions'])
+  })
+
+  it('inserts before Actions when Tenant is hidden', () => {
+    expect(
+      withTenantArrangementColumn(
+        ['contact', 'address', 'paymentStatus', 'actions'],
+        true
+      )
+    ).toEqual(['contact', 'address', 'paymentStatus', 'arrangement', 'actions'])
+  })
+})
+
 describe('hide and restore tenant table columns', () => {
   it('hides a column without leaving a gap in the order', () => {
     const next = hideTenantTableColumn([...DEFAULT_TENANT_TABLE_COLUMNS], 'contact')
@@ -71,6 +134,20 @@ describe('hide and restore tenant table columns', () => {
   it('does not hide the last remaining data column', () => {
     const only = normalizeTenantTableColumns(['tenant'])
     expect(hideTenantTableColumn(only, 'tenant')).toEqual(only)
+  })
+
+  it('does not hide the Arrangement toggle column via Edit Columns', () => {
+    const order: TenantTableColumnId[] = [
+      'tenant',
+      'arrangement',
+      'contact',
+      'actions',
+    ]
+    expect(hideTenantTableColumn(order, 'arrangement')).toEqual([
+      'tenant',
+      'contact',
+      'actions',
+    ])
   })
 
   it('restores a column to its default-relative position', () => {
@@ -121,6 +198,20 @@ describe('moveTenantTableColumn with hidden columns', () => {
       'actions',
     ])
   })
+
+  it('ignores Arrangement as a drag target and strips it from the result', () => {
+    const order: TenantTableColumnId[] = [
+      'tenant',
+      'arrangement',
+      'contact',
+      'actions',
+    ]
+    expect(moveTenantTableColumn(order, 'contact', 'arrangement')).toEqual([
+      'tenant',
+      'contact',
+      'actions',
+    ])
+  })
 })
 
 describe('tenantTableColumnWidths', () => {
@@ -130,6 +221,21 @@ describe('tenantTableColumnWidths', () => {
     const tenant = parseFloat(widths.tenant)
     const payment = parseFloat(widths.paymentStatus)
     expect(tenant + payment).toBeCloseTo(92, 1)
+  })
+
+  it('includes Arrangement width when the column is visible', () => {
+    const widths = tenantTableColumnWidths([
+      'tenant',
+      'arrangement',
+      'paymentStatus',
+      'actions',
+    ])
+    expect(widths.actions).toBe('8%')
+    const total =
+      parseFloat(widths.tenant) +
+      parseFloat(widths.arrangement) +
+      parseFloat(widths.paymentStatus)
+    expect(total).toBeCloseTo(92, 1)
   })
 })
 
@@ -161,6 +267,24 @@ describe('tenant table column persistence', () => {
     ]
     saveTenantTableColumnOrder(order)
     expect(loadTenantTableColumnOrder()).toEqual(order)
+  })
+
+  it('does not persist Arrangement in localStorage', () => {
+    saveTenantTableColumnOrder([
+      'tenant',
+      'arrangement',
+      'contact',
+      'address',
+      'paymentStatus',
+      'actions',
+    ])
+    expect(loadTenantTableColumnOrder()).toEqual([
+      'tenant',
+      'contact',
+      'address',
+      'paymentStatus',
+      'actions',
+    ])
   })
 
   it('reset restores default order and visibility', () => {

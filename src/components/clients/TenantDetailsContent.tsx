@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { LeaseStatusBadge } from '@/components/clients/LeaseStatusBadge'
 import { PaymentProviderLogo } from '@/components/payments/PaymentProviderLogo'
 import { TenantBedAssignmentPicker } from '@/components/properties/TenantBedAssignmentPicker'
+import { AddressText } from '@/components/ui/AddressText'
 import { getLeaseStatusDetails } from '@/lib/clientUtils'
 import {
   isWholeUnitSingleTenantLease,
@@ -177,9 +178,11 @@ function ProfileBody({
 
       <Section title="Property and Rental Details">
         <div className="grid gap-x-4 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="sm:col-span-2 lg:col-span-3">
+          <div className="min-w-0 sm:col-span-2 lg:col-span-3">
             <p className="label-caps text-ink-faint">Property address</p>
-            <p className="mt-0.5 text-sm font-semibold text-ink">{profile.propertyAddress}</p>
+            <p className="mt-0.5 min-w-0 text-sm font-semibold leading-snug text-ink">
+              <AddressText address={profile.propertyAddress} />
+            </p>
           </div>
           {profile.unitNumber ? (
             <DetailStat label="Unit" value={profile.unitNumber} />

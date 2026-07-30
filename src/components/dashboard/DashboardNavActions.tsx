@@ -104,8 +104,8 @@ export function DashboardNavActions({
         size="sm"
         data-onboarding="dashboard-add-client"
         className={cn(iconBtnBase, 'w-8', 'quick-tooltip quick-tooltip--below')}
-        data-tooltip="Add Tenant"
-        aria-label="Add Tenant"
+        data-tooltip="Add Tenant Manually"
+        aria-label="Add Tenant Manually"
         onClick={onOpenAddClient}
       >
         <Plus className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />

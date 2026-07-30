@@ -26,6 +26,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/FormField'
+import { AddressText } from '@/components/ui/AddressText'
 import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
@@ -281,6 +282,7 @@ export function ContractsPage() {
           state: location.state,
           lat: property?.addressDetails?.lat ?? null,
           lng: property?.addressDetails?.lng ?? null,
+          propertyId: property?.id ?? null,
           progress,
         }
       }),
@@ -324,6 +326,7 @@ export function ContractsPage() {
             state: option.state,
             lat: option.lat,
             lng: option.lng,
+            propertyId: option.propertyId,
           },
           { kind: filterKind, value: filterValue },
           regions
@@ -491,16 +494,6 @@ export function ContractsPage() {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            {effectiveViewMode === 'tile' && !isMobile ? (
-              <TileScaleControl
-                variant="row"
-                value={scale}
-                onChange={setScale}
-                label="Lease tile size"
-                className="min-w-[12.5rem] flex-none"
-              />
-            ) : null}
-
             <button
               type="button"
               onClick={() => setFilterBarOpen((open) => !open)}
@@ -602,6 +595,15 @@ export function ContractsPage() {
                 onChange={setMobileTileColumns}
               />
             ) : null}
+
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Lease tile size"
+              />
+            ) : null}
           </div>
 
           {filterBarOpen ? (
@@ -638,8 +640,8 @@ export function ContractsPage() {
                   <button
                     type="button"
                     onClick={cycleProgressFilter}
-                    aria-label={`Lease progress filter: ${getLeaseAgreementProgressFilterLabel(progressFilter)}. Click to cycle Any, Not Started, Ongoing, Ending Soon.`}
-                    title="Click to cycle lease progress: Any → Not Started → Ongoing → Ending Soon"
+                    aria-label={`Lease progress filter: ${getLeaseAgreementProgressFilterLabel(progressFilter)}. Click to cycle Any, Not Started, Ongoing, Ending Soon, Finished.`}
+                    title="Click to cycle lease progress: Any → Not Started → Ongoing → Ending Soon → Finished"
                     className={cn(
                       filterButtonClass,
                       LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
@@ -918,10 +920,12 @@ export function ContractsPage() {
                             title={`View map for ${address}`}
                             onClick={() => setMapTarget({ address, tenantName: clientName })}
                           >
-                            {address}
+                            <AddressText address={address} hangingIndent={false} />
                           </button>
                         ) : (
-                          <h3 className="tile-card__title tile-card__address-static">{address}</h3>
+                          <h3 className="tile-card__title tile-card__address-static">
+                            <AddressText address={address} hangingIndent={false} />
+                          </h3>
                         )}
                       </div>
 

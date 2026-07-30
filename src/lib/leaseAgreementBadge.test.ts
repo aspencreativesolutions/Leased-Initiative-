@@ -248,11 +248,12 @@ describe('LEASE_AGREEMENT_STATUS_FILTERS', () => {
 })
 
 describe('LEASE_AGREEMENT_PROGRESS_FILTERS', () => {
-  it('includes Not Started, Ongoing, and Ending Soon for Display Settings', () => {
+  it('includes Not Started, Ongoing, Ending Soon, and Finished for Display Settings', () => {
     expect(LEASE_AGREEMENT_PROGRESS_FILTERS).toEqual([
       'Not Started',
       'Ongoing',
       'Ending Soon',
+      'Finished',
     ])
   })
 
@@ -260,16 +261,18 @@ describe('LEASE_AGREEMENT_PROGRESS_FILTERS', () => {
     expect(isLeaseAgreementProgressFilter('Not Started')).toBe(true)
     expect(isLeaseAgreementProgressFilter('Ongoing')).toBe(true)
     expect(isLeaseAgreementProgressFilter('Ending Soon')).toBe(true)
+    expect(isLeaseAgreementProgressFilter('Finished')).toBe(true)
     expect(isLeaseAgreementProgressFilter('Active')).toBe(false)
     expect(isLeaseAgreementProgressFilter('Signed')).toBe(false)
     expect(isLeaseAgreementProgressFilter(null)).toBe(false)
   })
 
-  it('cycles Any → Not Started → Ongoing → Ending Soon → Any', () => {
+  it('cycles Any → Not Started → Ongoing → Ending Soon → Finished → Any', () => {
     expect(nextLeaseAgreementProgressFilter(null)).toBe('Not Started')
     expect(nextLeaseAgreementProgressFilter('Not Started')).toBe('Ongoing')
     expect(nextLeaseAgreementProgressFilter('Ongoing')).toBe('Ending Soon')
-    expect(nextLeaseAgreementProgressFilter('Ending Soon')).toBe(null)
+    expect(nextLeaseAgreementProgressFilter('Ending Soon')).toBe('Finished')
+    expect(nextLeaseAgreementProgressFilter('Finished')).toBe(null)
   })
 
   it('labels null as Any for the cycle button', () => {
@@ -295,5 +298,11 @@ describe('LEASE_AGREEMENT_PROGRESS_FILTERS', () => {
     expect(leaseProgressMatchesFilter({ state: 'Expired' }, 'Ongoing')).toBe(
       false
     )
+    expect(leaseProgressMatchesFilter({ state: 'Expired' }, 'Finished')).toBe(
+      true
+    )
+    expect(
+      leaseProgressMatchesFilter({ state: 'Active' }, 'Finished')
+    ).toBe(false)
   })
 })

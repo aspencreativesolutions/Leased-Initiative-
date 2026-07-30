@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, FileText, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { AddressText } from '@/components/ui/AddressText'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
@@ -179,13 +180,8 @@ function ContractCell({
             outlineClass
           )}
         >
-          <p
-            className={cn(
-              'whitespace-normal leading-snug text-ink',
-              'break-normal hyphens-none [overflow-wrap:normal] [word-break:normal]'
-            )}
-          >
-            {row.address}
+          <p className="min-w-0 leading-snug text-ink">
+            <AddressText address={row.address} />
           </p>
         </td>
       )

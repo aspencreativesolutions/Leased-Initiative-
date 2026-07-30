@@ -6,6 +6,7 @@ import { PortalLeaseSignModal } from '@/components/portal/PortalLeaseSignModal'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { AddressText } from '@/components/ui/AddressText'
 import { PortalContractStatusBadge } from '@/components/portal/PortalContractStatusBadge'
 import { formatDate } from '@/lib/utils'
 import type { ContractStatus, PortalContractSummary } from '@/types'
@@ -62,7 +63,9 @@ export function PortalCurrentContracts({
               <li key={contract.id} className="transition-colors hover:bg-surface">
                 <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-4 sm:py-4">
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink">{displayAddress}</p>
+                    <p className="min-w-0 font-semibold leading-snug text-ink">
+                      <AddressText address={displayAddress} />
+                    </p>
                     <p className="mt-0.5 text-xs text-ink-muted">
                       Sent {contract.sentAt ? formatDate(contract.sentAt) : '—'}
                     </p>

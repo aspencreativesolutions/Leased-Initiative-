@@ -23,6 +23,18 @@ import {
 } from '../lib/contractReview.js'
 import { ensureClientFileSharing } from '../lib/ensureFileSharing.js'
 import {
+  getTenantPhotoPreferences,
+  isImageMimeType,
+} from '../lib/tenantPhoto.js'
+import {
+  conditionReportKindLabel,
+  ensureConditionReportsForClient,
+  isChecklistComplete,
+  isConditionReportRequired,
+  normalizeSubmittedItems,
+  summarizeConditionReports,
+} from '../lib/conditionReport.js'
+import {
   buildPortalDepositInvoice,
   buildPortalFinalInvoice,
   buildPortalRemainingBalance,
@@ -48,6 +60,8 @@ import {
   buildAgencyForInvite,
   buildInviteSmsBody,
   buildLandlordAgencies,
+  buildRoommateInviteRegisterUrl,
+  buildRoommateInviteSmsBody,
   buildTenantInviteUrl,
   createTenantInvite,
   findValidTenantInvite,
@@ -57,12 +71,14 @@ import {
   markTenantInviteUsed,
   propertyOccupancyDetail,
 } from '../lib/tenantInvites.js'
+import { buildPortalHousehold } from '../lib/portalHousehold.js'
 import { availableApplicantSlotsAtAddress } from '../lib/rentalOccupancy.js'
 import {
   isCoupleCompanionComplete,
   normalizeApplicantPartyType,
   normalizeCoupleCompanion,
 } from '../lib/applicantParty.js'
+import { normalizeRenterCategory, renterCategoryFromRental } from '../lib/rentalCategory.js'
 import { sendSms } from '../lib/sms.js'
 import {
   buildPortalRentPayment,
@@ -311,6 +327,241 @@ router.post('/problems', (req, res, next) => {
   }
 })
 
+/** List condition reports for the linked tenant (ensures move-in / move-out exist). */
+router.get('/condition-reports', (req, res) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+  const contract =
+    store.contracts.find((c) => c.clientId === clientId && c.sentAt) ??
+    store.contracts.find((c) => c.clientId === clientId)
+  const property = client.propertyId
+    ? (store.properties ?? []).find((p) => p.id === client.propertyId)
+    : null
+  const required = isConditionReportRequired(store.settings, property)
+  const ensured = ensureConditionReportsForClient(store, client, contract)
+  if (ensured.store !== store) updateStore(() => ensured.store)
+  res.json({ required, reports: ensured.reports })
+})
+
+router.get('/condition-reports/:reportId', (req, res) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+  const contract =
+    store.contracts.find((c) => c.clientId === clientId && c.sentAt) ??
+    store.contracts.find((c) => c.clientId === clientId)
+  const ensured = ensureConditionReportsForClient(store, client, contract)
+  if (ensured.store !== store) updateStore(() => ensured.store)
+  const report = (ensured.store.conditionReports ?? []).find(
+    (r) => r.id === req.params.reportId && r.clientId === clientId
+  )
+  if (!report) return res.status(404).json({ error: 'Condition report not found' })
+  const property = client.propertyId
+    ? (ensured.store.properties ?? []).find((p) => p.id === client.propertyId)
+    : null
+  res.json({
+    required: isConditionReportRequired(ensured.store.settings, property),
+    report,
+  })
+})
+
+router.post('/condition-reports/:reportId/submit', (req, res) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) return res.status(404).json({ error: 'Tenant profile not found' })
+
+  const report = (store.conditionReports ?? []).find(
+    (r) => r.id === req.params.reportId && r.clientId === clientId
+  )
+  if (!report) return res.status(404).json({ error: 'Condition report not found' })
+  if (report.status === 'approved') {
+    return res.status(400).json({ error: 'This condition report was already approved.' })
+  }
+
+  const items = normalizeSubmittedItems(report.items, req.body?.items)
+  if (!items) {
+    return res.status(400).json({ error: 'Rate every checklist item before submitting.' })
+  }
+  if (!isChecklistComplete(items)) {
+    return res.status(400).json({ error: 'Rate every checklist item before submitting.' })
+  }
+
+  const now = new Date().toISOString()
+  const kindLabel = conditionReportKindLabel(report.kind)
+  const address = resolveTenantAddress(
+    client,
+    store.contracts.find((c) => c.clientId === client.id)
+  )
+  const resolvedAddress = address || client.projectName || 'their unit'
+
+  let updatedReport = null
+  updateStore((s) => {
+    const nextReports = (s.conditionReports ?? []).map((r) => {
+      if (r.id !== report.id) return r
+      updatedReport = {
+        ...r,
+        items,
+        status: 'submitted',
+        submittedAt: now,
+        updatedAt: now,
+        reviewedAt: undefined,
+        reviewedBy: undefined,
+        landlordNotes: undefined,
+      }
+      return updatedReport
+    })
+    let next = { ...s, conditionReports: nextReports }
+    next = pushAdminNotification(next, {
+      type: 'condition_report',
+      title: `${kindLabel} condition report submitted`,
+      message: `${client.name} at ${resolvedAddress} submitted their ${kindLabel.toLowerCase()} inspection checklist for review.`,
+      clientId: client.id,
+      userId: req.user.id,
+      conditionReportId: report.id,
+      conditionReportKind: report.kind,
+      tenantName: client.name,
+      address: resolvedAddress,
+      note: `${kindLabel} checklist ready for landlord review.`,
+    })
+    next = {
+      ...next,
+      clients: next.clients.map((c) => {
+        if (c.id !== client.id) return c
+        return {
+          ...c,
+          notes: [
+            ...(c.notes ?? []),
+            {
+              id: generateId(),
+              text: `[Condition Report — ${kindLabel}] Submitted for landlord review.`,
+              category: 'Follow-Up',
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    }
+    return next
+  })
+
+  res.json({
+    ok: true,
+    message: 'Your condition report was submitted for landlord review.',
+    report: updatedReport,
+  })
+})
+
+router.post('/condition-reports/:reportId/photos', (req, res, next) => {
+  const clientId = req.user.clientId
+  if (!clientId) {
+    return res.status(403).json({ error: 'Your account is not linked to a lease yet.' })
+  }
+  req.portalClientId = clientId
+  uploadMiddleware.any()(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Upload failed' })
+    }
+    const files = Array.isArray(req.files) ? req.files : []
+    req.file =
+      files.find((f) => f.fieldname === 'file') ||
+      files.find((f) => f.fieldname === 'image') ||
+      files[0]
+    next()
+  })
+}, (req, res) => {
+  try {
+    const clientId = req.user.clientId
+    const itemId =
+      typeof req.body?.itemId === 'string' ? req.body.itemId.trim() : ''
+    if (!itemId) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({ error: 'Select a checklist item for this photo.' })
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Upload a photo (JPG, PNG, or WEBP).' })
+    }
+    if (!isAllowedPhotoUpload(req.file)) {
+      if (req.file.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({
+        error: 'Attach a photo (JPG, PNG, or WEBP).',
+      })
+    }
+
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    if (!client) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(404).json({ error: 'Tenant profile not found' })
+    }
+    const report = (store.conditionReports ?? []).find(
+      (r) => r.id === req.params.reportId && r.clientId === clientId
+    )
+    if (!report) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(404).json({ error: 'Condition report not found' })
+    }
+    if (report.status === 'approved') {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({ error: 'This condition report was already approved.' })
+    }
+    const item = report.items.find((i) => i.id === itemId)
+    if (!item) {
+      if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
+      return res.status(400).json({ error: 'Checklist item not found.' })
+    }
+
+    const fileEntry = saveUploadedFile({
+      client,
+      file: req.file,
+      uploadedBy: 'client',
+      uploadedByName: req.user.name,
+      initialNote: `Condition report (${conditionReportKindLabel(report.kind)}): ${item.area} — ${item.label}`,
+    })
+
+    let updatedReport = null
+    updateStore((s) => ({
+      ...s,
+      conditionReports: (s.conditionReports ?? []).map((r) => {
+        if (r.id !== report.id) return r
+        updatedReport = {
+          ...r,
+          updatedAt: new Date().toISOString(),
+          items: r.items.map((i) =>
+            i.id === itemId
+              ? {
+                  ...i,
+                  photoFileIds: [...(i.photoFileIds ?? []), fileEntry.id],
+                }
+              : i
+          ),
+        }
+        return updatedReport
+      }),
+    }))
+
+    res.status(201).json({ ok: true, report: updatedReport, fileId: fileEntry.id })
+  } catch (err) {
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path)
+    }
+    console.error('portal condition report photo', err)
+    res.status(500).json({ error: err.message || 'Could not upload photo' })
+  }
+})
+
 /** Toggle a project checklist item for the linked client */
 router.patch('/checklist', (req, res) => {
   const clientId = req.user.clientId
@@ -371,8 +622,10 @@ function buildUnlinkedApplicationPayload(user) {
           preferredBedroomId: user.preferredBedroomId ?? null,
           preferredBedId: user.preferredBedId ?? null,
           roommateInvitePhones: user.roommateInvitePhones ?? [],
+          roommateInviteDelivery: user.roommateInviteDelivery ?? null,
           applicantPartyType: user.applicantPartyType ?? null,
           coupleCompanion: user.coupleCompanion ?? null,
+          renterCategory: user.renterCategory ?? null,
         }
       : null,
     client: null,
@@ -523,12 +776,21 @@ function resolvePortalApplicationSelection(store, {
   ) {
     return { error: 'Select a property from the company’s list', status: 400 }
   }
+
+  const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
+  if (capacity.offMarket) {
+    return {
+      error:
+        'That rental is off market and is not accepting new applications. Choose another available property or ask your landlord for a different address.',
+      status: 409,
+    }
+  }
+
   if (matchedAgency) {
     landlordCompany = matchedAgency.name
   }
 
   if (invite || discoveryMode === 'invite_only') {
-    const capacity = availableApplicantSlotsAtAddress(store, propertyAddress)
     if (!capacity.available) {
       return {
         error:
@@ -619,6 +881,31 @@ router.get('/dashboard', (req, res) => {
       ? buildPortalRentPayment(client, primaryContract, undefined, activeStore)
       : null
   const address = client ? resolveTenantAddress(client, primaryContract) : ''
+  const household =
+    client && primaryContract
+      ? buildPortalHousehold(activeStore, client, primaryContract)
+      : client
+        ? buildPortalHousehold(activeStore, client, null)
+        : null
+
+  const photoPrefs = getTenantPhotoPreferences(activeStore.settings)
+  const clientFiles = clientId ? listClientFiles(clientId) : []
+  const tenantPhotoUploaded = clientFiles.some((f) => isImageMimeType(f.mimeType))
+
+  const property = client?.propertyId
+    ? (activeStore.properties ?? []).find((p) => p.id === client.propertyId)
+    : null
+  const conditionRequired = isConditionReportRequired(activeStore.settings, property)
+  let conditionStore = activeStore
+  let conditionReports = []
+  if (client) {
+    const ensured = ensureConditionReportsForClient(activeStore, client, primaryContract)
+    if (ensured.store !== activeStore) {
+      updateStore(() => ensured.store)
+      conditionStore = ensured.store
+    }
+    conditionReports = ensured.reports
+  }
 
   res.json({
     linked: true,
@@ -646,15 +933,145 @@ router.get('/dashboard', (req, res) => {
     remainingBalance,
     leaseSchedule,
     rentPayment,
+    household,
     projectStarted: isProjectActive(client ?? {}),
     projectStartedAt: client?.projectStartedAt,
     supportContact: {
-      businessName: activeStore.settings.businessName,
-      ownerName: activeStore.settings.ownerName,
-      email: activeStore.settings.email,
-      phone: activeStore.settings.phone,
+      businessName: conditionStore.settings.businessName,
+      ownerName: conditionStore.settings.ownerName,
+      email: conditionStore.settings.email,
+      phone: conditionStore.settings.phone,
     },
+    requireTenantPhoto: photoPrefs.required,
+    tenantPhotoUploaded,
+    conditionReportRequired: conditionRequired,
+    conditionReports: summarizeConditionReports(conditionReports, conditionRequired),
   })
+})
+
+/**
+ * Linked tenant texts a registration invite to fill an empty bedroom.
+ * Body: { phone, startOption: 'next_month' | 'next_lease_cycle' }
+ */
+router.post('/roommate-invite', async (req, res) => {
+  try {
+    const clientId = req.user.clientId
+    if (!clientId) {
+      return res.status(400).json({
+        error: 'Connect to a lease before inviting a roommate.',
+      })
+    }
+
+    const store = readStore()
+    const client = store.clients.find((c) => c.id === clientId)
+    if (!client?.isOfficialClient) {
+      return res.status(403).json({
+        error: 'Only official tenants can invite roommates for an open bedroom.',
+      })
+    }
+
+    const contract =
+      store.contracts.find((c) => c.clientId === clientId && c.sentAt) ??
+      store.contracts.find((c) => c.clientId === clientId)
+    const household = buildPortalHousehold(store, client, contract)
+    if (!household?.canInvite) {
+      return res.status(400).json({
+        error: 'There is no open bedroom available to invite a roommate into right now.',
+      })
+    }
+
+    const startOptionRaw = String(req.body?.startOption ?? '').trim()
+    const startOption =
+      startOptionRaw === 'next_lease_cycle' ? 'next_lease_cycle' : 'next_month'
+    const option = household.startOptions.find((entry) => entry.id === startOption)
+    if (!option?.available || !option.startDate || !option.leaseLengthMonths) {
+      return res.status(400).json({
+        error:
+          startOption === 'next_lease_cycle'
+            ? 'The next lease cycle starts after your current lease ends — choose next month, or renew together when this lease ends.'
+            : 'Next month is not available before your lease ends. Try the next lease cycle, or wait until renewal.',
+      })
+    }
+
+    const phones = normalizeRoommatePhones([req.body?.phone])
+    if (phones.length === 0) {
+      return res.status(400).json({
+        error: 'Enter a valid 10-digit phone number for your potential roommate.',
+      })
+    }
+    const phone = phones[0]
+
+    const landlordCompany =
+      store.settings?.businessName?.trim() ||
+      client.businessName?.trim() ||
+      'your landlord'
+
+    const created = createTenantInvite(store, {
+      landlordCompany,
+      propertyAddress: household.address,
+      leaseStartDate: option.startDate,
+      leaseLengthMonths: option.leaseLengthMonths,
+      leaseEndDate: option.leaseEndDate,
+      flexibleLeaseLength: true,
+      phone,
+      source: 'roommate',
+      invitedByClientId: client.id,
+      roommateStartOption: startOption,
+    })
+    if (created.error || !created.invite) {
+      return res.status(400).json({
+        error: created.error || 'Could not create the roommate invite link.',
+      })
+    }
+
+    const inviteUrl = buildRoommateInviteRegisterUrl(created.invite.token)
+    const body = buildRoommateInviteSmsBody({
+      inviterName: client.name,
+      propertyAddress: household.address,
+      inviteUrl,
+      connectionCode: created.invite.connectionCode,
+    })
+    const smsResult = await sendSms({ to: phone, body })
+    if (!smsResult.sent) {
+      return res.status(400).json({
+        error: smsResult.error || `Could not text the invite link to ${phone}.`,
+      })
+    }
+
+    updateStore((s) => {
+      let next = {
+        ...s,
+        tenantInvites: [...(s.tenantInvites ?? []), created.invite],
+      }
+      next = markTenantInviteDelivered(next, created.invite.id, {
+        method: 'sms',
+        destination: phone,
+      })
+      return pushAdminNotification(next, {
+        type: 'registration',
+        title: 'Roommate invite sent',
+        message: `${client.name} invited a potential roommate (${phone}) for ${household.address}.`,
+        clientId: client.id,
+      })
+    })
+
+    return res.json({
+      ok: true,
+      inviteUrl,
+      startOption,
+      startDate: option.startDate,
+      leaseEndDate: option.leaseEndDate,
+      phone,
+      connectionCode: created.invite.connectionCode,
+      smsDevMode: Boolean(smsResult.devMode),
+      message: smsResult.devMode
+        ? 'Invite recorded (SMS is in demo mode — check the server log for the text).'
+        : 'Invite link sent. Account registration opens at launch.',
+    })
+  } catch (err) {
+    console.error('portal roommate-invite', err)
+    return res.status(500).json({ error: 'Could not send roommate invite.' })
+  }
 })
 
 /**
@@ -767,13 +1184,18 @@ router.post('/application', async (req, res) => {
       }
     }
 
+    const renterCategory = normalizeRenterCategory(req.body?.renterCategory) ?? undefined
+
     const preferredLeaseStartDate = resolved.invite?.leaseStartDate
       ? String(resolved.invite.leaseStartDate).trim()
       : computeLeaseStartDate()
 
     const roommateInvites = []
+    const inviteDelivery =
+      req.body?.roommateInviteDelivery === 'group' ? 'group' : 'solo'
     if (isRoommateMode && roommateInvitePhones.length > 0) {
       let inviteStore = { ...store, tenantInvites: [...(store.tenantInvites ?? [])] }
+      const groupSize = roommateInvitePhones.length + 1
       for (const phone of roommateInvitePhones) {
         const created = createTenantInvite(inviteStore, {
           landlordCompany: resolved.landlordCompany,
@@ -788,11 +1210,14 @@ router.post('/application', async (req, res) => {
             error: created.error || `Could not create an invite for ${phone}`,
           })
         }
-        const inviteUrl = buildTenantInviteUrl(created.invite.token)
-        const body = buildInviteSmsBody({
-          landlordCompany: resolved.landlordCompany,
+        const inviteUrl = buildRoommateInviteRegisterUrl(created.invite.token)
+        const body = buildRoommateInviteSmsBody({
+          inviterName: user.name || user.email,
+          propertyAddress: resolved.propertyAddress,
           inviteUrl,
           connectionCode: created.invite.connectionCode,
+          delivery: inviteDelivery,
+          groupSize,
         })
         const smsResult = await sendSms({ to: phone, body })
         if (!smsResult.sent) {
@@ -826,8 +1251,11 @@ router.post('/application', async (req, res) => {
           preferredBedroomId,
           preferredBedId,
           roommateInvitePhones,
+          roommateInviteDelivery:
+            isRoommateMode && roommateInvitePhones.length > 0 ? inviteDelivery : undefined,
           applicantPartyType,
           coupleCompanion: applicantPartyType === 'couple' ? coupleCompanion : undefined,
+          ...(renterCategory ? { renterCategory } : {}),
           registrationDismissed: false,
           preferredLeaseStartDate,
           applicationSubmittedAt: new Date().toISOString(),
@@ -964,6 +1392,9 @@ router.post('/claim-invite', (req, res) => {
           ...(preferredPaymentMethod &&
           ['paypal', 'stripe', 'square', 'zelle'].includes(String(preferredPaymentMethod))
             ? { preferredPaymentMethod: String(preferredPaymentMethod) }
+            : {}),
+          ...(renterCategoryFromRental(invite.rentalCategory)
+            ? { renterCategory: renterCategoryFromRental(invite.rentalCategory) }
             : {}),
         }
         return updatedUser

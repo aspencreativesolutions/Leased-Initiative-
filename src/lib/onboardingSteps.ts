@@ -13,7 +13,7 @@ export const ADMIN_TOUR_SECTIONS: { id: AdminTourSectionId; label: string }[] = 
   { id: 'contracts', label: 'Lease Agreements' },
   { id: 'payments', label: 'Payments' },
   { id: 'alerts', label: 'Tenant Alerts' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'settings', label: 'Help and Settings' },
 ]
 
 export interface OnboardingStep {
@@ -28,6 +28,16 @@ export interface OnboardingStep {
   section?: AdminTourSectionId
   /** Centered wrap-up card — no spotlight; ends the tour when continued */
   completion?: boolean
+  /**
+   * How to bring the target into view before revealing the tip.
+   * `top` scrolls the window to y=0 (and aligns the target to the top).
+   */
+  scrollAlign?: 'nearest' | 'start' | 'top'
+  /**
+   * Temporarily shrink the spotlight target so the tip can sit beside it.
+   * Cleared when leaving the step or ending the tour.
+   */
+  zoomOut?: boolean
   when?: (ctx: OnboardingContext) => boolean
 }
 
@@ -49,7 +59,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-nav"]',
     title: 'Your tenant portal',
     description:
-      'Your home for applications, leases, rent, documents, and maintenance. Use Dashboard and Timeline in the top bar — or Menu on phones — to move around.',
+      'Your home for applications, leases, rent, documents, and maintenance. Use the left and right arrow keys (or the buttons below) to move through the tour. Use Dashboard and Timeline in the top bar — or Menu on phones — to move around.',
     placement: 'bottom',
     route: '/portal',
   },
@@ -58,7 +68,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-application"]',
     title: 'Start your application',
     description:
-      'Choose a landlord, pick an available address, select Solo or Couple, set entire-home or roommate preference, then Send — or enter an invite code your landlord texted you.',
+      'Choose a landlord, pick an available address, select Solo or Couple, choose Entire Home or Open to Roommates (and invite friends via Group Chat or Solo if you have numbers), then Send — or enter an invite code your landlord texted you.',
     placement: 'bottom',
     route: '/portal',
     when: (ctx) => ctx.linked !== true,
@@ -70,6 +80,16 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     description:
       'Once connected, see your greeting, rent due dates, and Pay Rent — including paying several months ahead when your lease allows.',
     placement: 'bottom',
+    route: '/portal',
+    when: (ctx) => ctx.linked === true,
+  },
+  {
+    id: 'property-details',
+    target: '[data-onboarding="portal-property-details"]',
+    title: 'Property details & roommates',
+    description:
+      'See everyone in the home and their payment statuses. If a bedroom is open, tap Extra Bedroom Available to text a registration invite — adding a roommate lowers your rent share. Their lease runs until yours ends; then you all renew together.',
+    placement: 'left',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
   },
@@ -108,7 +128,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-files"]',
     title: 'Share documents',
     description:
-      'Upload files and short notes for your landlord. Shared Files stays on your dashboard so lease paperwork stays in one place.',
+      'Upload files and short notes for your landlord. Shared Files stays on your dashboard so lease paperwork stays in one place. If your landlord requires a tenant photo, upload a clear JPG, PNG, or WEBP image here before move-in.',
     placement: 'top',
     route: '/portal',
     when: (ctx) => ctx.linked === true,
@@ -121,6 +141,16 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
       'Pick a problem, attach a required photo, optionally add a note, and send. Your landlord sees it under Tenant Alerts.',
     placement: 'bottom',
     route: '/portal/report',
+  },
+  {
+    id: 'condition-report',
+    target:
+      '[data-onboarding="portal-condition-report"], [data-onboarding="portal-condition-report-page"]',
+    title: 'Condition Report',
+    description:
+      'Complete your move-in and move-out inspection checklist — rate windows, blinds, utilities, and more, add notes or photos, and submit electronically. When required, finish within the landlord’s timeframe so they can review before finalizing.',
+    placement: 'bottom',
+    route: '/portal/inspection',
   },
   {
     id: 'timeline',
@@ -146,7 +176,7 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="portal-nav"]',
     title: 'You’re ready',
     description:
-      'Apply or join with an invite, sign your lease, pay deposit and rent, share files, request maintenance, and follow your timeline — all from here. Restart anytime from Menu → Take the tour.',
+      'Apply or join with an invite, sign your lease, pay deposit and rent, share files, complete condition reports, request maintenance, and follow your timeline — all from here. Restart anytime from Menu → Take the tour.',
     placement: 'bottom',
     route: '/portal',
     completion: true,
@@ -156,13 +186,13 @@ export const CLIENT_ONBOARDING_STEPS: OnboardingStep[] = [
 export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
-    target: '[data-onboarding="admin-dashboard"]',
-    title: 'Welcome to Leased Initiative',
+    target: '[data-onboarding="admin-key-return-preferences"]',
+    title: 'Important preferences',
     description:
-      'Tenants and Waiting is your home for managing tenants from sign-up through an active lease. Use the section bar at the top to jump ahead anytime.',
+      'You can skip this tour at any time, but these are important preferences for you: automatic key return notifications, required tenant photos, and move-in / move-out condition reports (required or optional, with due windows). You can continue to the manual demo, but these settings are always adjustable in preferences — and you can override required vs optional per rental.',
     placement: 'bottom',
-    route: '/studio',
-    section: 'dashboard',
+    route: '/studio/profile',
+    section: 'settings',
   },
   {
     id: 'registrations',
@@ -170,9 +200,10 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     title: 'Waiting to Connect',
     description:
       'People who claimed an invite or registered but aren’t connected yet. Review Solo/Couple tags, property, and lease start, then Accept & Draft Lease — or dismiss them.',
-    placement: 'bottom',
+    placement: 'top',
     route: '/studio',
     section: 'dashboard',
+    scrollAlign: 'start',
   },
   {
     id: 'pending-tenants',
@@ -188,18 +219,38 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'clients',
     target: '[data-onboarding="admin-official-tenants"]',
     title: 'Official Tenants',
-    description:
-      'Signed leases that are active or starting soon appear here — including tenants you Add to Official Tenants from lease import. A check or clock icon sits beside each name. Lease Status shows duration and dates; Payment Status shows Deposit Paid with the payment method logo (and other statuses in full — no hover needed). Click an Overdue tag to open that tenant on Payments overdue. After an import, rows flash; use Highlight last import anytime to spot them again. Click a name for Tenant Details (processor logos and a clickable Overdue status). Confirm payment to move Awaiting Deposit to Upcoming, then Active when the lease starts. When a lease ends, a Lease Complete tag appears with Remove Tenant — Archive (Past Tenants in Company Profile, labeled Archived) or Delete. In Display Settings, Filter by Lease Progress (Any, Not Started, Ongoing, Ending Soon) or Building Type (Apartment, Duplex, Condo, and more).',
-    placement: 'bottom',
+    description: [
+      'Active and upcoming tenants appear here, including tenants added from Lease Import.',
+      'A check or clock beside each name shows whether the lease is active or starting soon.',
+      'Each row clearly displays:\n• **Lease Status** (lease dates and duration)\n• **Payment Status** (full status, payment method logo, and deposit details)\n• **Overdue payments** (click Overdue to open that tenant in Payments)',
+      'Newly imported tenants briefly flash—select Highlight Last Import to find them again.',
+      'Click a tenant’s name to open Tenant Details, including payment processor information and any clickable overdue balance.',
+      'When a deposit is confirmed: Awaiting Deposit → Upcoming → Active.',
+      'When the lease ends, a red Lease Complete tag appears under the tenant name (and beside the Arrangement column when Show Arrangements is on). Hover it to Request Key Return — that notifies the tenant to return keys within your grace period to avoid the fine. You can then:\n• **Archive** (move them to Past Tenants in Company Profile & Preferences)\n• **Delete** (permanently remove them)',
+      'Use Display Settings to:\n• **Show Arrangements** — adds an **Arrangement** column immediately to the right of Tenant (and a labeled Arrangement block on tiles): **Sole Tenant** (subtitle **Entire Home**, pays full rent) or **Co-Tenant** (subtitle shows roommate count, e.g. **2 roommates**); * **Open to Roommates** appears when that preference applies; expand the bedroom count to see numbered rooms (1, 2, 3…) with occupants or Vacant, a green/red rent status dot (paid on the 1st or not), and click a name to open Tenant Details\n• **Filter** by **Lease Progress** (4 options: Not Started, Ongoing, Ending Soon, Finished), **Tenant Type** (2 options: Sole Tenant, Co-Tenant), and **Building Type** (4 options: Apartment, Single-Family Home, Townhouse, Duplex) — counts appear inline beside each label; each filter has **Reset Filters**\n• In **Tile View**, a boxed **Tenant tile size** slider sits to the right of Show Arrangements\nOn phones, jump to Waiting to Connect or Pending Clients from buttons beside the Official Tenants title.',
+    ].join('\n\n'),
+    placement: 'left',
     route: '/studio',
     section: 'dashboard',
+    scrollAlign: 'top',
+    zoomOut: true,
   },
   {
     id: 'properties',
     target: '[data-onboarding="admin-properties"]',
     title: 'Rentals',
     description:
-      'Your rental portfolio. Add addresses with furnished status, pricing, beds, deposit, and utilities — occupancy is calculated from beds (solo on a queen shows 1 of 1). Each tile shows Furnished or Unfurnished under the rental type; Queen and other bed-size names appear only on furnished rentals. Expand a tile to see who’s there or open Tenant Details. On mobile, use scrollable tiles; on larger screens, switch Tile or Spreadsheet View in Display Settings. Filter by State, Town, and Group.',
+      'Your rental portfolio. Add addresses with Student Housing or Standard Rental, furnished status, pricing, beds, deposit, utilities, and whether the move-in / move-out condition report is required or optional for that rental (or use your account default from Preferences). Occupancy is calculated from beds (solo on a queen shows 1 of 1). Each tile shows a Student Housing / Standard Rental tag in the top-right and Furnished or Unfurnished under the rental type; Queen and other bed-size names appear only on furnished rentals. Expand a tile to see who’s there or open Tenant Details. Take Off Market (left of Open) grays out a unit with an optional reason; it stays in the list and under View Off-Market Rentals beside Map, but tenants cannot apply. On mobile, use scrollable tiles; on larger screens, switch Tile or Spreadsheet View in Display Settings (boxed Rental tile size slider in Tile View). Use Map beside Add Rental to see all properties nationwide and Define Group by clicking pins or setting a radius. In Spreadsheet View, Sort By: Distance From in the Address column — category tags sit under rental type. Filter by State and Town (counts above each control, default Any) and Group — each with Reset Filters.',
+    placement: 'bottom',
+    route: '/studio/properties',
+    section: 'rentals',
+  },
+  {
+    id: 'rentals-map',
+    target: '[data-onboarding="rentals-map"]',
+    title: 'Portfolio map',
+    description:
+      'Open Map to see every rental across the U.S., then Define Group by clicking individual properties or drawing a radius around a point. Saved groups appear in Display Settings → Group. Next to Map, View Off-Market Rentals filters to grayed-out units taken off market.',
     placement: 'bottom',
     route: '/studio/properties',
     section: 'rentals',
@@ -219,7 +270,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-contracts"]',
     title: 'Lease Agreements',
     description:
-      'Draft, send, and track every lease. Tiles show Sent or Signed status and progress through the term. After you confirm a new template in Settings, restyle all or selected agreements without clearing signatures. On mobile, use scrollable tiles; on larger screens, switch layouts and filters in Display Settings.',
+      'Draft, send, and track every lease. Tiles show Sent or Signed status and progress through the term. After you confirm a new template in Help and Settings → Lease Defaults, restyle all or selected agreements without clearing signatures. On mobile, use scrollable tiles; on larger screens, switch layouts and filters in Display Settings.',
     placement: 'bottom',
     route: '/studio/contracts',
     section: 'contracts',
@@ -229,7 +280,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-payments"]',
     title: 'Payments and overdue rent',
     description:
-      'Track rent for every tenant — unit rent, share, balance, and due dates. Switch Tile or Spreadsheet View in Display Settings, filter for Overdue Rent, Paid Early, or Payment Method (including Zelle). Confirm Zelle transfers when tenants mark them sent. Connect your Zelle handle in Company Profile. Replies to overdue messages stay on your phone.',
+      'Track rent for every tenant — unit rent, share, balance, and due dates. Switch Tile or Spreadsheet View in Display Settings (boxed Payment tile size slider in Tile View). Open Filter to cycle Payment Status (Any, Paid Rent, Overdue Rent, Paid Early, On Time) and Payment Method (Any, Stripe, PayPal, Square, Zelle) — each with Reset Filters. Confirm Zelle transfers when tenants mark them sent. Connect your Zelle handle in Company Profile & Preferences. Replies to overdue messages stay on your phone.',
     placement: 'bottom',
     route: '/studio/payments?status=overdue',
     section: 'payments',
@@ -239,7 +290,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-tenant-alerts"]',
     title: 'Tenant Alerts',
     description:
-      'Maintenance requests with photos appear here so you can assess the problem and dispatch help.',
+      'Maintenance requests with photos and submitted move-in / move-out condition reports appear here so you can assess repairs and approve (or request changes on) inspection checklists before finalizing.',
     placement: 'bottom',
     route: '/studio/alerts',
     section: 'alerts',
@@ -249,7 +300,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-tenant-actions]',
     title: 'Tenant shortcuts',
     description:
-      'Use Link to text a one-time invite, or Add to create a tenant yourself. New Registers appears in the top bar only when someone is waiting.',
+      'Beside the Official Tenants title: use Link to text a one-time invite, or Add Tenant Manually to create a tenant yourself. New Registers appears only when someone is waiting.',
     placement: 'bottom',
     route: '/studio',
     section: 'dashboard',
@@ -257,9 +308,19 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'company-details',
     target: '[data-onboarding="admin-company-details"]',
-    title: 'Company Profile',
+    title: 'Company Profile & Preferences',
     description:
-      'Review your company name and rental or renter counts — including Past Tenants (archived, labeled Archived). Tap a count to explore that group, and filter by lease duration when needed.',
+      'Review your company name and rental or renter counts — including Past Tenants (archived, labeled Archived). Set preferences for automatic key return notices, editable grace-period lease wording, required tenant photos, and move-in / move-out condition reports (required or optional with due windows). Tap a count to explore that group, and filter by lease duration when needed.',
+    placement: 'bottom',
+    route: '/studio/profile',
+    section: 'settings',
+  },
+  {
+    id: 'key-return-preferences',
+    target: '[data-onboarding="admin-key-return-preferences"]',
+    title: 'Key return, photos & condition reports',
+    description:
+      'Turn automatic key return notifications on or off (on by default). Edit the grace period wording and save it as the lease clause. Require Tenant Photo (on by default) adds a matching lease clause. Require Condition Report (on by default) sets move-in and move-out inspection deadlines and lease wording — tenants submit checklists electronically for your review under Tenant Alerts. Override required vs optional per rental when editing a property. All stay editable here anytime.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',
@@ -269,19 +330,19 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-lease-upload"]',
     title: 'Import existing leases',
     description:
-      'Queue lease PDFs, images, or spreadsheets, then Scan Files. Select one or more proposed tenants and Add to Official Tenants to jump to the dashboard with them highlighted — or Confirm to Pending and send invite links by email or text.',
+      'Queue lease PDFs, images, or spreadsheets, then Scan Files. Imported and uploaded leases create editable drafts that include your key return wording, tenant photo clause, and condition report clause from Preferences. Select one or more proposed tenants and Add to Official Tenants to jump to the dashboard with them highlighted — or Confirm to Pending and send invite links by email or text.',
     placement: 'bottom',
     route: '/studio/profile',
     section: 'settings',
   },
   {
     id: 'settings-hub',
-    target: '[data-onboarding="admin-settings-tabs"]',
-    title: 'Settings',
+    target: '[data-onboarding="admin-settings-business"]',
+    title: 'Help and Settings',
     description:
-      'Open Settings from Menu anytime. Switch between Business Information, Client Automation, Lease Defaults, and App Style with these tabs.',
+      'Open Menu → Help and Settings anytime for Business Information, Client Automation, Lease Defaults, and App Style — each opens its own page from the menu.',
     placement: 'bottom',
-    route: '/studio/settings',
+    route: '/studio/settings?tab=business',
     section: 'settings',
   },
   {
@@ -329,7 +390,7 @@ export const ADMIN_ONBOARDING_STEPS: OnboardingStep[] = [
     target: '[data-onboarding="admin-settings-style"]',
     title: 'App Style',
     description:
-      'Pick a visual finish for the landlord studio — previews apply instantly.',
+      'Pick a visual finish for the landlord studio — previews apply instantly. Change it anytime from Menu → Help and Settings → App Style.',
     placement: 'bottom',
     route: '/studio/settings?tab=style',
     section: 'settings',

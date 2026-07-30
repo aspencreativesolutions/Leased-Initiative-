@@ -32,6 +32,9 @@ export function normalizeProperty(p: Property): Property {
         : 'person'
   const deposit = Number(p.depositAmount)
   const utilitiesIncluded = p.utilitiesIncluded === true
+  const offMarket = p.offMarket === true
+  const offMarketReason = String(p.offMarketReason ?? '').trim()
+  const offMarketAt = String(p.offMarketAt ?? '').trim()
   const base: Property = {
     ...p,
     address: migrateSampleAddress(p.address) ?? p.address,
@@ -47,9 +50,17 @@ export function normalizeProperty(p: Property): Property {
     ...(Number.isFinite(deposit) && deposit > 0
       ? { depositAmount: Math.round(deposit) }
       : {}),
+    ...(offMarket ? { offMarket: true } : {}),
+    ...(offMarket && offMarketReason ? { offMarketReason } : {}),
+    ...(offMarket && offMarketAt ? { offMarketAt } : {}),
   }
   if (!(Number.isFinite(deposit) && deposit > 0)) {
     delete base.depositAmount
+  }
+  if (!offMarket) {
+    delete base.offMarket
+    delete base.offMarketReason
+    delete base.offMarketAt
   }
   return ensurePropertyMonthlyRent(ensurePropertyBedLayout(base))
 }
@@ -124,10 +135,29 @@ export function loadSettings(): BusinessSettings {
   }
   const parsed = { ...defaultSettings, ...JSON.parse(raw) } as BusinessSettings
   const migratedAddress = migrateSampleAddress(parsed.address)
+  const withNested = {
+    ...parsed,
+    keyReturn: {
+      ...defaultSettings.keyReturn!,
+      ...(parsed.keyReturn ?? {}),
+    },
+    tenantPhoto: {
+      ...defaultSettings.tenantPhoto!,
+      ...(parsed.tenantPhoto ?? {}),
+    },
+    conditionReport: {
+      ...defaultSettings.conditionReport!,
+      ...(parsed.conditionReport ?? {}),
+    },
+    automation: {
+      ...defaultSettings.automation!,
+      ...(parsed.automation ?? {}),
+    },
+  }
   const settings =
-    migratedAddress && migratedAddress !== parsed.address
-      ? { ...parsed, address: migratedAddress }
-      : parsed
+    migratedAddress && migratedAddress !== withNested.address
+      ? { ...withNested, address: migratedAddress }
+      : withNested
   if (settings.address !== parsed.address) saveSettings(settings)
   return settings
 }

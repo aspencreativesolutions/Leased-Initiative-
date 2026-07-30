@@ -25,13 +25,13 @@ interface LeaseStatusBadgeProps {
   confirmingPayment?: boolean
   /**
    * Constrain width to the parent column (mobile Official Tenants tiles)
-   * so long lease ranges wrap instead of overflowing.
+   * so long lease ranges stay on one line inside the tile.
    */
   constrainToParent?: boolean
 }
 
 /**
- * Official Tenants Lease Status: duration + dates always visible (no hover).
+ * Official Tenants Lease Status: duration + dates always visible on one line.
  * Confirm Payment remains available when awaiting deposit.
  */
 export function LeaseStatusBadge({
@@ -93,12 +93,12 @@ export function LeaseStatusBadge({
 
   const durationLine = hoverDetail?.lines?.[0] ?? hoverDetail?.summaryLine
   const datesLine = hoverDetail?.lines?.[1]
+  const oneLineSummary =
+    datesLine && durationLine
+      ? `${durationLine} · ${datesLine}`
+      : durationLine || details.status
   const summary =
-    confirmingPayment && canConfirm
-      ? 'Confirming…'
-      : datesLine && durationLine
-        ? `${durationLine} · ${datesLine}`
-        : durationLine || details.status
+    confirmingPayment && canConfirm ? 'Confirming…' : oneLineSummary
 
   const tagShell = cn(
     'inline-flex max-w-full flex-col items-start justify-center gap-0.5',
@@ -118,14 +118,9 @@ export function LeaseStatusBadge({
 
   const content = (
     <>
-      {datesLine && !(confirmingPayment && canConfirm) ? (
-        <>
-          <span className="block w-full">{durationLine}</span>
-          <span className="block w-full font-medium">{datesLine}</span>
-        </>
-      ) : (
-        <span className="block w-full">{summary}</span>
-      )}
+      <span className="block w-full truncate whitespace-nowrap" title={summary}>
+        {summary}
+      </span>
       {canConfirm && !confirmingPayment ? (
         <span className="block w-full text-[9px] font-bold uppercase tracking-wide opacity-90">
           Confirm Payment

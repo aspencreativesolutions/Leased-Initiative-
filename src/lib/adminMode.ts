@@ -261,10 +261,10 @@ const landlordScenarios: AdminScenario[] = [
   },
   {
     id: 'landlord-settings',
-    label: 'Settings',
-    description: 'Business profile and preferences',
+    label: 'Help and Settings',
+    description: 'Business info, automation, lease defaults, and app style',
     email: 'landlord@leased.test',
-    path: '/studio/settings',
+    path: '/studio/settings?tab=business',
   },
 ]
 
@@ -273,7 +273,7 @@ const pendingScenarios: AdminScenario[] = [
     id: 'pending-fresh-apply',
     label: 'Start application',
     description:
-      'Portal: Start Application or invite code → Send → Switch to Landlord POV (direct)',
+      'Portal: Start Application or invite code → Send → Application Submitted tip → Switch to Landlord (direct)',
     email: 'ava.mitchell@example.com',
     path: '/portal',
     reseed: true,

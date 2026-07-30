@@ -7,6 +7,8 @@ interface PageHeaderProps {
   subtitle?: ReactNode
   /** When set, shows a ? icon next to the title instead of a persistent subtitle. */
   help?: string
+  /** Content beside the title on the same row (e.g. mobile section jump chips). */
+  titleAside?: ReactNode
   tag?: ReactNode
   action?: ReactNode
   /**
@@ -26,6 +28,7 @@ export function PageHeader({
   title,
   subtitle,
   help,
+  titleAside,
   tag,
   action,
   below,
@@ -51,12 +54,12 @@ export function PageHeader({
     >
       <div
         className={cn(
-          'flex flex-col sm:flex-row sm:items-start sm:justify-between',
+          'flex flex-row items-start justify-between',
           compact ? 'gap-2 sm:gap-3' : 'gap-3'
         )}
       >
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <h1
               className={cn(
                 'heading-display min-w-0',
@@ -70,6 +73,7 @@ export function PageHeader({
               {title}
             </h1>
             {help ? <SectionHelpIcon label={help} /> : null}
+            {titleAside}
           </div>
           {showSubtitle && (
             <div
@@ -87,7 +91,7 @@ export function PageHeader({
         {(tag || action) && (
           <div
             className={cn(
-              'flex w-full shrink-0 flex-wrap items-center sm:w-auto sm:justify-end',
+              'flex shrink-0 flex-wrap items-center justify-end',
               compact ? 'gap-1.5 sm:gap-2' : 'gap-2'
             )}
           >

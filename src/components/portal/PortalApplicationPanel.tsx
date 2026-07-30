@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Bell, Eye, KeyRound, Plus, Send, FileText, Trash2, Users, Home, User } from 'lucide-react'
+import { ArrowLeft, Bell, Eye, KeyRound, Plus, Send, FileText, Trash2, Users, Home, User, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input, Select } from '@/components/ui/FormField'
 import { SearchableSelect } from '@/components/ui/SearchableSelect'
@@ -25,6 +25,7 @@ import {
   applicantPartyLabel,
   isCoupleCompanionComplete,
 } from '@/lib/applicantParty'
+import { renterCategoryLabel } from '@/lib/rentalCategory'
 import {
   DEFAULT_LEASE_LENGTH_MONTHS,
   earliestFutureLeaseStartDate,
@@ -43,7 +44,7 @@ import {
   utilitiesIncludedLabel,
 } from '@/lib/propertyListingDisplay'
 import { cn } from '@/lib/utils'
-import type { ApplicantPartyType, PaymentProvider, PortalDashboard } from '@/types'
+import type { ApplicantPartyType, PaymentProvider, PortalDashboard, RenterCategory } from '@/types'
 import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
 
 type AgencyOption = {
@@ -80,10 +81,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     DEFAULT_LEASE_LENGTH_MONTHS
   )
   const [occupancyMode, setOccupancyMode] = useState<CanonicalOccupancyMode>('entire_home')
+  const [hasRoommatesInMind, setHasRoommatesInMind] = useState<boolean | null>(null)
   const [roommatePhones, setRoommatePhones] = useState<string[]>([''])
   const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
   const [furnishedPanelOpen, setFurnishedPanelOpen] = useState(false)
   const [applicantPartyType, setApplicantPartyType] = useState<ApplicantPartyType | ''>('')
+  const [renterCategory, setRenterCategory] = useState<RenterCategory | ''>('')
   const [companionName, setCompanionName] = useState('')
   const [companionEmail, setCompanionEmail] = useState('')
   const [companionPhone, setCompanionPhone] = useState('')
@@ -176,10 +179,21 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     if (!selectedOccupancy) return
     if (entireHomeOnly && occupancyMode !== 'entire_home') {
       setOccupancyMode('entire_home')
+      setHasRoommatesInMind(null)
       setSelectedPlacementId(null)
       setRoommatePhones([''])
     }
   }, [selectedOccupancy, entireHomeOnly, occupancyMode])
+
+  useEffect(() => {
+    if (!isRoommateStyle) {
+      setHasRoommatesInMind(null)
+      return
+    }
+    if (hasRoommatesInMind !== true) {
+      setRoommatePhones([''])
+    }
+  }, [isRoommateStyle, hasRoommatesInMind])
 
   useEffect(() => {
     setSelectedPlacementId(null)
@@ -200,7 +214,11 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     })
   }, [propertyOptions, selectedAgency])
 
-  const roommateSlotCount = isRoommateStyle ? Math.max(0, roommatePhones.length) : 0
+  const filledRoommatePhones =
+    isRoommateStyle && hasRoommatesInMind === true
+      ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
+      : []
+  const roommateSlotCount = filledRoommatePhones.length
   const householdSize = isRoommateStyle ? 1 + roommateSlotCount : 1
   const totalRent = selectedOccupancy?.monthlyRent ?? null
   const placementRent = selectedPlacement?.monthlyRent ?? null
@@ -218,14 +236,14 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     : 0
 
   useEffect(() => {
-    if (!isRoommateStyle) return
+    if (!isRoommateStyle || hasRoommatesInMind !== true) return
     setRoommatePhones((prev) => {
       if (maxRoommateInvites <= 0) return []
       if (prev.length === 0) return ['']
       if (prev.length > maxRoommateInvites) return prev.slice(0, maxRoommateInvites)
       return prev
     })
-  }, [isRoommateStyle, maxRoommateInvites])
+  }, [isRoommateStyle, hasRoommatesInMind, maxRoommateInvites])
 
   const invitePropertyOptions = useMemo(() => {
     const fromAgency = invite?.agency?.properties ?? []
@@ -251,10 +269,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setPropertyAddress('')
     setPreferredLeaseMonths(DEFAULT_LEASE_LENGTH_MONTHS)
     setOccupancyMode('entire_home')
+    setHasRoommatesInMind(null)
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
     setApplicantPartyType('')
+    setRenterCategory('')
     setCompanionName('')
     setCompanionEmail('')
     setCompanionPhone('')
@@ -275,10 +295,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     setLandlordCompany(name)
     setPropertyAddress('')
     setOccupancyMode('entire_home')
+    setHasRoommatesInMind(null)
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
     setApplicantPartyType('')
+    setRenterCategory('')
     setCompanionName('')
     setCompanionEmail('')
     setCompanionPhone('')
@@ -287,10 +309,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
   const handlePropertyChange = (address: string) => {
     setPropertyAddress(address)
     setOccupancyMode('entire_home')
+    setHasRoommatesInMind(null)
     setRoommatePhones([''])
     setSelectedPlacementId(null)
     setFurnishedPanelOpen(false)
     setApplicantPartyType('')
+    setRenterCategory('')
     setCompanionName('')
     setCompanionEmail('')
     setCompanionPhone('')
@@ -352,7 +376,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
     )
   }
 
-  const handleSendApplication = async (e: React.FormEvent) => {
+  const handleSendApplication = async (
+    e: React.SyntheticEvent,
+    inviteDelivery: 'group' | 'solo' | null = null
+  ) => {
     e.preventDefault()
     setError('')
     if (!landlordCompany.trim() || !propertyAddress.trim()) {
@@ -377,13 +404,22 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         return
       }
     }
-    const phones = isRoommateStyle
-      ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
-      : []
+    if (isRoommateStyle && hasRoommatesInMind == null) {
+      setError('Choose whether you have roommates in mind.')
+      return
+    }
+    const phones =
+      isRoommateStyle && hasRoommatesInMind === true
+        ? roommatePhones.map((phone) => phone.trim()).filter(Boolean)
+        : []
+    if (isRoommateStyle && hasRoommatesInMind === true && phones.length === 0) {
+      setError('Enter at least one roommate phone number, or choose No if you don’t have anyone in mind yet.')
+      return
+    }
     if (isRoommateStyle && phones.length > maxRoommateInvites) {
       setError(
         maxRoommateInvites === 0
-          ? 'This rental only has one open spot — choose Renting the entire home instead.'
+          ? 'This rental only has one open spot — choose Entire Home instead.'
           : `You can invite at most ${maxRoommateInvites} roommate${maxRoommateInvites === 1 ? '' : 's'}.`
       )
       return
@@ -405,6 +441,10 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         return
       }
     }
+    if (phones.length > 0 && inviteDelivery == null) {
+      setError('Choose Send to Group Chat or Send Solo to deliver roommate invites.')
+      return
+    }
     setSubmitting(true)
     try {
       const next = await submitPortalApplication({
@@ -415,6 +455,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
         preferredBedroomId: selectedPlacement?.bedroomId,
         preferredBedId: selectedPlacement?.bedId,
         roommateInvitePhones: phones,
+        roommateInviteDelivery: phones.length > 0 ? inviteDelivery ?? 'solo' : undefined,
         applicantPartyType,
         coupleCompanion:
           applicantPartyType === 'couple'
@@ -424,6 +465,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 phone: companionPhone.trim() || undefined,
               }
             : undefined,
+        renterCategory: renterCategory || undefined,
       })
       finishSubmit(next)
     } catch (err) {
@@ -569,6 +611,17 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                   data.application.coupleCompanion?.name
                     ? ` · with ${data.application.coupleCompanion.name}`
                     : null}
+                </dd>
+              </div>
+            ) : null}
+            {data.application.renterCategory ? (
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-caps text-ink-muted">
+                  Renter category
+                </dt>
+                <dd className="mt-0.5 text-ink">
+                  {renterCategoryLabel(data.application.renterCategory) ??
+                    data.application.renterCategory}
                 </dd>
               </div>
             ) : null}
@@ -787,7 +840,12 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
           {error}
         </div>
       ) : null}
-      <form onSubmit={handleSendApplication} className="mt-6 space-y-4">
+      <form
+        onSubmit={(e) => {
+          void handleSendApplication(e)
+        }}
+        className="mt-6 space-y-4"
+      >
         <SearchableSelect
           label="Landlord company"
           name="preferredLandlordCompany"
@@ -832,6 +890,18 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               {formatLeaseLengthLabel(months)}
             </option>
           ))}
+        </Select>
+
+        <Select
+          label="Renter category"
+          name="renterCategory"
+          value={renterCategory}
+          onChange={(e) => setRenterCategory((e.target.value || '') as RenterCategory | '')}
+          hint="Optional — student or standard renter"
+        >
+          <option value="">Prefer not to say</option>
+          <option value="student">Student renter</option>
+          <option value="standard">Standard renter</option>
         </Select>
 
         {propertyAddress.trim() ? (
@@ -1024,6 +1094,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 aria-pressed={occupancyMode === 'entire_home'}
                 onClick={() => {
                   setOccupancyMode('entire_home')
+                  setHasRoommatesInMind(null)
                   setSelectedPlacementId(null)
                   setRoommatePhones([''])
                 }}
@@ -1035,13 +1106,11 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
               >
                 <Home className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
                 <span>
-                  <span className="block text-sm font-semibold text-ink">
-                    Renting the entire home
-                  </span>
+                  <span className="block text-sm font-semibold text-ink">Entire Home</span>
                   <span className="mt-0.5 block text-xs text-ink-muted">
                     {totalRent != null
-                      ? `You’ll cover ${formatUsd(totalRent)}/month for the whole home.`
-                      : 'You’ll cover the full rent for this rental.'}
+                      ? `Sole tenant — you’ll pay the full ${formatUsd(totalRent)}/month.`
+                      : 'Sole tenant — you’ll pay the full rent for this rental.'}
                   </span>
                 </span>
               </button>
@@ -1052,6 +1121,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                   disabled={(selectedOccupancy?.availableSpots ?? 0) < 1}
                   onClick={() => {
                     setOccupancyMode('open_to_roommates')
+                    setHasRoommatesInMind(null)
                     if (selectedOccupancy?.furnished && placementInventory) {
                       setFurnishedPanelOpen(true)
                     }
@@ -1064,7 +1134,7 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                 >
                   <Users className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
                   <span>
-                    <span className="block text-sm font-semibold text-ink">Open to roommates</span>
+                    <span className="block text-sm font-semibold text-ink">Open to Roommates</span>
                     <span className="mt-0.5 block text-xs text-ink-muted">
                       {(selectedOccupancy?.availableSpots ?? 0) < 1
                         ? 'No open spots right now.'
@@ -1135,76 +1205,153 @@ export function PortalApplicationPanel({ data, onUpdated }: PortalApplicationPan
                     ) : null}
                   </div>
                 ) : null}
-                {!selectedOccupancy?.furnished ? (
-                  <p className="text-sm text-ink">
-                    <span className="font-semibold">{selectedOccupancy?.availableSpots ?? 0}</span>{' '}
-                    {(selectedOccupancy?.availableSpots ?? 0) === 1 ? 'spot' : 'spots'} available
-                    (including you). Text invite links to friends for the remaining openings.
+
+                <div
+                  role="group"
+                  aria-label="Do you have roommates in mind?"
+                  className="space-y-2"
+                >
+                  <p className="text-sm font-semibold text-ink">
+                    Do you have roommates in mind?
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      aria-pressed={hasRoommatesInMind === true}
+                      onClick={() => {
+                        setHasRoommatesInMind(true)
+                        setRoommatePhones((prev) => (prev.length === 0 ? [''] : prev))
+                      }}
+                      className={
+                        hasRoommatesInMind === true
+                          ? 'rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-2.5 text-left text-sm font-semibold text-ink'
+                          : 'rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-2.5 text-left text-sm font-semibold text-ink hover:border-brand/40'
+                      }
+                    >
+                      Yes — I’ll invite them
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={hasRoommatesInMind === false}
+                      onClick={() => {
+                        setHasRoommatesInMind(false)
+                        setRoommatePhones([''])
+                      }}
+                      className={
+                        hasRoommatesInMind === false
+                          ? 'rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand/5 px-3 py-2.5 text-left text-sm font-semibold text-ink'
+                          : 'rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface-paper px-3 py-2.5 text-left text-sm font-semibold text-ink hover:border-brand/40'
+                      }
+                    >
+                      Not yet
+                    </button>
+                  </div>
+                </div>
+
+                {hasRoommatesInMind === true ? (
+                  maxRoommateInvites === 0 ? (
+                    <p className="text-sm text-accent">
+                      Only one open spot — you can’t invite additional roommates for this rental.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {!selectedOccupancy?.furnished ? (
+                        <p className="text-sm text-ink">
+                          Enter phone numbers to text invite links. Then send as a group or
+                          individually.
+                        </p>
+                      ) : null}
+                      {roommatePhones.map((phone, index) => (
+                        <div key={`roommate-${index}`} className="flex items-end gap-2">
+                          <div className="min-w-0 flex-1">
+                            <Input
+                              label={`Roommate ${index + 1} phone`}
+                              type="tel"
+                              value={phone}
+                              onChange={(e) => {
+                                const next = [...roommatePhones]
+                                next[index] = e.target.value
+                                setRoommatePhones(next)
+                              }}
+                              placeholder="e.g. 5551234567"
+                              autoComplete="tel"
+                            />
+                          </div>
+                          {roommatePhones.length > 1 ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="mb-[2px] shrink-0"
+                              aria-label={`Remove roommate ${index + 1}`}
+                              onClick={() =>
+                                setRoommatePhones((prev) => prev.filter((_, i) => i !== index))
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))}
+                      {roommatePhones.length < maxRoommateInvites ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRoommatePhones((prev) => [...prev, ''])}
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          Add another roommate
+                        </Button>
+                      ) : null}
+                    </div>
+                  )
+                ) : null}
+
+                {hasRoommatesInMind === false ? (
+                  <p className="text-sm text-ink-muted">
+                    You’ll stay marked Open to Roommates. You can invite friends later from Property
+                    details after your lease is active.
                   </p>
                 ) : null}
-                {maxRoommateInvites === 0 ? (
-                  <p className="text-sm text-accent">
-                    Only one open spot — you can’t invite additional roommates for this rental.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {roommatePhones.map((phone, index) => (
-                      <div key={`roommate-${index}`} className="flex items-end gap-2">
-                        <div className="min-w-0 flex-1">
-                          <Input
-                            label={`Roommate ${index + 1} phone`}
-                            type="tel"
-                            value={phone}
-                            onChange={(e) => {
-                              const next = [...roommatePhones]
-                              next[index] = e.target.value
-                              setRoommatePhones(next)
-                            }}
-                            placeholder="e.g. 5551234567"
-                            autoComplete="tel"
-                          />
-                        </div>
-                        {roommatePhones.length > 1 ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="mb-[2px] shrink-0"
-                            aria-label={`Remove roommate ${index + 1}`}
-                            onClick={() =>
-                              setRoommatePhones((prev) => prev.filter((_, i) => i !== index))
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden />
-                          </Button>
-                        ) : null}
-                      </div>
-                    ))}
-                    {roommatePhones.length < maxRoommateInvites ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRoommatePhones((prev) => [...prev, ''])}
-                      >
-                        <Plus className="h-3.5 w-3.5" aria-hidden />
-                        Add another roommate
-                      </Button>
-                    ) : null}
-                    <p className="text-[11px] text-ink-muted">
-                      Phone numbers are optional — leave blank if you’ll invite later. Each filled
-                      number gets a one-time invite link by text.
-                    </p>
-                  </div>
-                )}
               </div>
             ) : null}
           </div>
         ) : null}
 
-        <Button type="submit" className="w-full" disabled={submitting}>
-          <Send className="h-4 w-4" aria-hidden />
-          {submitting ? 'Sending…' : 'Send'}
-        </Button>
+        {isRoommateStyle &&
+        hasRoommatesInMind === true &&
+        filledRoommatePhones.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              className="w-full"
+              disabled={submitting}
+              onClick={(e) => {
+                void handleSendApplication(e, 'group')
+              }}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              {submitting ? 'Sending…' : 'Send to Group Chat'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={submitting}
+              onClick={(e) => {
+                void handleSendApplication(e, 'solo')
+              }}
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              {submitting ? 'Sending…' : 'Send Solo'}
+            </Button>
+          </div>
+        ) : (
+          <Button type="submit" className="w-full" disabled={submitting}>
+            <Send className="h-4 w-4" aria-hidden />
+            {submitting ? 'Sending…' : 'Send'}
+          </Button>
+        )}
       </form>
     </div>
   )

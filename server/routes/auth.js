@@ -32,6 +32,10 @@ import { preparePublicDemoStore } from '../lib/demoAccess.js'
 import { LEASED_DEMO_USERS, isLeasedDemoEmail } from '../lib/leasedDemoUsers.js'
 import { SAMPLE_CLIENT_EMAILS } from '../lib/sampleClientDates.js'
 import {
+  normalizeRenterCategory,
+  renterCategoryFromRental,
+} from '../lib/rentalCategory.js'
+import {
   buildAgencyForInvite,
   buildLandlordAgencies,
   findValidTenantInvite,
@@ -167,6 +171,7 @@ router.post('/claim-invite', async (req, res) => {
       preferredPropertyAddress,
       preferredLeaseStartDate,
       preferredPaymentMethod,
+      renterCategory: renterCategoryRaw,
       acceptedTermsOfService,
     } = req.body ?? {}
 
@@ -258,6 +263,10 @@ router.post('/claim-invite', async (req, res) => {
       invite.leaseLengthMonths,
       DEFAULT_LEASE_LENGTH_MONTHS
     )
+    const renterCategory =
+      normalizeRenterCategory(renterCategoryRaw) ??
+      renterCategoryFromRental(invite.rentalCategory) ??
+      undefined
     const passwordHash = await hashPassword(rawPassword)
     const user = {
       id: generateId(),
@@ -272,6 +281,7 @@ router.post('/claim-invite', async (req, res) => {
       preferredLandlordCompany: invite.landlordCompany,
       preferredPropertyAddress: propertyAddress,
       preferredPaymentMethod,
+      ...(renterCategory ? { renterCategory } : {}),
       inviteToken: invite.token,
       inviteClaimed: true,
       portalThemeId: DEFAULT_PORTAL_THEME_ID,
@@ -319,6 +329,7 @@ router.post('/register', async (req, res) => {
       preferredLeaseMonths,
       preferredLandlordCompany,
       preferredPropertyAddress,
+      renterCategory: renterCategoryRaw,
       inviteToken,
       connectionCode,
       acceptedTermsOfService,
@@ -469,6 +480,11 @@ router.post('/register', async (req, res) => {
             ),
             preferredLandlordCompany: landlordCompany,
             preferredPropertyAddress: propertyAddress,
+            ...(normalizeRenterCategory(renterCategoryRaw)
+              ? { renterCategory: normalizeRenterCategory(renterCategoryRaw) }
+              : renterCategoryFromRental(invite?.rentalCategory)
+                ? { renterCategory: renterCategoryFromRental(invite.rentalCategory) }
+                : {}),
             ...(invite ? { inviteToken: invite.token } : {}),
           }
         : {}),

@@ -33,6 +33,12 @@ interface PortalProjectFilesSectionProps {
   projectStarted?: boolean
   supportContact?: PortalSupportContact
   className?: string
+  /** Landlord preference — tenants must upload a photo (default on). */
+  requireTenantPhoto?: boolean
+  /** Whether an image is already on file for this tenant. */
+  tenantPhotoUploaded?: boolean
+  /** Called after uploads/deletes so the parent can refresh dashboard prefs. */
+  onFilesChanged?: () => void
 }
 
 async function collectFilesFromDrop(dataTransfer: DataTransfer): Promise<File[]> {
@@ -137,6 +143,9 @@ export function PortalProjectFilesSection({
   projectStarted = false,
   supportContact,
   className,
+  requireTenantPhoto = true,
+  tenantPhotoUploaded = false,
+  onFilesChanged,
 }: PortalProjectFilesSectionProps) {
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
@@ -187,6 +196,7 @@ export function PortalProjectFilesSection({
       }
       if (note) setUploadNote('')
       await load()
+      onFilesChanged?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Upload failed')
     } finally {
@@ -210,6 +220,7 @@ export function PortalProjectFilesSection({
       if (noteOpenFor === file.id) setNoteOpenFor(null)
       setDeleteConfirmId(null)
       await load()
+      onFilesChanged?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not remove file')
     } finally {
@@ -262,6 +273,16 @@ export function PortalProjectFilesSection({
         Upload {PORTAL_FILE_TYPES_LABEL} for {projectName}. Add notes to explain what you&apos;re
         sending — your landlord sees them linked to each file.
       </p>
+
+      {requireTenantPhoto && !tenantPhotoUploaded ? (
+        <div className="mb-3 rounded-[var(--radius-sm)] border border-brand/30 bg-brand/5 px-3 py-2.5 text-sm text-ink">
+          <p className="font-semibold text-brand">Photo required</p>
+          <p className="mt-1 text-ink-muted">
+            Your landlord requires a clear photo of you. Upload a JPG, PNG, or WEBP image below
+            before move-in.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 sm:items-stretch sm:gap-4">
         <label className="flex min-h-0 flex-col">

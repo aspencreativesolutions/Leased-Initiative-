@@ -161,3 +161,36 @@ describe('group criteria summaries', () => {
     ])
   })
 })
+
+describe('property id group matching', () => {
+  const region: ContractRegion = {
+    id: 'picked',
+    name: 'Hand-picked',
+    areaCodes: [],
+    states: [],
+    propertyIds: ['p1', 'p3'],
+  }
+
+  it('matches explicit property ids', () => {
+    expect(regionHasCriteria(region)).toBe(true)
+    expect(
+      contractMatchesLocationFilter(
+        { areaCode: null, state: null, propertyId: 'p1' },
+        { kind: 'region', value: 'picked' },
+        [region]
+      )
+    ).toBe(true)
+    expect(
+      contractMatchesLocationFilter(
+        { areaCode: null, state: null, propertyId: 'p2' },
+        { kind: 'region', value: 'picked' },
+        [region]
+      )
+    ).toBe(false)
+  })
+
+  it('includes selected rentals in summaries', () => {
+    expect(formatGroupCriteriaSummary(region)).toBe('2 selected rentals')
+    expect(formatGroupCriteriaLines(region)).toEqual(['2 selected rentals'])
+  })
+})

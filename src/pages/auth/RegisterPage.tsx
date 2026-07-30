@@ -19,6 +19,7 @@ import {
 import { formatPropertyListingDescription } from '@/lib/propertyListingDisplay'
 import { loadStoredPortalThemeId } from '@/themes/applyTheme'
 import type { SearchableSelectOption } from '@/components/ui/SearchableSelect'
+import type { RenterCategory } from '@/types'
 
 interface AgencyOption {
   name: string
@@ -59,6 +60,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
   const [inviteError, setInviteError] = useState('')
   const [codeBusy, setCodeBusy] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [renterCategory, setRenterCategory] = useState<RenterCategory | ''>('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -287,6 +289,7 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
         preferredLeaseMonths: mode === 'client' ? preferredLeaseMonths : undefined,
         preferredLandlordCompany: mode === 'client' ? landlordCompany.trim() : undefined,
         preferredPropertyAddress: mode === 'client' ? propertyAddress.trim() : undefined,
+        renterCategory: mode === 'client' && renterCategory ? renterCategory : undefined,
         inviteToken: mode === 'client' && inviteToken ? inviteToken : undefined,
         connectionCode:
           mode === 'client' && !inviteToken && resolvedConnectionCode
@@ -461,6 +464,19 @@ export function RegisterPage({ mode = 'client', loginPath }: RegisterPageProps) 
                       {formatLeaseLengthLabel(months)}
                     </option>
                   ))}
+                </Select>
+                <Select
+                  label="Renter category"
+                  name="renterCategory"
+                  value={renterCategory}
+                  onChange={(e) =>
+                    setRenterCategory((e.target.value || '') as RenterCategory | '')
+                  }
+                  hint="Optional — student or standard renter"
+                >
+                  <option value="">Prefer not to say</option>
+                  <option value="student">Student renter</option>
+                  <option value="standard">Standard renter</option>
                 </Select>
               </>
             )}

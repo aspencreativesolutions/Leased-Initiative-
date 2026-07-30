@@ -41,7 +41,12 @@ export async function submitPortalProblemReport(input: {
 }
 
 export async function fetchTenantProblemAlerts() {
-  return apiFetch<{ notifications: import('@/types').AdminNotification[]; count: number }>(
-    '/api/data/notifications?type=problem_report&includeRead=1'
+  const data = await apiFetch<{
+    notifications: import('@/types').AdminNotification[]
+    count: number
+  }>('/api/data/notifications?includeRead=1')
+  const alerts = (data.notifications ?? []).filter(
+    (n) => n.type === 'problem_report' || n.type === 'condition_report'
   )
+  return { notifications: alerts, count: alerts.length }
 }

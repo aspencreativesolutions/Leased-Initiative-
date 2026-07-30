@@ -82,6 +82,8 @@ export interface ContractLocationMeta {
   /** Optional coordinates for radius region matching */
   lat?: number | null
   lng?: number | null
+  /** Optional property id for explicit map-selected groups */
+  propertyId?: string | null
 }
 
 /** Extract a 3-digit US area code from a phone string */
@@ -190,11 +192,16 @@ export function isValidRegionRadius(
   )
 }
 
+export function regionPropertyIds(region: ContractRegion): string[] {
+  return (region.propertyIds ?? []).filter((id) => Boolean(id?.trim()))
+}
+
 export function regionHasCriteria(region: ContractRegion): boolean {
   return (
     region.areaCodes.length > 0 ||
     region.states.length > 0 ||
-    isValidRegionRadius(region.radius)
+    isValidRegionRadius(region.radius) ||
+    regionPropertyIds(region).length > 0
   )
 }
 
@@ -231,6 +238,7 @@ export function contractMatchesLocationFilter(
   const region = regions.find((r) => r.id === filter.value)
   if (!region) return true
 
+  const selectedIds = regionPropertyIds(region)
   const areaMatch =
     region.areaCodes.length > 0 &&
     Boolean(meta.areaCode && region.areaCodes.includes(meta.areaCode))
@@ -240,9 +248,12 @@ export function contractMatchesLocationFilter(
     meta.lat != null && meta.lng != null ? { lat: meta.lat, lng: meta.lng } : null,
     region.radius
   )
+  const propertyMatch =
+    selectedIds.length > 0 &&
+    Boolean(meta.propertyId && selectedIds.includes(meta.propertyId))
 
   if (!regionHasCriteria(region)) return false
-  return areaMatch || stateMatch || radiusMatch
+  return areaMatch || stateMatch || radiusMatch || propertyMatch
 }
 
 export function uniqueSorted(values: (string | null | undefined)[]): string[] {
@@ -300,10 +311,16 @@ export function formatRegionRadiusSummary(radius: ContractRegionRadius): string 
   return `${miles}-mile radius`
 }
 
+function formatSelectedPropertiesSummary(propertyIds: string[] | undefined): string | null {
+  const count = (propertyIds ?? []).filter((id) => Boolean(id?.trim())).length
+  if (count <= 0) return null
+  return count === 1 ? '1 selected rental' : `${count} selected rentals`
+}
+
 /** Bullet lines for the live “This group includes” panel. */
 export function formatGroupCriteriaLines(group: Pick<
   ContractRegion,
-  'areaCodes' | 'states' | 'radius'
+  'areaCodes' | 'states' | 'radius' | 'propertyIds'
 >): string[] {
   const lines: string[] = []
   for (const state of group.states) {
@@ -317,13 +334,15 @@ export function formatGroupCriteriaLines(group: Pick<
   if (isValidRegionRadius(group.radius) && group.radius) {
     lines.push(formatRegionRadiusSummary(group.radius))
   }
+  const selected = formatSelectedPropertiesSummary(group.propertyIds)
+  if (selected) lines.push(selected)
   return lines
 }
 
 /** Compact card summary, e.g. “Ohio + 439 Area Code + 15-mile radius”. */
 export function formatGroupCriteriaSummary(group: Pick<
   ContractRegion,
-  'areaCodes' | 'states' | 'radius'
+  'areaCodes' | 'states' | 'radius' | 'propertyIds'
 >): string {
   const parts: string[] = []
   for (const state of group.states) {
@@ -337,5 +356,7 @@ export function formatGroupCriteriaSummary(group: Pick<
   if (isValidRegionRadius(group.radius) && group.radius) {
     parts.push(formatRegionRadiusSummary(group.radius))
   }
+  const selected = formatSelectedPropertiesSummary(group.propertyIds)
+  if (selected) parts.push(selected)
   return parts.join(' + ')
 }

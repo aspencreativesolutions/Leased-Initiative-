@@ -65,6 +65,15 @@ export type PreferredOccupancyMode =
  */
 export type ApplicantPartyType = 'solo' | 'couple'
 
+/**
+ * Student Housing vs Standard Rental for portfolio properties.
+ * Distinct from `propertyType` (apartment, duplex, etc.).
+ */
+export type RentalCategory = 'student_housing' | 'standard_rental'
+
+/** Whether the tenant/applicant identifies as a student or standard renter. */
+export type RenterCategory = 'student' | 'standard'
+
 /** Non-official partner listed on a couple application (contact only). */
 export interface CoupleCompanion {
   name: string
@@ -213,10 +222,14 @@ export interface User {
   preferredBedId?: string
   /** Phones invited as potential roommates at application */
   roommateInvitePhones?: string[]
+  /** How roommate invites were sent: group cohort text vs individual (solo) */
+  roommateInviteDelivery?: 'group' | 'solo'
   /** Solo vs couple registration (Start Application) */
   applicantPartyType?: ApplicantPartyType
   /** Partner contact when applying as a couple (not an official tenant) */
   coupleCompanion?: CoupleCompanion
+  /** Student vs standard renter (optional at registration / invite) */
+  renterCategory?: RenterCategory
   phone?: string
   /** Claimed via streamlined invite link (no password signup) */
   inviteClaimed?: boolean
@@ -332,6 +345,8 @@ export interface Client {
   applicantPartyType?: ApplicantPartyType
   /** Non-official partner contact for couple registrations */
   coupleCompanion?: CoupleCompanion
+  /** Student vs standard renter (from application / invite / landlord) */
+  renterCategory?: RenterCategory
   /** Renewal / re-sign outreach state when applicable */
   leaseRenewalStatus?: LeaseRenewalStatus
   /** Created via Company Profile “Import existing leases” */
@@ -528,10 +543,14 @@ export interface PendingRegistration {
   roommateInvitePhones?: string[]
   /** Count of roommate invite phones with digits (friends invited) */
   roommateInviteCount?: number
+  /** How roommate invites were sent from Start Application */
+  roommateInviteDelivery?: 'group' | 'solo'
   /** Solo vs couple registration */
   applicantPartyType?: ApplicantPartyType
   /** Partner contact when applying as a couple */
   coupleCompanion?: CoupleCompanion
+  /** Student vs standard renter */
+  renterCategory?: RenterCategory
 }
 
 export interface PortalUserAccepted {
@@ -558,6 +577,7 @@ export interface PortalUserAccepted {
   preferredBedId?: string
   applicantPartyType?: ApplicantPartyType
   coupleCompanion?: CoupleCompanion
+  renterCategory?: RenterCategory
   occupancyArrangement?: OccupancyArrangement
   acceptedAt: string
   handlerName: string
@@ -580,6 +600,7 @@ export type AdminNotificationType =
   | 'invoice_sent'
   | 'payment_link_clicked'
   | 'problem_report'
+  | 'condition_report'
   | 'rent_payment'
 
 export interface AdminNotification {
@@ -599,6 +620,10 @@ export interface AdminNotification {
   problemType?: string
   /** Tenant's description of the issue (problem reports) */
   note?: string
+  /** Condition report id when type is condition_report */
+  conditionReportId?: string
+  /** Move-in vs move-out when type is condition_report */
+  conditionReportKind?: 'move_in' | 'move_out'
   /** Snapshot of tenant name at report time */
   tenantName?: string
   /** Snapshot of property address at report time */
@@ -727,6 +752,7 @@ export interface PortalDashboard {
     roommateInvitePhones?: string[]
     applicantPartyType?: ApplicantPartyType | null
     coupleCompanion?: CoupleCompanion | null
+    renterCategory?: RenterCategory | null
   } | null
   client: {
     id: string
@@ -752,10 +778,65 @@ export interface PortalDashboard {
   leaseSchedule?: PortalLeaseSchedule | null
   /** Centered Pay Rent CTA data */
   rentPayment?: PortalRentPaymentInfo | null
+  /** Housemates, vacant bedroom invite, and rent-share incentive */
+  household?: PortalHousehold | null
   projectStarted: boolean
   projectStartedAt?: string
   supportContact?: PortalSupportContact
+  /** Landlord preference: tenant must upload a photo (default on). */
+  requireTenantPhoto?: boolean
+  /** True when the tenant already has an image file in Shared Files. */
+  tenantPhotoUploaded?: boolean
+  /** Whether condition reports are required for this tenant’s rental. */
+  conditionReportRequired?: boolean
+  /** Pending / actionable condition reports for the linked tenant. */
+  conditionReports?: PortalConditionReportSummary[]
   message?: string
+}
+
+export interface PortalConditionReportSummary {
+  id: string
+  kind: ConditionReportKind
+  status: ConditionReportStatus
+  dueDate?: string
+  required: boolean
+  submittedAt?: string
+  reviewedAt?: string
+  landlordNotes?: string
+}
+
+export type PortalRoommatePaymentTone = 'positive' | 'neutral' | 'warning' | 'error'
+
+export interface PortalHouseholdRoommate {
+  id: string
+  name: string
+  isYou: boolean
+  paymentStatusLabel: string
+  paymentStatusTone: PortalRoommatePaymentTone
+}
+
+export interface PortalRoommateStartOption {
+  id: 'next_month' | 'next_lease_cycle'
+  label: string
+  startDate: string | null
+  leaseEndDate: string | null
+  available: boolean
+  leaseLengthMonths: number | null
+}
+
+export interface PortalHousehold {
+  address: string
+  totalRoommates: number
+  roommates: PortalHouseholdRoommate[]
+  vacantBedroomCount: number
+  hasExtraBedroom: boolean
+  unitMonthlyRent: number | null
+  currentShareAmount: number | null
+  reducedShareAmount: number | null
+  leaseStartDate: string | null
+  leaseEndDate: string | null
+  startOptions: PortalRoommateStartOption[]
+  canInvite: boolean
 }
 
 export interface ProfileReminder {
@@ -781,6 +862,8 @@ export type ClientNotificationType =
   | 'status_update'
   | 'deadline_reminder'
   | 'follow_up'
+  | 'key_return'
+  | 'condition_report'
 
 export interface ClientNotification {
   id: string
@@ -803,6 +886,86 @@ export interface AutomationSettings {
   followUpReminders: boolean
 }
 
+/** Landlord preferences for post-lease key return notices and lease clause text. */
+export interface KeyReturnPreferences {
+  /** When true (default), lease-complete tenants are notified automatically. */
+  autoNotify: boolean
+  /** Days after lease end to return keys before the fine applies. */
+  gracePeriodDays: number
+  /** Fine amount in USD if keys are not returned within the grace period. */
+  fineAmount: number
+  /**
+   * Editable lease clause wording. When empty, a default is built from grace days
+   * and fine (e.g. “Tenant must return keys within 7 days after lease end”).
+   */
+  clauseWording?: string
+}
+
+/** Landlord preference requiring tenants to upload a photo (default on). */
+export interface TenantPhotoPreferences {
+  /** When true (default), tenants must upload a photo and leases include the clause. */
+  required: boolean
+  /** Optional custom lease clause wording (defaults to a standard Tenant Photo clause). */
+  clauseWording?: string
+}
+
+/** Move-in / move-out condition report (inspection checklist) preferences. */
+export interface ConditionReportPreferences {
+  /**
+   * Account default: when true, tenants must submit checklists within the
+   * configured timeframes. When false, reports remain optional.
+   */
+  required: boolean
+  /** Days after lease start to complete the move-in report (default 7). */
+  moveInDays: number
+  /** Days before lease end to complete the move-out report (default 7). */
+  moveOutDays: number
+  /** Optional custom lease clause wording. */
+  clauseWording?: string
+}
+
+export type ConditionReportKind = 'move_in' | 'move_out'
+
+export type ConditionReportStatus =
+  | 'pending'
+  | 'submitted'
+  | 'approved'
+  | 'changes_requested'
+
+export type ConditionItemRating =
+  | 'good'
+  | 'fair'
+  | 'poor'
+  | 'damaged'
+  | 'not_applicable'
+
+export interface ConditionReportItem {
+  id: string
+  area: string
+  label: string
+  condition: ConditionItemRating | null
+  notes?: string
+  photoFileIds?: string[]
+}
+
+/** Tenant-submitted move-in or move-out property condition report. */
+export interface ConditionReport {
+  id: string
+  clientId: string
+  propertyId?: string
+  kind: ConditionReportKind
+  status: ConditionReportStatus
+  /** YYYY-MM-DD due date */
+  dueDate?: string
+  items: ConditionReportItem[]
+  submittedAt?: string
+  reviewedAt?: string
+  reviewedBy?: string
+  landlordNotes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 /** Map circle used to filter rentals / leases by distance from a center point. */
 export interface ContractRegionRadius {
   /** Center latitude (WGS84) */
@@ -817,7 +980,8 @@ export interface ContractRegionRadius {
 
 /**
  * Reusable rental group for filtering by any combination of area codes, states,
- * and/or map radius. Persisted on `BusinessSettings.contractRegions`.
+ * map radius, and/or explicitly selected property ids.
+ * Persisted on `BusinessSettings.contractRegions`.
  */
 export interface ContractRegion {
   id: string
@@ -828,6 +992,8 @@ export interface ContractRegion {
   states: string[]
   /** Optional map radius — matches rentals with coordinates inside the circle */
   radius?: ContractRegionRadius
+  /** Explicit rental ids selected on the portfolio map */
+  propertyIds?: string[]
 }
 
 /** Housing / rental category for a landlord portfolio rental. */
@@ -902,7 +1068,7 @@ export interface PropertyBed {
   monthlyRent?: number
 }
 
-/** Whether a bedroom is offered as a private room or shared among tenants. */
+/** Whether a bedroom is offered as a single room or shared among tenants. */
 export type BedroomPrivacy = 'private' | 'shared'
 
 /** One bedroom with one or more physical beds. */
@@ -937,6 +1103,11 @@ export interface Property {
   address: string
   /** Housing category (apartment, single-family, etc.) — shown as Rental Type in UI */
   propertyType: PropertyHousingType
+  /**
+   * Student Housing vs Standard Rental — shown as a corner tag on tiles
+   * and under rental type in spreadsheet view.
+   */
+  rentalCategory?: RentalCategory
   /** How many leasable units this rental has (used for open units / openings vacancy) */
   unitCount: number
   /** Bedroom count (= bedroomsLayout.length when layout is set) */
@@ -967,8 +1138,9 @@ export interface Property {
    */
   utilitiesIncluded?: boolean
   /**
-   * When true, this rental is offered only as an entire-home placement
-   * (no roommate / per-bed / per-room applicant selection).
+   * Landlord choice: when true, the unit is a whole-property rental only
+   * (no roommate / per-bed / per-room applicant selection). When false,
+   * applicants may rent the entire home or a single / shared room.
    */
   entireHomeOnly?: boolean
   /**
@@ -994,6 +1166,20 @@ export interface Property {
    * Used when adding tenants / generating leases for this address.
    */
   defaultLeaseOptionId?: string
+  /**
+   * When true, the rental stays in the landlord portfolio but is off market —
+   * grayed out, not open for new applications.
+   */
+  offMarket?: boolean
+  /** Optional landlord note shown on the off-market tile overlay. */
+  offMarketReason?: string
+  /** ISO timestamp when the rental was taken off market. */
+  offMarketAt?: string
+  /**
+   * Per-rental override for condition reports.
+   * `true` / `false` force required or optional; omit to use account Preferences.
+   */
+  conditionReportRequired?: boolean
 }
 
 export type TenantDiscoveryMode = 'public' | 'invite_only'
@@ -1041,6 +1227,15 @@ export interface BusinessSettings {
   customLeaseEras?: CustomLeaseEra[]
   profileReminders?: ProfileReminder[]
   automation?: AutomationSettings
+  /** Key return grace period, fine, auto-notify, and lease clause settings */
+  keyReturn?: KeyReturnPreferences
+  /** Require tenant photo upload + matching lease clause (default on) */
+  tenantPhoto?: TenantPhotoPreferences
+  /**
+   * Move-in / move-out condition report defaults (required vs optional,
+   * due windows, lease clause). Per-rental override on Property.
+   */
+  conditionReport?: ConditionReportPreferences
   /** Named rental groups used to filter leases and rentals by location */
   contractRegions?: ContractRegion[]
   /**

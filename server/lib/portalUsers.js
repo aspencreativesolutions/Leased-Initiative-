@@ -124,8 +124,13 @@ export function buildPortalUsersOverview(store) {
         preferredBedId: u.preferredBedId,
         roommateInvitePhones: phones,
         roommateInviteCount: phones.length,
+        roommateInviteDelivery:
+          u.roommateInviteDelivery === 'group' || u.roommateInviteDelivery === 'solo'
+            ? u.roommateInviteDelivery
+            : undefined,
         applicantPartyType: u.applicantPartyType,
         coupleCompanion: u.coupleCompanion,
+        renterCategory: u.renterCategory,
       }
     })
     .sort((a, b) => {
@@ -219,6 +224,7 @@ export function buildPortalUsersOverview(store) {
         preferredBedId: u.preferredBedId ?? client.bedId ?? undefined,
         applicantPartyType: u.applicantPartyType ?? client.applicantPartyType ?? undefined,
         coupleCompanion: u.coupleCompanion ?? client.coupleCompanion ?? undefined,
+        renterCategory: u.renterCategory ?? client.renterCategory ?? undefined,
         occupancyArrangement: client.occupancyArrangement,
         acceptedAt: client.createdAt,
         handlerName,
@@ -266,6 +272,11 @@ export function buildPortalUsersOverview(store) {
         isOfficialClient: false,
         timelineStageId: stage.id,
         timelineStageLabel: stage.label,
+        preferredOccupancyMode: client.preferredOccupancyMode ?? undefined,
+        applicantPartyType: client.applicantPartyType ?? undefined,
+        coupleCompanion: client.coupleCompanion ?? undefined,
+        renterCategory: client.renterCategory ?? undefined,
+        occupancyArrangement: client.occupancyArrangement,
         acceptedAt: client.createdAt,
         handlerName,
         handlerEmail,

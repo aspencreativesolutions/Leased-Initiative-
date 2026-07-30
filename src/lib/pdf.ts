@@ -1,4 +1,10 @@
 import { jsPDF } from 'jspdf'
+import { getKeyReturnPreferences, buildKeyReturnClause, stripKeyReturnClause } from '@/lib/keyReturn'
+import {
+  buildTenantPhotoClause,
+  getTenantPhotoPreferences,
+  stripTenantPhotoClause,
+} from '@/lib/tenantPhoto'
 import { resolveDemoSenderName } from '@/lib/publicDemo'
 import type { BusinessSettings, ContractData } from '@/types'
 
@@ -225,10 +231,27 @@ export function generateContractPdf(
     y
   )
   y = addSection(doc, '17. Entry and inspection', contract.meetingExpectations, y)
-  y = addSection(doc, '18. Renewal or termination', contract.terminationTerms, y)
   y = addSection(
     doc,
-    '19. Notices',
+    '18. Renewal or termination',
+    stripKeyReturnClause(stripTenantPhotoClause(contract.terminationTerms)) ||
+      contract.terminationTerms,
+    y
+  )
+  y = addSection(
+    doc,
+    '19. Key return',
+    buildKeyReturnClause(getKeyReturnPreferences(settings)),
+    y
+  )
+  const photoPrefs = getTenantPhotoPreferences(settings)
+  const photoClause = buildTenantPhotoClause(photoPrefs)
+  if (photoClause) {
+    y = addSection(doc, '20. Tenant photo', photoClause, y)
+  }
+  y = addSection(
+    doc,
+    photoClause ? '21. Notices' : '20. Notices',
     `Method: ${contract.communicationMethod || '—'}\nNotice period: ${displayValue(contract.responseTime)}`,
     y
   )
@@ -258,7 +281,7 @@ export function generateContractPdf(
       'Landlord'
     y = addSection(
       doc,
-      '20. Landlord signature & date',
+      '21. Landlord signature & date',
       [landlordName, contract.designerSignDate || 'Signature line'].filter(Boolean).join('\n'),
       y
     )
@@ -266,7 +289,7 @@ export function generateContractPdf(
     const tenantBlock = contract.clientSignature?.trim()
       ? [contract.clientSignature, contract.clientSignDate].filter(Boolean).join('\n')
       : 'Electronic Signature Here\n[Send to Tenant to Sign]'
-    y = addSection(doc, '21–22. Tenant signature & date', tenantBlock, y)
+    y = addSection(doc, '22–23. Tenant signature & date', tenantBlock, y)
 
     const signatureImage = contract.clientSignatureImage?.trim()
     if (signatureImage?.startsWith('data:image/')) {

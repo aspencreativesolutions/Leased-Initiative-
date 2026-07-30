@@ -48,8 +48,12 @@ export type DemoTourNoticeHighlightDetail = {
   menuScope?: 'mobile' | 'desktop' | 'any'
 }
 
+export const DEMO_POST_APPLY_TITLE = 'Application Submitted—Switch to Landlord POV'
 export const DEMO_POST_APPLY_TIP =
-  'Tap Switch to Landlord POV — you’ll land on New Registrants / Waiting to Connect without choosing a role again.'
+  'Open New Registrants / Waiting to Connect without choosing a role again.'
+/** Featured cue while browsing or applying as a demo tenant. */
+export const DEMO_AFTER_APPLY_LANDLORD_NOTICE =
+  'After tenant applications, switch to landlord POV.'
 
 export const DEMO_AVA_TENANT_KEY = 'pending-fresh'
 export const DEMO_AVA_EMAIL = 'ava.mitchell@example.com'

@@ -44,7 +44,7 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     details: [
       'Demo flow: Start Application → landlord company → address (furnished / unfurnished) → Solo or Couple → Send',
       'Or enter an invite code instead of public discovery',
-      'After Send: Application sent + Switch to Landlord POV (direct) → Accept & Draft Lease → Lease Drafted → Review & Send',
+      'After Send: Application Submitted tip → Switch to Landlord (direct) → Accept & Draft Lease → Lease Drafted → Review & Send',
     ],
   },
   pending: {
@@ -176,6 +176,7 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     details: [
       'Lease Agreements badge: Active',
       'Shares the home with roommate Jordan Kim',
+      'Property details panel shows housemates + Extra Bedroom Available invite',
       'Landlord Payments → Overdue features this tenant',
     ],
   },
@@ -197,6 +198,7 @@ const TENANT_POV_BY_KEY: Record<string, Omit<DemoTenantPovOption, 'key' | 'email
     details: [
       'Lease Agreements badge: Active',
       'Demonstrates equal rent split + partial balance',
+      'Property details panel shows Extra Bedroom Available invite incentive',
     ],
   },
   'sample-marcus': {

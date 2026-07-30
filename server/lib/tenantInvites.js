@@ -43,6 +43,7 @@ export function collectPropertyAddresses(store) {
     addresses.add(trimmed)
   }
   for (const property of store.properties ?? []) {
+    if (property?.offMarket === true) continue
     add(property.address)
   }
   for (const client of store.clients ?? []) {
@@ -258,12 +259,37 @@ export function buildTenantInviteUrl(token) {
   return `${base.replace(/\/$/, '')}/invite/${encodeURIComponent(token)}`
 }
 
+/** Registration page with invite prefill — Register redirects to claim when signup is open. */
+export function buildRoommateInviteRegisterUrl(token) {
+  const base = process.env.APP_URL || 'http://localhost:5173'
+  return `${base.replace(/\/$/, '')}/register?invite=${encodeURIComponent(token)}`
+}
+
 export function buildInviteSmsBody({ landlordCompany, inviteUrl, connectionCode }) {
   const who = landlordCompany?.trim() || 'your landlord'
   const codePart = connectionCode
     ? ` Or enter code ${connectionCode} on the invite page.`
     : ''
   return `${who} invited you to join their rental portal. Open this link to confirm your lease details (no account signup needed): ${inviteUrl}${codePart}`
+}
+
+export function buildRoommateInviteSmsBody({
+  inviterName,
+  propertyAddress,
+  inviteUrl,
+  connectionCode,
+  delivery = 'solo',
+  groupSize,
+}) {
+  const who = inviterName?.trim() || 'A housemate'
+  const where = propertyAddress?.trim() ? ` at ${propertyAddress.trim()}` : ''
+  const codePart = connectionCode
+    ? ` Or enter code ${connectionCode} on the registration page.`
+    : ''
+  if (delivery === 'group' && Number(groupSize) > 1) {
+    return `${who} invited you to a roommate group${where} (${groupSize} people). Open this registration link to join the group: ${inviteUrl}${codePart}`
+  }
+  return `${who} invited you to join as a roommate${where}. Open this registration link to get started (account signup opens at launch): ${inviteUrl}${codePart}`
 }
 
 /**
@@ -293,12 +319,29 @@ export function createTenantInvite(store, options = {}) {
     leaseStartDate = start
   }
 
+  const flexibleLeaseLength = options.flexibleLeaseLength === true
   let leaseLengthMonths = null
   if (options.leaseLengthMonths != null && options.leaseLengthMonths !== '') {
-    if (!isLeaseLengthMonths(options.leaseLengthMonths)) {
+    if (flexibleLeaseLength) {
+      const n = Number(options.leaseLengthMonths)
+      if (!Number.isFinite(n) || n < 1 || n > 36) {
+        return { error: 'Lease duration must be between 1 and 36 months.' }
+      }
+      leaseLengthMonths = Math.floor(n)
+    } else if (!isLeaseLengthMonths(options.leaseLengthMonths)) {
       return { error: 'Lease duration must be 6, 12, 18, or 24 months.' }
+    } else {
+      leaseLengthMonths = parseLeaseLengthMonths(options.leaseLengthMonths)
     }
-    leaseLengthMonths = parseLeaseLengthMonths(options.leaseLengthMonths)
+  }
+
+  let leaseEndDate = null
+  if (typeof options.leaseEndDate === 'string' && options.leaseEndDate.trim()) {
+    const end = options.leaseEndDate.trim().slice(0, 10)
+    if (!isPlainYmd(end)) {
+      return { error: 'Lease end date must be a valid calendar date.' }
+    }
+    leaseEndDate = end
   }
 
   let connectionCode
@@ -321,6 +364,13 @@ export function createTenantInvite(store, options = {}) {
   const phone =
     typeof options.phone === 'string' && options.phone.trim() ? options.phone.trim() : null
 
+  const source =
+    options.source === 'lease-import'
+      ? 'lease-import'
+      : options.source === 'roommate'
+        ? 'roommate'
+        : 'manual'
+
   const token = createTenantInviteToken()
   const now = new Date()
   const expiresAt = new Date(
@@ -334,9 +384,22 @@ export function createTenantInvite(store, options = {}) {
     propertyAddress,
     leaseStartDate,
     leaseLengthMonths,
+    leaseEndDate,
     phone,
-    source: options.source === 'lease-import' ? 'lease-import' : 'manual',
+    source,
     clientId: typeof options.clientId === 'string' ? options.clientId : null,
+    invitedByClientId:
+      typeof options.invitedByClientId === 'string' ? options.invitedByClientId : null,
+    roommateStartOption:
+      options.roommateStartOption === 'next_month' ||
+      options.roommateStartOption === 'next_lease_cycle'
+        ? options.roommateStartOption
+        : null,
+    rentalCategory:
+      options.rentalCategory === 'student_housing' ||
+      options.rentalCategory === 'standard_rental'
+        ? options.rentalCategory
+        : null,
     deliveryMethod: null,
     deliveryDestination: null,
     deliveredAt: null,
@@ -418,6 +481,11 @@ export function publicInvitePayload(store, invite) {
     leaseStartDate: invite.leaseStartDate ?? null,
     leaseLengthMonths: invite.leaseLengthMonths ?? null,
     connectionCode: invite.connectionCode ?? null,
+    rentalCategory:
+      invite.rentalCategory === 'student_housing' ||
+      invite.rentalCategory === 'standard_rental'
+        ? invite.rentalCategory
+        : null,
     agency,
     discoveryMode: getTenantDiscoveryMode(store),
   }

@@ -47,6 +47,7 @@ import { paymentMethodsTextForProvider } from '@/lib/paymentProvider'
 import { createTenantInvite, markTenantInviteDelivered } from '@/lib/portalUsersApi'
 import { DEFAULT_SERVICE_TIER } from '@/lib/serviceTiers'
 import { generateId } from '@/lib/storage'
+import { withLeasePreferenceClauses } from '@/lib/leasePreferenceClauses'
 import { openSmsCompose } from '@/lib/tenantMessageTemplates'
 import { cn, formatDate } from '@/lib/utils'
 import type { BusinessSettings, Client, ContractData } from '@/types'
@@ -142,7 +143,10 @@ function buildDraftFromScan(
     meetingExpectations: 'Scheduled walkthroughs as needed; 24-hour notice for rescheduling.',
     ownershipTerms: 'The landlord retains ownership of the leased premises.',
     portfolioRights: 'Landlord may reference the property address in portfolio materials.',
-    terminationTerms: settings.defaultContractFooter || 'Either party may terminate per lease terms.',
+    terminationTerms: withLeasePreferenceClauses(
+      settings.defaultContractFooter || 'Either party may terminate per lease terms.',
+      settings
+    ),
     isPlaceholderDraft: !rent || !row.leaseStartDate,
     createdAt: new Date().toISOString(),
   }

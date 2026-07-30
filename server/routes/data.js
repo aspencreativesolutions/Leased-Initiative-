@@ -15,7 +15,16 @@ import {
 } from '../lib/contractMerge.js'
 import { generateId } from '../lib/notifications.js'
 import { notifyClientByClientId } from '../lib/clientNotifications.js'
+import {
+  conditionReportKindLabel,
+  ensureConditionReportsForClient,
+  isConditionReportRequired,
+} from '../lib/conditionReport.js'
 import { notifyProjectStatusChange } from '../lib/clientAutomation.js'
+import {
+  buildKeyReturnNotificationMessage,
+  getKeyReturnPreferences,
+} from '../lib/keyReturn.js'
 import {
   canStartProject,
   ensureOfficialWhenProjectActive,
@@ -930,6 +939,131 @@ router.post('/notifications/read', (req, res) => {
   res.json({ ok: true })
 })
 
+/** List condition reports for landlord review */
+router.get('/condition-reports', (req, res) => {
+  const store = readStore()
+  let nextStore = store
+  for (const client of store.clients ?? []) {
+    if (!client.isOfficialClient) continue
+    const contract =
+      nextStore.contracts.find((c) => c.clientId === client.id && c.sentAt) ??
+      nextStore.contracts.find((c) => c.clientId === client.id)
+    const ensured = ensureConditionReportsForClient(nextStore, client, contract)
+    nextStore = ensured.store
+  }
+  if (nextStore !== store) updateStore(() => nextStore)
+
+  const status =
+    typeof req.query?.status === 'string' && req.query.status.trim()
+      ? req.query.status.trim()
+      : null
+  const kind =
+    typeof req.query?.kind === 'string' && req.query.kind.trim()
+      ? req.query.kind.trim()
+      : null
+
+  let reports = [...(nextStore.conditionReports ?? [])]
+  if (status) reports = reports.filter((r) => r.status === status)
+  if (kind) reports = reports.filter((r) => r.kind === kind)
+  reports.sort(
+    (a, b) =>
+      new Date(b.updatedAt || b.createdAt).getTime() -
+      new Date(a.updatedAt || a.createdAt).getTime()
+  )
+  res.json({ reports, count: reports.length })
+})
+
+router.get('/condition-reports/:reportId', (req, res) => {
+  const store = readStore()
+  const report = (store.conditionReports ?? []).find((r) => r.id === req.params.reportId)
+  if (!report) return res.status(404).json({ error: 'Condition report not found' })
+  res.json({ report })
+})
+
+router.post('/condition-reports/:reportId/review', (req, res) => {
+  const store = readStore()
+  const report = (store.conditionReports ?? []).find((r) => r.id === req.params.reportId)
+  if (!report) return res.status(404).json({ error: 'Condition report not found' })
+  if (report.status !== 'submitted') {
+    return res.status(400).json({
+      error: 'Only submitted condition reports can be reviewed.',
+    })
+  }
+
+  const action = String(req.body?.action || '').trim()
+  if (action !== 'approve' && action !== 'request_changes') {
+    return res.status(400).json({ error: 'Choose approve or request_changes.' })
+  }
+  const landlordNotes =
+    typeof req.body?.landlordNotes === 'string'
+      ? req.body.landlordNotes.trim().slice(0, 2000)
+      : ''
+
+  const now = new Date().toISOString()
+  const kindLabel = conditionReportKindLabel(report.kind)
+  let updatedReport = null
+
+  updateStore((s) => {
+    const nextReports = (s.conditionReports ?? []).map((r) => {
+      if (r.id !== report.id) return r
+      updatedReport = {
+        ...r,
+        status: action === 'approve' ? 'approved' : 'changes_requested',
+        reviewedAt: now,
+        reviewedBy: req.user?.name || req.user?.email || 'landlord',
+        landlordNotes: landlordNotes || undefined,
+        updatedAt: now,
+      }
+      return updatedReport
+    })
+    let next = { ...s, conditionReports: nextReports }
+
+    next = notifyClientByClientId(next, report.clientId, {
+      type: 'condition_report',
+      title:
+        action === 'approve'
+          ? `${kindLabel} condition report approved`
+          : `${kindLabel} condition report needs changes`,
+      message:
+        action === 'approve'
+          ? `Your landlord approved your ${kindLabel.toLowerCase()} condition report.`
+          : landlordNotes
+            ? `Your landlord requested changes on your ${kindLabel.toLowerCase()} condition report: ${landlordNotes}`
+            : `Your landlord requested changes on your ${kindLabel.toLowerCase()} condition report. Open the checklist to update and resubmit.`,
+      actionUrl: '/portal/inspection',
+      relatedId: `condition-review-${report.id}-${now.slice(0, 10)}`,
+    })
+
+    next = {
+      ...next,
+      adminNotifications: (next.adminNotifications ?? []).map((n) =>
+        n.conditionReportId === report.id ? { ...n, read: true } : n
+      ),
+      clients: next.clients.map((c) => {
+        if (c.id !== report.clientId) return c
+        return {
+          ...c,
+          notes: [
+            ...(c.notes ?? []),
+            {
+              id: generateId(),
+              text:
+                action === 'approve'
+                  ? `[Condition Report — ${kindLabel}] Approved by landlord.`
+                  : `[Condition Report — ${kindLabel}] Changes requested${landlordNotes ? `: ${landlordNotes}` : '.'}`,
+              category: 'Follow-Up',
+              createdAt: now,
+            },
+          ],
+        }
+      }),
+    }
+    return next
+  })
+
+  res.json({ ok: true, report: updatedReport })
+})
+
 /** Admin onboarding tour progress */
 router.get('/onboarding', (req, res) => {
   const store = readStore()
@@ -1150,6 +1284,9 @@ router.post('/accept-registration/:userId', (req, res) => {
     ...(user.applicantPartyType === 'couple' && user.coupleCompanion
       ? { coupleCompanion: user.coupleCompanion }
       : {}),
+    ...(user.renterCategory === 'student' || user.renterCategory === 'standard'
+      ? { renterCategory: user.renterCategory }
+      : {}),
     notes: [
       {
         id: generateId(),
@@ -1360,6 +1497,15 @@ router.post('/tenant-invites', async (req, res) => {
       typeof req.body?.leaseStartDate === 'string' ? req.body.leaseStartDate.trim() : ''
     const leaseLengthMonths = req.body?.leaseLengthMonths
     const sendText = req.body?.sendSms === true || req.body?.sendText === true
+    const rentalCategoryRaw = String(req.body?.rentalCategory ?? '').trim()
+    const rentalCategory =
+      rentalCategoryRaw === 'student_housing' || rentalCategoryRaw === 'standard_rental'
+        ? rentalCategoryRaw
+        : rentalCategoryRaw === 'student'
+          ? 'student_housing'
+          : rentalCategoryRaw === 'standard'
+            ? 'standard_rental'
+            : undefined
 
     if (sendText && !phone) {
       return res.status(400).json({ error: 'Phone number is required to text the invite link.' })
@@ -1383,6 +1529,7 @@ router.post('/tenant-invites', async (req, res) => {
       ...(leaseLengthMonths != null && leaseLengthMonths !== ''
         ? { leaseLengthMonths }
         : {}),
+      ...(rentalCategory ? { rentalCategory } : {}),
       source,
     })
     if (created.error || !created.invite) {
@@ -1743,6 +1890,46 @@ router.post('/bug-reports', async (req, res) => {
   })
 })
 
+/** Notify lease-complete tenant to return keys within the configured grace period. */
+router.post('/clients/:clientId/request-key-return', (req, res) => {
+  const { clientId } = req.params
+  const store = readStore()
+  const client = store.clients.find((c) => c.id === clientId)
+  if (!client) {
+    return res.status(404).json({ error: 'Client not found' })
+  }
+
+  const prefs = getKeyReturnPreferences(store.settings)
+  const message = buildKeyReturnNotificationMessage(prefs)
+  const beforeCount = (store.clientNotifications ?? []).length
+  const next = notifyClientByClientId(store, clientId, {
+    type: 'key_return',
+    title: 'Return your keys',
+    message,
+    actionUrl: '/portal',
+    relatedId: `key-return-${clientId}`,
+  })
+  if (next !== store) {
+    writeStore(next)
+  }
+  const notified =
+    next !== store ||
+    (next.clientNotifications ?? []).some(
+      (n) =>
+        n.clientId === clientId &&
+        n.type === 'key_return' &&
+        n.relatedId === `key-return-${clientId}` &&
+        !n.read
+    )
+  const created = (next.clientNotifications ?? []).length > beforeCount || notified
+
+  res.json({
+    ok: true,
+    notified: Boolean(created),
+    message,
+  })
+})
+
 /** Archive expired official tenant → Past Tenants (keeps history; labeled Archived). */
 router.post('/clients/:clientId/archive', (req, res) => {
   const { clientId } = req.params
@@ -1756,6 +1943,28 @@ router.post('/clients/:clientId/archive', (req, res) => {
       ok: true,
       client: { id: client.id, archivedAt: client.archivedAt },
     })
+  }
+
+  const force = req.body?.force === true || req.body?.confirm === true
+  const property = client.propertyId
+    ? (store.properties ?? []).find((p) => p.id === client.propertyId)
+    : null
+  if (isConditionReportRequired(store.settings, property) && !force) {
+    const contract =
+      store.contracts.find((c) => c.clientId === clientId && c.sentAt) ??
+      store.contracts.find((c) => c.clientId === clientId)
+    const ensured = ensureConditionReportsForClient(store, client, contract)
+    if (ensured.store !== store) updateStore(() => ensured.store)
+    const moveOut = ensured.reports.find((r) => r.kind === 'move_out')
+    if (moveOut && moveOut.status !== 'approved') {
+      return res.status(409).json({
+        error:
+          'Move-out condition report is still required. Review and approve it under Tenant Alerts before archiving, or confirm to archive anyway.',
+        code: 'condition_report_pending',
+        conditionReportId: moveOut.id,
+        conditionReportStatus: moveOut.status,
+      })
+    }
   }
 
   const archivedAt = new Date().toISOString()

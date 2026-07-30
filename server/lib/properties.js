@@ -10,6 +10,7 @@ import {
   maxOccupancyFromLayout,
   normalizeBedroomsLayout,
 } from './rentalBeds.js'
+import { resolveRentalCategory } from './rentalCategory.js'
 
 export const PROPERTY_HOUSING_TYPES = [
   'Apartment',
@@ -43,6 +44,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '523 Juanita Street, Steubenville, OH 43952',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'student_housing',
     unitCount: 1,
     bedrooms: 3,
     bathrooms: 2,
@@ -63,6 +65,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '201 Heights Street, Weirton, WV 26062',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'student_housing',
     unitCount: 1,
     bedrooms: 3,
     bathrooms: 2,
@@ -82,6 +85,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '77 Maryland Street, Wheeling, WV 26003',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'student_housing',
     unitCount: 1,
     bedrooms: 3,
     bathrooms: 2,
@@ -101,6 +105,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '211 Donnell Street, Weirton, WV 26062',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'student_housing',
     unitCount: 1,
     bedrooms: 4,
     bathrooms: 2.5,
@@ -120,6 +125,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '107 Broad Street, St. Clairsville, OH 43950',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'student_housing',
     unitCount: 1,
     bedrooms: 5,
     bathrooms: 3,
@@ -139,6 +145,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '285 Bethany Pike, Wellsburg, WV 26070',
     propertyType: 'Single-Family Home',
+    rentalCategory: 'standard_rental',
     unitCount: 1,
     bedrooms: 2,
     bathrooms: 1.5,
@@ -159,6 +166,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '4610 Scioto Drive, Unit A, Steubenville, OH 43953',
     propertyType: 'Townhouse',
+    rentalCategory: 'standard_rental',
     unitCount: 1,
     bedrooms: 2,
     bathrooms: 1.5,
@@ -178,6 +186,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '430 Canton Road, Unit 11, Wintersville, OH 43953',
     propertyType: 'Apartment',
+    rentalCategory: 'standard_rental',
     unitCount: 1,
     bedrooms: 2,
     bathrooms: 1,
@@ -197,6 +206,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '1430 Ridge Avenue, Unit A, Steubenville, OH 43952',
     propertyType: 'Duplex',
+    rentalCategory: 'standard_rental',
     unitCount: 1,
     bedrooms: 1,
     bathrooms: 1,
@@ -216,6 +226,7 @@ export const DEFAULT_SEED_PROPERTIES = [
   {
     address: '1430 Ridge Avenue, Unit B, Steubenville, OH 43952',
     propertyType: 'Duplex',
+    rentalCategory: 'standard_rental',
     unitCount: 1,
     bedrooms: 1,
     bathrooms: 1,
@@ -327,6 +338,7 @@ function normalizePricingStructure(value, furnished) {
 export function createPropertyRecord({
   address,
   propertyType,
+  rentalCategory,
   unitCount,
   bedrooms,
   bathrooms,
@@ -345,6 +357,10 @@ export function createPropertyRecord({
   addressConfirmed,
   units,
   defaultLeaseOptionId,
+  conditionReportRequired,
+  offMarket,
+  offMarketReason,
+  offMarketAt,
 }) {
   const unitsCount = Number(unitCount)
   const beds = Number(bedrooms)
@@ -360,6 +376,7 @@ export function createPropertyRecord({
     id: generateId(),
     address: String(address).trim(),
     propertyType: normalizePropertyType(propertyType),
+    rentalCategory: resolveRentalCategory(rentalCategory),
     unitCount: resolvedUnits,
     bedrooms: layout.length,
     bedroomsLayout: layout,
@@ -369,6 +386,13 @@ export function createPropertyRecord({
     utilitiesIncluded: utilitiesIncluded === true,
     entireHomeOnly: entireHomeOnly === true,
     createdAt: createdAt || new Date().toISOString(),
+  }
+  if (offMarket === true) {
+    record.offMarket = true
+    const reason = String(offMarketReason ?? '').trim()
+    if (reason) record.offMarketReason = reason
+    const at = String(offMarketAt ?? '').trim()
+    record.offMarketAt = at || new Date().toISOString()
   }
   const baths = normalizeOptionalPositiveNumber(bathrooms)
   if (baths != null) record.bathrooms = baths
@@ -386,6 +410,8 @@ export function createPropertyRecord({
   const leaseOption =
     typeof defaultLeaseOptionId === 'string' ? defaultLeaseOptionId.trim() : ''
   if (leaseOption) record.defaultLeaseOptionId = leaseOption
+  if (conditionReportRequired === true) record.conditionReportRequired = true
+  else if (conditionReportRequired === false) record.conditionReportRequired = false
   const explicitRent = normalizeOptionalPositiveNumber(monthlyRent)
   record.monthlyRent =
     explicitRent != null
@@ -414,6 +440,7 @@ export function normalizeStoredProperty(property) {
     ...property,
     address: String(property.address ?? '').trim(),
     propertyType: normalizePropertyType(property.propertyType),
+    rentalCategory: resolveRentalCategory(property.rentalCategory),
     unitCount: units,
     bedrooms: Math.max(0, Math.floor(Number(property.bedrooms) || 0)),
     maxTenants: normalizeMaxTenants(property.maxTenants, units),
@@ -434,6 +461,19 @@ export function normalizeStoredProperty(property) {
   const details = normalizeAddressDetails(property.addressDetails)
   if (details) next.addressDetails = details
   else delete next.addressDetails
+  if (property.offMarket === true) {
+    next.offMarket = true
+    const reason = String(property.offMarketReason ?? '').trim()
+    if (reason) next.offMarketReason = reason
+    else delete next.offMarketReason
+    const at = String(property.offMarketAt ?? '').trim()
+    if (at) next.offMarketAt = at
+    else delete next.offMarketAt
+  } else {
+    delete next.offMarket
+    delete next.offMarketReason
+    delete next.offMarketAt
+  }
   next = ensurePropertyBedLayout(next)
   return ensurePropertyMonthlyRent(next)
 }
@@ -457,6 +497,9 @@ export function updatePropertyRecord(existing, updates) {
   if (updates.address != null) merged.address = String(updates.address).trim()
   if (updates.propertyType != null) {
     merged.propertyType = normalizePropertyType(updates.propertyType)
+  }
+  if (updates.rentalCategory !== undefined) {
+    merged.rentalCategory = resolveRentalCategory(updates.rentalCategory)
   }
   if (updates.unitCount != null) {
     merged.unitCount = Math.max(1, Math.floor(Number(updates.unitCount) || 1))
@@ -498,12 +541,55 @@ export function updatePropertyRecord(existing, updates) {
       else delete merged.defaultLeaseOptionId
     }
   }
+  if (updates.conditionReportRequired !== undefined) {
+    if (updates.conditionReportRequired === true) {
+      merged.conditionReportRequired = true
+    } else if (updates.conditionReportRequired === false) {
+      merged.conditionReportRequired = false
+    } else {
+      delete merged.conditionReportRequired
+    }
+  }
   if (updates.addressDetails !== undefined) {
     const details = normalizeAddressDetails(updates.addressDetails)
     if (details) merged.addressDetails = details
     else delete merged.addressDetails
   }
   if (updates.addressConfirmed === true) merged.addressConfirmed = true
+  if (updates.offMarket !== undefined) {
+    if (updates.offMarket === true) {
+      merged.offMarket = true
+      if (updates.offMarketReason !== undefined) {
+        const reason = String(updates.offMarketReason ?? '').trim()
+        if (reason) merged.offMarketReason = reason
+        else delete merged.offMarketReason
+      }
+      if (updates.offMarketAt !== undefined) {
+        const at = String(updates.offMarketAt ?? '').trim()
+        if (at) merged.offMarketAt = at
+        else if (!merged.offMarketAt) merged.offMarketAt = new Date().toISOString()
+      } else if (!merged.offMarketAt) {
+        merged.offMarketAt = new Date().toISOString()
+      }
+    } else {
+      delete merged.offMarket
+      delete merged.offMarketReason
+      delete merged.offMarketAt
+    }
+  } else if (updates.offMarketReason !== undefined || updates.offMarketAt !== undefined) {
+    if (merged.offMarket === true) {
+      if (updates.offMarketReason !== undefined) {
+        const reason = String(updates.offMarketReason ?? '').trim()
+        if (reason) merged.offMarketReason = reason
+        else delete merged.offMarketReason
+      }
+      if (updates.offMarketAt !== undefined) {
+        const at = String(updates.offMarketAt ?? '').trim()
+        if (at) merged.offMarketAt = at
+        else delete merged.offMarketAt
+      }
+    }
+  }
   return ensurePropertyMonthlyRent(ensurePropertyBedLayout(merged))
 }
 
@@ -514,6 +600,7 @@ function applySeedFields(property, seedEntry) {
   const next = {
     ...property,
     propertyType: normalizePropertyType(seedEntry.propertyType),
+    rentalCategory: resolveRentalCategory(seedEntry.rentalCategory ?? property.rentalCategory),
     unitCount: Math.max(1, Math.floor(Number(seedEntry.unitCount) || 1)),
     bedrooms: Math.max(0, Math.floor(Number(seedEntry.bedrooms) || 0)),
     maxTenants: normalizeMaxTenants(seedEntry.maxTenants, seedEntry.unitCount),
@@ -583,6 +670,7 @@ export function ensureStoreProperties(store) {
     const withSeed = seedEntry ? applySeedFields(base, seedEntry) : base
     if (
       withSeed.propertyType !== base.propertyType ||
+      withSeed.rentalCategory !== base.rentalCategory ||
       withSeed.maxTenants !== base.maxTenants ||
       withSeed.unitCount !== base.unitCount ||
       withSeed.bedrooms !== base.bedrooms ||
@@ -599,6 +687,7 @@ export function ensureStoreProperties(store) {
     const next = normalizeStoredProperty(withSeed)
     if (
       next.propertyType !== withSeed.propertyType ||
+      next.rentalCategory !== withSeed.rentalCategory ||
       next.maxTenants !== withSeed.maxTenants ||
       next.unitCount !== withSeed.unitCount ||
       next.bedrooms !== withSeed.bedrooms ||
@@ -651,6 +740,7 @@ export function ensureStoreProperties(store) {
       const normalizedSynced = normalizeStoredProperty(synced)
       if (
         normalizedSynced.propertyType !== current.propertyType ||
+        normalizedSynced.rentalCategory !== current.rentalCategory ||
         normalizedSynced.maxTenants !== current.maxTenants ||
         normalizedSynced.unitCount !== current.unitCount ||
         normalizedSynced.bedrooms !== current.bedrooms ||
@@ -769,9 +859,31 @@ export function validatePropertyInput(body) {
     body?.defaultLeaseOptionId == null ? '' : String(body.defaultLeaseOptionId).trim()
   const defaultLeaseOptionId = defaultLeaseOptionRaw || null
 
+  let conditionReportRequired
+  if (body?.conditionReportRequired === true) conditionReportRequired = true
+  else if (body?.conditionReportRequired === false) conditionReportRequired = false
+  else if (body?.conditionReportRequired === null || body?.conditionReportRequired === '') {
+    conditionReportRequired = null
+  }
+
+  const offMarket = body?.offMarket === true
+  let offMarketReason = null
+  let offMarketAt = null
+  if (body?.offMarketReason !== undefined) {
+    const reason = String(body.offMarketReason ?? '').trim()
+    offMarketReason = reason || null
+  }
+  if (body?.offMarketAt !== undefined) {
+    const at = String(body.offMarketAt ?? '').trim()
+    offMarketAt = at || null
+  } else if (offMarket) {
+    offMarketAt = new Date().toISOString()
+  }
+
   return {
     address,
     propertyType,
+    rentalCategory: resolveRentalCategory(body?.rentalCategory),
     unitCount: Math.floor(unitCount),
     bedrooms: bedroomsLayout ? bedroomsLayout.length : Math.floor(bedrooms),
     maxTenants: Math.floor(maxTenants),
@@ -783,8 +895,14 @@ export function validatePropertyInput(body) {
     ...(monthlyRent != null ? { monthlyRent } : {}),
     ...(depositAmount !== undefined ? { depositAmount } : {}),
     ...(body?.defaultLeaseOptionId !== undefined ? { defaultLeaseOptionId } : {}),
+    ...(body?.conditionReportRequired !== undefined ? { conditionReportRequired } : {}),
     addressConfirmed: true,
     addressDetails: normalizeAddressDetails(body?.addressDetails),
     ...(importedFromLeaseScan ? { importedFromLeaseScan: true } : {}),
+    ...(body?.offMarket !== undefined ? { offMarket } : {}),
+    ...(body?.offMarketReason !== undefined ? { offMarketReason } : {}),
+    ...(body?.offMarketAt !== undefined || body?.offMarket === true
+      ? { offMarketAt }
+      : {}),
   }
 }

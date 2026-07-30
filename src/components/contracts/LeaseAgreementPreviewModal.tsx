@@ -14,6 +14,7 @@ import {
   uploadClientFile,
 } from '@/lib/filesApi'
 import { getFilePreviewKind } from '@/lib/filePreview'
+import { withLeasePreferenceClauses } from '@/lib/leasePreferenceClauses'
 import { downloadContractPdf } from '@/lib/pdf'
 import { resolveLandlordSenderName } from '@/lib/publicDemo'
 import type { Client, ContractData } from '@/types'
@@ -130,6 +131,11 @@ export function LeaseAgreementPreviewModal({
           replacementDocumentMimeType: uploaded.mimeType,
           pdfGenerated: true,
           isPlaceholderDraft: false,
+          // Editable working copy — includes landlord preference clauses.
+          terminationTerms: withLeasePreferenceClauses(
+            liveContract.terminationTerms,
+            settings
+          ),
         },
         { asDraft: !liveContract.sentAt }
       )
@@ -204,7 +210,7 @@ export function LeaseAgreementPreviewModal({
                 if (file) void handleUploadReplacement(file)
               }}
             />
-            {onEditDraft && !hasReplacement ? (
+            {onEditDraft ? (
               <Button type="button" size="sm" variant="ghost" onClick={onEditDraft}>
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
                 Edit draft
@@ -216,8 +222,8 @@ export function LeaseAgreementPreviewModal({
 
         <p className="text-sm text-ink-muted">
           {hasReplacement
-            ? `Showing uploaded document: ${replacementName}. Download or replace it anytime, then Send when you’re ready.`
-            : `Review the generated draft, download a PDF, or upload a signed/custom lease to replace it. Nothing goes to the tenant until you click ${sendLabel}.`}
+            ? `Uploaded file saved as ${replacementName}. An editable lease copy is shown below with your key return clause from Preferences — edit fields anytime, then Send when you’re ready.`
+            : `Review the generated draft, download a PDF, or upload a signed/custom lease to replace it. Uploads create an editable copy that includes your key return clause. Nothing goes to the tenant until you click ${sendLabel}.`}
         </p>
         <p className="text-[11px] text-ink-faint">Accepted uploads: {ALLOWED_FILE_LABEL}.</p>
 
@@ -233,7 +239,8 @@ export function LeaseAgreementPreviewModal({
               <File className="h-12 w-12 text-ink-faint" aria-hidden />
               <p className="text-sm text-ink-muted">
                 In-app preview isn’t available for this file type. Download it to open on your
-                device — the replacement is saved on this lease.
+                device — the replacement is saved on this lease. The editable copy below still
+                includes your key return clause.
               </p>
               <Button size="sm" onClick={() => void handleDownload()}>
                 <Download className="h-4 w-4" aria-hidden />
@@ -268,13 +275,20 @@ export function LeaseAgreementPreviewModal({
               className="h-[70vh] w-full rounded-sm border border-line bg-surface"
             />
           ) : null
-        ) : (
+        ) : null}
+
+        <div className={hasReplacement ? 'border-t border-line pt-4' : undefined}>
+          {hasReplacement ? (
+            <p className="mb-3 text-sm font-semibold text-ink">
+              Editable lease copy (includes key return clause)
+            </p>
+          ) : null}
           <ContractReviewView
             contract={liveContract}
             designerName={resolveLandlordSenderName(settings)}
             businessName={settings.businessName}
           />
-        )}
+        </div>
       </div>
     </Modal>
   )

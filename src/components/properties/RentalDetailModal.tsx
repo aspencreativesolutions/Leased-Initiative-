@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { LeaseStatusBadge } from '@/components/clients/LeaseStatusBadge'
+import { AddressText } from '@/components/ui/AddressText'
 import { Modal } from '@/components/ui/Modal'
 import {
   getLeaseStatusDetails,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/rentalRent'
 import { getRentalTypeDescription } from '@/lib/rentalTypes'
 import { furnishedStatusLabel } from '@/lib/propertyListingDisplay'
+import { RentalCategoryTag } from '@/components/properties/RentalCategoryTag'
 import { formatDate } from '@/lib/utils'
 import { useApp } from '@/context/AppContext'
 import type { Property } from '@/types'
@@ -73,19 +75,22 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
       <div className="space-y-4">
         <div>
           <p className="label-caps text-ink-faint">Property Address</p>
-          <p className="mt-0.5 font-display text-lg font-semibold leading-snug text-ink sm:text-xl">
-            {ensured.address}
+          <p className="mt-0.5 min-w-0 font-display text-lg font-semibold leading-snug text-ink sm:text-xl">
+            <AddressText address={ensured.address} />
           </p>
           {ensured.addressDetails ? (
-            <p className="mt-0.5 text-xs text-ink-muted">
-              {[
-                ensured.addressDetails.street,
-                ensured.addressDetails.city,
-                ensured.addressDetails.state,
-                ensured.addressDetails.zip,
-              ]
-                .filter(Boolean)
-                .join(', ')}
+            <p className="mt-0.5 min-w-0 text-xs leading-snug text-ink-muted">
+              <AddressText
+                hangingIndent={false}
+                address={[
+                  ensured.addressDetails.street,
+                  ensured.addressDetails.city,
+                  ensured.addressDetails.state,
+                  ensured.addressDetails.zip,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              />
               {ensured.addressDetails.lat != null && ensured.addressDetails.lng != null
                 ? ` · ${ensured.addressDetails.lat.toFixed(5)}, ${ensured.addressDetails.lng.toFixed(5)}`
                 : ''}
@@ -106,6 +111,11 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
             >
               {furnishedStatusLabel(furnished)}
             </span>
+            <RentalCategoryTag
+              category={ensured.rentalCategory}
+              resolveMissing
+              className="mt-1"
+            />
             {typeDescription ? (
               <p className="mt-0.5 text-xs text-ink-muted">{typeDescription}</p>
             ) : null}
@@ -321,7 +331,9 @@ export function RentalDetailModal({ property, open, onClose }: RentalDetailModal
                       </div>
                       <div>
                         <dt className="text-ink-faint">Assigned address</dt>
-                        <dd className="mt-0.5 break-words font-medium text-ink">{address}</dd>
+                        <dd className="mt-0.5 min-w-0 break-words font-medium leading-snug text-ink">
+                          <AddressText address={address} />
+                        </dd>
                       </div>
                     </dl>
                   </li>

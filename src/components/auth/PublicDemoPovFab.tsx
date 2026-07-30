@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeftRight, Loader2, LogOut } from 'lucide-react'
+import { ArrowLeftRight, Building2, Loader2, LogOut, Users } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { DemoPovSwitcherShell } from '@/components/auth/DemoPovSwitcherShell'
 import { findDemoTenantPov } from '@/lib/demoTenantPov'
 import {
+  DEMO_AFTER_APPLY_LANDLORD_NOTICE,
   DEMO_POV_ATTENTION_EVENT,
   DEMO_POST_APPLY_TIP,
+  DEMO_POST_APPLY_TITLE,
   consumePendingDemoPovTip,
   exitPublicDemo,
   getPublicDemoRole,
   markDemoPovIntroPlayed,
-  peekWaitingConnectHighlightEmail,
   type DemoPovAttentionDetail,
 } from '@/lib/publicDemo'
 import type { WelcomeRole } from '@/lib/welcomeSlides'
@@ -36,30 +37,31 @@ export function PublicDemoPovFab() {
   const currentRole: WelcomeRole =
     getPublicDemoRole() ?? (user?.role === 'admin' ? 'landlord' : 'tenant')
   const tenantPov = currentRole === 'tenant' ? findDemoTenantPov(user?.email) : null
+  const isTenant = currentRole === 'tenant'
 
-  const pendingLandlordSwitch =
-    currentRole === 'tenant' &&
-    Boolean(attentionTip || peekWaitingConnectHighlightEmail())
+  const navigatePov = useCallback(
+    (path: string) => {
+      if (busy) return
+      setError('')
+      setAttentionTip(null)
+      markDemoPovIntroPlayed()
+      setCollapseSignal((n) => n + 1)
+      navigate(path)
+    },
+    [busy, navigate]
+  )
 
-  const switchLabel = pendingLandlordSwitch
-    ? 'Switch to Landlord POV'
-    : currentRole === 'landlord'
-      ? 'Switch to Tenant'
-      : 'Switch POV'
-  const switchPath = pendingLandlordSwitch
-    ? '/demo/pov?role=landlord'
-    : currentRole === 'landlord'
-      ? '/demo/pov?pick=tenant'
-      : '/demo/pov'
+  const handleSwitchToLandlord = useCallback(() => {
+    navigatePov('/demo/pov?role=landlord')
+  }, [navigatePov])
 
-  const handleOpenPicker = useCallback(() => {
-    if (busy) return
-    setError('')
-    setAttentionTip(null)
-    markDemoPovIntroPlayed()
-    setCollapseSignal((n) => n + 1)
-    navigate(switchPath)
-  }, [busy, navigate, switchPath])
+  const handleSwitchToDifferentTenant = useCallback(() => {
+    navigatePov('/demo/pov?pick=tenant')
+  }, [navigatePov])
+
+  const handleSwitchToTenant = useCallback(() => {
+    navigatePov('/demo/pov?pick=tenant')
+  }, [navigatePov])
 
   const handleExit = useCallback(async () => {
     if (busy) return
@@ -103,25 +105,30 @@ export function PublicDemoPovFab() {
     ? `${tenantPov.name} · ${tenantPov.scenario}`
     : currentRole
 
-  const defaultSubtitle =
-    currentRole === 'landlord'
-      ? 'Switch to Tenant to pick a mock scenario, or exit demo.'
-      : 'Switch POV to choose another tenant or return to the landlord, or exit demo.'
+  const panelTitle = attentionTip
+    ? DEMO_POST_APPLY_TITLE
+    : isTenant
+      ? 'Switch point of view'
+      : 'Demo point of view'
+
+  const panelSubtitle = attentionTip ? (
+    <>
+      Now viewing as {viewingLabel}. {attentionTip}
+    </>
+  ) : isTenant ? (
+    <>
+      Now viewing as {viewingLabel}. Choose an option below — no role screen in between.
+    </>
+  ) : (
+    <>
+      Now viewing as {viewingLabel}. Switch to Tenant to pick a mock scenario, or exit demo.
+    </>
+  )
 
   return (
     <DemoPovSwitcherShell
-      title={attentionTip ? 'Application sent' : 'Demo point of view'}
-      subtitle={
-        attentionTip ? (
-          <>
-            Now viewing as {viewingLabel}. {attentionTip}
-          </>
-        ) : (
-          <>
-            Now viewing as {viewingLabel}. {defaultSubtitle}
-          </>
-        )
-      }
+      title={panelTitle}
+      subtitle={panelSubtitle}
       collapseSignal={collapseSignal}
       attentionSignal={attentionSignal}
       onExit={() => {
@@ -130,37 +137,88 @@ export function PublicDemoPovFab() {
       exitBusy={busyAction === 'exit'}
       exitDisabled={busy}
       action={
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="w-full"
-            disabled={busy}
-            onClick={handleOpenPicker}
-            aria-label={switchLabel}
-          >
-            <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
-            {switchLabel}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-full"
-            disabled={busy}
-            onClick={() => {
-              void handleExit()
-            }}
-            aria-label="Exit Demo"
-          >
-            {busyAction === 'exit' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <LogOut className="h-3.5 w-3.5" aria-hidden />
-            )}
-            Exit Demo
-          </Button>
-        </div>
+        isTenant ? (
+          <div className="flex flex-col gap-2">
+            {!attentionTip ? (
+              <p className="rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2.5 py-1.5 text-[11px] font-semibold leading-snug text-brand">
+                {DEMO_AFTER_APPLY_LANDLORD_NOTICE}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={busy}
+              onClick={handleSwitchToLandlord}
+              aria-label="Switch to Landlord"
+            >
+              <Building2 className="h-3.5 w-3.5" aria-hidden />
+              Switch to Landlord
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={busy}
+              onClick={handleSwitchToDifferentTenant}
+              aria-label="Switch to Different Tenant"
+            >
+              <Users className="h-3.5 w-3.5" aria-hidden />
+              Switch to Different Tenant
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={busy}
+              onClick={() => {
+                void handleExit()
+              }}
+              aria-label="Exit Demo"
+            >
+              {busyAction === 'exit' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+              )}
+              Exit Demo
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={busy}
+              onClick={handleSwitchToTenant}
+              aria-label="Switch to Tenant"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden />
+              Switch to Tenant
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={busy}
+              onClick={() => {
+                void handleExit()
+              }}
+              aria-label="Exit Demo"
+            >
+              {busyAction === 'exit' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+              )}
+              Exit Demo
+            </Button>
+          </div>
+        )
       }
     >
       {error ? (

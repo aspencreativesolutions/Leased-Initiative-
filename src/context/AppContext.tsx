@@ -54,7 +54,18 @@ function normalizeContracts(contracts: ContractData[]): ContractData[] {
 }
 
 function normalizeSettings(settings: BusinessSettings): BusinessSettings {
-  const merged = { ...defaultSettings, ...settings }
+  const merged = {
+    ...defaultSettings,
+    ...settings,
+    keyReturn: {
+      ...defaultSettings.keyReturn!,
+      ...(settings.keyReturn ?? {}),
+    },
+    automation: {
+      ...defaultSettings.automation!,
+      ...(settings.automation ?? {}),
+    },
+  }
   const migratedAddress = migrateSampleAddress(merged.address)
   if (!migratedAddress || migratedAddress === merged.address) return merged
   return { ...merged, address: migratedAddress }
@@ -329,7 +340,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
         utilitiesIncluded: input.utilitiesIncluded === true,
-        entireHomeOnly: furnished && input.entireHomeOnly === true,
+        entireHomeOnly: input.entireHomeOnly === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||
@@ -381,7 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         maxTenants: Math.max(1, Math.floor(input.maxTenants)),
         furnished,
         utilitiesIncluded: input.utilitiesIncluded === true,
-        entireHomeOnly: furnished && input.entireHomeOnly === true,
+        entireHomeOnly: input.entireHomeOnly === true,
         pricingStructure:
           input.pricingStructure === 'room' ||
           input.pricingStructure === 'person' ||
@@ -401,6 +412,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         delete property.depositAmount
       } else if (input.depositAmount != null && input.depositAmount > 0) {
         property.depositAmount = Math.round(input.depositAmount)
+      }
+      if (input.offMarket === true) {
+        property.offMarket = true
+        const reason = String(input.offMarketReason ?? '').trim()
+        if (reason) property.offMarketReason = reason
+        else delete property.offMarketReason
+        property.offMarketAt =
+          String(input.offMarketAt ?? '').trim() ||
+          property.offMarketAt ||
+          new Date().toISOString()
+      } else if (input.offMarket === false) {
+        delete property.offMarket
+        delete property.offMarketReason
+        delete property.offMarketAt
       }
       property = normalizeProperty(property)
       const next = properties.map((p) => (p.id === propertyId ? property : p))

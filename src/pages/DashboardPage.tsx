@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   Columns3,
@@ -11,8 +11,11 @@ import {
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { AddClientModal } from '@/components/clients/AddClientModal'
 import { ClientTable } from '@/components/clients/ClientTable'
+import { SendInviteModal } from '@/components/clients/SendInviteModal'
 import { TenantDetailsModal } from '@/components/clients/TenantDetailsModal'
 import { TenantPipelineSections } from '@/components/clients/TenantPipelineSections'
+import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
+import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -27,6 +30,7 @@ import {
   getLeaseAgreementProgressFilterLabel,
   getLeaseTermProgress,
   LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
+  LEASE_AGREEMENT_PROGRESS_FILTERS,
   leaseProgressMatchesFilter,
   nextLeaseAgreementProgressFilter,
   shouldShowInOfficialTenants,
@@ -35,6 +39,16 @@ import {
 } from '@/lib/clientUtils'
 import { performLiveUpdateRefresh } from '@/lib/liveUpdate'
 import { useMobileTileColumns } from '@/lib/mobileTileColumns'
+import {
+  getOccupancyShareDetail,
+  getTenantTypeFilterLabel,
+  nextTenantTypeFilter,
+  resolveArrangementTenantLabel,
+  TENANT_TYPE_FILTER_BUTTON_WIDTH_CLASS,
+  TENANT_TYPE_FILTER_OPTIONS,
+  tenantTypeMatchesFilter,
+  type TenantTypeFilter,
+} from '@/lib/occupancyStatusFilter'
 import { getTenantAssignedProperty } from '@/lib/officialTenantLocationDisplay'
 import {
   OFFICIAL_TENANT_SPOTLIGHT_MS,
@@ -44,8 +58,12 @@ import {
   writeOfficialTenantSpotlightIds,
 } from '@/lib/officialTenantSpotlight'
 import {
-  RENTAL_TYPE_FILTER_OPTIONS,
+  getRentalTypeFilterLabel,
+  nextRentalTypeFilter,
+  RENTAL_TYPE_DISPLAY_FILTERS,
+  RENTAL_TYPE_FILTER_BUTTON_WIDTH_CLASS,
   rentalTypeFilterButtonLabel,
+  type RentalTypeDisplayFilter,
 } from '@/lib/rentalDisplaySort'
 import { normalizeRentalType } from '@/lib/rentalTypes'
 import {
@@ -119,9 +137,20 @@ export function DashboardPage() {
   const { loading: authLoading } = useAuth()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { error: registrationsError } = usePendingRegistrations()
-  const { count: notificationCount } = useAdminNotifications()
+  const {
+    count: registrationCount,
+    registrations,
+    error: registrationsError,
+    refresh: refreshRegistrations,
+  } = usePendingRegistrations()
+  const {
+    count: notificationCount,
+    markRead,
+    refresh: refreshNotifications,
+  } = useAdminNotifications()
   const [addOpen, setAddOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [registrationsOpen, setRegistrationsOpen] = useState(false)
   const [detailsTenantId, setDetailsTenantId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<DashboardViewMode>(readViewModePreference)
   const [showOccupancyStatus, setShowOccupancyStatus] = useState(readShowOccupancyStatus)
@@ -129,7 +158,9 @@ export function DashboardPage() {
   const [progressFilter, setProgressFilter] =
     useState<LeaseAgreementProgressFilter | null>(null)
   const [buildingTypeFilter, setBuildingTypeFilter] =
-    useState<PropertyHousingType | null>(null)
+    useState<RentalTypeDisplayFilter | null>(null)
+  const [tenantTypeFilter, setTenantTypeFilter] =
+    useState<TenantTypeFilter | null>(null)
   const [arrangeColumns, setArrangeColumns] = useState(false)
   const [columnOrder, setColumnOrder] = useState<TenantTableColumnId[]>(loadTenantTableColumnOrder)
   const [refreshingDevChanges, setRefreshingDevChanges] = useState(false)
@@ -179,7 +210,9 @@ export function DashboardPage() {
   )
 
   const tableClients = useMemo(() => {
-    if (!progressFilter && !buildingTypeFilter) return sortedOfficialClients
+    if (!progressFilter && !buildingTypeFilter && !tenantTypeFilter) {
+      return sortedOfficialClients
+    }
 
     return sortedOfficialClients.filter((client) => {
       const contract = getContractForClient(client.id)
@@ -197,24 +230,65 @@ export function DashboardPage() {
         if (buildingType !== buildingTypeFilter) return false
       }
 
+      if (tenantTypeFilter) {
+        const shareDetail = getOccupancyShareDetail(
+          client,
+          clients,
+          getContractForClient,
+          properties
+        )
+        const label = resolveArrangementTenantLabel(shareDetail)
+        if (!tenantTypeMatchesFilter(label, tenantTypeFilter)) return false
+      }
+
       return true
     })
   }, [
     sortedOfficialClients,
     progressFilter,
     buildingTypeFilter,
+    tenantTypeFilter,
     getContractForClient,
     properties,
+    clients,
   ])
 
-  const filtersActive = progressFilter !== null || buildingTypeFilter !== null
-  const filterButtonLabel = progressFilter ?? (buildingTypeFilter
-    ? rentalTypeFilterButtonLabel(buildingTypeFilter)
-    : 'Filter')
+  const filtersActive =
+    progressFilter !== null ||
+    buildingTypeFilter !== null ||
+    tenantTypeFilter !== null
+  const filterButtonLabel =
+    progressFilter ??
+    (tenantTypeFilter
+      ? getTenantTypeFilterLabel(tenantTypeFilter)
+      : buildingTypeFilter
+        ? rentalTypeFilterButtonLabel(buildingTypeFilter)
+        : 'Filter')
 
   const cycleProgressFilter = () => {
     setProgressFilter((current) => nextLeaseAgreementProgressFilter(current))
   }
+
+  const cycleTenantTypeFilter = () => {
+    setTenantTypeFilter((current) => nextTenantTypeFilter(current))
+  }
+
+  const cycleBuildingTypeFilter = () => {
+    setBuildingTypeFilter((current) => nextRentalTypeFilter(current))
+  }
+
+  const scrollToDashboardSection = (targetId: string) => {
+    document.getElementById(targetId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  }
+
+  const handleRegistrationAdded = useCallback(() => {
+    refreshRegistrations()
+    refreshNotifications()
+    refresh()
+  }, [refreshRegistrations, refreshNotifications, refresh])
 
   const runSpotlight = (ids: string[]) => {
     const present = ids.filter((id) => tableClients.some((c) => c.id === id))
@@ -399,14 +473,34 @@ export function DashboardPage() {
               aria-expanded={filterBarOpen}
               aria-controls="tenants-filter-options"
               aria-label={
-                progressFilter || buildingTypeFilter
-                  ? `Filter: ${[progressFilter, buildingTypeFilter ? rentalTypeFilterButtonLabel(buildingTypeFilter) : null].filter(Boolean).join(', ')}. Open to change tenant filters.`
-                  : 'Filter official tenants by lease progress or building type'
+                progressFilter || buildingTypeFilter || tenantTypeFilter
+                  ? `Filter: ${[
+                      progressFilter,
+                      tenantTypeFilter
+                        ? getTenantTypeFilterLabel(tenantTypeFilter)
+                        : null,
+                      buildingTypeFilter
+                        ? rentalTypeFilterButtonLabel(buildingTypeFilter)
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}. Open to change tenant filters.`
+                  : 'Filter official tenants by lease progress, tenant type, or building type'
               }
               title={
-                progressFilter || buildingTypeFilter
-                  ? `Filtered to ${[progressFilter, buildingTypeFilter ? rentalTypeFilterButtonLabel(buildingTypeFilter) : null].filter(Boolean).join(' · ')}`
-                  : 'Filter by lease progress or building type'
+                progressFilter || buildingTypeFilter || tenantTypeFilter
+                  ? `Filtered to ${[
+                      progressFilter,
+                      tenantTypeFilter
+                        ? getTenantTypeFilterLabel(tenantTypeFilter)
+                        : null,
+                      buildingTypeFilter
+                        ? rentalTypeFilterButtonLabel(buildingTypeFilter)
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}`
+                  : 'Filter by lease progress, tenant type, or building type'
               }
               className={cn(
                 filterButtonClass,
@@ -430,16 +524,6 @@ export function DashboardPage() {
                 aria-hidden
               />
             </button>
-
-            {effectiveViewMode === 'tile' && !isMobile ? (
-              <TileScaleControl
-                variant="row"
-                value={scale}
-                onChange={setScale}
-                label="Tenant tile size"
-                className="min-w-[12.5rem] flex-none"
-              />
-            ) : null}
 
             {isMobile ? (
               <MobileTileColumnsControl
@@ -509,8 +593,8 @@ export function DashboardPage() {
               type="button"
               role="switch"
               aria-checked={showOccupancyStatus}
-              aria-label="Show Occupancy Status"
-              title="Show Occupancy Status"
+              aria-label="Show Arrangements"
+              title="Show Arrangements — adds an Arrangement column beside Tenant: Sole Tenant or Co-Tenant with room details (e.g. Entire Home, Open to Roommates); expand bedrooms for numbered occupants with rent status dots"
               onClick={() => setShowOccupancyStatus((value) => !value)}
               className={cn(
                 filterButtonClass,
@@ -536,8 +620,17 @@ export function DashboardPage() {
                   )}
                 />
               </span>
-              <span className="whitespace-nowrap">Show Occupancy Status</span>
+              <span className="whitespace-nowrap">Show Arrangements</span>
             </button>
+
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Tenant tile size"
+              />
+            ) : null}
           </div>
 
           {filterBarOpen ? (
@@ -545,66 +638,134 @@ export function DashboardPage() {
               id="tenants-filter-options"
               className="flex flex-col gap-1.5 border-t border-ink/10 pt-1.5"
             >
-              <div className="flex flex-wrap items-start gap-3">
+              <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
-                    Lease Progress
-                  </p>
-                  <button
-                    type="button"
-                    onClick={cycleProgressFilter}
-                    aria-label={`Lease progress filter: ${getLeaseAgreementProgressFilterLabel(progressFilter)}. Click to cycle Any, Not Started, Ongoing, Ending Soon.`}
-                    title="Click to cycle lease progress: Any → Not Started → Ongoing → Ending Soon"
-                    className={cn(
-                      filterButtonClass,
-                      LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
-                      'shrink-0 justify-center',
-                      progressFilter
-                        ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                        : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                    )}
+                  <p
+                    className="whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${LEASE_AGREEMENT_PROGRESS_FILTERS.length} lease progress options`}
                   >
-                    {getLeaseAgreementProgressFilterLabel(progressFilter)}
-                  </button>
+                    {LEASE_AGREEMENT_PROGRESS_FILTERS.length} Lease Progress
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={cycleProgressFilter}
+                      aria-label={`Lease progress filter: ${getLeaseAgreementProgressFilterLabel(progressFilter)}. Click to cycle Any, Not Started, Ongoing, Ending Soon, Finished.`}
+                      title="Click to cycle lease progress: Any → Not Started → Ongoing → Ending Soon → Finished"
+                      className={cn(
+                        filterButtonClass,
+                        LEASE_AGREEMENT_PROGRESS_FILTER_BUTTON_WIDTH_CLASS,
+                        'shrink-0 justify-center',
+                        progressFilter
+                          ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                          : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      )}
+                    >
+                      {getLeaseAgreementProgressFilterLabel(progressFilter)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProgressFilter(null)}
+                      disabled={!progressFilter}
+                      aria-label="Reset lease progress filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        progressFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
-                    Building Type
-                  </p>
-                  <select
-                    aria-label="Building type filter"
-                    title={
-                      buildingTypeFilter
-                        ? rentalTypeFilterButtonLabel(buildingTypeFilter)
-                        : 'All building types'
-                    }
-                    value={buildingTypeFilter ?? ''}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setBuildingTypeFilter(
-                        value ? (value as PropertyHousingType) : null
-                      )
-                    }}
-                    className={cn(
-                      'h-9 min-w-0 w-[12.75rem] shrink-0 appearance-none truncate border-2 py-0 pl-3 pr-7 text-left',
-                      'rounded-[var(--radius-sm)] text-[10px] font-semibold uppercase tracking-caps text-ink',
-                      'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)] transition-colors',
-                      'bg-no-repeat bg-[length:0.55rem_0.55rem] bg-[position:right_0.45rem_center]',
-                      'bg-[url(\'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23737373" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="m6 9 6 6 6-6"/%3E%3C/svg%3E\')]',
-                      'focus:outline-none focus:ring-1 focus:ring-brand',
-                      buildingTypeFilter
-                        ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                        : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-                    )}
+                  <p
+                    className="whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${TENANT_TYPE_FILTER_OPTIONS.length} tenant type options`}
                   >
-                    <option value="">All Types</option>
-                    {RENTAL_TYPE_FILTER_OPTIONS.map((type) => (
-                      <option key={type} value={type}>
-                        {rentalTypeFilterButtonLabel(type)}
-                      </option>
-                    ))}
-                  </select>
+                    {TENANT_TYPE_FILTER_OPTIONS.length} Tenant Type
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={cycleTenantTypeFilter}
+                      aria-label={`Tenant type filter: ${getTenantTypeFilterLabel(tenantTypeFilter)}. Click to cycle Any, Sole Tenant, Co-Tenant.`}
+                      title="Click to cycle tenant type: Any → Sole Tenant → Co-Tenant"
+                      className={cn(
+                        filterButtonClass,
+                        TENANT_TYPE_FILTER_BUTTON_WIDTH_CLASS,
+                        'shrink-0 justify-center',
+                        tenantTypeFilter
+                          ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                          : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      )}
+                    >
+                      {getTenantTypeFilterLabel(tenantTypeFilter)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTenantTypeFilter(null)}
+                      disabled={!tenantTypeFilter}
+                      aria-label="Reset tenant type filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        tenantTypeFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p
+                    className="whitespace-nowrap text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                    aria-label={`${RENTAL_TYPE_DISPLAY_FILTERS.length} building type options`}
+                  >
+                    {RENTAL_TYPE_DISPLAY_FILTERS.length} Building Type
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={cycleBuildingTypeFilter}
+                      aria-label={`Building type filter: ${getRentalTypeFilterLabel(buildingTypeFilter)}. Click to cycle Any, Apartment, Single-Family Home, Townhouse, Duplex.`}
+                      title="Click to cycle building type: Any → Apartment → Single-Family Home → Townhouse → Duplex"
+                      className={cn(
+                        filterButtonClass,
+                        RENTAL_TYPE_FILTER_BUTTON_WIDTH_CLASS,
+                        'shrink-0 justify-center',
+                        buildingTypeFilter
+                          ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                          : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      )}
+                    >
+                      {getRentalTypeFilterLabel(buildingTypeFilter)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBuildingTypeFilter(null)}
+                      disabled={!buildingTypeFilter}
+                      aria-label="Reset building type filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        buildingTypeFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -652,19 +813,60 @@ export function DashboardPage() {
           <PageHeader
             title="Official Tenants"
             help="Tenants with signed leases that are active, starting soon, or lease-complete (until you archive or delete them) — including those added from lease import"
-            action={
-              canRehighlight ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRehighlight}
-                  title="Highlight the tenants from your last lease import"
+            titleAside={
+              isMobile ? (
+                <nav
+                  className="flex min-w-0 flex-wrap items-center gap-1.5"
+                  aria-label="Jump to waiting sections"
                 >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Highlight last import
-                </Button>
-              ) : undefined
+                  <button
+                    type="button"
+                    onClick={() => scrollToDashboardSection('tenants-waiting-connect')}
+                    className={cn(
+                      'inline-flex h-7 items-center rounded-[var(--radius-sm)] border border-ink/20 bg-surface-paper px-2',
+                      'text-[9px] font-semibold uppercase tracking-caps text-ink-muted',
+                      'transition-colors hover:border-brand/40 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/45'
+                    )}
+                  >
+                    Waiting to Connect
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      scrollToDashboardSection('dashboard-pending-tenants-list')
+                    }
+                    className={cn(
+                      'inline-flex h-7 items-center rounded-[var(--radius-sm)] border border-ink/20 bg-surface-paper px-2',
+                      'text-[9px] font-semibold uppercase tracking-caps text-ink-muted',
+                      'transition-colors hover:border-brand/40 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/45'
+                    )}
+                  >
+                    Pending Clients
+                  </button>
+                </nav>
+              ) : null
+            }
+            action={
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <DashboardNavActions
+                  registrationCount={registrationCount}
+                  onOpenRegistrations={() => setRegistrationsOpen(true)}
+                  onOpenAddClient={() => setAddOpen(true)}
+                  onOpenSendInvite={() => setInviteOpen(true)}
+                />
+                {canRehighlight ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRehighlight}
+                    title="Highlight the tenants from your last lease import"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Highlight last import
+                  </Button>
+                ) : null}
+              </div>
             }
             below={displaySettings}
             noBorder
@@ -682,13 +884,14 @@ export function DashboardPage() {
               <EmptyState
                 icon={Users}
                 title="No tenants match these filters"
-                description="Try a different Lease Progress or Building Type, or clear filters in Display Settings."
+                description="Try a different Lease Progress, Tenant Type, or Building Type, or use Reset Filters in Display Settings."
                 action={
                   <Button
                     variant="outline"
                     onClick={() => {
                       setProgressFilter(null)
                       setBuildingTypeFilter(null)
+                      setTenantTypeFilter(null)
                     }}
                   >
                     Clear filters
@@ -699,7 +902,7 @@ export function DashboardPage() {
               <EmptyState
                 icon={Users}
                 title="No official tenants yet"
-                description="Approve sign-ups under Waiting to Connect, send a lease from Pending Tenants, or import existing leases in Company Profile and Add to Official Tenants."
+                description="Approve sign-ups under Waiting to Connect, send a lease from Pending Tenants, or import existing leases in Company Profile & Preferences and Add to Official Tenants."
                 action={
                   <Button onClick={() => setAddOpen(true)}>
                     <Plus className="h-4 w-4" />
@@ -735,6 +938,15 @@ export function DashboardPage() {
       </div>
 
       <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <SendInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <NewRegistrationsModal
+        open={registrationsOpen}
+        onClose={() => setRegistrationsOpen(false)}
+        registrations={registrations}
+        onRefresh={handleRegistrationAdded}
+        onListRefresh={refreshRegistrations}
+        onMarkNotificationsRead={() => markRead({ type: 'registration' })}
+      />
       <TenantDetailsModal
         tenantId={detailsTenantId}
         open={Boolean(detailsTenantId)}

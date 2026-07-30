@@ -101,6 +101,96 @@ function writeLocalDismissed(
 const NAV_ARROW_CLASS =
   'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border-[length:var(--border-width)] border-brand bg-brand text-white transition-colors hover:bg-brand-light hover:border-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-35'
 
+/** Inline **bold** markers in tour copy. */
+function renderTourInline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-semibold text-ink">
+          {part.slice(2, -2)}
+        </strong>
+      )
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
+/**
+ * Renders tour descriptions with paragraph spacing, bullets, and bold labels.
+ * Double newlines separate sections; lines starting with • or - become a list.
+ */
+function TourStepDescription({
+  text,
+  className,
+}: {
+  text: string
+  className?: string
+}) {
+  const blocks = text.split(/\n\n+/).filter((block) => block.trim().length > 0)
+
+  return (
+    <div className={cn('mt-2 space-y-2.5 text-sm leading-relaxed text-ink-muted', className)}>
+      {blocks.map((block, blockIndex) => {
+        const lines = block.split('\n')
+        const bulletLines = lines.filter((line) => /^[•\-]\s/.test(line.trim()))
+        const proseLines = lines.filter(
+          (line) => line.trim().length > 0 && !/^[•\-]\s/.test(line.trim())
+        )
+
+        if (bulletLines.length === 0) {
+          return (
+            <p key={blockIndex} className="whitespace-pre-line">
+              {renderTourInline(block)}
+            </p>
+          )
+        }
+
+        return (
+          <div key={blockIndex} className="space-y-1.5">
+            {proseLines.map((line, lineIndex) => (
+              <p key={`prose-${lineIndex}`}>{renderTourInline(line)}</p>
+            ))}
+            <ul className="space-y-1 pl-0.5">
+              {bulletLines.map((line, lineIndex) => (
+                <li key={`bullet-${lineIndex}`} className="flex gap-2">
+                  <span className="mt-0.5 shrink-0 text-brand" aria-hidden>
+                    •
+                  </span>
+                  <span>{renderTourInline(line.trim().replace(/^[•\-]\s+/, ''))}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const TOUR_ZOOM_CLASS = 'tour-target-zoom-out'
+const TOUR_ZOOM_MS = 340
+const TOUR_SCROLL_SETTLE_MS = 280
+
+function clearTourZoom() {
+  document.querySelectorAll(`.${TOUR_ZOOM_CLASS}`).forEach((el) => {
+    el.classList.remove(TOUR_ZOOM_CLASS)
+  })
+}
+
+function applyTourZoom(selector: string) {
+  clearTourZoom()
+  const el = queryTourTarget(selector)
+  if (el instanceof HTMLElement) {
+    el.classList.add(TOUR_ZOOM_CLASS)
+  }
+}
+
+function waitMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
 function isElementVisible(el: Element): boolean {
   if (!(el instanceof HTMLElement)) return false
   if (el.closest('[aria-hidden="true"]')) return false
@@ -247,7 +337,12 @@ export function OnboardingTour({
     width: tourTooltipWidth(),
     height: TOOLTIP_FALLBACK_HEIGHT,
   })
+  /** False while scrolling/zooming so the tip doesn’t flash in the wrong place. */
+  const [stepSettled, setStepSettled] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const settleGenerationRef = useRef(0)
+  const stepSettledRef = useRef(false)
+  stepSettledRef.current = stepSettled
   /**
    * Once the user exits (or finishes), stay closed until they click Tour.
    * Never cleared by auto-start — only by the explicit restart path.
@@ -301,6 +396,9 @@ export function OnboardingTour({
         const found = steps.findIndex((s) => s.id === remembered)
         if (found >= 0) index = found
       }
+      settleGenerationRef.current += 1
+      setStepSettled(false)
+      setSpotlight(null)
       setTourSteps(steps)
       setStepIndex(index)
       setActive(true)
@@ -314,6 +412,10 @@ export function OnboardingTour({
 
   const goToStepIndex = useCallback(
     (index: number) => {
+      // Hide tip/spotlight immediately so the next paint never shows a stale position.
+      settleGenerationRef.current += 1
+      setStepSettled(false)
+      setSpotlight(null)
       setStepIndex(index)
       const step = tourSteps[index]
       if (step) rememberStepId(step.id)
@@ -327,15 +429,64 @@ export function OnboardingTour({
   const refreshSpotlight = useCallback(() => {
     if (!currentStep || currentStep.completion) {
       setSpotlight(null)
-      return
+      return null
     }
     const rect = getSpotlightRect(currentStep.target)
     setSpotlight(rect)
-    if (rect) {
-      const el = queryTourTarget(currentStep.target)
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
-    }
+    return rect
   }, [currentStep])
+
+  const bringStepIntoView = useCallback((step: OnboardingStep) => {
+    if (step.completion) return
+    if (step.scrollAlign === 'top') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    const el = queryTourTarget(step.target)
+    if (!(el instanceof HTMLElement)) return
+    const block =
+      step.scrollAlign === 'top' || step.scrollAlign === 'start' ? 'start' : 'nearest'
+    el.scrollIntoView({ behavior: 'smooth', block, inline: 'nearest' })
+  }, [])
+
+  /** Prepare zoom/scroll, then reveal tip only after layout is stable. */
+  const settleCurrentStep = useCallback(async () => {
+    const generation = ++settleGenerationRef.current
+    setStepSettled(false)
+    setSpotlight(null)
+
+    const step = currentStep
+    if (!step) return
+
+    clearTourZoom()
+    if (step.zoomOut && !step.completion) {
+      applyTourZoom(step.target)
+    }
+
+    bringStepIntoView(step)
+
+    const settleMs = step.zoomOut
+      ? Math.max(TOUR_ZOOM_MS, TOUR_SCROLL_SETTLE_MS)
+      : TOUR_SCROLL_SETTLE_MS
+    await waitMs(settleMs)
+    if (generation !== settleGenerationRef.current) return
+
+    refreshSpotlight()
+    // Measure tip content while hidden, then re-measure the spotlight once.
+    await waitMs(48)
+    if (generation !== settleGenerationRef.current) return
+    if (tooltipRef.current) {
+      const { width, height } = tooltipRef.current.getBoundingClientRect()
+      setTooltipSize((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      )
+    }
+    refreshSpotlight()
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+    if (generation !== settleGenerationRef.current) return
+    setStepSettled(true)
+  }, [bringStepIntoView, currentStep, refreshSpotlight])
 
   useEffect(() => {
     if (!user) return
@@ -449,6 +600,9 @@ export function OnboardingTour({
   useEffect(() => {
     if (!active || startedManuallyRef.current) return
     if (!isPublicDemo && !user?.publicDemo && !isPublicDemoSession()) return
+    settleGenerationRef.current += 1
+    clearTourZoom()
+    setStepSettled(false)
     setActive(false)
     setTourSteps([])
     setSpotlight(null)
@@ -468,19 +622,38 @@ export function OnboardingTour({
 
   useLayoutEffect(() => {
     if (!active || !currentStep) return
-    refreshSpotlight()
-    const onResize = () => refreshSpotlight()
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onResize, true)
-    const retryTimers = [200, 400, 800, 1200].map((ms) =>
-      setTimeout(refreshSpotlight, ms)
-    )
-    return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onResize, true)
-      retryTimers.forEach(clearTimeout)
+    void settleCurrentStep()
+
+    const onResize = () => {
+      if (!stepSettledRef.current) return
+      refreshSpotlight()
     }
-  }, [active, currentStep, refreshSpotlight, location.pathname, location.search])
+    const onScroll = () => {
+      if (!stepSettledRef.current) return
+      refreshSpotlight()
+    }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('scroll', onScroll, true)
+
+    return () => {
+      settleGenerationRef.current += 1
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('scroll', onScroll, true)
+    }
+  }, [
+    active,
+    currentStep,
+    settleCurrentStep,
+    refreshSpotlight,
+    location.pathname,
+    location.search,
+  ])
+
+  useEffect(() => {
+    if (active) return
+    clearTourZoom()
+    setStepSettled(false)
+  }, [active])
 
   useLayoutEffect(() => {
     if (!active || !tooltipRef.current) return
@@ -520,6 +693,9 @@ export function OnboardingTour({
   )
 
   const endTour = useCallback(() => {
+    settleGenerationRef.current += 1
+    clearTourZoom()
+    setStepSettled(false)
     setActive(false)
     setTourSteps([])
     setSpotlight(null)
@@ -555,7 +731,7 @@ export function OnboardingTour({
   }, [role, refreshUser, endTour, markTourDismissed])
 
   const handleNext = useCallback(() => {
-    if (!currentStep) return
+    if (!currentStep || !stepSettled) return
     const stepId = currentStep.id
     const atEnd = stepIndex >= tourSteps.length - 1
     if (atEnd) {
@@ -566,12 +742,20 @@ export function OnboardingTour({
     }
     goToStepIndex(stepIndex + 1)
     void completeStep(stepId)
-  }, [completeStep, currentStep, tourSteps.length, stepIndex, goToStepIndex, finishTour])
+  }, [
+    completeStep,
+    currentStep,
+    tourSteps.length,
+    stepIndex,
+    goToStepIndex,
+    finishTour,
+    stepSettled,
+  ])
 
   const handleBack = useCallback(() => {
-    if (stepIndex <= 0) return
+    if (stepIndex <= 0 || !stepSettled) return
     goToStepIndex(stepIndex - 1)
-  }, [stepIndex, goToStepIndex])
+  }, [stepIndex, goToStepIndex, stepSettled])
 
   const handleDismiss = useCallback(
     (event?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
@@ -584,10 +768,11 @@ export function OnboardingTour({
 
   const handleJumpToSection = useCallback(
     (sectionId: AdminTourSectionId) => {
+      if (!stepSettled) return
       const idx = tourSteps.findIndex((s) => s.section === sectionId)
       if (idx >= 0) goToStepIndex(idx)
     },
-    [tourSteps, goToStepIndex]
+    [tourSteps, goToStepIndex, stepSettled]
   )
 
   useEffect(() => {
@@ -701,7 +886,7 @@ export function OnboardingTour({
                 <button
                   key={id}
                   type="button"
-                  disabled={!available}
+                  disabled={!available || !stepSettled}
                   onClick={() => handleJumpToSection(id)}
                   className={cn(
                     'rounded-[calc(var(--radius-sm)-2px)] px-2 py-1.5 text-[10px] font-semibold transition-colors sm:px-2.5 sm:text-[11px]',
@@ -735,12 +920,14 @@ export function OnboardingTour({
       <div
         ref={tooltipRef}
         className={cn(
-          'pointer-events-auto absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift',
+          'pointer-events-auto absolute z-[102] rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-surface-paper p-4 shadow-lift tour-tooltip-reveal',
+          stepSettled && 'tour-tooltip-reveal--ready',
           isCompletionStep
             ? 'w-[min(22.5rem,calc(100vw-2rem))] p-5 text-center sm:p-6'
             : 'max-w-[calc(100vw-2rem)]'
         )}
         style={tooltipPositionStyle}
+        aria-hidden={!stepSettled}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
@@ -768,21 +955,42 @@ export function OnboardingTour({
         >
           {currentStep.title}
         </h3>
-        <p
+        <TourStepDescription
+          text={currentStep.description}
           className={cn(
-            'mt-2 text-sm leading-relaxed text-ink-muted',
+            !isCompletionStep && 'max-h-[min(42vh,20rem)] overflow-y-auto pr-0.5',
             isCompletionStep && 'mx-auto max-w-[18rem]'
           )}
-        >
-          {currentStep.description}
-        </p>
+        />
 
-        {isLastStep ? (
+        {isFirstStep && !isCompletionStep ? (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleDismiss}
+              disabled={!stepSettled}
+              className="min-h-10 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/20 bg-surface px-2 py-2 text-center text-xs font-semibold leading-snug text-ink transition-colors hover:border-ink/40 hover:bg-surface-paper focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50 sm:text-sm"
+            >
+              {isPublicDemo || user?.publicDemo || role === 'admin'
+                ? 'Return to Manual Demo'
+                : 'Exit Tour'}
+            </button>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!stepSettled}
+              className="min-h-10 rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-2 py-2 text-center text-xs font-semibold leading-snug text-white shadow-lift transition-colors hover:border-brand-light hover:bg-brand-light focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50 sm:text-sm"
+            >
+              Continue Tour
+            </button>
+          </div>
+        ) : isLastStep ? (
           <div className={cn('mt-4 space-y-3', isCompletionStep && 'space-y-4')}>
             <button
               type="button"
               onClick={handleNext}
-              className="tour-continue-demo-btn w-full rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-lift focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+              disabled={!stepSettled}
+              className="tour-continue-demo-btn w-full rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-brand bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-lift focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50"
             >
               {continueLabel}
             </button>
@@ -798,7 +1006,7 @@ export function OnboardingTour({
                 <button
                   type="button"
                   onClick={handleBack}
-                  disabled={isFirstStep}
+                  disabled={isFirstStep || !stepSettled}
                   className={NAV_ARROW_CLASS}
                   aria-label="Previous tour step"
                 >
@@ -817,8 +1025,8 @@ export function OnboardingTour({
                 <button
                   type="button"
                   onClick={handleBack}
-                  disabled={isFirstStep}
-                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink"
+                  disabled={isFirstStep || !stepSettled}
+                  className="text-xs font-semibold text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
                 >
                   Back to last tip
                 </button>
@@ -839,7 +1047,7 @@ export function OnboardingTour({
               <button
                 type="button"
                 onClick={handleBack}
-                disabled={isFirstStep}
+                disabled={isFirstStep || !stepSettled}
                 className={NAV_ARROW_CLASS}
                 aria-label="Previous tour step"
               >
@@ -848,6 +1056,7 @@ export function OnboardingTour({
               <button
                 type="button"
                 onClick={handleNext}
+                disabled={!stepSettled}
                 className={NAV_ARROW_CLASS}
                 aria-label="Next tour step"
               >

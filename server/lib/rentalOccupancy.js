@@ -80,6 +80,14 @@ export function availableApplicantSlotsAtAddress(store, address) {
   if (!property) {
     return { property: null, slots: 0, available: false }
   }
+  if (property.offMarket === true) {
+    return {
+      property: ensurePropertyBedLayout(property),
+      slots: 0,
+      available: false,
+      offMarket: true,
+    }
+  }
   const ensured = ensurePropertyBedLayout(property)
   if (hasEntireHomeTenant(store, address, addressesMatch)) {
     return { property: ensured, slots: 0, available: false }
@@ -93,6 +101,7 @@ export function availableApplicantSlotsAtAddress(store, address) {
 export function availablePropertyAddresses(store) {
   const addresses = []
   for (const property of store.properties ?? []) {
+    if (property?.offMarket === true) continue
     const address = property?.address?.trim()
     if (!address) continue
     const { available } = availableApplicantSlotsAtAddress(store, address)

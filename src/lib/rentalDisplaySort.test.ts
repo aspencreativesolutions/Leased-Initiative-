@@ -38,7 +38,7 @@ describe('RENTAL_TYPE_FILTER_OPTIONS', () => {
 })
 
 describe('RENTAL_TYPE_DISPLAY_FILTERS', () => {
-  it('cycles Apartment → Single-Family Home → Townhouse → Duplex after All Rentals', () => {
+  it('cycles Apartment → Single-Family Home → Townhouse → Duplex after Any', () => {
     expect(RENTAL_TYPE_DISPLAY_FILTERS).toEqual([
       'Apartment',
       'Single-Family Home',
@@ -105,9 +105,9 @@ describe('nextOptionalLocationFilter', () => {
 })
 
 describe('location filter labels', () => {
-  it('maps empty values to State / Town / All Groups defaults', () => {
-    expect(RENTAL_STATE_FILTER_ANY_LABEL).toBe('State')
-    expect(RENTAL_TOWN_FILTER_ANY_LABEL).toBe('Town')
+  it('maps empty values to Any defaults', () => {
+    expect(RENTAL_STATE_FILTER_ANY_LABEL).toBe('Any')
+    expect(RENTAL_TOWN_FILTER_ANY_LABEL).toBe('Any')
     expect(getRentalStateFilterLabel('')).toBe(RENTAL_STATE_FILTER_ANY_LABEL)
     expect(getRentalTownFilterLabel('')).toBe(RENTAL_TOWN_FILTER_ANY_LABEL)
     expect(getRentalGroupFilterLabel('', [])).toBe(RENTAL_GROUP_FILTER_ANY_LABEL)
@@ -156,9 +156,9 @@ describe('rentalTypeFilterButtonLabel', () => {
 })
 
 describe('getRentalTypeFilterLabel', () => {
-  it('maps null / empty to All Rentals', () => {
-    expect(getRentalTypeFilterLabel(null)).toBe('All Rentals')
-    expect(getRentalTypeFilterLabel('')).toBe('All Rentals')
+  it('maps null / empty to Any', () => {
+    expect(getRentalTypeFilterLabel(null)).toBe('Any')
+    expect(getRentalTypeFilterLabel('')).toBe('Any')
   })
 
   it('keeps cycle labels at full length', () => {
@@ -170,7 +170,7 @@ describe('getRentalTypeFilterLabel', () => {
 })
 
 describe('nextRentalTypeFilter', () => {
-  it('advances All Rentals → Apartment → Single-Family Home → Townhouse → Duplex → All Rentals', () => {
+  it('advances Any → Apartment → Single-Family Home → Townhouse → Duplex → Any', () => {
     expect(nextRentalTypeFilter(null)).toBe('Apartment')
     expect(nextRentalTypeFilter('')).toBe('Apartment')
     expect(nextRentalTypeFilter('Apartment')).toBe('Single-Family Home')
@@ -179,7 +179,7 @@ describe('nextRentalTypeFilter', () => {
     expect(nextRentalTypeFilter('Duplex')).toBe(null)
   })
 
-  it('resets values outside the cycle to All Rentals', () => {
+  it('resets values outside the cycle to Any', () => {
     expect(nextRentalTypeFilter('Condominium (Condo)')).toBe(null)
     expect(isRentalTypeDisplayFilter('Apartment')).toBe(true)
     expect(isRentalTypeDisplayFilter('Condominium (Condo)')).toBe(false)

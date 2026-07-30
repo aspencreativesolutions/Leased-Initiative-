@@ -31,7 +31,21 @@ const DEFAULT_STORE = {
     defaultLeaseStartDate: '',
     defaultLeaseEndDate: '',
     customLeaseEras: [],
+    keyReturn: {
+      autoNotify: true,
+      gracePeriodDays: 7,
+      fineAmount: 100,
+    },
+    tenantPhoto: {
+      required: true,
+    },
+    conditionReport: {
+      required: true,
+      moveInDays: 7,
+      moveOutDays: 7,
+    },
   },
+  conditionReports: [],
   leaseAgreementTemplates: [],
   projectFiles: [],
   adminNotifications: [],

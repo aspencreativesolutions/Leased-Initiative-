@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Rocket } from 'lucide-react'
+import { AlertTriangle, ClipboardCheck, Rocket } from 'lucide-react'
 import { PortalApplicationPanel } from '@/components/portal/PortalApplicationPanel'
 import { PortalCurrentContracts } from '@/components/portal/PortalCurrentContracts'
 import { PortalInvoiceSection } from '@/components/portal/PortalInvoiceSection'
 import { PortalPayRentSection } from '@/components/portal/PortalPayRentSection'
 import { PortalPaymentScheduleTimeline } from '@/components/portal/PortalPaymentScheduleTimeline'
 import { PortalProjectFilesSection } from '@/components/portal/PortalProjectFilesSection'
+import { PortalPropertyDetailsPanel } from '@/components/portal/PortalPropertyDetailsPanel'
 import { PortalRemainingBalanceSection } from '@/components/portal/PortalRemainingBalanceSection'
 import { PortalTimelineView } from '@/components/portal/PortalTimelineView'
 import { LoadingWithRefresh } from '@/components/ui/LoadingWithRefresh'
@@ -135,6 +136,18 @@ export function PortalDashboardPage() {
         />
         Request Maintenance
       </Link>
+      <Link
+        to="/portal/inspection"
+        data-onboarding="portal-condition-report"
+        className={portalActionBtnClass}
+        aria-label="Condition report inspection checklist"
+      >
+        <ClipboardCheck
+          className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+          aria-hidden
+        />
+        Condition Report
+      </Link>
     </div>
   )
 
@@ -142,43 +155,79 @@ export function PortalDashboardPage() {
   const address = data.client?.address?.trim()
   const leaseScheduleReady = Boolean(data.leaseSchedule?.payments?.length)
   const rentReady = Boolean(data.rentPayment)
+  const pendingCondition = (data.conditionReports ?? []).find(
+    (r) =>
+      r.required &&
+      (r.status === 'pending' || r.status === 'changes_requested')
+  )
 
   return (
     <div className="w-full min-w-0">
       <TenantPortalHeading />
       {leaseActiveTag}
 
-      <section
-        className="paper-box mb-8 w-full px-4 py-8 text-center sm:px-8 sm:py-10"
-        aria-label="Lease overview"
-        data-onboarding="portal-dashboard-overview"
-      >
-        <p className="text-base font-medium text-ink sm:text-lg">Hello, {tenantName}</p>
-
-        {leaseScheduleReady || rentReady ? (
-          <div className="mt-8 space-y-6">
-            {leaseScheduleReady && (
-              <PortalPaymentScheduleTimeline
-                schedule={data.leaseSchedule}
-                className="mb-0 text-left"
-              />
-            )}
-            {data.rentPayment ? (
-              <PortalPayRentSection
-                embedded
-                rentPayment={data.rentPayment}
-                onInvoiceCreated={() => {
-                  void refresh()
-                }}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <p className="mt-8 text-sm text-ink-muted sm:text-base">
-            Your rent payment schedule will appear once your lease is set.
+      {pendingCondition ? (
+        <div
+          className="mb-4 rounded-sm border-2 border-brand/40 bg-brand/5 px-3 py-3 text-sm text-ink"
+          role="status"
+        >
+          <p className="font-semibold">
+            {pendingCondition.kind === 'move_in' ? 'Move-in' : 'Move-out'} condition report{' '}
+            {pendingCondition.status === 'changes_requested'
+              ? 'needs updates'
+              : 'required'}
           </p>
-        )}
-      </section>
+          <p className="mt-1 text-ink-muted">
+            Complete your inspection checklist
+            {pendingCondition.dueDate ? ` by ${pendingCondition.dueDate}` : ''} so your
+            landlord can review the property’s condition.
+          </p>
+          <Link
+            to={`/portal/inspection?id=${encodeURIComponent(pendingCondition.id)}`}
+            className="mt-2 inline-flex font-semibold text-brand underline-offset-2 hover:underline"
+          >
+            Open checklist
+          </Link>
+        </div>
+      ) : null}
+
+      <div className="mb-8 grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.85fr)] lg:items-stretch lg:gap-5">
+        <section
+          className="paper-box w-full min-w-0 px-4 py-8 text-center sm:px-8 sm:py-10"
+          aria-label="Lease overview"
+          data-onboarding="portal-dashboard-overview"
+        >
+          <p className="text-base font-medium text-ink sm:text-lg">Hello, {tenantName}</p>
+
+          {leaseScheduleReady || rentReady ? (
+            <div className="mt-8 space-y-6">
+              {leaseScheduleReady && (
+                <PortalPaymentScheduleTimeline
+                  schedule={data.leaseSchedule}
+                  className="mb-0 text-left"
+                />
+              )}
+              {data.rentPayment ? (
+                <PortalPayRentSection
+                  embedded
+                  rentPayment={data.rentPayment}
+                  onInvoiceCreated={() => {
+                    void refresh()
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-8 text-sm text-ink-muted sm:text-base">
+              Your rent payment schedule will appear once your lease is set.
+            </p>
+          )}
+        </section>
+
+        {data.household ? (
+          <PortalPropertyDetailsPanel household={data.household} className="mb-0" />
+        ) : null}
+      </div>
 
       <div className="mb-8" data-onboarding="portal-dashboard-timeline">
         {timelineLoading ? (
@@ -223,6 +272,11 @@ export function PortalDashboardPage() {
           enabled={Boolean(data.projectStarted)}
           projectStarted={Boolean(data.projectStarted)}
           supportContact={data.supportContact}
+          requireTenantPhoto={data.requireTenantPhoto !== false}
+          tenantPhotoUploaded={Boolean(data.tenantPhotoUploaded)}
+          onFilesChanged={() => {
+            void refresh()
+          }}
         />
       </div>
     </div>

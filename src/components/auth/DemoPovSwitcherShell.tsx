@@ -13,8 +13,8 @@ import {
 } from '@/lib/publicDemo'
 import { cn } from '@/lib/utils'
 
-const ATTENTION_MS = 2600
-const ATTENTION_REDUCED_MS = 900
+const ATTENTION_MS = 3800
+const ATTENTION_REDUCED_MS = 1200
 const REMINDER_INTERVAL_MS = 45_000
 const REMINDER_ATTENTION_MS = 2800
 const REMINDER_ATTENTION_REDUCED_MS = 900
@@ -268,7 +268,7 @@ export function DemoPovSwitcherShell({
       aria-label="Demo mode controls"
       aria-modal="false"
       className={cn(
-        'demo-pov-switcher fixed bottom-4 right-4 z-[80] w-[min(calc(100vw-2rem),15.5rem)] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 shadow-lift sm:bottom-5 sm:right-5 sm:p-3.5',
+        'demo-pov-switcher fixed bottom-4 right-4 z-[80] w-[min(calc(100vw-2rem),16.5rem)] rounded-[var(--radius-lg)] border-[length:var(--border-width)] border-ink bg-surface-paper p-3 shadow-lift sm:bottom-5 sm:right-5 sm:p-3.5',
         phase === 'opening' && 'demo-pov-switcher--expanding',
         phase === 'closing' && 'demo-pov-switcher--collapsing',
         attention && 'demo-pov-switcher--attention',

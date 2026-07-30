@@ -75,6 +75,7 @@ export const LEASED_DEMO_USERS = [
     preferredLeaseMonths: null,
     preferredLandlordCompany: null,
     preferredPropertyAddress: null,
+    renterCategory: 'student',
   },
   {
     key: 'pending',
@@ -87,6 +88,7 @@ export const LEASED_DEMO_USERS = [
     preferredLeaseMonths: 12,
     preferredLandlordCompany: 'Leased Properties',
     preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.scioto,
+    renterCategory: 'standard',
   },
   {
     key: 'pending-michael',
@@ -99,6 +101,7 @@ export const LEASED_DEMO_USERS = [
     preferredLeaseMonths: 12,
     preferredLandlordCompany: 'Leased Properties',
     preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.donnell,
+    renterCategory: 'student',
   },
   {
     key: 'pending-olivia',
@@ -111,6 +114,7 @@ export const LEASED_DEMO_USERS = [
     preferredLeaseMonths: 6,
     preferredLandlordCompany: 'Leased Properties',
     preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.ridgeA,
+    renterCategory: 'standard',
   },
   {
     key: 'awaiting',
@@ -122,6 +126,7 @@ export const LEASED_DEMO_USERS = [
     tenantState: 'lease_sent',
     preferredLeaseMonths: 12,
     preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.canton,
+    renterCategory: 'standard',
     client: {
       businessName: 'Awaiting Lease Unit',
       phone: '(555) 200-0002',
@@ -133,6 +138,7 @@ export const LEASED_DEMO_USERS = [
       paymentStatus: 'Unpaid',
       isOfficialClient: false,
       leaseLengthMonths: 12,
+      renterCategory: 'standard',
     },
   },
   {
@@ -145,6 +151,7 @@ export const LEASED_DEMO_USERS = [
     tenantState: 'active',
     preferredLeaseMonths: 12,
     preferredPropertyAddress: DEMO_RENTAL_ADDRESSES.broad,
+    renterCategory: 'student',
     client: {
       businessName: 'Active Lease Unit',
       phone: '(555) 200-0003',
@@ -157,6 +164,7 @@ export const LEASED_DEMO_USERS = [
       paymentStatus: 'Paid',
       isOfficialClient: true,
       leaseLengthMonths: 12,
+      renterCategory: 'student',
     },
   },
 ]
@@ -191,6 +199,12 @@ async function ensureUserRecord(users, demo, extras = {}) {
   const preferredLandlordCompany = clearLandlordCompany
     ? undefined
     : demo.preferredLandlordCompany
+  const renterCategory =
+    demo.renterCategory === 'student' || demo.renterCategory === 'standard'
+      ? demo.renterCategory
+      : demo.client?.renterCategory === 'student' || demo.client?.renterCategory === 'standard'
+        ? demo.client.renterCategory
+        : undefined
 
   if (!user) {
     user = {
@@ -206,6 +220,7 @@ async function ensureUserRecord(users, demo, extras = {}) {
       ...(preferredLeaseMonths != null ? { preferredLeaseMonths } : {}),
       ...(preferredPropertyAddress ? { preferredPropertyAddress } : {}),
       ...(preferredLandlordCompany ? { preferredLandlordCompany } : {}),
+      ...(renterCategory ? { renterCategory } : {}),
       createdAt: now,
       ...extras,
     }
@@ -229,6 +244,7 @@ async function ensureUserRecord(users, demo, extras = {}) {
       user.preferredPropertyAddress !== preferredPropertyAddress) ||
     (preferredLandlordCompany != null &&
       user.preferredLandlordCompany !== preferredLandlordCompany) ||
+    (renterCategory != null && user.renterCategory !== renterCategory) ||
     (extras.clientId !== undefined && user.clientId !== extras.clientId) ||
     (extras.clientId === null && user.clientId)
 
@@ -246,6 +262,7 @@ async function ensureUserRecord(users, demo, extras = {}) {
     ...(preferredLeaseMonths != null ? { preferredLeaseMonths } : {}),
     ...(preferredPropertyAddress != null ? { preferredPropertyAddress } : {}),
     ...(preferredLandlordCompany != null ? { preferredLandlordCompany } : {}),
+    ...(renterCategory != null ? { renterCategory } : {}),
     ...(!passwordOk ? { passwordHash: await hashPassword(password) } : {}),
     ...extras,
   }
@@ -303,6 +320,11 @@ function ensureTenantClient(clients, demo, userId, now) {
     isSampleClient: true,
     isLeasedDemoClient: true,
     accountUserId: userId,
+    ...(demo.client.renterCategory === 'student' || demo.client.renterCategory === 'standard'
+      ? { renterCategory: demo.client.renterCategory }
+      : demo.renterCategory === 'student' || demo.renterCategory === 'standard'
+        ? { renterCategory: demo.renterCategory }
+        : {}),
   }
 
   if (!client) {

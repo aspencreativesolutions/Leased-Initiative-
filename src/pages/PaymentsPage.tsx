@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Clock, Columns3, DollarSign, LayoutGrid, LayoutList } from 'lucide-react'
+import {
+  ChevronDown,
+  Clock,
+  Columns3,
+  DollarSign,
+  LayoutGrid,
+  LayoutList,
+} from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { OverdueAmountIndicator } from '@/components/payments/OverdueAmountIndicator'
 import {
@@ -10,7 +17,7 @@ import {
 import { SendTenantMessageSection } from '@/components/payments/SendTenantMessageSection'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Select } from '@/components/ui/FormField'
+import { MobileTileColumnsControl } from '@/components/ui/MobileTileColumnsControl'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { TileScaleControl } from '@/components/ui/TileScaleControl'
 import { useApp } from '@/context/AppContext'
@@ -20,6 +27,17 @@ import {
   formatLeaseLengthLabel,
 } from '@/lib/leaseSchedule'
 import { paymentPartnerLogoByProvider } from '@/lib/paymentPartnerLogos'
+import {
+  getPaymentStatusFilterLabel,
+  nextPaymentMethodFilter,
+  nextPaymentStatusFilter,
+  parsePaymentStatusQuery,
+  paymentStatusFilterMatchesDisplay,
+  paymentStatusFilterToQuery,
+  PAYMENT_METHOD_FILTER_BUTTON_WIDTH_CLASS,
+  PAYMENT_STATUS_FILTER_BUTTON_WIDTH_CLASS,
+  type PaymentStatusFilter,
+} from '@/lib/paymentDisplayFilters'
 import {
   paymentProviderLabel,
   resolveLastTransactionPaymentProvider,
@@ -45,6 +63,10 @@ import {
   paymentTileScaleStyle,
   useTileScale,
 } from '@/lib/tileScale'
+import {
+  sectionTileGridClassName,
+  useMobileTileColumns,
+} from '@/lib/mobileTileColumns'
 import { useIsMobileViewport } from '@/lib/useMediaQuery'
 import { cn, formatDate } from '@/lib/utils'
 import { resolveLandlordSenderName } from '@/lib/publicDemo'
@@ -56,7 +78,6 @@ const PAYMENTS_TILE_SCALE_KEY = 'payments-tile-scale-v2'
 const PAYMENTS_VIEW_KEY = 'payments-view-mode'
 
 type PaymentsViewMode = 'tile' | 'spreadsheet'
-type StatusFilter = 'overdue' | 'paid_early'
 
 function readViewModePreference(): PaymentsViewMode {
   try {
@@ -67,8 +88,6 @@ function readViewModePreference(): PaymentsViewMode {
     return 'tile'
   }
 }
-
-const PAYMENT_METHOD_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square', 'zelle']
 
 const filterButtonClass =
   'inline-flex h-9 items-center rounded-[var(--radius-sm)] border-2 px-3 text-[10px] font-semibold uppercase tracking-caps transition-colors shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]'
@@ -110,12 +129,11 @@ export function PaymentsPage() {
   const [highlightedFocus, setHighlightedFocus] = useState<'last' | 'next' | 'remind' | null>(
     null
   )
-  const [statusFilter, setStatusFilter] = useState<StatusFilter | null>(() => {
-    const q = searchParams.get('status')
-    return q === 'overdue' || q === 'paid_early' ? q : null
-  })
-  const [methodFilterOpen, setMethodFilterOpen] = useState(false)
-  const [methodFilter, setMethodFilter] = useState<PaymentProvider | ''>('')
+  const [statusFilter, setStatusFilter] = useState<PaymentStatusFilter | null>(
+    () => parsePaymentStatusQuery(searchParams.get('status'))
+  )
+  const [filterBarOpen, setFilterBarOpen] = useState(false)
+  const [methodFilter, setMethodFilter] = useState<PaymentProvider | null>(null)
   const [sentFeedback, setSentFeedback] = useState<Record<string, string>>({})
   const [viewMode, setViewMode] = useState<PaymentsViewMode>(readViewModePreference)
   const [arrangeColumns, setArrangeColumns] = useState(false)
@@ -126,6 +144,8 @@ export function PaymentsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const isMobile = useIsMobileViewport()
   const effectiveViewMode: PaymentsViewMode = isMobile ? 'tile' : viewMode
+  const { columns: mobileTileColumns, setColumns: setMobileTileColumns } =
+    useMobileTileColumns()
   const { scale, setScale, factor } = useTileScale(
     PAYMENTS_TILE_SCALE_KEY,
     PAYMENT_TILE_SCALE_DEFAULT
@@ -174,8 +194,12 @@ export function PaymentsPage() {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      if (statusFilter === 'overdue' && row.display !== 'Overdue') return false
-      if (statusFilter === 'paid_early' && row.display !== 'Paid Early') return false
+      if (
+        statusFilter &&
+        !paymentStatusFilterMatchesDisplay(statusFilter, row.display)
+      ) {
+        return false
+      }
       if (methodFilter && row.paymentMethod !== methodFilter) return false
       return true
     })
@@ -232,15 +256,14 @@ export function PaymentsPage() {
         : `${totals.due} due · ${totals.paid} current across ${rows.length} ${rows.length === 1 ? 'tenant' : 'tenants'}.`
 
   const landlordName = resolveLandlordSenderName(settings)
-  const filtersActive = statusFilter != null || methodFilter !== ''
+  const filtersActive = statusFilter != null || methodFilter != null
+  const filterButtonLabel =
+    (statusFilter ? getPaymentStatusFilterLabel(statusFilter) : null) ??
+    (methodFilter ? paymentProviderLabel(methodFilter) : null) ??
+    'Filter'
 
   useEffect(() => {
-    const q = searchParams.get('status')
-    if (q === 'overdue' || q === 'paid_early') {
-      setStatusFilter(q)
-    } else {
-      setStatusFilter(null)
-    }
+    setStatusFilter(parsePaymentStatusQuery(searchParams.get('status')))
   }, [searchParams])
 
   useEffect(() => {
@@ -270,13 +293,13 @@ export function PaymentsPage() {
     }
   }, [location.hash, filteredRows])
 
-  function selectStatusFilter(next: StatusFilter) {
-    const value = statusFilter === next ? null : next
-    setStatusFilter(value)
+  function setStatusFilterWithQuery(next: PaymentStatusFilter | null) {
+    setStatusFilter(next)
     setSearchParams(
       (params) => {
         const nextParams = new URLSearchParams(params)
-        if (value) nextParams.set('status', value)
+        const query = paymentStatusFilterToQuery(next)
+        if (query) nextParams.set('status', query)
         else nextParams.delete('status')
         return nextParams
       },
@@ -284,11 +307,12 @@ export function PaymentsPage() {
     )
   }
 
-  function toggleMethodFilter() {
-    setMethodFilterOpen((open) => {
-      if (open) setMethodFilter('')
-      return !open
-    })
+  function cycleStatusFilter() {
+    setStatusFilterWithQuery(nextPaymentStatusFilter(statusFilter))
+  }
+
+  function cycleMethodFilter() {
+    setMethodFilter((current) => nextPaymentMethodFilter(current))
   }
 
   function handleSortChange(column: PaymentSortColumn) {
@@ -314,20 +338,69 @@ export function PaymentsPage() {
 
   const displaySettings =
     clients.length > 0 ? (
-      <Card className="w-fit max-w-full !px-3 !py-2">
+      <Card className="w-full max-w-full !px-3 !py-2">
         <div className="flex flex-col gap-1.5">
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-ink-faint">
             Display Settings
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            {effectiveViewMode === 'tile' && !isMobile ? (
-              <TileScaleControl
-                variant="row"
-                value={scale}
-                onChange={setScale}
-                label="Payment tile size"
-                className="min-w-[12.5rem] flex-none"
+            <button
+              type="button"
+              onClick={() => setFilterBarOpen((open) => !open)}
+              aria-expanded={filterBarOpen}
+              aria-controls="payments-filter-options"
+              aria-label={
+                filtersActive
+                  ? `Filter: ${[
+                      statusFilter
+                        ? getPaymentStatusFilterLabel(statusFilter)
+                        : null,
+                      methodFilter ? paymentProviderLabel(methodFilter) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}. Open to change payment filters.`
+                  : 'Filter payments by status or payment method'
+              }
+              title={
+                filtersActive
+                  ? `Filtered to ${[
+                      statusFilter
+                        ? getPaymentStatusFilterLabel(statusFilter)
+                        : null,
+                      methodFilter ? paymentProviderLabel(methodFilter) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}`
+                  : 'Filter by payment status or method'
+              }
+              className={cn(
+                filterButtonClass,
+                'gap-1.5',
+                filterBarOpen || filtersActive
+                  ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                  : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+              )}
+            >
+              {filterButtonLabel}
+              {statusFilter && methodFilter ? (
+                <span className="max-w-[9rem] truncate normal-case tracking-normal text-ink-muted">
+                  · {paymentProviderLabel(methodFilter)}
+                </span>
+              ) : null}
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 shrink-0 transition-transform',
+                  filterBarOpen && 'rotate-180'
+                )}
+                aria-hidden
+              />
+            </button>
+
+            {isMobile ? (
+              <MobileTileColumnsControl
+                value={mobileTileColumns}
+                onChange={setMobileTileColumns}
               />
             ) : null}
 
@@ -388,68 +461,105 @@ export function PaymentsPage() {
               </button>
             ) : null}
 
-            <button
-              type="button"
-              onClick={() => selectStatusFilter('overdue')}
-              aria-pressed={statusFilter === 'overdue'}
-              data-onboarding="admin-overdue-rent"
-              className={cn(
-                filterButtonClass,
-                statusFilter === 'overdue'
-                  ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                  : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-              )}
-            >
-              Overdue Rent
-            </button>
-
-            <button
-              type="button"
-              onClick={() => selectStatusFilter('paid_early')}
-              aria-pressed={statusFilter === 'paid_early'}
-              className={cn(
-                filterButtonClass,
-                statusFilter === 'paid_early'
-                  ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                  : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-              )}
-            >
-              Paid Early
-            </button>
-
-            <button
-              type="button"
-              onClick={toggleMethodFilter}
-              aria-pressed={methodFilterOpen}
-              className={cn(
-                filterButtonClass,
-                methodFilterOpen
-                  ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
-                  : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
-              )}
-            >
-              Payment Method
-            </button>
-
-            {methodFilterOpen && (
-              <Select
-                label=""
-                aria-label="Payment method"
-                value={methodFilter}
-                onChange={(e) =>
-                  setMethodFilter((e.target.value as PaymentProvider | '') || '')
-                }
-                className="w-[9.5rem] shrink-0 [&_select]:h-9 [&_select]:py-0"
-              >
-                <option value="">All</option>
-                {PAYMENT_METHOD_OPTIONS.map((provider) => (
-                  <option key={provider} value={provider}>
-                    {paymentProviderLabel(provider)}
-                  </option>
-                ))}
-              </Select>
-            )}
+            {effectiveViewMode === 'tile' && !isMobile ? (
+              <TileScaleControl
+                variant="row"
+                value={scale}
+                onChange={setScale}
+                label="Payment tile size"
+              />
+            ) : null}
           </div>
+
+          {filterBarOpen ? (
+            <div
+              id="payments-filter-options"
+              className="flex flex-col gap-1.5 border-t border-ink/10 pt-1.5"
+            >
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+                    Payment Status
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={cycleStatusFilter}
+                      data-onboarding="admin-overdue-rent"
+                      aria-label={`Payment status filter: ${getPaymentStatusFilterLabel(statusFilter)}. Click to cycle Any, Paid Rent, Overdue Rent, Paid Early, On Time.`}
+                      title="Click to cycle payment status: Any → Paid Rent → Overdue Rent → Paid Early → On Time"
+                      className={cn(
+                        filterButtonClass,
+                        PAYMENT_STATUS_FILTER_BUTTON_WIDTH_CLASS,
+                        'shrink-0 justify-center',
+                        statusFilter
+                          ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                          : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      )}
+                    >
+                      {getPaymentStatusFilterLabel(statusFilter)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilterWithQuery(null)}
+                      disabled={!statusFilter}
+                      aria-label="Reset payment status filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        statusFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+                    Payment Method
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={cycleMethodFilter}
+                      aria-label={`Payment method filter: ${methodFilter ? paymentProviderLabel(methodFilter) : 'Any'}. Click to cycle Any, Stripe, PayPal, Square, Zelle.`}
+                      title="Click to cycle payment method: Any → Stripe → PayPal → Square → Zelle"
+                      className={cn(
+                        filterButtonClass,
+                        PAYMENT_METHOD_FILTER_BUTTON_WIDTH_CLASS,
+                        'shrink-0 justify-center',
+                        methodFilter
+                          ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                          : 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                      )}
+                    >
+                      {methodFilter ? paymentProviderLabel(methodFilter) : 'Any'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMethodFilter(null)}
+                      disabled={!methodFilter}
+                      aria-label="Reset payment method filter"
+                      title="Reset Filters"
+                      className={cn(
+                        filterButtonClass,
+                        'shrink-0',
+                        methodFilter
+                          ? 'border-ink bg-surface-paper text-ink hover:border-brand/50'
+                          : 'cursor-not-allowed border-ink/40 bg-surface text-ink-faint'
+                      )}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {filtersActive && (
             <p className="text-xs text-ink-faint">
@@ -479,7 +589,7 @@ export function PaymentsPage() {
         <EmptyState
           icon={DollarSign}
           title="No payments match this filter"
-          description="Try clearing Overdue Rent, Paid Early, or Payment Method — or choose another method."
+          description="Try clearing Payment Status or Payment Method in Display Settings — or choose another filter."
         />
       ) : effectiveViewMode === 'spreadsheet' ? (
         <PaymentTable
@@ -495,7 +605,13 @@ export function PaymentsPage() {
         />
       ) : (
         <div className="tile-scale-root" style={paymentTileScaleStyle(factor)}>
-          <div className={paymentTileGridClassName(scale)}>
+          <div
+            className={cn(
+              isMobile
+                ? cn(sectionTileGridClassName(mobileTileColumns), 'section-tile-grid--fill')
+                : paymentTileGridClassName(scale)
+            )}
+          >
             {filteredRows.map((row) => {
               const anchorId = paymentTenantAnchorId(row.client.id)
               const paidEarly = row.display === 'Paid Early'

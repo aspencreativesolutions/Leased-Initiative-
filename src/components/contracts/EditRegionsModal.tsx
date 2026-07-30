@@ -39,6 +39,7 @@ function countMatchingProperties(group: ContractRegion, properties: Property[]):
         state,
         lat: property.addressDetails?.lat ?? null,
         lng: property.addressDetails?.lng ?? null,
+        propertyId: property.id,
       },
       { kind: 'region', value: group.id },
       [group]
@@ -55,6 +56,7 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
   const [areaCodes, setAreaCodes] = useState<string[]>([])
   const [areaCodeDraft, setAreaCodeDraft] = useState('')
   const [radius, setRadius] = useState<ContractRegionRadius | undefined>(undefined)
+  const [propertyIds, setPropertyIds] = useState<string[]>([])
   const [error, setError] = useState('')
   const [stateQuery, setStateQuery] = useState('')
 
@@ -65,6 +67,7 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
     setAreaCodes([])
     setAreaCodeDraft('')
     setRadius(undefined)
+    setPropertyIds([])
     setError('')
     setStateQuery('')
   }
@@ -86,6 +89,7 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
     setRadius(
       group.radius && isValidRegionRadius(group.radius) ? group.radius : undefined
     )
+    setPropertyIds([...(group.propertyIds ?? [])])
     setError('')
     setStateQuery('')
   }
@@ -99,8 +103,9 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
       areaCodes,
       states,
       ...(isValidRegionRadius(radius) ? { radius } : {}),
+      ...(propertyIds.length > 0 ? { propertyIds } : {}),
     }),
-    [areaCodes, states, radius]
+    [areaCodes, states, radius, propertyIds]
   )
 
   const liveSummaryLines = useMemo(
@@ -153,10 +158,11 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
       areaCodes,
       states,
       ...(nextRadius ? { radius: nextRadius } : {}),
+      ...(propertyIds.length > 0 ? { propertyIds } : {}),
     }
 
     if (!regionHasCriteria(nextGroup)) {
-      setError('Add at least one state, area code, or map radius.')
+      setError('Add at least one state, area code, map radius, or selected rental.')
       return
     }
 
@@ -178,8 +184,9 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
     <Modal open={open} onClose={onClose} title="Edit Groups" size="xl">
       <div className="space-y-6">
         <p className="text-sm text-ink-muted">
-          Build reusable rental groups from states, area codes, and map radius — mix any
-          combination — then filter rentals and leases by group.
+          Build reusable rental groups from states, area codes, map radius, or selected
+          rentals on the Map — mix any combination — then filter rentals and leases by
+          group.
         </p>
 
         <section className="space-y-3">
@@ -188,7 +195,8 @@ export function EditRegionsModal({ open, onClose }: EditRegionsModalProps) {
             <div className="rounded-[var(--radius-sm)] border-2 border-dashed border-line bg-surface-paper px-4 py-6 text-center">
               <p className="text-sm font-medium text-ink">No groups have been created yet.</p>
               <p className="mt-1.5 text-sm text-ink-muted">
-                Create a group using states, area codes, map radius, or any combination of them.
+                Create a group using states, area codes, map radius, selected rentals, or any
+                combination of them.
               </p>
             </div>
           ) : (

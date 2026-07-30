@@ -39,50 +39,62 @@ export const SAMPLE_LEASE_AMOUNTS = {
   'james@chenarch.com': {
     monthlyRent: 1200,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'jordan.kim@example.com': {
     monthlyRent: 1200,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'lisa@parkphoto.com': {
     monthlyRent: 1850,
     leaseMonths: 12,
+    renterCategory: 'standard',
   },
   'marcus@webblegal.com': {
     monthlyRent: 2200,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'emily@rodriguezwellness.com': {
     monthlyRent: 2150,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'ava.torres@example.com': {
     monthlyRent: 725,
     leaseMonths: 12,
+    renterCategory: 'standard',
   },
   'noah.patel@example.com': {
     monthlyRent: 725,
     leaseMonths: 12,
+    renterCategory: 'standard',
   },
   'priya.shah@example.com': {
     monthlyRent: 950,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'ethan.brooks@example.com': {
     monthlyRent: 950,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'maya.lopez@example.com': {
     monthlyRent: 950,
     leaseMonths: 12,
+    renterCategory: 'student',
   },
   'chris.nguyen@example.com': {
     monthlyRent: 875,
     leaseMonths: 12,
+    renterCategory: 'standard',
   },
   'sam.rivera@example.com': {
     monthlyRent: 875,
     leaseMonths: 12,
+    renterCategory: 'standard',
   },
 }
 

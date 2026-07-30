@@ -97,7 +97,7 @@ One dual-sided app. Landlords work in the studio. Tenants work in the portal. Sa
 - Edit Columns: rearrange, hide, or restore fields
 - Filter Official Tenants by lease progress and building type
 - Filter leases by status, progress, state, area code, or group
-- Show Occupancy Status tags under tenant names when you want them
+- Show Arrangements adds an Arrangement column beside Tenant when you want it (Sole Tenant or Co-Tenant with Entire Home / roommate count and Open to Roommates; numbered bedroom roster with rent status dots and clickable occupants)
 - Highlight last import after bringing in existing leases
 - Mobile-friendly scrollable tiles; Display Settings on larger screens
 

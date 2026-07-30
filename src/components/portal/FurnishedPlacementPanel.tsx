@@ -79,7 +79,7 @@ export function FurnishedPlacementPanel({
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-semibold text-ink">{room.label}</p>
                   <span className="text-[11px] font-medium uppercase tracking-caps text-ink-muted">
-                    {room.privacy === 'private' ? 'Private room' : 'Shared room'}
+                    {room.privacy === 'private' ? 'Single room' : 'Shared room'}
                   </span>
                 </div>
                 <ul className="grid gap-2 sm:grid-cols-2">

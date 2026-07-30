@@ -22,13 +22,13 @@ export const RENTAL_STATE_FILTER_CYCLE_MAX = 3
 export const RENTAL_TOWN_FILTER_CYCLE_MAX = 5
 export const RENTAL_GROUP_FILTER_CYCLE_MAX = 5
 
-export const RENTAL_STATE_FILTER_ANY_LABEL = 'State'
-export const RENTAL_TOWN_FILTER_ANY_LABEL = 'Town'
-export const RENTAL_GROUP_FILTER_ANY_LABEL = 'All Groups'
+export const RENTAL_STATE_FILTER_ANY_LABEL = 'Any'
+export const RENTAL_TOWN_FILTER_ANY_LABEL = 'Any'
+export const RENTAL_GROUP_FILTER_ANY_LABEL = 'Any'
 
 /**
  * Fixed widths so Display Settings controls do not resize between selections.
- * State and Town share one width (sized for the default State / Town labels)
+ * State and Town share one width (sized for selected values / Any)
  * so the pair stays visually matched; longer selected values truncate.
  */
 export const RENTAL_LOCATION_FILTER_BUTTON_WIDTH_CLASS = 'w-[8rem]'
@@ -39,8 +39,8 @@ export const RENTAL_TYPE_FILTER_OPTIONS: readonly PropertyHousingType[] =
   PROPERTY_HOUSING_TYPES
 
 /**
- * Rental Type cycle in Display Settings (after All Rentals).
- * Order: Apartment → Single-Family Home → Townhouse → Duplex.
+ * Building / rental type cycle in Display Settings (after Any).
+ * Order: Apartment → Single-Family Home → Townhouse → Duplex → Any.
  */
 export const RENTAL_TYPE_DISPLAY_FILTERS = [
   'Apartment',
@@ -52,7 +52,7 @@ export const RENTAL_TYPE_DISPLAY_FILTERS = [
 export type RentalTypeDisplayFilter =
   (typeof RENTAL_TYPE_DISPLAY_FILTERS)[number]
 
-/** Full cycle including All Rentals (null) for the Display Settings type button. */
+/** Full cycle including Any (null) for the Display Settings type button. */
 export const RENTAL_TYPE_FILTER_CYCLE = [
   null,
   ...RENTAL_TYPE_DISPLAY_FILTERS,
@@ -70,11 +70,11 @@ export function rentalTypeFilterButtonLabel(type: PropertyHousingType): string {
   return type
 }
 
-/** Button label for the Rental Type cycle control (`null` → All Rentals). */
+/** Button label for the Building Type cycle control (`null` → Any). */
 export function getRentalTypeFilterLabel(
   filter: RentalTypeDisplayFilter | PropertyHousingType | null | ''
 ): string {
-  if (!filter) return 'All Rentals'
+  if (!filter) return 'Any'
   return rentalTypeFilterButtonLabel(filter)
 }
 
@@ -88,8 +88,8 @@ export function isRentalTypeDisplayFilter(
 }
 
 /**
- * Advance All Rentals → Apartment → Single-Family Home → Townhouse → Duplex → All Rentals.
- * Values outside the cycle (e.g. Condo from the spreadsheet select) reset to All Rentals.
+ * Advance Any → Apartment → Single-Family Home → Townhouse → Duplex → Any.
+ * Values outside the cycle (e.g. Condo from a select) reset to Any.
  */
 export function nextRentalTypeFilter(
   current: PropertyHousingType | null | ''

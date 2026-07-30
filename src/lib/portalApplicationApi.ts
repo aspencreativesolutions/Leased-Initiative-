@@ -5,6 +5,7 @@ import type {
   PaymentProvider,
   PortalDashboard,
   PreferredOccupancyMode,
+  RenterCategory,
 } from '@/types'
 
 export async function submitPortalApplication(input: {
@@ -15,8 +16,10 @@ export async function submitPortalApplication(input: {
   preferredBedroomId?: string
   preferredBedId?: string
   roommateInvitePhones?: string[]
+  roommateInviteDelivery?: 'group' | 'solo'
   applicantPartyType?: ApplicantPartyType
   coupleCompanion?: CoupleCompanion
+  renterCategory?: RenterCategory
   inviteToken?: string
   connectionCode?: string
 }) {

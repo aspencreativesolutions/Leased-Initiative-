@@ -25,9 +25,9 @@ export type CanonicalOccupancyMode =
   | 'shared_room'
 
 export const OCCUPANCY_PREFERENCE_LABELS: Record<CanonicalOccupancyMode, string> = {
-  entire_home: 'Renting Entire Home',
+  entire_home: 'Entire Home',
   open_to_roommates: 'Open to Roommates',
-  private_room: 'Private Room',
+  private_room: 'Single Room',
   shared_room: 'Shared Room',
 }
 
@@ -372,7 +372,7 @@ export function placementConfirmationSummary(input: {
   const possible = placement.possibleRoommates
   let roommateLine: string
   if (placement.privacy === 'private') {
-    roommateLine = 'Private room — no roommates in this room'
+    roommateLine = 'Single room — no roommates in this room'
   } else if (roommatesAlready > 0) {
     roommateLine = `${roommatesAlready} roommate${roommatesAlready === 1 ? '' : 's'} currently in this placement · up to ${possible} possible`
   } else if (possible > 0) {
@@ -388,7 +388,7 @@ export function placementConfirmationSummary(input: {
       placement.monthlyRent != null
         ? `${formatUsd(placement.monthlyRent)}/month`
         : 'Rent TBA',
-    roomPrivacy: placement.privacy === 'private' ? 'Private room' : 'Shared room',
+    roomPrivacy: placement.privacy === 'private' ? 'Single room' : 'Shared room',
     roommateLine,
     utilitiesLabel: input.utilitiesIncluded
       ? 'Utilities included'

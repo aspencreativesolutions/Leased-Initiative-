@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, LogOut } from 'lucide-react'
+import { ArrowLeft, Building2, Loader2, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { DemoPovSwitcherShell } from '@/components/auth/DemoPovSwitcherShell'
 import { DemoTenantPovPicker } from '@/components/auth/DemoTenantPovPicker'
@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext'
 import { CORE_MOCK_USERS, getMockPassword } from '@/lib/adminMode'
 import type { DemoTenantPovOption } from '@/lib/demoTenantPov'
 import {
+  DEMO_AFTER_APPLY_LANDLORD_NOTICE,
   DEMO_AVA_NAME,
   exitPublicDemo,
   isPublicDemoSession,
@@ -280,13 +281,14 @@ export function DemoPovPage() {
                 </button>
                 <div className="max-w-2xl">
                   <p className="mb-2 inline-flex rounded-[var(--radius-sm)] border border-brand/25 bg-brand/5 px-2.5 py-1 text-[11px] font-semibold text-brand">
-                    Featured · Ava Mitchell · Start Application Ready
+                    Featured · {DEMO_AFTER_APPLY_LANDLORD_NOTICE}
                   </p>
                   <h1 className="heading-display text-3xl font-bold tracking-tight sm:text-4xl">
                     Choose a tenant scenario.
                   </h1>
                   <p className="mt-3 text-base leading-relaxed text-ink-muted sm:text-lg">
-                    Browse mock users and open their point of view.
+                    Browse mock users and open their point of view. Ava Mitchell is ready to start
+                    an application — after you submit, switch to landlord POV from the control below.
                   </p>
                 </div>
               </div>
@@ -313,29 +315,69 @@ export function DemoPovPage() {
         className="!z-20"
         title={
           step === 'tenant'
-            ? 'Pick a tenant scenario, or go back for landlord.'
+            ? 'Switch to landlord anytime'
             : 'Choose a role to start your demo.'
         }
-        subtitle="Exit demo anytime. After a tenant application, Switch to Landlord POV opens the landlord side directly."
+        subtitle={
+          step === 'tenant'
+            ? `${DEMO_AFTER_APPLY_LANDLORD_NOTICE} Switch POV opens the landlord side directly — no role screen.`
+            : 'Exit demo anytime. After a tenant application, Switch to Landlord opens the landlord side directly.'
+        }
         onExit={() => {
           void handleExit()
         }}
         exitDisabled={selecting}
         action={
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="w-full"
-            disabled={selecting}
-            onClick={() => {
-              void handleExit()
-            }}
-            aria-label="Exit Demo"
-          >
-            <LogOut className="h-3.5 w-3.5" aria-hidden />
-            Exit Demo
-          </Button>
+          step === 'tenant' ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                disabled={selecting}
+                onClick={() => {
+                  void beginAsLandlord()
+                }}
+                aria-label="Switch to Landlord"
+              >
+                {startingRole === 'landlord' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Building2 className="h-3.5 w-3.5" aria-hidden />
+                )}
+                Switch to Landlord
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={selecting}
+                onClick={() => {
+                  void handleExit()
+                }}
+                aria-label="Exit Demo"
+              >
+                <LogOut className="h-3.5 w-3.5" aria-hidden />
+                Exit Demo
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full"
+              disabled={selecting}
+              onClick={() => {
+                void handleExit()
+              }}
+              aria-label="Exit Demo"
+            >
+              <LogOut className="h-3.5 w-3.5" aria-hidden />
+              Exit Demo
+            </Button>
+          )
         }
       />
     </div>

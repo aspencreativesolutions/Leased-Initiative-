@@ -116,3 +116,30 @@ export function suggestedUnitCount(type: PropertyHousingType): number {
 export function getRentalTypeDescription(type: PropertyHousingType): string {
   return RENTAL_TYPE_OPTIONS.find((option) => option.value === type)?.description ?? ''
 }
+
+/**
+ * Short unit-type label for arrangement chips and occupancy summaries.
+ * Maps housing types to how the unit is divided (house / apartment / duplex, etc.).
+ */
+export function unitTypeArrangementLabel(
+  type: PropertyHousingType | string | null | undefined
+): string | null {
+  if (type == null || String(type).trim() === '') return null
+  const normalized = normalizeRentalType(type)
+  switch (normalized) {
+    case 'Single-Family Home':
+      return 'House'
+    case 'Studio Apartment':
+      return 'Studio'
+    case 'Condominium (Condo)':
+      return 'Condo'
+    case 'Basement Apartment / Accessory Dwelling Unit':
+      return 'ADU'
+    case 'Multi-Family Building':
+      return 'Multi-family'
+    case 'Vacation Rental':
+      return 'Vacation rental'
+    default:
+      return normalized
+  }
+}

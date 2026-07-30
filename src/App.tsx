@@ -39,6 +39,7 @@ import { PortalPaymentSuccessPage } from '@/pages/portal/PortalPaymentSuccessPag
 import { PortalZellePayPage } from '@/pages/portal/PortalZellePayPage'
 import { PortalProfilePage } from '@/pages/portal/PortalProfilePage'
 import { PortalReportPage } from '@/pages/portal/PortalReportPage'
+import { PortalInspectionPage } from '@/pages/portal/PortalInspectionPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { TenantAlertsPage } from '@/pages/TenantAlertsPage'
 import { PropertiesPage } from '@/pages/PropertiesPage'
@@ -138,6 +139,7 @@ export default function App() {
                       <Route path="/portal/profile" element={<PortalProfilePage />} />
                       <Route path="/portal/timeline" element={<PortalTimelinePage />} />
                       <Route path="/portal/report" element={<PortalReportPage />} />
+                      <Route path="/portal/inspection" element={<PortalInspectionPage />} />
                       <Route path="/portal/contracts/:contractId" element={<PortalContractPage />} />
                       <Route path="/portal/payment/success" element={<PortalPaymentSuccessPage />} />
                       <Route path="/portal/pay/zelle/:invoiceType" element={<PortalZellePayPage />} />

@@ -246,6 +246,66 @@
     --card-bg: color-mix(in srgb, #15803d 28%, var(--surface-paper));
   }
 
+  /* Off-market rentals — grayed tile with centered status overlay */
+  .rental-tile--off-market {
+    --card-bg: color-mix(in srgb, #737373 18%, var(--surface-paper));
+    --card-border: #737373;
+  }
+
+  .rental-tile--off-market:hover,
+  .rental-tile--off-market:focus-visible {
+    --card-bg: color-mix(in srgb, #737373 26%, var(--surface-paper));
+  }
+
+  .rental-tile__content--off-market {
+    position: relative;
+  }
+
+  .rental-tile__content--off-market > :not(.rental-tile__off-market-overlay) {
+    opacity: 0.38;
+  }
+
+  .rental-tile__off-market-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.75rem;
+    pointer-events: none;
+    text-align: center;
+  }
+
+  .rental-tile__off-market-status {
+    margin: 0;
+    font-size: max(0.72rem, calc(0.82rem * var(--tile-scale)));
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .rental-tile__off-market-reason {
+    margin: 0;
+    max-width: 14rem;
+    font-size: max(0.65rem, calc(0.72rem * var(--tile-scale)));
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--ink-muted);
+  }
+
+  .lease-tile-card__action-item--primary {
+    flex: 1 1 0;
+  }
+
+  .lease-tile-card__action-item--half {
+    flex: 0.5 1 0;
+    max-width: 42%;
+  }
+
   .lease-tile-timeline {
     display: flex;
     width: 100%;
@@ -508,6 +568,38 @@
     overflow: visible;
     container-type: inline-size;
     container-name: tenant-tile;
+  }
+
+  /* Stack given + family by default; sit side-by-side when the tile is wide enough. */
+  .official-tenant-name-lines {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    transition: gap 160ms ease;
+  }
+
+  .official-tenant-name-given,
+  .official-tenant-name-family {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @container tenant-tile (min-width: 9.5rem) {
+    .official-tenant-name-lines {
+      flex-direction: row;
+      flex-wrap: wrap;
+      column-gap: 0.35em;
+      row-gap: 0;
+      align-items: baseline;
+    }
+
+    .official-tenant-name-given,
+    .official-tenant-name-family {
+      display: inline;
+    }
   }
 
   .tile-scale-root .official-tenant-tile {
@@ -806,12 +898,13 @@
     word-break: normal;
   }
 
-  /* Full address — wrap on word boundaries only; never truncate with ellipsis */
+  /* Full address — wrap on word / comma boundaries; never truncate with ellipsis */
   .tile-card__address,
   .tile-card__address-static {
     display: block;
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     min-height: calc(1.35em * 2);
     overflow: visible;
     text-align: center;
@@ -822,16 +915,46 @@
     line-height: 1.35;
   }
 
-  /* Full address in Official Tenants — wrap on word boundaries; never ellipsize */
+  /* Full address in Official Tenants — wrap after commas; never ellipsize */
   .official-tenant-address {
     display: block;
     max-width: 100%;
+    min-width: 0;
     overflow: visible;
     white-space: normal;
     word-break: normal;
     overflow-wrap: break-word;
     hyphens: none;
     line-height: 1.35;
+  }
+
+  /*
+   * Address soft-wrap: prefer breaks after commas (via <wbr>), with hanging
+   * indent on continuation lines for left-aligned contexts.
+   */
+  .address-text {
+    display: inline;
+    max-width: 100%;
+    min-width: 0;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    hyphens: none;
+    line-height: inherit;
+  }
+
+  .address-text--hanging {
+    display: block;
+    padding-inline-start: 0.7em;
+    text-indent: -0.7em;
+  }
+
+  /* Centered tile titles: soft-break after commas, no hanging indent */
+  .tile-card__address .address-text,
+  .tile-card__address-static .address-text {
+    display: inline;
+    padding-inline-start: 0;
+    text-indent: 0;
   }
 
   .lease-tile-card .tile-card__title,
@@ -4287,6 +4410,38 @@ span.in-place-hover--lease-tag.inline-flex {
 @media (prefers-reduced-motion: no-preference) {
   .tour-continue-demo-btn {
     animation: tour-continue-demo-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+/* Onboarding tour — shrink Official Tenants (etc.) so the tip fits on the left */
+.tour-target-zoom-out {
+  transform: scale(0.72);
+  transform-origin: top right;
+  transition: transform 320ms ease;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-target-zoom-out {
+    transition: none;
+  }
+}
+
+.tour-tooltip-reveal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.tour-tooltip-reveal--ready {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-tooltip-reveal,
+  .tour-tooltip-reveal--ready {
+    transition: none;
   }
 }
 

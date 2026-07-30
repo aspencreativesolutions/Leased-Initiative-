@@ -80,6 +80,7 @@ export type PublicTenantInvite = {
   leaseStartDate?: string | null
   leaseLengthMonths?: number | null
   connectionCode?: string | null
+  rentalCategory?: 'student_housing' | 'standard_rental' | null
   agency?: {
     name: string
     properties: string[]
@@ -106,6 +107,7 @@ export async function claimTenantInvite(input: {
   preferredPropertyAddress: string
   preferredLeaseStartDate: string
   preferredPaymentMethod: PaymentProvider
+  renterCategory?: 'student' | 'standard'
   acceptedTermsOfService: true
 }) {
   return apiFetch<{ token: string; user: User }>('/api/auth/claim-invite', {
@@ -124,6 +126,7 @@ export async function registerAccount(payload: {
   preferredLeaseMonths?: number
   preferredLandlordCompany?: string
   preferredPropertyAddress?: string
+  renterCategory?: 'student' | 'standard'
   inviteToken?: string
   connectionCode?: string
   acceptedTermsOfService: true

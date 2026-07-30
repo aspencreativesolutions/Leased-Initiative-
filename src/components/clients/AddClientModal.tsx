@@ -540,7 +540,7 @@ export function AddClientModal({
                 required
                 value={form.leaseOptionId}
                 onChange={(e) => update('leaseOptionId', e.target.value)}
-                hint="Seasonal lengths and custom eras from Settings → Lease Defaults"
+                hint="Seasonal lengths and custom eras from Help and Settings → Lease Defaults"
               >
                 {leaseOptions.map((option) => (
                   <option key={option.id} value={option.id}>

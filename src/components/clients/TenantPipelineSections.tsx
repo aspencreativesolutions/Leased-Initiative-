@@ -20,6 +20,7 @@ import { PendingClientBadge } from '@/components/clients/PendingClientBadge'
 import { SendInviteModal } from '@/components/clients/SendInviteModal'
 import { OccupancyPreferenceTag } from '@/components/clients/OccupancyPreferenceTag'
 import { ApplicantPartyTag } from '@/components/clients/ApplicantPartyTag'
+import { RenterCategoryTag } from '@/components/clients/RenterCategoryTag'
 import { RentalAvailabilityBadge } from '@/components/clients/RentalAvailabilityBadge'
 import {
   clientNameMarkersClass,
@@ -31,6 +32,7 @@ import { SendContractModal } from '@/components/contracts/SendContractModal'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { AddressText } from '@/components/ui/AddressText'
 import { SectionHelpIcon } from '@/components/ui/SectionHelpIcon'
 import { useApp } from '@/context/AppContext'
 import { ApiError } from '@/lib/api'
@@ -88,7 +90,13 @@ function roommateInviteNote(registration: PendingRegistration): string | null {
     registration.roommateInvitePhones?.length ??
     0
   if (count <= 0) return 'Wants roommates · no friend invites sent yet'
-  return `Invited ${count} friend${count === 1 ? '' : 's'} to share`
+  const delivery =
+    registration.roommateInviteDelivery === 'group'
+      ? ' via group chat'
+      : registration.roommateInviteDelivery === 'solo'
+        ? ' individually'
+        : ''
+  return `Invited ${count} friend${count === 1 ? '' : 's'} to share${delivery}`
 }
 
 function registrationMatchesProperty(
@@ -1147,6 +1155,7 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
         </div>
         <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
         <ApplicantPartyTag partyType={registration.applicantPartyType} />
+        <RenterCategoryTag category={registration.renterCategory} />
         <p className="truncate text-sm text-ink-muted">{registration.email}</p>
       </div>
 
@@ -1155,7 +1164,9 @@ function WaitingConnectGalleryTile(props: WaitingConnectItemProps) {
           <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">
             Desired Address
           </p>
-          <p className="text-sm font-medium text-ink">{displayAddress}</p>
+          <p className="min-w-0 text-sm font-medium leading-snug text-ink">
+            <AddressText address={displayAddress} />
+          </p>
           {registration.preferredLandlordCompany && (
             <p className="pt-1 text-xs text-ink-muted">
               Landlord: {registration.preferredLandlordCompany}
@@ -1250,9 +1261,13 @@ function WaitingConnectListRow(props: WaitingConnectItemProps) {
           </div>
           <OccupancyPreferenceTag mode={registration.preferredOccupancyMode} />
           <ApplicantPartyTag partyType={registration.applicantPartyType} />
+          <RenterCategoryTag category={registration.renterCategory} />
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="min-w-0 truncate text-sm font-medium text-ink" title={displayAddress}>
-              {displayAddress}
+            <p
+              className="min-w-0 text-sm font-medium leading-snug text-ink"
+              title={displayAddress}
+            >
+              <AddressText address={displayAddress} />
             </p>
             {desiredAddress ? (
               <RentalAvailabilityBadge
@@ -1425,9 +1440,10 @@ function ProspectiveApplicantRow({
           arrangement={user.occupancyArrangement}
         />
         <ApplicantPartyTag className="mt-1" partyType={user.applicantPartyType} />
+        <RenterCategoryTag className="mt-1" category={user.renterCategory} />
         <p className="text-xs text-ink-muted">{user.email}</p>
-        <p className="mt-0.5 text-xs text-ink-muted sm:hidden">
-          {user.propertyAddress || user.projectName}
+        <p className="mt-0.5 min-w-0 text-xs leading-snug text-ink-muted sm:hidden">
+          <AddressText address={user.propertyAddress || user.projectName || '—'} />
         </p>
         <div className="mt-1 md:hidden">
           <span
@@ -1462,9 +1478,9 @@ function ProspectiveApplicantRow({
           </p>
         ) : null}
       </td>
-      <td className="hidden px-3 py-4 sm:table-cell sm:px-4">
-        <p className="font-medium text-ink">
-          {user.propertyAddress || user.projectName}
+      <td className="hidden min-w-0 px-3 py-4 sm:table-cell sm:px-4">
+        <p className="min-w-0 font-medium leading-snug text-ink">
+          <AddressText address={user.propertyAddress || user.projectName || '—'} />
         </p>
         <p className="text-xs text-ink-muted">{user.clientName}</p>
       </td>

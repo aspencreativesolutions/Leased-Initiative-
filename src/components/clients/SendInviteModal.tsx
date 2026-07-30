@@ -30,6 +30,7 @@ const EMPTY_FORM = {
   leaseLengthMonths: String(DEFAULT_LEASE_LENGTH_MONTHS),
   connectionCode: '',
   phone: '',
+  rentalCategory: '',
 }
 
 export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
@@ -45,6 +46,7 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
   const propertyOptions = useMemo(
     () =>
       [...properties]
+        .filter((p) => p.offMarket !== true)
         .map((p) => p.address.trim())
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b)),
@@ -91,6 +93,12 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
             next.leaseStartDate = option.leaseStartDate
           }
         }
+        if (
+          property?.rentalCategory === 'student_housing' ||
+          property?.rentalCategory === 'standard_rental'
+        ) {
+          next.rentalCategory = property.rentalCategory
+        }
       }
       return next
     })
@@ -126,6 +134,11 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
         leaseLengthMonths,
         phone,
         connectionCode: form.connectionCode.trim() || undefined,
+        rentalCategory:
+          form.rentalCategory === 'student_housing' ||
+          form.rentalCategory === 'standard_rental'
+            ? form.rentalCategory
+            : undefined,
         sendSms: true,
       })
       setInviteUrl(result.inviteUrl)
@@ -238,6 +251,18 @@ export function SendInviteModal({ open, onClose }: SendInviteModalProps) {
                   hint={`Texted from ${companyName}`}
                 />
               </div>
+
+              <Select
+                label="Rental type"
+                name="rentalCategory"
+                value={form.rentalCategory}
+                onChange={(e) => update('rentalCategory', e.target.value)}
+                hint="Optional — Student Housing or Standard Rental for this invite"
+              >
+                <option value="">Not specified</option>
+                <option value="student_housing">Student Housing</option>
+                <option value="standard_rental">Standard Rental</option>
+              </Select>
 
               <Button type="submit" disabled={submitting} className="w-full">
                 {submitting ? (

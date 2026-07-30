@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
-/** Shared across Rentals, Official Tenants, and Lease Agreements on mobile. */
-export const MOBILE_TILE_COLUMNS_KEY = 'leased-mobile-tile-columns'
+/** Shared across Rentals, Official Tenants, Lease Agreements, and Payments on mobile. */
+export const MOBILE_TILE_COLUMNS_KEY = 'leased-mobile-tile-columns-v2'
 
 export type MobileTileColumns = 1 | 2
 

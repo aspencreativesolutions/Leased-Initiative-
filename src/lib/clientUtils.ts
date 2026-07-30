@@ -742,13 +742,14 @@ export function nextLeaseAgreementStatusFilter(
 }
 
 /**
- * Lease Agreements Display Settings → Lease Progress cycle (after Any).
- * Order: Any → Not Started → Ongoing → Ending Soon → Any
+ * Lease Agreements / Official Tenants Display Settings → Lease Progress cycle
+ * (after Any). Order: Any → Not Started → Ongoing → Ending Soon → Finished → Any
  */
 export const LEASE_AGREEMENT_PROGRESS_FILTERS = [
   'Not Started',
   'Ongoing',
   'Ending Soon',
+  'Finished',
 ] as const
 
 export type LeaseAgreementProgressFilter =
@@ -782,7 +783,7 @@ export function getLeaseAgreementProgressFilterLabel(
   return filter ?? 'Any'
 }
 
-/** Advance Any → Not Started → Ongoing → Ending Soon → Any. */
+/** Advance Any → Not Started → Ongoing → Ending Soon → Finished → Any. */
 export function nextLeaseAgreementProgressFilter(
   current: LeaseAgreementProgressFilter | null
 ): LeaseAgreementProgressFilter | null {
@@ -806,6 +807,8 @@ export function leaseProgressMatchesFilter(
       return state === 'Active'
     case 'Ending Soon':
       return state === 'Ending Soon'
+    case 'Finished':
+      return state === 'Expired'
     default:
       return true
   }

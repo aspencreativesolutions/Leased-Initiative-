@@ -1,13 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
 import { ClientTableMobileCard } from './ClientTableMobileCard'
+import { LeaseCompleteTag } from './LeaseCompleteTag'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
-import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { OccupancyStatusChip } from './OccupancyStatusChip'
+import { clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { ApplicantPartyTag } from './ApplicantPartyTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
 import { TenantLeaseStateIcon } from './TenantLeaseStateIcon'
 import { RemoveClientModal } from './RemoveClientModal'
+import { AddressText } from '@/components/ui/AddressText'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
@@ -37,6 +40,7 @@ import {
   saveTenantTableColumnOrder,
   TENANT_TABLE_COLUMN_LABELS,
   tenantTableColumnWidths,
+  withTenantArrangementColumn,
   type TenantTableColumnId,
 } from '@/lib/tenantTableColumns'
 import {
@@ -53,6 +57,7 @@ import { matchesDashboardFilter, type DashboardFilter } from '@/lib/dashboardFil
 import {
   officialTenantRowAnchorId,
 } from '@/lib/officialTenantSpotlight'
+import { getOccupancyShareDetail } from '@/lib/occupancyStatusFilter'
 import type { Client, ContractData, Property } from '@/types'
 
 export type ClientTableViewMode = 'tile' | 'spreadsheet'
@@ -82,8 +87,8 @@ interface ClientTableProps {
    */
   tileScaleFactor?: number
   /**
-   * When true, show occupancy preference tags under tenant names.
-   * Off by default — Display Settings control; not a table column.
+   * When true, show the Arrangement column to the right of Tenant
+   * (Show Arrangements). Off by default — Display Settings control.
    */
   showOccupancyStatus?: boolean
   /**
@@ -99,6 +104,8 @@ function headerVisibilityClass(columnId: TenantTableColumnId): string {
   switch (columnId) {
     case 'contact':
       return 'hidden md:table-cell'
+    case 'arrangement':
+      return ''
     default:
       return ''
   }
@@ -141,7 +148,9 @@ function renderCell(
   columnId: TenantTableColumnId,
   client: Client,
   contract: ContractData | undefined,
+  allClients: Client[],
   properties: Property[],
+  getContract: (clientId: string) => ContractData | undefined,
   onRemove: () => void,
   onOpenTenantDetails: (tenantId: string) => void,
   onConfirmPayment: (clientId: string) => void,
@@ -157,6 +166,12 @@ function renderCell(
     client,
     getTenantAssignedProperty(client, contract, properties)
   )
+  const shareDetail = getOccupancyShareDetail(
+    client,
+    allClients,
+    getContract,
+    properties
+  )
 
   switch (columnId) {
     case 'tenant':
@@ -169,33 +184,47 @@ function renderCell(
           )}
         >
           <div className="min-w-0">
-            <div className="flex min-w-0 items-start justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenTenantDetails(client.id)}
-                className="inline-flex max-w-full min-w-0 items-center gap-1.5 text-left text-base font-semibold text-ink hover:text-brand hover:underline"
-                title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
-              >
+            <div className="flex min-w-0 items-start gap-2">
+              <div className="inline-flex max-w-full min-w-0 items-center gap-1.5">
                 <TenantLeaseStateIcon details={leaseStatus} />
-                <span className="min-w-0 truncate">{client.name}</span>
-              </button>
-              {leaseComplete ? (
-                <span
-                  className="shrink-0 rounded-[var(--radius-sm)] border-2 border-ink/25 bg-surface px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-caps text-ink-muted"
-                  title="Lease term has ended"
+                <button
+                  type="button"
+                  onClick={() => onOpenTenantDetails(client.id)}
+                  className="min-w-0 truncate text-left text-base font-semibold text-ink hover:text-brand hover:underline"
+                  title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
                 >
-                  Lease Complete
-                </span>
-              ) : null}
+                  {client.name}
+                </button>
+              </div>
             </div>
             <OfficialTenantContactLinks client={client} />
-            {showOccupancyStatus ? (
-              <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
-                <OccupancyPreferenceTag {...occupancyProps} />
-                <ApplicantPartyTag partyType={client.applicantPartyType} />
+            {leaseComplete ? (
+              <div className="mt-1.5">
+                <LeaseCompleteTag clientId={client.id} />
               </div>
             ) : null}
           </div>
+        </td>
+      )
+    case 'arrangement':
+      return (
+        <td
+          key={columnId}
+          className={cn(
+            'overflow-visible px-3 py-2.5 align-top transition-[background-color,box-shadow,opacity] sm:px-4',
+            arrangeClassName
+          )}
+        >
+          {showOccupancyStatus ? (
+            <div className="flex min-w-0 flex-wrap gap-1">
+              <OccupancyStatusChip
+                {...occupancyProps}
+                shareDetail={shareDetail}
+                onOccupantClick={onOpenTenantDetails}
+              />
+              <ApplicantPartyTag partyType={client.applicantPartyType} />
+            </div>
+          ) : null}
         </td>
       )
     case 'contact':
@@ -234,7 +263,7 @@ function renderCell(
               className="official-tenant-address min-w-0 w-full break-words text-left font-bold leading-snug text-ink hover:text-brand hover:underline"
               title={`View tenant at ${addressValue}`}
             >
-              {addressValue}
+              <AddressText address={addressValue} />
             </button>
           </div>
         </td>
@@ -330,7 +359,7 @@ export function ClientTable({
   framed = false,
   onOpenTenantDetails,
 }: ClientTableProps) {
-  const { getContractForClient, refresh, properties } = useApp()
+  const { clients: allClients, getContractForClient, refresh, properties } = useApp()
   const [removeTarget, setRemoveTarget] = useState<Client | null>(null)
   const [confirmingClientId, setConfirmingClientId] = useState<string | null>(null)
   const [confirmError, setConfirmError] = useState('')
@@ -338,6 +367,10 @@ export function ClientTable({
   const { columns: uncontrolledMobileColumns } = useMobileTileColumns()
 
   const columnOrder = controlledOrder ?? uncontrolledOrder
+  const displayColumnOrder = withTenantArrangementColumn(
+    columnOrder,
+    showOccupancyStatus
+  )
   const mobileTileColumns = controlledMobileColumns ?? uncontrolledMobileColumns
 
   const handleConfirmPayment = async (clientId: string) => {
@@ -373,10 +406,10 @@ export function ClientTable({
     clearArrangeInteraction,
   } = useArrangeTableColumns({
     arrangeColumns,
-    columnOrder,
+    columnOrder: displayColumnOrder,
     onColumnOrderChange: setColumnOrder,
     moveColumn: moveTenantTableColumn,
-    isPinned: (id) => id === 'actions',
+    isPinned: (id) => id === 'actions' || id === 'arrangement',
   })
 
   if (clients.length === 0) {
@@ -423,8 +456,10 @@ export function ClientTable({
     : []
   const visibleDataColumnCount = columnOrder.filter((id) => id !== 'actions').length
   const canRemoveSelected = visibleDataColumnCount > 1
-  const columnWidths = tenantTableColumnWidths(columnOrder)
-  const reorderableColumnIds = columnOrder.filter((id) => id !== 'actions')
+  const columnWidths = tenantTableColumnWidths(displayColumnOrder)
+  const reorderableColumnIds = displayColumnOrder.filter(
+    (id) => id !== 'actions' && id !== 'arrangement'
+  )
 
   const showTiles = viewMode ? viewMode === 'tile' : null
   const showSpreadsheet = viewMode ? viewMode === 'spreadsheet' : null
@@ -452,7 +487,9 @@ export function ClientTable({
             key={client.id}
             client={client}
             contract={getContractForClient(client.id)}
+            clients={allClients}
             properties={properties}
+            getContract={getContractForClient}
             highlighted={highlighted}
             dimmed={dimmed}
             showOccupancyStatus={showOccupancyStatus}
@@ -506,7 +543,7 @@ export function ClientTable({
           {arrangeColumns ? (
             <ColumnArrangeHighlight
               tableRef={tableRef}
-              columnOrder={columnOrder}
+              columnOrder={displayColumnOrder}
               hoveredColumnId={hoveredColumnId}
               selectedColumnId={selectedColumnId}
               draggingId={draggingId}
@@ -524,14 +561,17 @@ export function ClientTable({
             )}
           >
             <colgroup>
-              {columnOrder.map((columnId) => (
+              {displayColumnOrder.map((columnId) => (
                 <col key={columnId} style={{ width: columnWidths[columnId] }} />
               ))}
             </colgroup>
             <thead>
               <tr className="border-b-[length:var(--border-width)] border-ink bg-surface">
-                {columnOrder.map((columnId) => {
-                  const canArrange = arrangeColumns && columnId !== 'actions'
+                {displayColumnOrder.map((columnId) => {
+                  const canArrange =
+                    arrangeColumns &&
+                    columnId !== 'actions' &&
+                    columnId !== 'arrangement'
                   const isSelected = arrangeColumns && selectedColumnId === columnId
                   const showRemove = isSelected && canRemoveSelected
                   const reorderIndex = reorderableColumnIds.findIndex(
@@ -620,12 +660,14 @@ export function ClientTable({
                         'hover:bg-surface'
                     )}
                   >
-                    {columnOrder.map((columnId) =>
+                    {displayColumnOrder.map((columnId) =>
                       renderCell(
                         columnId,
                         client,
                         contract,
+                        allClients,
                         properties,
+                        getContractForClient,
                         () => setRemoveTarget(client),
                         onOpenTenantDetails,
                         handleConfirmPayment,

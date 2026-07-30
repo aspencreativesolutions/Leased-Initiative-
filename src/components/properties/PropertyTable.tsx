@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Pencil } from 'lucide-react'
 import { RentalInterestCue } from '@/components/properties/RentalInterestCue'
+import { AddressText } from '@/components/ui/AddressText'
 import { ColumnArrangeHighlight } from '@/components/ui/ColumnArrangeHighlight'
 import { EditColumnsArrangeBanner } from '@/components/ui/EditColumnsArrangeBanner'
 import { EditColumnsRemoveButton } from '@/components/ui/EditColumnsRemoveButton'
@@ -9,6 +10,7 @@ import { columnArrangeOutlineClass } from '@/lib/columnArrangeOutline'
 import type { RentalInterestCounts } from '@/lib/properties'
 import { formatUsd } from '@/lib/rentalRent'
 import { furnishedStatusLabel } from '@/lib/propertyListingDisplay'
+import { RentalCategoryTag } from '@/components/properties/RentalCategoryTag'
 import {
   DEFAULT_RENTAL_TABLE_COLUMNS,
   hiddenRentalTableColumns,
@@ -24,7 +26,7 @@ import {
   type RentalTableColumnId,
 } from '@/lib/rentalTableColumns'
 import { cn } from '@/lib/utils'
-import type { PropertyHousingType } from '@/types'
+import type { PropertyHousingType, RentalCategory } from '@/types'
 
 export type { PropertySortColumn, RentalTableColumnId }
 
@@ -32,6 +34,7 @@ export interface PropertyTableRow {
   id: string
   address: string
   propertyType: PropertyHousingType
+  rentalCategory?: RentalCategory
   furnished?: boolean
   bedrooms: number
   maxTenants: number
@@ -46,6 +49,10 @@ export interface PropertyTableRow {
   unitLabel: string | null
   /** False when whole-unit / entire-home occupancy hides bed UI. */
   surfacesBeds: boolean
+  /** Landlord marked this rental off market (closed to applications). */
+  offMarket?: boolean
+  /** Optional reason shown when off market. */
+  offMarketReason?: string
 }
 
 interface PropertyTableProps {
@@ -66,6 +73,16 @@ interface PropertyTableProps {
   arrangeColumns?: boolean
   /** Exit Edit Columns mode — shown next to Reset in the edit banner. */
   onArrangeDone?: () => void
+  /** Address-column “Sort By: Distance From” control. */
+  distanceFrom?: {
+    query: string
+    onQueryChange: (value: string) => void
+    onSubmit: () => void
+    onClear: () => void
+    activeLabel?: string | null
+    loading?: boolean
+    error?: string
+  }
 }
 
 function hideClass(hideBelow?: 'sm' | 'md' | 'lg'): string {
@@ -169,16 +186,21 @@ function PropertyCell({
         >
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  'whitespace-normal font-semibold leading-snug text-ink',
-                  'break-normal hyphens-none [overflow-wrap:normal] [word-break:normal]'
-                )}
-              >
-                {row.address}
+              <p className="min-w-0 font-semibold leading-snug text-ink">
+                <AddressText address={row.address} />
               </p>
               {row.unitLabel ? (
                 <p className="mt-0.5 text-xs text-ink-muted">{row.unitLabel}</p>
+              ) : null}
+              {row.offMarket ? (
+                <div className="mt-1 space-y-0.5">
+                  <span className="inline-flex rounded-[var(--radius-sm)] border border-ink/30 bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-caps text-ink-muted">
+                    Property Off Market
+                  </span>
+                  {row.offMarketReason ? (
+                    <p className="text-xs text-ink-muted">{row.offMarketReason}</p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
             {onEditClick ? (
@@ -217,6 +239,11 @@ function PropertyCell({
           >
             {furnishedStatusLabel(row.furnished)}
           </span>
+          <RentalCategoryTag
+            category={row.rentalCategory}
+            resolveMissing
+            className="mt-0.5"
+          />
         </td>
       )
     case 'monthlyRent':
@@ -345,6 +372,7 @@ export function PropertyTable({
   onVisibleColumnsChange,
   arrangeColumns = false,
   onArrangeDone,
+  distanceFrom,
 }: PropertyTableProps) {
   const {
     tableRef,
@@ -486,46 +514,113 @@ export function PropertyTable({
                     aria-selected={isSelected ? true : undefined}
                     aria-grabbed={draggingId === column.id || undefined}
                   >
-                    <span
+                    <div
                       className={cn(
-                        'inline-flex max-w-full items-center gap-1.5',
-                        headerJustify(column.align)
+                        'flex max-w-full flex-col gap-2',
+                        column.align === 'left' ? 'items-start' : 'items-center'
                       )}
                     >
-                      {arrangeColumns ? (
-                        <span>{column.label}</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onSortChange(column.id)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] transition-colors',
-                            'hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
-                            headerJustify(column.align),
-                            active && 'text-ink'
-                          )}
-                          aria-label={`Sort by ${column.label}`}
-                        >
+                      <span
+                        className={cn(
+                          'inline-flex max-w-full items-center gap-1.5',
+                          headerJustify(column.align)
+                        )}
+                      >
+                        {arrangeColumns ? (
                           <span>{column.label}</span>
-                          <SortIcon active={active} direction={sortDirection} />
-                        </button>
-                      )}
-                      {arrangeColumns ? (
-                        <EditColumnsReorderButtons
-                          columnLabel={column.label}
-                          canMoveUp={columnIndex > 0}
-                          canMoveDown={columnIndex < columns.length - 1}
-                          onMoveUp={() => handleNudgeColumn(column.id, -1)}
-                          onMoveDown={() => handleNudgeColumn(column.id, 1)}
-                        />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onSortChange(column.id)}
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] transition-colors',
+                              'hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+                              headerJustify(column.align),
+                              active && 'text-ink'
+                            )}
+                            aria-label={`Sort by ${column.label}`}
+                          >
+                            <span>{column.label}</span>
+                            <SortIcon active={active} direction={sortDirection} />
+                          </button>
+                        )}
+                        {arrangeColumns ? (
+                          <EditColumnsReorderButtons
+                            columnLabel={column.label}
+                            canMoveUp={columnIndex > 0}
+                            canMoveDown={columnIndex < columns.length - 1}
+                            onMoveUp={() => handleNudgeColumn(column.id, -1)}
+                            onMoveDown={() => handleNudgeColumn(column.id, 1)}
+                          />
+                        ) : null}
+                        {showRemove ? (
+                          <EditColumnsRemoveButton
+                            columnLabel={column.label}
+                            onRemove={() => handleHideColumn(column.id)}
+                          />
+                        ) : null}
+                      </span>
+                      {column.id === 'address' && distanceFrom && !arrangeColumns ? (
+                        <div className="w-full max-w-[16rem] rounded-[var(--radius-sm)] border border-ink/15 bg-surface-paper p-2 text-left shadow-[1px_1px_0_0_rgba(17,17,17,0.55)]">
+                          <label
+                            htmlFor="rental-distance-from"
+                            className="block text-[8px] font-bold uppercase tracking-[0.12em] text-ink-faint"
+                          >
+                            Sort By: Distance From
+                          </label>
+                          <div className="mt-1 flex items-center gap-1">
+                            <input
+                              id="rental-distance-from"
+                              type="text"
+                              value={distanceFrom.query}
+                              onChange={(e) =>
+                                distanceFrom.onQueryChange(e.target.value)
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  distanceFrom.onSubmit()
+                                }
+                              }}
+                              placeholder="Address or city"
+                              disabled={distanceFrom.loading}
+                              className="min-w-0 flex-1 rounded-[var(--radius-sm)] border border-line bg-surface-paper px-2 py-1 text-[11px] font-normal normal-case tracking-normal text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={distanceFrom.onSubmit}
+                              disabled={distanceFrom.loading || !distanceFrom.query.trim()}
+                              className="shrink-0 rounded-[var(--radius-sm)] border border-ink bg-ink px-2 py-1 text-[9px] font-semibold uppercase tracking-caps text-surface-paper disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {distanceFrom.loading ? '…' : 'Go'}
+                            </button>
+                            {distanceFrom.activeLabel ? (
+                              <button
+                                type="button"
+                                onClick={distanceFrom.onClear}
+                                className="shrink-0 rounded-[var(--radius-sm)] border border-line px-1.5 py-1 text-[9px] font-semibold uppercase tracking-caps text-ink-muted hover:border-ink hover:text-ink"
+                                aria-label="Clear distance sort"
+                              >
+                                Clear
+                              </button>
+                            ) : null}
+                          </div>
+                          {distanceFrom.activeLabel ? (
+                            <p className="mt-1 truncate text-[10px] font-normal normal-case tracking-normal text-ink-muted">
+                              Nearest → farthest from {distanceFrom.activeLabel}
+                            </p>
+                          ) : null}
+                          {distanceFrom.error ? (
+                            <p
+                              className="mt-1 text-[10px] font-normal normal-case tracking-normal text-accent"
+                              role="alert"
+                            >
+                              {distanceFrom.error}
+                            </p>
+                          ) : null}
+                        </div>
                       ) : null}
-                      {showRemove ? (
-                        <EditColumnsRemoveButton
-                          columnLabel={column.label}
-                          onRemove={() => handleHideColumn(column.id)}
-                        />
-                      ) : null}
-                    </span>
+                    </div>
                   </th>
                 )
               })}
@@ -568,6 +663,7 @@ export function PropertyTable({
                   }
                   className={cn(
                     'scroll-mt-28',
+                    row.offMarket && 'bg-ink/[0.04] text-ink-muted opacity-80',
                     onRowClick &&
                       !arrangeColumns &&
                       'cursor-pointer transition-[background-color,box-shadow,transform] duration-150 ease-out',

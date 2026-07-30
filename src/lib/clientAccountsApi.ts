@@ -29,9 +29,15 @@ export async function removeClientRecord(clientId: string) {
 }
 
 /** Soft-remove: move expired official tenant to Past Tenants (Company Profile). */
-export async function archiveClientRecord(clientId: string) {
+export async function archiveClientRecord(
+  clientId: string,
+  options?: { force?: boolean }
+) {
   return apiFetch<{ ok: boolean; client: { id: string; archivedAt: string } }>(
     `/api/data/clients/${clientId}/archive`,
-    { method: 'POST' }
+    {
+      method: 'POST',
+      body: JSON.stringify({ force: options?.force === true }),
+    }
   )
 }

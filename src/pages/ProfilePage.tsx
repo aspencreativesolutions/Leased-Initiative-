@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { KeyRound, Save } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { CompanyDetailsPanel } from '@/components/profile/CompanyDetailsPanel'
+import { KeyReturnPreferencesSection } from '@/components/profile/KeyReturnPreferencesSection'
 import { LeaseUploadSection } from '@/components/profile/LeaseUploadSection'
 import { ZelleReceiveSettings } from '@/components/profile/ZelleReceiveSettings'
 import { ProfileLegalSection } from '@/components/legal/ProfileLegalSection'
@@ -86,12 +87,14 @@ export function ProfilePage() {
   return (
     <div className="w-full min-w-0">
       <PageHeader
-        title="Company Profile"
-        subtitle="Company details, rental-type and renter breakdowns, account settings, and lease import. Manage rentals from the Rentals page."
+        title="Company Profile & Preferences"
+        subtitle="Company details, preferences (key return notices, editable lease clause wording, required tenant photos), rental-type and renter breakdowns, account settings, and lease import. Manage rentals from the Rentals page."
       />
 
       <div className="w-full min-w-0 space-y-6">
         <CompanyDetailsPanel />
+
+        <KeyReturnPreferencesSection />
 
         <ZelleReceiveSettings />
 

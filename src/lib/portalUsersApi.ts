@@ -38,6 +38,8 @@ export type CreateTenantInviteInput = {
   sendSms?: boolean
   clientId?: string
   source?: 'lease-import' | 'manual'
+  /** Optional Student Housing / Standard Rental tag for the invitee. */
+  rentalCategory?: 'student_housing' | 'standard_rental'
 }
 
 export type TenantInviteResult = {

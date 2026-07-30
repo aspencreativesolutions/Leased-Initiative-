@@ -1,13 +1,6 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import {
-  Building2,
-  FileText,
-  Palette,
-  Save,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import { Building2, Save } from 'lucide-react'
 import { ThemePicker } from '@/components/settings/ThemePicker'
 import { AutomationSettingsSection } from '@/components/settings/AutomationSettingsSection'
 import { LeaseDefaultDatesSection } from '@/components/settings/LeaseDefaultDatesSection'
@@ -15,12 +8,11 @@ import { LeaseAgreementTemplatesSection } from '@/components/settings/LeaseAgree
 import { TenantDiscoverySection } from '@/components/settings/TenantDiscoverySection'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
-import { Card, CardHeader } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Input, Textarea } from '@/components/ui/FormField'
 import { useApp } from '@/context/AppContext'
 import { defaultSettings } from '@/data/seed'
 import { normalizeCustomLeaseEras } from '@/lib/leaseSchedule'
-import { cn } from '@/lib/utils'
 import type { AutomationSettings, TenantDiscoveryMode } from '@/types'
 
 type SettingsCategoryId = 'business' | 'automation' | 'lease' | 'style'
@@ -29,7 +21,6 @@ interface SettingsCategory {
   id: SettingsCategoryId
   title: string
   description: string
-  icon: LucideIcon
 }
 
 const SETTINGS_CATEGORIES: SettingsCategory[] = [
@@ -37,27 +28,30 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
     id: 'business',
     title: 'Business Information',
     description: 'Company details used in lease headers and signatures.',
-    icon: Building2,
   },
   {
     id: 'automation',
     title: 'Client Automation',
     description: 'Reminders, follow-ups, and status updates on autopilot.',
-    icon: Zap,
   },
   {
     id: 'lease',
     title: 'Lease Defaults',
     description: 'Templates, lease calendar settings, payment terms, revision limits, and footers.',
-    icon: FileText,
   },
   {
     id: 'style',
     title: 'App Style',
     description: 'Choose a visual finish — preview applies instantly.',
-    icon: Palette,
   },
 ]
+
+function resolveCategory(tab: string | null): SettingsCategoryId {
+  if (tab && SETTINGS_CATEGORIES.some((category) => category.id === tab)) {
+    return tab as SettingsCategoryId
+  }
+  return 'business'
+}
 
 export function SettingsPage() {
   const { settings, updateSettings } = useApp()
@@ -71,24 +65,13 @@ export function SettingsPage() {
   }))
   const [saved, setSaved] = useState(false)
   const [dateError, setDateError] = useState('')
-  const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('business')
-  const baseId = useId()
-  const tabRefs = useRef<Partial<Record<SettingsCategoryId, HTMLButtonElement | null>>>({})
+  const activeCategory = resolveCategory(searchParams.get('tab'))
   const fromPendingTenants = searchParams.get('from') === 'pending-tenants'
 
   const automation: AutomationSettings =
     form.automation ?? defaultSettings.automation!
 
   const activeMeta = SETTINGS_CATEGORIES.find((c) => c.id === activeCategory)!
-  const tabPanelId = `${baseId}-panel`
-  const tabId = (id: SettingsCategoryId) => `${baseId}-tab-${id}`
-
-  useEffect(() => {
-    const tab = searchParams.get('tab') as SettingsCategoryId | null
-    if (tab && SETTINGS_CATEGORIES.some((category) => category.id === tab)) {
-      setActiveCategory(tab)
-    }
-  }, [searchParams])
 
   useEffect(() => {
     if (activeCategory !== 'lease') return
@@ -103,14 +86,6 @@ export function SettingsPage() {
     })
     return () => window.cancelAnimationFrame(frame)
   }, [activeCategory, searchParams])
-
-  useEffect(() => {
-    tabRefs.current[activeCategory]?.scrollIntoView({
-      behavior: 'smooth',
-      inline: 'nearest',
-      block: 'nearest',
-    })
-  }, [activeCategory])
 
   const update = (field: keyof typeof form, value: string | boolean) => {
     setForm((f) => ({ ...f, [field]: value }))
@@ -169,101 +144,18 @@ export function SettingsPage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const selectCategory = (id: SettingsCategoryId) => {
-    setActiveCategory(id)
-  }
-
-  const focusTab = (id: SettingsCategoryId) => {
-    setActiveCategory(id)
-    requestAnimationFrame(() => {
-      tabRefs.current[id]?.focus()
-    })
-  }
-
-  const handleTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const last = SETTINGS_CATEGORIES.length - 1
-    let nextIndex: number | null = null
-
-    switch (e.key) {
-      case 'ArrowRight':
-        nextIndex = index === last ? 0 : index + 1
-        break
-      case 'ArrowLeft':
-        nextIndex = index === 0 ? last : index - 1
-        break
-      case 'Home':
-        nextIndex = 0
-        break
-      case 'End':
-        nextIndex = last
-        break
-      default:
-        return
-    }
-
-    e.preventDefault()
-    focusTab(SETTINGS_CATEGORIES[nextIndex].id)
-  }
-
   return (
     <>
       <PageHeader
-        title="Settings"
-        subtitle="Configure business details, automation, lease defaults, and appearance."
+        title={activeMeta.title}
+        subtitle={activeMeta.description}
       />
 
       <form onSubmit={handleSubmit} className="w-full min-w-0 space-y-5">
-        <div
-          role="tablist"
-          aria-label="Settings categories"
-          data-onboarding="admin-settings-tabs"
-          className={cn(
-            'flex w-full min-w-0 items-stretch gap-0 overflow-x-auto border-b border-line',
-            '[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-          )}
-        >
-          {SETTINGS_CATEGORIES.map((category, index) => {
-            const selected = activeCategory === category.id
-            const Icon = category.icon
-            return (
-              <button
-                key={category.id}
-                ref={(el) => {
-                  tabRefs.current[category.id] = el
-                }}
-                type="button"
-                role="tab"
-                id={tabId(category.id)}
-                aria-selected={selected}
-                aria-controls={tabPanelId}
-                tabIndex={selected ? 0 : -1}
-                data-onboarding={`admin-settings-${category.id}`}
-                onClick={() => selectCategory(category.id)}
-                onKeyDown={(e) => handleTabKeyDown(e, index)}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-sm transition-colors sm:px-4',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2',
-                  selected
-                    ? 'border-brand bg-brand/5 font-semibold text-brand'
-                    : 'border-transparent font-medium text-ink-muted hover:bg-surface hover:text-ink'
-                )}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-                {category.title}
-              </button>
-            )
-          })}
-        </div>
-
         <Card
-          id={tabPanelId}
-          role="tabpanel"
-          aria-labelledby={tabId(activeCategory)}
           aria-label={`${activeMeta.title} settings`}
-          data-onboarding="admin-settings-panel"
+          data-onboarding={`admin-settings-${activeCategory}`}
         >
-          <CardHeader dense title={activeMeta.title} subtitle={activeMeta.description} />
-
           {activeCategory === 'business' && (
             <div className="space-y-4">
               <Input

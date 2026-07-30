@@ -6,6 +6,16 @@ import {
 import { isEmailConfigured, sendClientReminderEmail } from './email.js'
 import { getContractPaymentProvider } from './paymentLinks.js'
 import { listUnpaidRentMonths } from './rentPayments.js'
+import {
+  buildKeyReturnNotificationMessage,
+  getKeyReturnPreferences,
+  isLeaseCompleteForKeyReturn,
+} from './keyReturn.js'
+import {
+  conditionReportKindLabel,
+  ensureConditionReportsForClient,
+  isConditionReportRequired,
+} from './conditionReport.js'
 
 export const DEFAULT_AUTOMATION = {
   enabled: true,
@@ -56,11 +66,51 @@ export function notifyProjectStatusChange(store, client, statusMessage) {
 export function runClientAutomation() {
   const store = readStore()
   const automation = getAutomationSettings(store.settings)
-  if (!automation.enabled) return { ran: true, skipped: true }
+  const keyReturnPrefs = getKeyReturnPreferences(store.settings)
 
   let next = store
   let notificationsCreated = 0
   const emailQueue = []
+
+  // Key return auto-notify is controlled by Preferences, not Client Automation.
+  if (keyReturnPrefs.autoNotify) {
+    for (const client of store.clients) {
+      const user = getClientUserForClient(next, client)
+      if (!user) continue
+      const contract = next.contracts?.find((c) => c.clientId === client.id)
+      if (!isLeaseCompleteForKeyReturn(client, contract)) continue
+      const relatedId = `key-return-${client.id}`
+      if (
+        hasRecentReminder(next.clientNotifications, user.id, 'key_return', relatedId, 24 * 7)
+      ) {
+        continue
+      }
+      const message = buildKeyReturnNotificationMessage(keyReturnPrefs)
+      next = pushClientNotification(next, {
+        userId: user.id,
+        clientId: client.id,
+        type: 'key_return',
+        title: 'Return your keys',
+        message,
+        actionUrl: '/portal',
+        relatedId,
+      })
+      notificationsCreated++
+      emailQueue.push({
+        user,
+        title: 'Return your keys',
+        message,
+        portalUrlPath: '/portal',
+      })
+    }
+  }
+
+  if (!automation.enabled) {
+    if (notificationsCreated > 0) {
+      updateStore(() => next)
+    }
+    return { ran: true, skipped: true, notificationsCreated }
+  }
 
   for (const client of store.clients) {
     const user = getClientUserForClient(next, client)
@@ -203,6 +253,63 @@ export function runClientAutomation() {
               portalUrlPath: '/portal',
             })
           }
+        }
+      }
+    }
+
+    // Condition report due reminders (required reports only)
+    {
+      const property = client.propertyId
+        ? (next.properties ?? []).find((p) => p.id === client.propertyId)
+        : null
+      if (isConditionReportRequired(next.settings, property) && client.isOfficialClient) {
+        const contract = next.contracts?.find((c) => c.clientId === client.id)
+        const ensured = ensureConditionReportsForClient(next, client, contract)
+        next = ensured.store
+        for (const report of ensured.reports) {
+          if (
+            report.status !== 'pending' &&
+            report.status !== 'changes_requested'
+          ) {
+            continue
+          }
+          if (!report.dueDate) continue
+          const days = daysUntil(report.dueDate)
+          if (days < 0 || days > automation.deadlineReminderDays) continue
+          const relatedId = `condition-report-${report.id}-${report.dueDate}`
+          if (
+            hasRecentReminder(
+              next.clientNotifications,
+              user.id,
+              'condition_report',
+              relatedId
+            )
+          ) {
+            continue
+          }
+          const kindLabel = conditionReportKindLabel(report.kind)
+          const message =
+            report.status === 'changes_requested'
+              ? `Your landlord requested updates on your ${kindLabel.toLowerCase()} condition report. Resubmit by ${report.dueDate}.`
+              : days === 0
+                ? `Your ${kindLabel.toLowerCase()} condition report is due today. Complete the checklist in your portal.`
+                : `Your ${kindLabel.toLowerCase()} condition report is due in ${days} day${days === 1 ? '' : 's'} (${report.dueDate}).`
+          next = pushClientNotification(next, {
+            userId: user.id,
+            clientId: client.id,
+            type: 'condition_report',
+            title: `${kindLabel} condition report`,
+            message,
+            actionUrl: `/portal/inspection?id=${encodeURIComponent(report.id)}`,
+            relatedId,
+          })
+          notificationsCreated++
+          emailQueue.push({
+            user,
+            title: `${kindLabel} condition report`,
+            message,
+            portalUrlPath: '/portal/inspection',
+          })
         }
       }
     }

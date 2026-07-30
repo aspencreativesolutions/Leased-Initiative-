@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   LayoutDashboard,
   FileText,
-  Settings,
   DollarSign,
   LogOut,
   UserCircle,
@@ -10,14 +9,12 @@ import {
   Building2,
   Bug,
   Compass,
+  Palette,
+  Zap,
 } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useApp } from '@/context/AppContext'
-import { AddClientModal } from '@/components/clients/AddClientModal'
-import { SendInviteModal } from '@/components/clients/SendInviteModal'
-import { DashboardNavActions } from '@/components/dashboard/DashboardNavActions'
-import { NewRegistrationsModal } from '@/components/dashboard/NewRegistrationsModal'
 import { restartOnboardingTour } from '@/components/onboarding/OnboardingTour'
 import { CreativeStudiosBrand } from '@/components/brand/CreativeStudiosBrand'
 import { BugReportModal } from '@/components/support/BugReportModal'
@@ -26,8 +23,6 @@ import {
   type NavActionsMenuItem,
   type NavActionsMenuSection,
 } from '@/components/layout/NavActionsMenu'
-import { useAdminNotifications } from '@/hooks/useAdminNotifications'
-import { usePendingRegistrations } from '@/hooks/usePendingRegistrations'
 import { useTenantAlerts } from '@/hooks/useTenantAlerts'
 import { buildUpcomingOpenings } from '@/lib/properties'
 import { exitPublicDemo } from '@/lib/publicDemo'
@@ -125,17 +120,11 @@ const navTodayClass =
 
 export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const { user, logout, isPublicDemo } = useAuth()
-  const { refresh, properties, clients, getContractForClient } = useApp()
+  const { properties, clients, getContractForClient } = useApp()
   const navigate = useNavigate()
   const { unreadCount: unreadAlertCount } = useTenantAlerts()
-  const { count: registrationCount, registrations, refresh: refreshRegistrations } =
-    usePendingRegistrations()
-  const { markRead, refresh: refreshNotifications } = useAdminNotifications()
   const { label: todayLabel, compactLabel: todayCompactLabel, dateValue: todayDateValue } =
     useLocalTodayLabel()
-  const [addOpen, setAddOpen] = useState(false)
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [registrationsOpen, setRegistrationsOpen] = useState(false)
   const [bugReportOpen, setBugReportOpen] = useState(false)
 
   const hasAvailableRentals = useMemo(
@@ -145,12 +134,6 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
       ),
     [properties, clients, getContractForClient]
   )
-
-  const handleRegistrationAdded = useCallback(() => {
-    refreshRegistrations()
-    refreshNotifications()
-    refresh()
-  }, [refreshRegistrations, refreshNotifications, refresh])
 
   const handleSignOut = useCallback(() => {
     if (isPublicDemo) {
@@ -169,7 +152,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
     if (user) {
       items.push({
         id: 'profile',
-        label: 'Company Profile',
+        label: 'Company Profile & Preferences',
         icon: UserCircle,
         dataOnboarding: 'admin-profile',
         onSelect: () => navigate('/studio/profile'),
@@ -184,7 +167,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
     return items
   }, [handleSignOut, navigate, user])
 
-  const helpPreferenceItems = useMemo(
+  const helpSettingsItems = useMemo(
     (): NavActionsMenuItem[] => [
       {
         id: 'tour',
@@ -195,11 +178,30 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
         },
       },
       {
-        id: 'settings',
-        label: 'Settings',
-        icon: Settings,
+        id: 'settings-business',
+        label: 'Business Information',
+        icon: Building2,
         dataOnboarding: 'admin-settings',
-        onSelect: () => navigate('/studio/settings'),
+        onSelect: () => navigate('/studio/settings?tab=business'),
+      },
+      {
+        id: 'settings-automation',
+        label: 'Client Automation',
+        icon: Zap,
+        onSelect: () => navigate('/studio/settings?tab=automation'),
+      },
+      {
+        id: 'settings-lease',
+        label: 'Lease Defaults',
+        icon: FileText,
+        onSelect: () => navigate('/studio/settings?tab=lease'),
+      },
+      {
+        id: 'settings-style',
+        label: 'App Style',
+        icon: Palette,
+        dataOnboarding: 'admin-settings-menu-style',
+        onSelect: () => navigate('/studio/settings?tab=style'),
       },
       {
         id: 'bug',
@@ -214,9 +216,9 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
   const utilityMenuSections = useMemo(
     (): NavActionsMenuSection[] => [
       { id: 'account', label: 'Account', items: accountItems },
-      { id: 'help', label: 'Help and\nPreferences', items: helpPreferenceItems },
+      { id: 'help', label: 'Help and\nSettings', items: helpSettingsItems },
     ],
-    [accountItems, helpPreferenceItems]
+    [accountItems, helpSettingsItems]
   )
 
   const mobileMenuSections = useMemo((): NavActionsMenuSection[] => {
@@ -292,7 +294,7 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
 
       {/* Desktop / tablet secondary nav — hidden on mobile */}
       <nav
-        className="sticky top-0 z-50 hidden w-full max-w-full flex-col border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex md:flex-row md:items-stretch md:justify-between md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
+        className="sticky top-0 z-50 hidden w-full max-w-full border-b-[length:var(--border-width)] border-nav-border bg-nav text-nav-fg md:flex md:items-stretch md:gap-4 md:px-6 lg:gap-6 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
         <div className="flex w-full min-w-0 flex-col md:flex-1 md:flex-row md:items-stretch">
@@ -334,28 +336,8 @@ export function Navbar({ onStartTour }: { onStartTour?: () => void }) {
             ))}
           </div>
         </div>
-
-        <div className="flex shrink-0 items-center justify-end border-t border-nav-border/60 px-4 py-1.5 md:border-t-0 md:border-l md:border-nav-border/60 md:py-0 md:pl-4 lg:pl-5">
-          <DashboardNavActions
-            variant="nav"
-            registrationCount={registrationCount}
-            onOpenRegistrations={() => setRegistrationsOpen(true)}
-            onOpenAddClient={() => setAddOpen(true)}
-            onOpenSendInvite={() => setInviteOpen(true)}
-          />
-        </div>
       </nav>
 
-      <AddClientModal open={addOpen} onClose={() => setAddOpen(false)} />
-      <SendInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
-      <NewRegistrationsModal
-        open={registrationsOpen}
-        onClose={() => setRegistrationsOpen(false)}
-        registrations={registrations}
-        onRefresh={handleRegistrationAdded}
-        onListRefresh={refreshRegistrations}
-        onMarkNotificationsRead={() => markRead({ type: 'registration' })}
-      />
       <BugReportModal open={bugReportOpen} onClose={() => setBugReportOpen(false)} />
     </>
   )

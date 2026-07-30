@@ -1,6 +1,9 @@
 import { ArrowRight, CheckCircle2, Loader2 } from 'lucide-react'
+import { AddressText } from '@/components/ui/AddressText'
+import { LeaseCompleteTag } from './LeaseCompleteTag'
 import { LeaseStatusBadge } from './LeaseStatusBadge'
-import { OccupancyPreferenceTag, clientOccupancyTagProps } from './OccupancyPreferenceTag'
+import { OccupancyStatusChip } from './OccupancyStatusChip'
+import { clientOccupancyTagProps } from './OccupancyPreferenceTag'
 import { ApplicantPartyTag } from './ApplicantPartyTag'
 import { OfficialTenantContactLinks } from './OfficialTenantContactLinks'
 import { PaymentStatusDateTags } from './PaymentStatusDateTags'
@@ -16,6 +19,7 @@ import {
   getTenantAssignedProperty,
   LOCATION_DISPLAY_MISSING,
 } from '@/lib/officialTenantLocationDisplay'
+import { getOccupancyShareDetail } from '@/lib/occupancyStatusFilter'
 import { officialTenantTileAnchorId } from '@/lib/officialTenantSpotlight'
 import { cn } from '@/lib/utils'
 import { tableViewLinkSubtleClass } from '@/components/clients/tableControlStyles'
@@ -24,7 +28,9 @@ import type { Client, ContractData, Property } from '@/types'
 interface ClientTableMobileCardProps {
   client: Client
   contract?: ContractData
+  clients: Client[]
   properties: Property[]
+  getContract: (clientId: string) => ContractData | undefined
   highlighted?: boolean
   dimmed?: boolean
   showOccupancyStatus?: boolean
@@ -46,7 +52,7 @@ function getFullPropertyAddress(
   return fallback === '—' ? LOCATION_DISPLAY_MISSING : fallback
 }
 
-/** Gallery tiles: given name on line 1, last name on line 2. */
+/** Gallery tiles: given + family — side-by-side when the tile is wide enough. */
 function galleryNameLines(fullName: string): { given: string; family: string | null } {
   const parts = fullName.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return { given: fullName, family: null }
@@ -57,16 +63,13 @@ function galleryNameLines(fullName: string): { given: string; family: string | n
   }
 }
 
-const leaseCompleteTagClass = [
-  'shrink-0 rounded-[var(--radius-sm)] border-2 border-ink/25 bg-surface px-1.5 py-0.5',
-  'text-[8px] font-black uppercase leading-none tracking-caps text-ink-muted',
-].join(' ')
-
 /** Compact Official Tenants tile for mobile 1- or 2-column grids. */
 export function ClientTableMobileCard({
   client,
   contract,
+  clients,
   properties,
+  getContract,
   highlighted = false,
   dimmed = false,
   showOccupancyStatus = false,
@@ -80,55 +83,70 @@ export function ClientTableMobileCard({
   const awaitingDeposit = isAwaitingDeposit(client, contract)
   const leaseComplete = isLeaseCompleteTenant(client, contract)
   const { given, family } = galleryNameLines(client.name)
+  const occupancyProps = clientOccupancyTagProps(
+    client,
+    getTenantAssignedProperty(client, contract, properties)
+  )
+  const shareDetail = getOccupancyShareDetail(
+    client,
+    clients,
+    getContract,
+    properties
+  )
 
   return (
     <article
       id={officialTenantTileAnchorId(client.id)}
       className={cn(
         'official-tenant-tile relative flex h-full min-w-0 flex-col rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-ink/10 bg-surface-paper',
-        'transition-[background-color,opacity,box-shadow]',
+        'transition-[background-color,opacity,box-shadow,transform]',
         highlighted && 'official-tenant-tile--spotlight bg-brand/10 ring-1 ring-inset ring-brand/40',
         dimmed && 'opacity-40',
         leaseComplete && 'border-ink/20'
       )}
     >
-      {leaseComplete ? (
-        <span
-          className={cn(leaseCompleteTagClass, 'absolute right-0 top-0 z-[1]')}
-          title="Lease term has ended"
-        >
-          Lease Complete
-        </span>
-      ) : null}
-
       <div className="flex min-w-0 items-start justify-between gap-1.5">
-        <div className={cn('min-w-0 flex-1', leaseComplete && 'pr-[5.75rem]')}>
-          <button
-            type="button"
-            onClick={() => onOpenTenantDetails(client.id)}
-            className="inline-flex max-w-full min-w-0 items-start gap-1.5 text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
-            title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
-          >
+        <div className="min-w-0 flex-1">
+          <div className="inline-flex max-w-full min-w-0 items-start gap-1.5">
             <TenantLeaseStateIcon details={leaseStatus} className="mt-[0.2em]" />
-            <span className="min-w-0">
-              <span className="block break-words">{given}</span>
-              {family ? <span className="block break-words">{family}</span> : null}
-            </span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onOpenTenantDetails(client.id)}
+              className="min-w-0 text-left text-base font-semibold leading-snug text-ink hover:text-brand hover:underline"
+              title={client.isSampleClient ? 'THIS IS A MOCK USER.' : client.name}
+            >
+              <span className="official-tenant-name-lines min-w-0">
+                <span className="official-tenant-name-given break-words">{given}</span>
+                {family ? (
+                  <span className="official-tenant-name-family break-words">{family}</span>
+                ) : null}
+              </span>
+            </button>
+          </div>
           <OfficialTenantContactLinks client={client} compact />
-          {showOccupancyStatus ? (
-            <div className="mt-1 flex flex-wrap gap-1 empty:hidden">
-              <OccupancyPreferenceTag
-                {...clientOccupancyTagProps(
-                  client,
-                  getTenantAssignedProperty(client, contract, properties)
-                )}
-              />
-              <ApplicantPartyTag partyType={client.applicantPartyType} />
+          {leaseComplete ? (
+            <div className="mt-1.5">
+              <LeaseCompleteTag clientId={client.id} />
             </div>
           ) : null}
         </div>
       </div>
+
+      {showOccupancyStatus ? (
+        <div className="mt-2 min-w-0">
+          <p className="label-caps text-[8px] leading-none tracking-[0.1em] text-ink-faint">
+            Arrangement
+          </p>
+          <div className="mt-0.5 flex min-w-0 flex-wrap gap-1">
+            <OccupancyStatusChip
+              {...occupancyProps}
+              shareDetail={shareDetail}
+              onOccupantClick={onOpenTenantDetails}
+            />
+            <ApplicantPartyTag partyType={client.applicantPartyType} />
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-2 min-w-0 overflow-visible">
         <LeaseStatusBadge
@@ -150,10 +168,9 @@ export function ClientTableMobileCard({
         className="official-tenant-address mt-0.5 min-w-0 w-full break-words text-left text-[11px] font-bold leading-snug text-ink hover:text-brand hover:underline"
         title={`View tenant at ${addressValue}`}
       >
-        {addressValue}
+        <AddressText address={addressValue} />
       </button>
 
-      {/* mt-auto pins payment tags + View to the tile bottom so neighbors align in a row */}
       <div className="mt-auto flex min-w-0 flex-col gap-2 pt-2">
         <div className="min-w-0">
           <PaymentStatusDateTags
@@ -203,7 +220,7 @@ export function ClientTableMobileCard({
             title={`View ${client.name}`}
           >
             View
-            <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.5} aria-hidden />
+            <ArrowRight className="h-2.5 w-2.5 shrink-0" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
       </div>

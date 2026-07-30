@@ -27,6 +27,11 @@ import {
   rentalTypeShowsUnitCount,
   suggestedUnitCount,
 } from '@/lib/rentalTypes'
+import {
+  RENTAL_CATEGORY_LABELS,
+  resolveRentalCategory,
+  type RentalCategory,
+} from '@/lib/rentalCategory'
 import { cn, formatDate } from '@/lib/utils'
 import type {
   BedSize,
@@ -134,6 +139,7 @@ export function AddPropertyModal({
   const [propertyType, setPropertyType] = useState<PropertyHousingType | ''>('')
   const [rentalTypeOpen, setRentalTypeOpen] = useState(false)
   const [rentalTypeHighlight, setRentalTypeHighlight] = useState(0)
+  const [rentalCategory, setRentalCategory] = useState<RentalCategory>('standard_rental')
   const [furnished, setFurnished] = useState<FurnishedChoice>('')
   const [pricingStructure, setPricingStructure] = useState<PropertyPricingStructure | ''>('')
   const [hasDeposit, setHasDeposit] = useState<DepositChoice>('')
@@ -145,6 +151,8 @@ export function AddPropertyModal({
   const [unitCount, setUnitCount] = useState('1')
   const [monthlyRent, setMonthlyRent] = useState('')
   const [defaultLeaseOptionId, setDefaultLeaseOptionId] = useState(defaultLeaseOptionFallback)
+  /** '' = use account Preferences; 'yes' = required; 'no' = optional */
+  const [conditionReportRequired, setConditionReportRequired] = useState<'' | 'yes' | 'no'>('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -165,6 +173,7 @@ export function AddPropertyModal({
     setAddressConfirmed(Boolean(p.addressConfirmed) || Boolean(p.addressDetails))
     setAddressDetails(p.addressDetails)
     setPropertyType(p.propertyType)
+    setRentalCategory(resolveRentalCategory(p.rentalCategory))
     setFurnished(p.furnished === true ? 'yes' : 'no')
     const pricing =
       p.pricingStructure === 'room' || p.pricingStructure === 'person' || p.pricingStructure === 'bed'
@@ -212,6 +221,13 @@ export function AddPropertyModal({
         ? savedOption
         : defaultLeaseOptionFallback
     )
+    setConditionReportRequired(
+      p.conditionReportRequired === true
+        ? 'yes'
+        : p.conditionReportRequired === false
+          ? 'no'
+          : ''
+    )
   }
 
   useEffect(() => {
@@ -244,6 +260,7 @@ export function AddPropertyModal({
     setPropertyType('')
     setRentalTypeOpen(false)
     setRentalTypeHighlight(0)
+    setRentalCategory('standard_rental')
     setFurnished('')
     setPricingStructure('')
     setHasDeposit('')
@@ -255,6 +272,7 @@ export function AddPropertyModal({
     setUnitCount('1')
     setMonthlyRent('')
     setDefaultLeaseOptionId(defaultLeaseOptionFallback)
+    setConditionReportRequired('')
     setFieldErrors({})
     setError('')
     setSubmitting(false)
@@ -439,6 +457,7 @@ export function AddPropertyModal({
     const payload = {
       address: address.trim(),
       propertyType,
+      rentalCategory,
       bedrooms: Math.max(layout.length, beds),
       maxTenants: Math.max(1, maxOccupancy),
       unitCount: units,
@@ -449,10 +468,23 @@ export function AddPropertyModal({
         pricingStructure === 'bed' && furnished !== 'yes' ? 'person' : pricingStructure,
       depositAmount: hasDeposit === 'yes' ? deposit : null,
       utilitiesIncluded: utilitiesIncluded === 'yes',
-      entireHomeOnly: furnished === 'yes' && entireHomeOnly,
+      entireHomeOnly,
       defaultLeaseOptionId,
+      conditionReportRequired:
+        conditionReportRequired === 'yes'
+          ? true
+          : conditionReportRequired === 'no'
+            ? false
+            : null,
       addressConfirmed: true,
       addressDetails,
+      ...(isEdit && property
+        ? {
+            offMarket: property.offMarket === true,
+            offMarketReason: property.offMarketReason?.trim() || null,
+            offMarketAt: property.offMarketAt ?? null,
+          }
+        : {}),
     }
 
     setSubmitting(true)
@@ -513,6 +545,44 @@ export function AddPropertyModal({
             if (fieldErrors.address) setFieldErrors((prev) => ({ ...prev, address: undefined }))
           }}
         />
+
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-semibold text-ink">
+            Housing category
+          </legend>
+          <div role="group" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                {
+                  value: 'student_housing' as const,
+                  label: RENTAL_CATEGORY_LABELS.student_housing,
+                  hint: 'Geared toward students / campus-area rentals',
+                },
+                {
+                  value: 'standard_rental' as const,
+                  label: RENTAL_CATEGORY_LABELS.standard_rental,
+                  hint: 'General residential rental',
+                },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={rentalCategory === option.value}
+                onClick={() => setRentalCategory(option.value)}
+                className={cn(
+                  'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-3 text-left transition-colors',
+                  rentalCategory === option.value
+                    ? 'border-brand bg-brand/5'
+                    : 'border-line bg-surface-paper hover:border-brand/40'
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset>
           <legend className="mb-1.5 text-sm font-semibold text-ink">
@@ -716,45 +786,46 @@ export function AddPropertyModal({
           </fieldset>
         ) : null}
 
-        {isFurnished ? (
-          <fieldset>
-            <legend className="mb-1.5 text-sm font-semibold text-ink">
-              Entire-home rental only?
-            </legend>
-            <div role="group" className="grid gap-2 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    value: false,
-                    label: 'Allow roommates',
-                    hint: 'Applicants can choose beds or rooms',
-                  },
-                  {
-                    value: true,
-                    label: 'Entire home only',
-                    hint: 'No roommate or per-bed placements',
-                  },
-                ] as const
-              ).map((option) => (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  aria-pressed={entireHomeOnly === option.value}
-                  onClick={() => setEntireHomeOnly(option.value)}
-                  className={cn(
-                    'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left transition-colors',
-                    entireHomeOnly === option.value
-                      ? 'border-brand bg-brand/5'
-                      : 'border-line bg-surface-paper hover:border-brand/40'
-                  )}
-                >
-                  <span className="block text-sm font-semibold text-ink">{option.label}</span>
-                  <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        ) : null}
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-semibold text-ink">
+            Whole property or single room?
+          </legend>
+          <p className="mb-2 text-xs text-ink-muted">
+            You decide whether this rental is the entire unit or a room within it.
+          </p>
+          <div role="group" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                {
+                  value: false,
+                  label: 'Allow roommates / rooms',
+                  hint: 'Applicants can choose entire home, a room, or beds',
+                },
+                {
+                  value: true,
+                  label: 'Entire home only',
+                  hint: 'Whole property — no roommate or per-room placements',
+                },
+              ] as const
+            ).map((option) => (
+              <button
+                key={String(option.value)}
+                type="button"
+                aria-pressed={entireHomeOnly === option.value}
+                onClick={() => setEntireHomeOnly(option.value)}
+                className={cn(
+                  'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left transition-colors',
+                  entireHomeOnly === option.value
+                    ? 'border-brand bg-brand/5'
+                    : 'border-line bg-surface-paper hover:border-brand/40'
+                )}
+              >
+                <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <div ref={rentalTypeRef} className="relative">
           <FormLabel label="Rental Type" htmlFor={rentalTypeListId} required />
@@ -895,7 +966,7 @@ export function AddPropertyModal({
           required
           value={defaultLeaseOptionId}
           onChange={(e) => setDefaultLeaseOptionId(e.target.value)}
-          hint="From Settings → Lease Defaults. Seasonal lengths and any custom lease eras you added."
+          hint="From Help and Settings → Lease Defaults. Seasonal lengths and any custom lease eras you added."
         >
           {leaseOptions.map((option) => (
             <option key={option.id} value={option.id}>
@@ -905,6 +976,53 @@ export function AddPropertyModal({
             </option>
           ))}
         </Select>
+
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold text-ink">
+            Condition report for this rental
+          </legend>
+          <p className="mb-2 text-xs text-ink-muted">
+            Move-in / move-out inspection checklist. Account default is set in Company Profile
+            &amp; Preferences — override here per rental.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(
+              [
+                {
+                  value: '' as const,
+                  label: 'Use account default',
+                  hint: 'Follow Preferences',
+                },
+                {
+                  value: 'yes' as const,
+                  label: 'Required',
+                  hint: 'Tenant must submit',
+                },
+                {
+                  value: 'no' as const,
+                  label: 'Optional',
+                  hint: 'Encouraged, not required',
+                },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                aria-pressed={conditionReportRequired === option.value}
+                onClick={() => setConditionReportRequired(option.value)}
+                className={cn(
+                  'rounded-[var(--radius-sm)] border-[length:var(--border-width)] px-3 py-2.5 text-left transition-colors',
+                  conditionReportRequired === option.value
+                    ? 'border-brand bg-brand/5 text-ink'
+                    : 'border-line bg-surface-paper text-ink hover:border-brand/40'
+                )}
+              >
+                <span className="block text-sm font-semibold">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         {costPerPersonAtMax != null ? (
           <div className="rounded-[var(--radius-sm)] border-[length:var(--border-width)] border-line bg-surface px-3 py-2.5">
@@ -996,7 +1114,7 @@ export function AddPropertyModal({
                           )
                         }
                       >
-                        <option value="private">Private room</option>
+                        <option value="private">Single room</option>
                         <option value="shared">Shared room</option>
                       </select>
                       <Button

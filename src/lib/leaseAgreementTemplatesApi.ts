@@ -73,7 +73,7 @@ export function leaseTemplateFileDownloadUrl(fileId: string) {
   return `/api/lease-templates/files/${fileId}/download`
 }
 
-/** Deep-link into Settings → Lease Defaults → templates, optionally from Pending Tenants. */
+/** Deep-link into Help and Settings → Lease Defaults → templates, optionally from Pending Tenants. */
 export function leaseTemplatesSettingsHref(fromPending = false) {
   const params = new URLSearchParams({ tab: 'lease' })
   if (fromPending) params.set('from', 'pending-tenants')

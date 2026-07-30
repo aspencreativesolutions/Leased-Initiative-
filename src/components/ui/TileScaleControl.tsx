@@ -84,7 +84,8 @@ export function TileScaleControl({
         role="group"
         aria-label={label}
         className={cn(
-          'flex h-9 min-w-[12.5rem] flex-1 items-center gap-2.5',
+          'inline-flex h-9 min-w-[12.5rem] flex-none items-center gap-2.5 rounded-[var(--radius-sm)] border-2 border-ink bg-surface-paper px-3',
+          'shadow-[1px_1px_0_0_rgba(17,17,17,0.85)]',
           className
         )}
       >

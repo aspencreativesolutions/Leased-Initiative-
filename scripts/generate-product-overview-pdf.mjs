@@ -187,7 +187,7 @@ addHeading('What landlords can do')
 addSubheading('Tenants & Waiting (dashboard)')
 addBullet(
   'Official Tenants',
-  'See signed tenants with lease status tags (Active / Upcoming / Awaiting Deposit) and payment status tags (On Time / Overdue / Deposit Paid / Awaiting Deposit). Use Spreadsheet or Tile view, resize tiles, edit columns, optionally show occupancy tags, and open Tenant Details from a name.'
+  'See signed tenants with lease status tags (Active / Upcoming / Awaiting Deposit) and payment status tags (On Time / Overdue / Deposit Paid / Awaiting Deposit). Use Spreadsheet or Tile view, resize tiles, edit columns, Show Arrangements for an Arrangement column beside Tenant with Sole/Co-Tenant status and a per-bedroom roster (occupants or Vacant), and open Tenant Details from a name.'
 )
 addBullet(
   'Waiting to Connect',

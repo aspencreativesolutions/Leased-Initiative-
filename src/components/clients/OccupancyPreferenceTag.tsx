@@ -54,10 +54,10 @@ export function OccupancyPreferenceTag({
 }
 
 function tagTone(label: string): string {
-  if (label === 'Renting Entire Home') {
+  if (label === 'Entire Home' || label === 'Renting Entire Home') {
     return 'border-brand/30 bg-brand/10 text-brand'
   }
-  if (label === 'Private Room') {
+  if (label === 'Single Room' || label === 'Private Room') {
     return 'border-line bg-surface text-ink'
   }
   if (label === 'Shared Room') {

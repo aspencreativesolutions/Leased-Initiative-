@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, Calendar, CreditCard, FileText, Rocket, UserCheck } from 'lucide-react'
+import { Bell, Calendar, CreditCard, FileText, KeyRound, Rocket, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { formatDateTime } from '@/lib/utils'
 import { markClientNotificationsRead } from '@/lib/clientNotificationsApi'
@@ -26,6 +26,8 @@ function NotificationIcon({ type }: { type: ClientNotification['type'] }) {
     case 'deadline_reminder':
     case 'follow_up':
       return <Calendar className={className} />
+    case 'key_return':
+      return <KeyRound className={className} />
     default:
       return <Bell className={className} />
   }

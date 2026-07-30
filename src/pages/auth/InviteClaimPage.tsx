@@ -20,7 +20,8 @@ import {
   resolveScheduleAsOf,
 } from '@/lib/leaseSchedule'
 import { paymentProviderLabel } from '@/lib/paymentProvider'
-import type { PaymentProvider } from '@/types'
+import { renterCategoryFromRental } from '@/lib/rentalCategory'
+import type { PaymentProvider, RenterCategory } from '@/types'
 
 const PAYMENT_OPTIONS: PaymentProvider[] = ['stripe', 'paypal', 'square', 'zelle']
 
@@ -44,6 +45,7 @@ export function InviteClaimPage() {
   const [propertyAddress, setPropertyAddress] = useState('')
   const [leaseStartDate, setLeaseStartDate] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentProvider>('stripe')
+  const [renterCategory, setRenterCategory] = useState<RenterCategory | ''>('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   const minStartDate = earliestFutureLeaseStartDate(resolveScheduleAsOf())
@@ -73,6 +75,8 @@ export function InviteClaimPage() {
               ? data.leaseStartDate
               : earliestFutureLeaseStartDate(resolveScheduleAsOf())
           )
+          const fromInvite = renterCategoryFromRental(data.rentalCategory)
+          if (fromInvite) setRenterCategory(fromInvite)
         })
       : codeParam
         ? fetchTenantInviteByCode(codeParam).then((data) => {
@@ -86,6 +90,8 @@ export function InviteClaimPage() {
                 ? data.leaseStartDate
                 : earliestFutureLeaseStartDate(resolveScheduleAsOf())
             )
+            const fromInvite = renterCategoryFromRental(data.rentalCategory)
+            if (fromInvite) setRenterCategory(fromInvite)
           })
         : Promise.reject(new Error('Missing invite'))
 
@@ -143,6 +149,7 @@ export function InviteClaimPage() {
         preferredPropertyAddress: propertyAddress.trim(),
         preferredLeaseStartDate: leaseStartDate,
         preferredPaymentMethod: paymentMethod,
+        renterCategory: renterCategory || undefined,
         acceptedTermsOfService: true,
       })
       setToken(result.token)
@@ -295,6 +302,18 @@ export function InviteClaimPage() {
               ))}
             </Select>
           </div>
+
+          <Select
+            label="Renter category"
+            name="renterCategory"
+            value={renterCategory}
+            onChange={(e) => setRenterCategory((e.target.value || '') as RenterCategory | '')}
+            hint="Optional — student or standard renter"
+          >
+            <option value="">Prefer not to say</option>
+            <option value="student">Student renter</option>
+            <option value="standard">Standard renter</option>
+          </Select>
 
           <TermsAcceptanceField
             checked={acceptedTerms}

@@ -37,6 +37,7 @@ interface AuthContextValue {
       preferredLeaseMonths?: number
       preferredLandlordCompany?: string
       preferredPropertyAddress?: string
+      renterCategory?: 'student' | 'standard'
       inviteToken?: string
       connectionCode?: string
       acceptedTermsOfService: true
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferredLeaseMonths?: number
         preferredLandlordCompany?: string
         preferredPropertyAddress?: string
+        renterCategory?: 'student' | 'standard'
         inviteToken?: string
         connectionCode?: string
         acceptedTermsOfService: true
@@ -136,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         preferredLeaseMonths: options.preferredLeaseMonths,
         preferredLandlordCompany: options.preferredLandlordCompany,
         preferredPropertyAddress: options.preferredPropertyAddress,
+        renterCategory: options.renterCategory,
         inviteToken: options.inviteToken,
         connectionCode: options.connectionCode,
         acceptedTermsOfService: options.acceptedTermsOfService,

@@ -61,6 +61,7 @@ type TenantLocationRow = {
   areaCode: string | null
   lat: number | null
   lng: number | null
+  propertyId: string | null
   locationSortKey: string
 }
 
@@ -82,6 +83,7 @@ function buildLocationRows(
       areaCode: getPhoneAreaCode(client.phone ?? contract?.phone),
       lat: property?.addressDetails?.lat ?? null,
       lng: property?.addressDetails?.lng ?? null,
+      propertyId: property?.id ?? null,
       locationSortKey: getOfficialTenantLocationSortKey(property, locationDisplayMode),
     }
   })
@@ -111,6 +113,7 @@ export function buildOfficialTenantAddressOptions(
             state: row.state,
             lat: row.lat,
             lng: row.lng,
+            propertyId: row.propertyId,
           },
           { kind: 'region', value: region.id },
           regions
@@ -165,6 +168,7 @@ export function sortOfficialTenants(
             state: row.state,
             lat: row.lat,
             lng: row.lng,
+            propertyId: row.propertyId,
           },
           { kind: 'region', value: focus.value },
           regions
